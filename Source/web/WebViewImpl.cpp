@@ -3066,8 +3066,26 @@ void WebViewImpl::updatePageDefinedPageScaleConstraints(const ViewportArguments&
         if (adjustedArguments.height >= 0 && adjustedArguments.width <= m_size.height)
             adjustedArguments.height = ViewportArguments::ValueDeviceHeight;
     }
+
+    float oldInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
     m_pageScaleConstraintsSet.updatePageDefinedConstraints(adjustedArguments, m_size, page()->settings()->layoutFallbackWidth());
+
+    if (settingsImpl()->supportDeprecatedTargetDensityDPI()
+        && m_pageScaleConstraintsSet.userAgentConstraints().initialScale != -1
+        && m_pageScaleConstraintsSet.userAgentConstraints().initialScale * deviceScaleFactor() <= 1.0f) {
+        // In the following cases, a bug in the Classic WebView would mean that the viewport meta tag would take
+        // precedence over the app specified setInitialScale value. We keep bugward compatibility with the old
+        // WebView for legacy apps (the supportTargetDensityDPI case). New apps will see that setInitialScale()
+        // overrides what is specified in the viewport tag.
+        if (adjustedArguments.width == ViewportArguments::ValueDeviceWidth
+            || (adjustedArguments.width == ViewportArguments::ValueAuto && m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale == 1.0f)) {
+            setInitialPageScaleOverride(-1);
+        }
+    }
     m_pageScaleConstraintsSet.adjustForAndroidWebViewQuirks(adjustedArguments, m_size, page()->settings()->layoutFallbackWidth(), deviceScaleFactor(), settingsImpl()->supportDeprecatedTargetDensityDPI(), page()->settings()->wideViewportQuirkEnabled(), page()->settings()->useWideViewport(), page()->settings()->loadWithOverviewMode());
+    float newInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
+    if (oldInitialScale != newInitialScale && newInitialScale != -1)
+        m_pageScaleConstraintsSet.setNeedsReset(true);
 
     WebSize layoutSize = flooredIntSize(m_pageScaleConstraintsSet.pageDefinedConstraints().layoutSize);
 
