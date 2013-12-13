@@ -51,7 +51,11 @@ PageScaleConstraints PageScaleConstraintsSet::defaultConstraints() const
 
 void PageScaleConstraintsSet::updatePageDefinedConstraints(const ViewportArguments& arguments, IntSize viewSize, int layoutFallbackWidth)
 {
+    float oldInitialScale = m_pageDefinedConstraints.initialScale;
     m_pageDefinedConstraints = arguments.resolve(viewSize, viewSize, layoutFallbackWidth);
+
+    if (oldInitialScale != m_pageDefinedConstraints.initialScale && m_pageDefinedConstraints.initialScale != -1)
+        setNeedsReset(true);
 
     m_constraintsDirty = true;
 }
@@ -189,6 +193,9 @@ void PageScaleConstraintsSet::adjustForAndroidWebViewQuirks(const ViewportArgume
             }
         }
     }
+
+    if (oldInitialScale != m_pageDefinedConstraints.initialScale && m_pageDefinedConstraints.initialScale != -1)
+        setNeedsReset(true);
 
     m_pageDefinedConstraints.layoutSize.setWidth(adjustedLayoutSizeWidth);
     m_pageDefinedConstraints.layoutSize.setHeight(adjustedLayoutSizeHeight);
