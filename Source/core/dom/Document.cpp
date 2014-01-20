@@ -3029,7 +3029,8 @@ void Document::styleResolverChanged(StyleResolverUpdateType updateType, StyleRes
     // Don't bother updating, since we haven't loaded all our style info yet
     // and haven't calculated the style selector for the first time.
     if (!attached() || (!m_didCalculateStyleResolver && !haveStylesheetsLoaded())) {
-        m_styleResolver.clear();
+        if (m_styleResolver)
+            m_styleResolver.clear();
         return;
     }
     m_didCalculateStyleResolver = true;
