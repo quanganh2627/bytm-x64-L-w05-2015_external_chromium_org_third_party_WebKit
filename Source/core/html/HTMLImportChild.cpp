@@ -32,70 +32,97 @@
 #include "core/html/HTMLImportChild.h"
 
 #include "core/dom/Document.h"
+#include "core/dom/custom/CustomElement.h"
+#include "core/dom/custom/CustomElementMicrotaskImportStep.h"
 #include "core/html/HTMLImportChildClient.h"
-#include "core/html/HTMLImportData.h"
+#include "core/html/HTMLImportLoader.h"
 
 namespace WebCore {
 
-HTMLImportChild::HTMLImportChild(const KURL& url, HTMLImportChildClient* client)
-    : m_url(url)
-    , m_client(client)
+HTMLImportChild::HTMLImportChild(const KURL& url, bool createdByParser)
+    : HTMLImport(createdByParser)
+    , m_url(url)
+    , m_customElementMicrotaskStep(0)
+    , m_client(0)
 {
 }
 
 HTMLImportChild::~HTMLImportChild()
 {
     // importDestroyed() should be called before the destruction.
-    ASSERT(!m_data);
+    ASSERT(!m_loader);
+
+    if (m_customElementMicrotaskStep) {
+        // if Custom Elements were blocked, must unblock them before death
+        m_customElementMicrotaskStep->importDidFinish();
+        m_customElementMicrotaskStep = 0;
+    }
+
+    if (m_client)
+        m_client->importChildWasDestroyed(this);
 }
 
-void HTMLImportChild::wasAlreadyLoadedAs(HTMLImportChild* found)
+void HTMLImportChild::wasAlreadyLoaded()
 {
-    ASSERT(!m_data);
+    ASSERT(!m_loader);
     ASSERT(m_client);
-    shareData(found);
+    stateWillChange();
 }
 
 void HTMLImportChild::startLoading(const ResourcePtr<RawResource>& resource)
 {
-    ASSERT(!hasResource());
-    ASSERT(!m_data);
+    ASSERT(!this->resource());
+    ASSERT(!m_loader);
 
-    HTMLImportResourceOwner::setResource(resource);
+    if (isCreatedByParser()) {
+        ASSERT(!m_customElementMicrotaskStep);
+        m_customElementMicrotaskStep = CustomElement::didCreateImport(this);
+    }
 
-    // If the node is "document blocked", it cannot create HTMLImportData
+    setResource(resource);
+
+    // If the node is "document blocked", it cannot create HTMLImportLoader
     // even if there is no sharable one found, as there is possibility that
     // preceding imports load the sharable imports.
     // In that case preceding one should win because it comes first in the tree order.
-    // See also didUnblockDocument().
-    if (isDocumentBlocked())
+    // See also didUnblockFromCreatingDocument().
+    if (state().shouldBlockDocumentCreation())
         return;
 
-    createData();
+    ensureLoader();
 }
 
 void HTMLImportChild::didFinish()
 {
     if (m_client)
         m_client->didFinish();
+
+    if (m_customElementMicrotaskStep) {
+        m_customElementMicrotaskStep->importDidFinish();
+        m_customElementMicrotaskStep = 0;
+    }
+}
+
+void HTMLImportChild::didFinishLoading()
+{
     clearResource();
-    root()->blockerGone();
+    stateWillChange();
 }
 
 Document* HTMLImportChild::importedDocument() const
 {
-    if (!m_data)
+    if (!m_loader)
         return 0;
-    return m_data->importedDocument();
+    return m_loader->importedDocument();
 }
 
 void HTMLImportChild::importDestroyed()
 {
     if (parent())
         parent()->removeChild(this);
-    if (m_data) {
-        m_data->removeClient(this);
-        m_data.clear();
+    if (m_loader) {
+        m_loader->removeClient(this);
+        m_loader.clear();
     }
 }
 
@@ -106,7 +133,7 @@ HTMLImportRoot* HTMLImportChild::root()
 
 Document* HTMLImportChild::document() const
 {
-    return (m_data && m_data->isOwnedBy(this)) ? m_data->document() : 0;
+    return (m_loader && m_loader->isOwnedBy(this)) ? m_loader->document() : 0;
 }
 
 void HTMLImportChild::wasDetachedFromDocument()
@@ -118,57 +145,103 @@ void HTMLImportChild::wasDetachedFromDocument()
 
 void HTMLImportChild::didFinishParsing()
 {
-    ASSERT(m_data->isOwnedBy(this));
-    m_data->didFinishParsing();
+    ASSERT(m_loader->isOwnedBy(this));
+    m_loader->didFinishParsing();
 }
 
-// Once all preceding imports are loaded and "document blocking" ends,
-// HTMLImportChild can decide whether it should load the import by itself
-// or it can share existing one.
-void HTMLImportChild::didUnblockDocument()
+void HTMLImportChild::stateDidChange()
 {
-    HTMLImport::didUnblockDocument();
-    ASSERT(!isDocumentBlocked());
-    ASSERT(!m_data || !m_data->isOwnedBy(this));
+    HTMLImport::stateDidChange();
 
-    if (m_data)
+    // Once all preceding imports are loaded,
+    // HTMLImportChild can decide whether it should load the import by itself
+    // or it can share existing one.
+    if (!state().shouldBlockDocumentCreation())
+        ensureLoader();
+    if (state().isReady())
+        didFinish();
+}
+
+void HTMLImportChild::ensureLoader()
+{
+    if (m_loader)
         return;
+
     if (HTMLImportChild* found = root()->findLinkFor(m_url, this))
-        shareData(found);
+        shareLoader(found);
     else
-        createData();
+        createLoader();
 }
 
-void HTMLImportChild::createData()
+void HTMLImportChild::createLoader()
 {
-    ASSERT(!isDocumentBlocked());
-    ASSERT(!m_data);
-    m_data = HTMLImportData::create(this, parent()->document()->fetcher());
-    m_data->addClient(this);
-    m_data->startLoading(resource());
+    ASSERT(!state().shouldBlockDocumentCreation());
+    ASSERT(!m_loader);
+    m_loader = HTMLImportLoader::create(this);
+    m_loader->addClient(this);
+    m_loader->startLoading(resource());
 }
 
-void HTMLImportChild::shareData(HTMLImportChild* loader)
+void HTMLImportChild::shareLoader(HTMLImportChild* loader)
 {
-    ASSERT(!m_data);
-    m_data = loader->m_data;
-    m_data->addClient(this);
-    root()->blockerGone();
-}
-
-bool HTMLImportChild::isProcessing() const
-{
-    return m_data && m_data->isOwnedBy(this) && m_data->isProcessing();
+    ASSERT(!m_loader);
+    m_loader = loader->m_loader;
+    m_loader->addClient(this);
+    stateWillChange();
 }
 
 bool HTMLImportChild::isDone() const
 {
-    return m_data && m_data->isDone();
+    return m_loader && m_loader->isDone();
 }
 
-bool HTMLImportChild::isLoaded() const
+bool HTMLImportChild::hasLoader() const
 {
-    return m_data->isLoaded();
+    return m_loader;
 }
+
+bool HTMLImportChild::ownsLoader() const
+{
+    return m_loader && m_loader->isOwnedBy(this);
+}
+
+bool HTMLImportChild::loaderHasError() const
+{
+    return m_loader && m_loader->hasError();
+}
+
+
+void HTMLImportChild::setClient(HTMLImportChildClient* client)
+{
+    ASSERT(client);
+    ASSERT(!m_client);
+    m_client = client;
+}
+
+void HTMLImportChild::clearClient()
+{
+    // Doesn't check m_client nullity because we allow
+    // clearClient() to reenter.
+    m_client = 0;
+}
+
+HTMLLinkElement* HTMLImportChild::link() const
+{
+    if (!m_client)
+        return 0;
+    return m_client->link();
+}
+
+#if !defined(NDEBUG)
+void HTMLImportChild::showThis()
+{
+    HTMLImport::showThis();
+    fprintf(stderr, " loader=%p own=%s async=%s url=%s",
+        m_loader.get(),
+        hasLoader() && ownsLoader() ? "Y" : "N",
+        isCreatedByParser() ? "Y" : "N",
+        url().string().utf8().data());
+}
+#endif
 
 } // namespace WebCore

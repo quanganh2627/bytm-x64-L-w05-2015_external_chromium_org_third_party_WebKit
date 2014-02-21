@@ -34,36 +34,62 @@
 
 namespace WebCore {
 
-BoxShape::BoxShape(const FloatRoundedRect& bounds, float shapeMargin, float shapePadding)
-    : Shape()
-    , m_bounds(bounds)
-    , m_marginBounds(bounds)
-    , m_paddingBounds(bounds)
+LayoutRect BoxShape::shapeMarginLogicalBoundingBox() const
 {
-    if (shapeMargin > 0) {
-        m_marginBounds.inflate(shapeMargin);
-        m_marginBounds.expandRadii(shapeMargin);
+    FloatRect marginBounds(m_bounds.rect());
+    if (shapeMargin() > 0)
+        marginBounds.inflate(shapeMargin());
+    return static_cast<LayoutRect>(marginBounds);
+}
+
+LayoutRect BoxShape::shapePaddingLogicalBoundingBox() const
+{
+    FloatRect paddingBounds(m_bounds.rect());
+    if (shapePadding() > 0)
+        paddingBounds.inflate(-shapePadding());
+    return static_cast<LayoutRect>(paddingBounds);
+}
+
+FloatRoundedRect BoxShape::shapeMarginBounds() const
+{
+    FloatRoundedRect marginBounds(m_bounds);
+    if (shapeMargin() > 0) {
+        marginBounds.inflate(shapeMargin());
+        marginBounds.expandRadii(shapeMargin());
     }
-    if (shapePadding > 0) {
-        m_paddingBounds.inflate(-shapePadding);
-        m_paddingBounds.expandRadii(-shapePadding);
+    return marginBounds;
+}
+
+FloatRoundedRect BoxShape::shapePaddingBounds() const
+{
+    FloatRoundedRect paddingBounds(m_bounds);
+    if (shapePadding() > 0) {
+        paddingBounds.inflate(-shapePadding());
+        paddingBounds.expandRadii(-shapePadding());
     }
+    return paddingBounds;
 }
 
 void BoxShape::getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList& result) const
 {
-    if (m_marginBounds.isEmpty())
+    const FloatRoundedRect& marginBounds = shapeMarginBounds();
+    if (marginBounds.isEmpty() || !lineOverlapsShapeMarginBounds(logicalTop, logicalHeight))
         return;
 
     float y1 = logicalTop;
     float y2 = logicalTop + logicalHeight;
-    const FloatRect& rect = m_marginBounds.rect();
+    const FloatRect& rect = marginBounds.rect();
 
-    if (y2 <= rect.y() || y1 >= rect.maxY())
+    if (!marginBounds.isRounded()) {
+        result.append(LineSegment(marginBounds.rect().x(), marginBounds.rect().maxX()));
         return;
+    }
 
-    if (!m_marginBounds.isRounded()) {
-        result.append(LineSegment(m_marginBounds.rect().x(), m_marginBounds.rect().maxX()));
+    float topCornerMaxY = std::max<float>(marginBounds.topLeftCorner().maxY(), marginBounds.topRightCorner().maxY());
+    float bottomCornerMinY = std::min<float>(marginBounds.bottomLeftCorner().y(), marginBounds.bottomRightCorner().y());
+
+    if (y1 <= topCornerMaxY && y2 >= bottomCornerMinY) {
+        result.append(LineSegment(rect.x(), rect.maxX()));
         return;
     }
 
@@ -72,12 +98,12 @@ void BoxShape::getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHei
     float minXIntercept;
     float maxXIntercept;
 
-    if (m_marginBounds.xInterceptsAtY(y1, minXIntercept, maxXIntercept)) {
+    if (marginBounds.xInterceptsAtY(y1, minXIntercept, maxXIntercept)) {
         x1 = std::min<float>(x1, minXIntercept);
         x2 = std::max<float>(x2, maxXIntercept);
     }
 
-    if (m_marginBounds.xInterceptsAtY(y2, minXIntercept, maxXIntercept)) {
+    if (marginBounds.xInterceptsAtY(y2, minXIntercept, maxXIntercept)) {
         x1 = std::min<float>(x1, minXIntercept);
         x2 = std::max<float>(x2, maxXIntercept);
     }
@@ -88,19 +114,41 @@ void BoxShape::getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHei
 
 void BoxShape::getIncludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList& result) const
 {
-    if (m_paddingBounds.isEmpty())
+    const FloatRoundedRect& paddingBounds = shapePaddingBounds();
+    if (paddingBounds.isEmpty())
         return;
 
-    const FloatRect& rect = m_paddingBounds.rect();
-    if (logicalTop < rect.y() || logicalTop + logicalHeight > rect.maxY())
+    float y1 = logicalTop;
+    float y2 = logicalTop + logicalHeight;
+    const FloatRect& rect = paddingBounds.rect();
+
+    if (y1 < rect.y() || y2 > rect.maxY())
         return;
 
-    // FIXME: this method is only a stub, https://bugs.webkit.org/show_bug.cgi?id=124605.
+    if (!paddingBounds.isRounded()) {
+        result.append(LineSegment(rect.x(), rect.maxX()));
+        return;
+    }
 
-    result.append(LineSegment(rect.x(), rect.maxX()));
+    float x1 = rect.x();
+    float x2 = rect.maxX();
+    float minXIntercept;
+    float maxXIntercept;
+
+    if (paddingBounds.xInterceptsAtY(y1, minXIntercept, maxXIntercept)) {
+        x1 = std::max<float>(x1, minXIntercept);
+        x2 = std::min<float>(x2, maxXIntercept);
+    }
+
+    if (paddingBounds.xInterceptsAtY(y2, minXIntercept, maxXIntercept)) {
+        x1 = std::max<float>(x1, minXIntercept);
+        x2 = std::min<float>(x2, maxXIntercept);
+    }
+
+    result.append(LineSegment(x1, x2));
 }
 
-bool BoxShape::firstIncludedIntervalLogicalTop(LayoutUnit minLogicalIntervalTop, const LayoutSize&, LayoutUnit& result) const
+bool BoxShape::firstIncludedIntervalLogicalTop(LayoutUnit minLogicalIntervalTop, const FloatSize&, LayoutUnit& result) const
 {
     // FIXME: this method is only a stub, https://bugs.webkit.org/show_bug.cgi?id=124606.
 

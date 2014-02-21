@@ -29,11 +29,13 @@
 
 #include "core/dom/Document.h"
 #include "core/frame/Frame.h"
+#include "core/frame/FrameHost.h"
+#include "core/frame/Settings.h"
 #include "core/loader/FrameLoadRequest.h"
 #include "core/page/Chrome.h"
 #include "core/page/ChromeClient.h"
+#include "core/page/FocusController.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
 #include "core/page/WindowFeatures.h"
 #include "platform/network/ResourceRequest.h"
 #include "platform/weborigin/KURL.h"
@@ -48,10 +50,8 @@ static Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLo
 
     if (!request.frameName().isEmpty() && request.frameName() != "_blank" && policy == NavigationPolicyIgnore) {
         if (Frame* frame = lookupFrame->loader().findFrameForNavigation(request.frameName(), openerFrame->document())) {
-            if (request.frameName() != "_self") {
-                if (Page* page = frame->page())
-                    page->chrome().focus();
-            }
+            if (request.frameName() != "_self")
+                frame->page()->focusController().setFocusedFrame(frame);
             created = false;
             return frame;
         }
@@ -76,6 +76,7 @@ static Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLo
     Page* page = oldPage->chrome().client().createWindow(openerFrame, request, features, policy, shouldSendReferrer);
     if (!page)
         return 0;
+    FrameHost* host = &page->frameHost();
 
     Frame* frame = page->mainFrame();
 
@@ -84,14 +85,14 @@ static Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLo
     if (request.frameName() != "_blank")
         frame->tree().setName(request.frameName());
 
-    page->chrome().setWindowFeatures(features);
+    host->chrome().setWindowFeatures(features);
 
     // 'x' and 'y' specify the location of the window, while 'width' and 'height'
     // specify the size of the viewport. We can only resize the window, so adjust
     // for the difference between the window size and the viewport size.
 
-    FloatRect windowRect = page->chrome().windowRect();
-    FloatSize viewportSize = page->chrome().pageRect().size();
+    FloatRect windowRect = host->chrome().windowRect();
+    FloatSize viewportSize = host->chrome().pageRect().size();
 
     if (features.xSet)
         windowRect.setX(features.x);
@@ -103,10 +104,10 @@ static Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLo
         windowRect.setHeight(features.height + (windowRect.height() - viewportSize.height()));
 
     // Ensure non-NaN values, minimum size as well as being within valid screen area.
-    FloatRect newWindowRect = DOMWindow::adjustWindowRect(page, windowRect);
+    FloatRect newWindowRect = DOMWindow::adjustWindowRect(frame, windowRect);
 
-    page->chrome().setWindowRect(newWindowRect);
-    page->chrome().show(policy);
+    host->chrome().setWindowRect(newWindowRect);
+    host->chrome().show(policy);
 
     created = true;
     return frame;
@@ -125,11 +126,11 @@ Frame* createWindow(const String& urlString, const AtomicString& frameName, cons
     }
 
     // For whatever reason, Firefox uses the first frame to determine the outgoingReferrer. We replicate that behavior here.
-    String referrer = SecurityPolicy::generateReferrerHeader(firstFrame->document()->referrerPolicy(), completedURL, firstFrame->loader().outgoingReferrer());
+    Referrer referrer(SecurityPolicy::generateReferrerHeader(firstFrame->document()->referrerPolicy(), completedURL, firstFrame->document()->outgoingReferrer()), firstFrame->document()->referrerPolicy());
 
     ResourceRequest request(completedURL, referrer);
-    FrameLoader::addHTTPOriginIfNeeded(request, firstFrame->loader().outgoingOrigin());
-    FrameLoadRequest frameRequest(activeWindow->document()->securityOrigin(), request, frameName);
+    FrameLoader::addHTTPOriginIfNeeded(request, AtomicString(firstFrame->document()->outgoingOrigin()));
+    FrameLoadRequest frameRequest(activeWindow->document(), request, frameName);
 
     // We pass the opener frame for the lookupFrame in case the active frame is different from
     // the opener frame, and the name references a frame relative to the opener frame.
@@ -148,10 +149,10 @@ Frame* createWindow(const String& urlString, const AtomicString& frameName, cons
         function(newFrame->domWindow(), functionContext);
 
     if (created) {
-        FrameLoadRequest request(activeWindow->document()->securityOrigin(), ResourceRequest(completedURL, referrer));
+        FrameLoadRequest request(activeWindow->document(), ResourceRequest(completedURL, referrer));
         newFrame->loader().load(request);
     } else if (!urlString.isEmpty()) {
-        newFrame->navigationScheduler().scheduleLocationChange(activeWindow->document()->securityOrigin(), completedURL.string(), referrer, false);
+        newFrame->navigationScheduler().scheduleLocationChange(activeWindow->document(), completedURL.string(), referrer, false);
     }
     return newFrame;
 }

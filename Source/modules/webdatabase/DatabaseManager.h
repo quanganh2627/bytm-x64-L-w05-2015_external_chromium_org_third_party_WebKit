@@ -27,12 +27,12 @@
 #define DatabaseManager_h
 
 #include "modules/webdatabase/DatabaseBasicTypes.h"
-#include "modules/webdatabase/DatabaseDetails.h"
 #include "modules/webdatabase/DatabaseError.h"
 #include "wtf/Assertions.h"
 #include "wtf/HashMap.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/ThreadingPrimitives.h"
+#include "wtf/text/WTFString.h"
 
 namespace WebCore {
 
@@ -76,7 +76,6 @@ public:
     PassRefPtr<Database> openDatabase(ExecutionContext*, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, PassOwnPtr<DatabaseCallback>, DatabaseError&, String& errorMessage);
     PassRefPtr<DatabaseSync> openDatabaseSync(ExecutionContext*, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, PassOwnPtr<DatabaseCallback>, DatabaseError&, String& errorMessage);
 
-    bool hasOpenDatabases(ExecutionContext*);
     void stopDatabases(ExecutionContext*, DatabaseTaskSynchronizer*);
 
     String fullPathForDatabase(SecurityOrigin*, const String& name, bool createIfDoesNotExist = true);

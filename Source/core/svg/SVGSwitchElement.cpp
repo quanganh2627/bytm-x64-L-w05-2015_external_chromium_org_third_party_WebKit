@@ -29,10 +29,8 @@
 namespace WebCore {
 
 // Animated property definitions
-DEFINE_ANIMATED_BOOLEAN(SVGSwitchElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGSwitchElement)
-    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
     REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGraphicsElement)
 END_REGISTER_ANIMATED_PROPERTIES
 
@@ -48,24 +46,6 @@ inline SVGSwitchElement::SVGSwitchElement(Document& document)
 PassRefPtr<SVGSwitchElement> SVGSwitchElement::create(Document& document)
 {
     return adoptRef(new SVGSwitchElement(document));
-}
-
-bool SVGSwitchElement::childShouldCreateRenderer(const Node& child) const
-{
-    // FIXME: This function does not do what the comment below implies it does.
-    // It will create a renderer for any valid SVG element children, not just the first one.
-    for (Node* node = firstChild(); node; node = node->nextSibling()) {
-        if (!node->isSVGElement())
-            continue;
-
-        SVGElement* element = toSVGElement(node);
-        if (!element || !element->isValid())
-            continue;
-
-        return node == &child; // Only allow this child if it's the first valid child
-    }
-
-    return false;
 }
 
 RenderObject* SVGSwitchElement::createRenderer(RenderStyle*)

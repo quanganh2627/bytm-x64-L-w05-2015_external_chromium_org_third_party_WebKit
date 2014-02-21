@@ -26,6 +26,7 @@
 #ifndef HostWindow_h
 #define HostWindow_h
 
+#include "platform/PlatformExport.h"
 #include "wtf/FastAllocBase.h"
 #include "wtf/Noncopyable.h"
 
@@ -39,7 +40,7 @@ class IntPoint;
 class IntRect;
 class IntSize;
 
-class HostWindow {
+class PLATFORM_EXPORT HostWindow {
     WTF_MAKE_NONCOPYABLE(HostWindow); WTF_MAKE_FAST_ALLOCATED;
 public:
     HostWindow() { }
@@ -54,8 +55,7 @@ public:
     // Requests the host invalidate the contents, not the root view. This is the slow path for scrolling.
     virtual void invalidateContentsForSlowScroll(const IntRect& updateRect) = 0;
 
-    // Methods for doing coordinate conversions to and from screen coordinates.
-    virtual IntPoint screenToRootView(const IntPoint&) const = 0;
+    // Methods for doing coordinate conversions to screen coordinates.
     virtual IntRect rootViewToScreen(const IntRect&) const = 0;
 
     virtual blink::WebScreenInfo screenInfo() const = 0;

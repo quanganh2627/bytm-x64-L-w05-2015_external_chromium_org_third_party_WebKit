@@ -19,7 +19,7 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_icu_icuuc_gyp)/icuuc.stamp \
 	$(call intermediates-dir-for,GYP,third_party_libwebp_libwebp_gyp)/webp.stamp \
 	$(call intermediates-dir-for,GYP,v8_tools_gyp_v8_gyp)/v8.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_platform_make_platform_derived_sources_gyp)/make_platform_derived_sources.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_platform_make_platform_generated_gyp)/make_platform_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_libjpeg_libjpeg_gyp)/libjpeg.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_platform_blink_arm_neon_gyp)/third_party_WebKit_Source_platform_blink_arm_neon_gyp.a
 
@@ -56,10 +56,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/DateTimeChooser.cpp \
 	third_party/WebKit/Source/platform/DateTimeChooserClient.cpp \
 	third_party/WebKit/Source/platform/Decimal.cpp \
+	third_party/WebKit/Source/platform/DragImage.cpp \
 	third_party/WebKit/Source/platform/EventTracer.cpp \
 	third_party/WebKit/Source/platform/FileChooser.cpp \
 	third_party/WebKit/Source/platform/FileMetadata.cpp \
 	third_party/WebKit/Source/platform/JSONValues.cpp \
+	third_party/WebKit/Source/platform/KeyCodeConversionAndroid.cpp \
 	third_party/WebKit/Source/platform/KillRingNone.cpp \
 	third_party/WebKit/Source/platform/Language.cpp \
 	third_party/WebKit/Source/platform/LayoutTestSupport.cpp \
@@ -91,11 +93,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/URLPatternMatcher.cpp \
 	third_party/WebKit/Source/platform/UUID.cpp \
 	third_party/WebKit/Source/platform/Widget.cpp \
+	third_party/WebKit/Source/platform/animation/KeyframeValueList.cpp \
+	third_party/WebKit/Source/platform/animation/TimingFunction.cpp \
 	third_party/WebKit/Source/platform/audio/AudioBus.cpp \
 	third_party/WebKit/Source/platform/audio/AudioChannel.cpp \
 	third_party/WebKit/Source/platform/audio/AudioDSPKernel.cpp \
 	third_party/WebKit/Source/platform/audio/AudioDSPKernelProcessor.cpp \
 	third_party/WebKit/Source/platform/audio/AudioDelayDSPKernel.cpp \
+	third_party/WebKit/Source/platform/audio/AudioDestination.cpp \
 	third_party/WebKit/Source/platform/audio/AudioDestinationConsumer.cpp \
 	third_party/WebKit/Source/platform/audio/AudioFIFO.cpp \
 	third_party/WebKit/Source/platform/audio/AudioProcessor.cpp \
@@ -130,9 +135,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/audio/UpSampler.cpp \
 	third_party/WebKit/Source/platform/audio/VectorMath.cpp \
 	third_party/WebKit/Source/platform/audio/ZeroPole.cpp \
-	third_party/WebKit/Source/platform/audio/chromium/AudioBusChromium.cpp \
-	third_party/WebKit/Source/platform/audio/chromium/AudioDestinationChromium.cpp \
-	third_party/WebKit/Source/platform/audio/chromium/FFTFrameOpenMAXDLAndroid.cpp \
+	third_party/WebKit/Source/platform/audio/android/FFTFrameOpenMAXDLAndroid.cpp \
 	third_party/WebKit/Source/platform/audio/ffmpeg/FFTFrameFFMPEG.cpp \
 	third_party/WebKit/Source/platform/audio/ipp/FFTFrameIPP.cpp \
 	third_party/WebKit/Source/platform/blob/BlobData.cpp \
@@ -145,6 +148,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/drm/ContentDecryptionModuleSession.cpp \
 	third_party/WebKit/Source/platform/exported/Platform.cpp \
 	third_party/WebKit/Source/platform/exported/WebActiveGestureAnimation.cpp \
+	third_party/WebKit/Source/platform/exported/WebArrayBuffer.cpp \
 	third_party/WebKit/Source/platform/exported/WebAudioBus.cpp \
 	third_party/WebKit/Source/platform/exported/WebAudioDevice.cpp \
 	third_party/WebKit/Source/platform/exported/WebBlobData.cpp \
@@ -152,6 +156,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebContentDecryptionModuleSession.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoAlgorithm.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoKey.cpp \
+	third_party/WebKit/Source/platform/exported/WebCryptoResult.cpp \
+	third_party/WebKit/Source/platform/exported/WebCursorInfo.cpp \
 	third_party/WebKit/Source/platform/exported/WebData.cpp \
 	third_party/WebKit/Source/platform/exported/WebDeviceMotionData.cpp \
 	third_party/WebKit/Source/platform/exported/WebDeviceOrientationData.cpp \
@@ -160,16 +166,25 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebFloatQuad.cpp \
 	third_party/WebKit/Source/platform/exported/WebHTTPBody.cpp \
 	third_party/WebKit/Source/platform/exported/WebHTTPLoadInfo.cpp \
+	third_party/WebKit/Source/platform/exported/WebImageSkia.cpp \
 	third_party/WebKit/Source/platform/exported/WebMediaConstraints.cpp \
+	third_party/WebKit/Source/platform/exported/WebMediaDeviceInfo.cpp \
+	third_party/WebKit/Source/platform/exported/WebMediaStream.cpp \
 	third_party/WebKit/Source/platform/exported/WebMediaStreamSource.cpp \
+	third_party/WebKit/Source/platform/exported/WebMediaStreamTrack.cpp \
+	third_party/WebKit/Source/platform/exported/WebMediaStreamTrackSourcesRequest.cpp \
 	third_party/WebKit/Source/platform/exported/WebPrerender.cpp \
 	third_party/WebKit/Source/platform/exported/WebPrerenderingSupport.cpp \
 	third_party/WebKit/Source/platform/exported/WebRTCConfiguration.cpp \
 	third_party/WebKit/Source/platform/exported/WebRTCICECandidate.cpp \
+	third_party/WebKit/Source/platform/exported/WebRTCSessionDescription.cpp \
+	third_party/WebKit/Source/platform/exported/WebRTCSessionDescriptionRequest.cpp \
+	third_party/WebKit/Source/platform/exported/WebRTCStatsRequest.cpp \
 	third_party/WebKit/Source/platform/exported/WebRTCStatsResponse.cpp \
 	third_party/WebKit/Source/platform/exported/WebRTCVoidRequest.cpp \
 	third_party/WebKit/Source/platform/exported/WebScrollbarImpl.cpp \
 	third_party/WebKit/Source/platform/exported/WebScrollbarThemeClientImpl.cpp \
+	third_party/WebKit/Source/platform/exported/WebScrollbarThemeGeometryNative.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketHandshakeRequestInfo.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketHandshakeResponseInfo.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketStreamError.cpp \
@@ -177,6 +192,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebSpeechSynthesisUtterance.cpp \
 	third_party/WebKit/Source/platform/exported/WebSpeechSynthesisVoice.cpp \
 	third_party/WebKit/Source/platform/exported/WebSpeechSynthesizerClientImpl.cpp \
+	third_party/WebKit/Source/platform/exported/WebStorageQuotaCallbacks.cpp \
 	third_party/WebKit/Source/platform/exported/WebThreadSafeData.cpp \
 	third_party/WebKit/Source/platform/exported/WebTransformKeyframe.cpp \
 	third_party/WebKit/Source/platform/exported/WebURL.cpp \
@@ -185,6 +201,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebURLRequest.cpp \
 	third_party/WebKit/Source/platform/exported/WebURLResponse.cpp \
 	third_party/WebKit/Source/platform/exported/linux/WebFontRenderStyle.cpp \
+	third_party/WebKit/Source/platform/fonts/Character.cpp \
 	third_party/WebKit/Source/platform/fonts/Font.cpp \
 	third_party/WebKit/Source/platform/fonts/FontCache.cpp \
 	third_party/WebKit/Source/platform/fonts/FontData.cpp \
@@ -192,7 +209,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/fonts/FontDescription.cpp \
 	third_party/WebKit/Source/platform/fonts/FontFallbackList.cpp \
 	third_party/WebKit/Source/platform/fonts/FontFamily.cpp \
-	third_party/WebKit/Source/platform/fonts/FontFastPath.cpp \
 	third_party/WebKit/Source/platform/fonts/FontFeatureSettings.cpp \
 	third_party/WebKit/Source/platform/fonts/GenericFontFamilySettings.cpp \
 	third_party/WebKit/Source/platform/fonts/GlyphPageTreeNode.cpp \
@@ -227,7 +243,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/geometry/Region.cpp \
 	third_party/WebKit/Source/platform/geometry/RoundedRect.cpp \
 	third_party/WebKit/Source/platform/geometry/TransformState.cpp \
-	third_party/WebKit/Source/platform/graphics/angle/ANGLEPlatformBridge.cpp \
 	third_party/WebKit/Source/platform/graphics/filters/FEBlend.cpp \
 	third_party/WebKit/Source/platform/graphics/filters/FEColorMatrix.cpp \
 	third_party/WebKit/Source/platform/graphics/filters/FEComponentTransfer.cpp \
@@ -256,26 +271,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/graphics/filters/SourceAlpha.cpp \
 	third_party/WebKit/Source/platform/graphics/filters/SourceGraphic.cpp \
 	third_party/WebKit/Source/platform/graphics/filters/SpotLightSource.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterArrayParameter.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterCompiledProgram.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterGlobalContext.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterMesh.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterMeshGenerator.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterNumberParameter.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterOperation.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterParameterList.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterProgram.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterProgramClient.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterProgramInfo.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterRenderer.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterTransformParameter.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/CustomFilterValidatedProgram.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/FECustomFilter.cpp \
-	third_party/WebKit/Source/platform/graphics/filters/custom/ValidatedCustomFilterOperation.cpp \
 	third_party/WebKit/Source/platform/graphics/gpu/AcceleratedImageBufferSurface.cpp \
 	third_party/WebKit/Source/platform/graphics/gpu/DrawingBuffer.cpp \
-	third_party/WebKit/Source/platform/graphics/gpu/SharedGraphicsContext3D.cpp \
+	third_party/WebKit/Source/platform/graphics/gpu/Extensions3DUtil.cpp \
 	third_party/WebKit/Source/platform/graphics/gpu/WebGLImageBufferSurface.cpp \
+	third_party/WebKit/Source/platform/graphics/gpu/WebGLImageConversion.cpp \
 	third_party/WebKit/Source/platform/graphics/media/MediaPlayer.cpp \
 	third_party/WebKit/Source/platform/graphics/skia/GaneshUtils.cpp \
 	third_party/WebKit/Source/platform/graphics/skia/NativeImageSkia.cpp \
@@ -285,22 +285,22 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/graphics/Canvas2DLayerBridge.cpp \
 	third_party/WebKit/Source/platform/graphics/Canvas2DLayerManager.cpp \
 	third_party/WebKit/Source/platform/graphics/Color.cpp \
+	third_party/WebKit/Source/platform/graphics/ColorSpace.cpp \
 	third_party/WebKit/Source/platform/graphics/CrossfadeGeneratedImage.cpp \
+	third_party/WebKit/Source/platform/graphics/DecodingImageGenerator.cpp \
 	third_party/WebKit/Source/platform/graphics/DeferredImageDecoder.cpp \
 	third_party/WebKit/Source/platform/graphics/DiscardablePixelRef.cpp \
 	third_party/WebKit/Source/platform/graphics/DisplayList.cpp \
 	third_party/WebKit/Source/platform/graphics/DrawLooper.cpp \
-	third_party/WebKit/Source/platform/graphics/Extensions3D.cpp \
 	third_party/WebKit/Source/platform/graphics/FrameData.cpp \
 	third_party/WebKit/Source/platform/graphics/GeneratedImage.cpp \
 	third_party/WebKit/Source/platform/graphics/Gradient.cpp \
 	third_party/WebKit/Source/platform/graphics/GradientGeneratedImage.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsContext.cpp \
-	third_party/WebKit/Source/platform/graphics/GraphicsContext3D.cpp \
-	third_party/WebKit/Source/platform/graphics/GraphicsContext3DImagePacking.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsContextAnnotation.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsContextRecorder.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsLayer.cpp \
+	third_party/WebKit/Source/platform/graphics/GraphicsLayerDebugInfo.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsTypes.cpp \
 	third_party/WebKit/Source/platform/graphics/Image.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageBuffer.cpp \
@@ -332,10 +332,10 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/image-encoders/skia/JPEGImageEncoder.cpp \
 	third_party/WebKit/Source/platform/image-encoders/skia/PNGImageEncoder.cpp \
 	third_party/WebKit/Source/platform/image-encoders/skia/WEBPImageEncoder.cpp \
-	third_party/WebKit/Source/platform/mediastream/MediaConstraints.cpp \
+	third_party/WebKit/Source/platform/mediastream/MediaStreamCenter.cpp \
 	third_party/WebKit/Source/platform/mediastream/MediaStreamComponent.cpp \
+	third_party/WebKit/Source/platform/mediastream/MediaStreamDescriptor.cpp \
 	third_party/WebKit/Source/platform/mediastream/MediaStreamSource.cpp \
-	third_party/WebKit/Source/platform/mediastream/RTCDTMFSenderHandler.cpp \
 	third_party/WebKit/Source/platform/mhtml/ArchiveResource.cpp \
 	third_party/WebKit/Source/platform/mhtml/ArchiveResourceCollection.cpp \
 	third_party/WebKit/Source/platform/mhtml/MHTMLArchive.cpp \
@@ -357,6 +357,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/network/WebSocketHandshakeResponse.cpp \
 	third_party/WebKit/Source/platform/plugins/PluginData.cpp \
 	third_party/WebKit/Source/platform/plugins/PluginListBuilder.cpp \
+	third_party/WebKit/Source/platform/scroll/FramelessScrollView.cpp \
 	third_party/WebKit/Source/platform/scroll/ScrollAnimator.cpp \
 	third_party/WebKit/Source/platform/scroll/ScrollAnimatorNone.cpp \
 	third_party/WebKit/Source/platform/scroll/ScrollView.cpp \
@@ -370,7 +371,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/speech/PlatformSpeechSynthesisUtterance.cpp \
 	third_party/WebKit/Source/platform/speech/PlatformSpeechSynthesisVoice.cpp \
 	third_party/WebKit/Source/platform/speech/PlatformSpeechSynthesizer.cpp \
+	third_party/WebKit/Source/platform/text/BidiCharacterRun.cpp \
 	third_party/WebKit/Source/platform/text/BidiContext.cpp \
+	third_party/WebKit/Source/platform/text/BidiTextRun.cpp \
 	third_party/WebKit/Source/platform/text/DateTimeFormat.cpp \
 	third_party/WebKit/Source/platform/text/LineEnding.cpp \
 	third_party/WebKit/Source/platform/text/LocaleICU.cpp \
@@ -388,6 +391,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/text/TextRun.cpp \
 	third_party/WebKit/Source/platform/text/TextStream.cpp \
 	third_party/WebKit/Source/platform/text/UnicodeRange.cpp \
+	third_party/WebKit/Source/platform/text/UnicodeUtilities.cpp \
 	third_party/WebKit/Source/platform/transforms/AffineTransform.cpp \
 	third_party/WebKit/Source/platform/transforms/InterpolatedTransformOperation.cpp \
 	third_party/WebKit/Source/platform/transforms/Matrix3DTransformOperation.cpp \
@@ -435,14 +439,15 @@ MY_CFLAGS_Debug := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-g \
 	-fomit-frame-pointer \
 	-fdata-sections \
-	-ffunction-sections
+	-ffunction-sections \
+	-funwind-tables
 
 MY_DEFS_Debug := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -453,7 +458,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -462,31 +466,30 @@ MY_DEFS_Debug := \
 	'-DBLINK_PLATFORM_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DSK_ENABLE_INST_COUNT=0' \
 	'-DSK_SUPPORT_GPU=1' \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DUSE_SYSTEM_LIBJPEG' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
@@ -505,7 +508,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
@@ -548,7 +551,6 @@ LOCAL_CPPFLAGS_Debug := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 
@@ -580,14 +582,15 @@ MY_CFLAGS_Release := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-fno-ident \
 	-fdata-sections \
 	-ffunction-sections \
-	-fomit-frame-pointer
+	-fomit-frame-pointer \
+	-funwind-tables
 
 MY_DEFS_Release := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -598,7 +601,6 @@ MY_DEFS_Release := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -607,31 +609,30 @@ MY_DEFS_Release := \
 	'-DBLINK_PLATFORM_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DSK_ENABLE_INST_COUNT=0' \
 	'-DSK_SUPPORT_GPU=1' \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DUSE_SYSTEM_LIBJPEG' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
@@ -651,7 +652,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
@@ -694,7 +695,6 @@ LOCAL_CPPFLAGS_Release := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 

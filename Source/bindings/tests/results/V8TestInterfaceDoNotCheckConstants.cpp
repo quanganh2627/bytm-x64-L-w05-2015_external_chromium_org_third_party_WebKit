@@ -34,11 +34,14 @@
 #include "V8TestInterfaceDoNotCheckConstants.h"
 
 #include "RuntimeEnabledFeatures.h"
-#include "bindings/v8/ExceptionMessages.h"
+#include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8DOMConfiguration.h"
+#include "bindings/v8/V8ObjectConstructor.h"
 #include "core/dom/ContextFeatures.h"
 #include "core/dom/Document.h"
 #include "platform/TraceEvent.h"
+#include "wtf/GetPtr.h"
+#include "wtf/RefPtr.h"
 
 namespace WebCore {
 
@@ -62,7 +65,7 @@ void webCoreInitializeScriptWrappableForInterface(WebCore::TestInterfaceDoNotChe
 }
 
 namespace WebCore {
-const WrapperTypeInfo V8TestInterfaceDoNotCheckConstants::wrapperTypeInfo = { gin::kEmbedderBlink, V8TestInterfaceDoNotCheckConstants::domTemplate, V8TestInterfaceDoNotCheckConstants::derefObject, 0, 0, 0, V8TestInterfaceDoNotCheckConstants::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype };
+const WrapperTypeInfo V8TestInterfaceDoNotCheckConstants::wrapperTypeInfo = { gin::kEmbedderBlink, V8TestInterfaceDoNotCheckConstants::domTemplate, V8TestInterfaceDoNotCheckConstants::derefObject, 0, 0, 0, V8TestInterfaceDoNotCheckConstants::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype, false };
 
 namespace TestInterfaceDoNotCheckConstantsV8Internal {
 
@@ -70,7 +73,7 @@ template <typename T> void V8_USE(T) { }
 
 } // namespace TestInterfaceDoNotCheckConstantsV8Internal
 
-static v8::Handle<v8::FunctionTemplate> ConfigureV8TestInterfaceDoNotCheckConstantsTemplate(v8::Handle<v8::FunctionTemplate> functionTemplate, v8::Isolate* isolate, WrapperWorldType currentWorldType)
+static void configureV8TestInterfaceDoNotCheckConstantsTemplate(v8::Handle<v8::FunctionTemplate> functionTemplate, v8::Isolate* isolate, WrapperWorldType currentWorldType)
 {
     functionTemplate->ReadOnlyPrototype();
 
@@ -89,8 +92,7 @@ static v8::Handle<v8::FunctionTemplate> ConfigureV8TestInterfaceDoNotCheckConsta
     V8DOMConfiguration::installConstants(functionTemplate, prototypeTemplate, V8TestInterfaceDoNotCheckConstantsConstants, WTF_ARRAY_LENGTH(V8TestInterfaceDoNotCheckConstantsConstants), isolate);
 
     // Custom toString template
-    functionTemplate->Set(v8::String::NewFromUtf8(isolate, "toString", v8::String::kInternalizedString), V8PerIsolateData::current()->toStringTemplate());
-    return functionTemplate;
+    functionTemplate->Set(v8AtomicString(isolate, "toString"), V8PerIsolateData::current()->toStringTemplate());
 }
 
 v8::Handle<v8::FunctionTemplate> V8TestInterfaceDoNotCheckConstants::domTemplate(v8::Isolate* isolate, WrapperWorldType currentWorldType)
@@ -102,22 +104,16 @@ v8::Handle<v8::FunctionTemplate> V8TestInterfaceDoNotCheckConstants::domTemplate
 
     TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
     v8::EscapableHandleScope handleScope(isolate);
-    v8::Local<v8::FunctionTemplate> templ =
-        ConfigureV8TestInterfaceDoNotCheckConstantsTemplate(data->rawDOMTemplate(&wrapperTypeInfo, currentWorldType), isolate, currentWorldType);
+    v8::Local<v8::FunctionTemplate> templ = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
+    configureV8TestInterfaceDoNotCheckConstantsTemplate(templ, isolate, currentWorldType);
     data->templateMap(currentWorldType).add(&wrapperTypeInfo, UnsafePersistent<v8::FunctionTemplate>(isolate, templ));
     return handleScope.Escape(templ);
 }
 
-bool V8TestInterfaceDoNotCheckConstants::hasInstance(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate, WrapperWorldType currentWorldType)
+bool V8TestInterfaceDoNotCheckConstants::hasInstance(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
 {
-    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, currentWorldType);
-}
-
-bool V8TestInterfaceDoNotCheckConstants::hasInstanceInAnyWorld(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
-{
-    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, MainWorld)
-        || V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, IsolatedWorld)
-        || V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, WorkerWorld);
+    return V8PerIsolateData::from(isolate)->hasInstanceInMainWorld(&wrapperTypeInfo, jsValue)
+        || V8PerIsolateData::from(isolate)->hasInstanceInNonMainWorld(&wrapperTypeInfo, jsValue);
 }
 
 v8::Handle<v8::Object> V8TestInterfaceDoNotCheckConstants::createWrapper(PassRefPtr<TestInterfaceDoNotCheckConstants> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)

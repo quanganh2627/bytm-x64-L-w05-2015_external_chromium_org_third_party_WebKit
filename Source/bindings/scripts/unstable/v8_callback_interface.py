@@ -45,10 +45,12 @@ CALLBACK_INTERFACE_H_INCLUDES = set([
     'bindings/v8/ScopedPersistent.h',
 ])
 CALLBACK_INTERFACE_CPP_INCLUDES = set([
-    'core/dom/ExecutionContext.h',
     'bindings/v8/V8Binding.h',
     'bindings/v8/V8Callback.h',
+    'core/dom/ExecutionContext.h',
     'wtf/Assertions.h',
+    'wtf/GetPtr.h',  # FIXME: remove if can eliminate WTF::getPtr
+    'wtf/RefPtr.h',
 ])
 
 
@@ -57,7 +59,7 @@ def cpp_to_v8_conversion(idl_type, name):
     # as toV8 then implicitly uses the current context, which causes leaks
     # between isolate worlds if a different context should be used.
     cpp_value_to_v8_value = v8_types.cpp_value_to_v8_value(idl_type, name,
-        isolate='isolate', creation_context='v8::Handle<v8::Object>()')
+        isolate='m_isolate', creation_context='v8::Handle<v8::Object>()')
     return 'v8::Handle<v8::Value> {name}Handle = {cpp_to_v8};'.format(
         name=name, cpp_to_v8=cpp_value_to_v8_value)
 
@@ -67,6 +69,8 @@ def cpp_type(idl_type):
     # (always use usual v8_types.cpp_type)
     if idl_type == 'DOMString':
         return 'const String&'
+    if idl_type == 'void':
+        return 'void'
     # Callbacks use raw pointers, so used_as_argument=True
     usual_cpp_type = v8_types.cpp_type(idl_type, used_as_argument=True)
     if usual_cpp_type.startswith('Vector'):
@@ -100,8 +104,8 @@ def add_includes_for_operation(operation):
 def generate_method(operation):
     extended_attributes = operation.extended_attributes
     idl_type = operation.idl_type
-    if idl_type != 'boolean':
-        raise Exception("We don't yet support callbacks that return non-boolean values.")
+    if idl_type not in ['boolean', 'void']:
+        raise Exception('We only support callbacks that return boolean or void values.')
     is_custom = 'Custom' in extended_attributes
     if not is_custom:
         add_includes_for_operation(operation)
@@ -112,6 +116,7 @@ def generate_method(operation):
         'custom': is_custom,
         'name': operation.name,
         'return_cpp_type': cpp_type(idl_type),
+        'return_idl_type': idl_type,
     }
     contents.update(generate_arguments_contents(operation.arguments, call_with_this_handle))
     return contents

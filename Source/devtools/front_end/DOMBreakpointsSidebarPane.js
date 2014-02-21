@@ -82,6 +82,10 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
                 nodeBreakpoints[element._type] = true;
         }
 
+        /**
+         * @param {string} type
+         * @this {WebInspector.DOMBreakpointsSidebarPane}
+         */
         function toggleBreakpoint(type)
         {
             if (!nodeBreakpoints[type])
@@ -109,6 +113,7 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
 
         /**
          * @param {?DOMAgent.NodeId} targetNodeId
+         * @this {WebInspector.DOMBreakpointsSidebarPane}
          */
         function didPushNodeToFrontend(targetNodeId)
         {
@@ -249,6 +254,10 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
     _contextMenu: function(node, type, event)
     {
         var contextMenu = new WebInspector.ContextMenu(event);
+
+        /**
+         * @this {WebInspector.DOMBreakpointsSidebarPane}
+         */
         function removeBreakpoint()
         {
             this._removeBreakpoint(node, type);
@@ -315,6 +324,7 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
         /**
          * @param {string} path
          * @param {?DOMAgent.NodeId} nodeId
+         * @this {WebInspector.DOMBreakpointsSidebarPane}
          */
         function didPushNodeByPathToFrontend(path, nodeId)
         {
@@ -343,6 +353,7 @@ WebInspector.DOMBreakpointsSidebarPane.prototype = {
 
     /**
      * @param {!WebInspector.Panel} panel
+     * @return {!WebInspector.DOMBreakpointsSidebarPane.Proxy}
      */
     createProxy: function(panel)
     {
@@ -412,6 +423,6 @@ WebInspector.DOMBreakpointsSidebarPane.Proxy.prototype = {
 }
 
 /**
- * @type {?WebInspector.DOMBreakpointsSidebarPane}
+ * @type {!WebInspector.DOMBreakpointsSidebarPane}
  */
-WebInspector.domBreakpointsSidebarPane = null;
+WebInspector.domBreakpointsSidebarPane;

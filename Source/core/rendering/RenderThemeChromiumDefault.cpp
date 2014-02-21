@@ -34,9 +34,9 @@
 #include "platform/graphics/Color.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/graphics/GraphicsContextStateSaver.h"
-#include "public/platform/default/WebThemeEngine.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebRect.h"
+#include "public/platform/WebThemeEngine.h"
 #include "wtf/StdLibExtras.h"
 
 namespace WebCore {
@@ -255,9 +255,10 @@ bool RenderThemeChromiumDefault::paintCheckbox(RenderObject* o, const PaintInfo&
     extraParams.button.indeterminate = isIndeterminate(o);
 
     float zoomLevel = o->style()->effectiveZoom();
-    GraphicsContextStateSaver stateSaver(*i.context);
+    GraphicsContextStateSaver stateSaver(*i.context, false);
     IntRect unzoomedRect = rect;
     if (zoomLevel != 1) {
+        stateSaver.save();
         unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
         unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
         i.context->translate(unzoomedRect.x(), unzoomedRect.y());
@@ -333,8 +334,7 @@ bool RenderThemeChromiumDefault::paintTextField(RenderObject* o, const PaintInfo
 
     blink::WebCanvas* canvas = i.context->canvas();
 
-    // Fallback to white if the specified color object is invalid.
-    Color backgroundColor = o->resolveColor(CSSPropertyBackgroundColor, Color::white);
+    Color backgroundColor = o->resolveColor(CSSPropertyBackgroundColor);
     extraParams.textField.backgroundColor = backgroundColor.rgb();
 
     blink::Platform::current()->themeEngine()->paint(canvas, blink::WebThemeEngine::PartTextField, getWebThemeState(this, o), blink::WebRect(rect), &extraParams);
@@ -386,6 +386,40 @@ bool RenderThemeChromiumDefault::paintMenuList(RenderObject* o, const PaintInfo&
     return false;
 }
 
+bool RenderThemeChromiumDefault::paintMenuListButton(RenderObject* o, const PaintInfo& i, const IntRect& rect)
+{
+    if (!o->isBox())
+        return false;
+
+    const int right = rect.x() + rect.width();
+    const int middle = rect.y() + rect.height() / 2;
+
+    blink::WebThemeEngine::ExtraParams extraParams;
+    extraParams.menuList.arrowY = middle;
+    extraParams.menuList.hasBorder = false;
+    extraParams.menuList.hasBorderRadius = o->style()->hasBorderRadius();
+    extraParams.menuList.backgroundColor = Color::transparent;
+    extraParams.menuList.fillContentArea = false;
+
+    if (useMockTheme()) {
+        const RenderBox* box = toRenderBox(o);
+        // The size and position of the drop-down button is different between
+        // the mock theme and the regular aura theme.
+        int spacingTop = box->borderTop() + box->paddingTop();
+        int spacingBottom = box->borderBottom() + box->paddingBottom();
+        int spacingRight = box->borderRight() + box->paddingRight();
+        extraParams.menuList.arrowX = (o->style()->direction() == RTL) ? rect.x() + 4 + spacingRight: right - 13 - spacingRight;
+        extraParams.menuList.arrowHeight = rect.height() - spacingBottom - spacingTop;
+    } else {
+        extraParams.menuList.arrowX = (o->style()->direction() == RTL) ? rect.x() + 7 : right - 13;
+    }
+
+    blink::WebCanvas* canvas = i.context->canvas();
+
+    blink::Platform::current()->themeEngine()->paint(canvas, blink::WebThemeEngine::PartMenuList, getWebThemeState(this, o), blink::WebRect(rect), &extraParams);
+    return false;
+}
+
 bool RenderThemeChromiumDefault::paintSliderTrack(RenderObject* o, const PaintInfo& i, const IntRect& rect)
 {
     blink::WebThemeEngine::ExtraParams extraParams;
@@ -396,9 +430,10 @@ bool RenderThemeChromiumDefault::paintSliderTrack(RenderObject* o, const PaintIn
 
     // FIXME: Mock theme doesn't handle zoomed sliders.
     float zoomLevel = useMockTheme() ? 1 : o->style()->effectiveZoom();
-    GraphicsContextStateSaver stateSaver(*i.context);
+    GraphicsContextStateSaver stateSaver(*i.context, false);
     IntRect unzoomedRect = rect;
     if (zoomLevel != 1) {
+        stateSaver.save();
         unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
         unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
         i.context->translate(unzoomedRect.x(), unzoomedRect.y());
@@ -420,9 +455,10 @@ bool RenderThemeChromiumDefault::paintSliderThumb(RenderObject* o, const PaintIn
 
     // FIXME: Mock theme doesn't handle zoomed sliders.
     float zoomLevel = useMockTheme() ? 1 : o->style()->effectiveZoom();
-    GraphicsContextStateSaver stateSaver(*i.context);
+    GraphicsContextStateSaver stateSaver(*i.context, false);
     IntRect unzoomedRect = rect;
     if (zoomLevel != 1) {
+        stateSaver.save();
         unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
         unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
         i.context->translate(unzoomedRect.x(), unzoomedRect.y());

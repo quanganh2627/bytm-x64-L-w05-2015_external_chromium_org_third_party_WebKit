@@ -36,8 +36,8 @@
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/Element.h"
 #include "core/dom/custom/CustomElement.h"
-#include "core/dom/custom/CustomElementCallbackScheduler.h"
 #include "core/dom/custom/CustomElementDefinition.h"
+#include "core/dom/custom/CustomElementScheduler.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLUnknownElement.h"
 #include "core/svg/SVGUnknownElement.h"
@@ -55,7 +55,7 @@ void CustomElementRegistrationContext::registerElement(Document* document, Custo
     // Upgrade elements that were waiting for this definition.
     const CustomElementUpgradeCandidateMap::ElementSet& upgradeCandidates = m_candidates.takeUpgradeCandidatesFor(definition->descriptor());
     for (CustomElementUpgradeCandidateMap::ElementSet::const_iterator it = upgradeCandidates.begin(); it != upgradeCandidates.end(); ++it)
-        didResolveElement(definition, *it);
+        CustomElement::define(*it, definition);
 }
 
 PassRefPtr<Element> CustomElementRegistrationContext::createCustomTagElement(Document& document, const QualifiedName& tagName)
@@ -74,16 +74,16 @@ PassRefPtr<Element> CustomElementRegistrationContext::createCustomTagElement(Doc
     }
 
     element->setCustomElementState(Element::WaitingForUpgrade);
-    resolve(element.get(), nullAtom);
+    resolveOrScheduleResolution(element.get(), nullAtom);
     return element.release();
 }
 
 void CustomElementRegistrationContext::didGiveTypeExtension(Element* element, const AtomicString& type)
 {
-    resolve(element, type);
+    resolveOrScheduleResolution(element, type);
 }
 
-void CustomElementRegistrationContext::resolve(Element* element, const AtomicString& typeExtension)
+void CustomElementRegistrationContext::resolveOrScheduleResolution(Element* element, const AtomicString& typeExtension)
 {
     // If an element has a custom tag name it takes precedence over
     // the "is" attribute (if any).
@@ -93,22 +93,20 @@ void CustomElementRegistrationContext::resolve(Element* element, const AtomicStr
     ASSERT(!type.isNull());
 
     CustomElementDescriptor descriptor(type, element->namespaceURI(), element->localName());
-    CustomElementDefinition* definition = m_registry.find(descriptor);
-    if (definition)
-        didResolveElement(definition, element);
-    else
-        didCreateUnresolvedElement(descriptor, element);
-}
-
-void CustomElementRegistrationContext::didResolveElement(CustomElementDefinition* definition, Element* element)
-{
-    CustomElement::define(element, definition);
-}
-
-void CustomElementRegistrationContext::didCreateUnresolvedElement(const CustomElementDescriptor& descriptor, Element* element)
-{
     ASSERT(element->customElementState() == Element::WaitingForUpgrade);
-    m_candidates.add(descriptor, element);
+
+    CustomElementScheduler::resolveOrScheduleResolution(this, element, descriptor);
+}
+
+void CustomElementRegistrationContext::resolve(Element* element, const CustomElementDescriptor& descriptor)
+{
+    CustomElementDefinition* definition = m_registry.find(descriptor);
+    if (definition) {
+        CustomElement::define(element, definition);
+    } else {
+        ASSERT(element->customElementState() == Element::WaitingForUpgrade);
+        m_candidates.add(descriptor, element);
+    }
 }
 
 PassRefPtr<CustomElementRegistrationContext> CustomElementRegistrationContext::create()

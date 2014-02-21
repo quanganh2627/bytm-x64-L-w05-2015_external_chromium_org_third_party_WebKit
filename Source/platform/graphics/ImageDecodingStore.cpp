@@ -32,9 +32,13 @@ namespace WebCore {
 
 namespace {
 
-// 32MB memory limit for cache.
-static const size_t defaultCacheLimitInBytes = 32768 * 1024;
+// Allow up to 256 MBytes of discardable entries. The previous limit allowed up to
+// 128 entries (independently of their size) which caused OOM errors on websites
+// with a lot of (very) large images.
+static const size_t maxTotalSizeOfDiscardableEntries = 256 * 1024 * 1024;
+static const size_t defaultMaxTotalSizeOfHeapEntries = 32 * 1024 * 1024;
 static ImageDecodingStore* s_instance = 0;
+static bool s_imageCachingEnabled = true;
 
 static void setInstance(ImageDecodingStore* imageDecodingStore)
 {
@@ -45,8 +49,9 @@ static void setInstance(ImageDecodingStore* imageDecodingStore)
 } // namespace
 
 ImageDecodingStore::ImageDecodingStore()
-    : m_cacheLimitInBytes(defaultCacheLimitInBytes)
-    , m_memoryUsageInBytes(0)
+    : m_heapLimitInBytes(defaultMaxTotalSizeOfHeapEntries)
+    , m_heapMemoryUsageInBytes(0)
+    , m_discardableMemoryUsageInBytes(0)
 {
 }
 
@@ -77,6 +82,11 @@ void ImageDecodingStore::shutdown()
     setInstance(0);
 }
 
+void ImageDecodingStore::setImageCachingEnabled(bool enabled)
+{
+    s_imageCachingEnabled = enabled;
+}
+
 bool ImageDecodingStore::lockCache(const ImageFrameGenerator* generator, const SkISize& scaledSize, size_t index, const ScaledImageFragment** cachedImage)
 {
     ASSERT(cachedImage);
@@ -94,17 +104,29 @@ bool ImageDecodingStore::lockCache(const ImageFrameGenerator* generator, const S
 
 void ImageDecodingStore::unlockCache(const ImageFrameGenerator* generator, const ScaledImageFragment* cachedImage)
 {
-    MutexLocker lock(m_mutex);
-    cachedImage->bitmap().unlockPixels();
-    ImageCacheMap::iterator iter = m_imageCacheMap.find(ImageCacheEntry::makeCacheKey(generator, cachedImage->scaledSize(), cachedImage->index(), cachedImage->generation()));
-    ASSERT_WITH_SECURITY_IMPLICATION(iter != m_imageCacheMap.end());
+    Vector<OwnPtr<CacheEntry> > cacheEntriesToDelete;
+    {
+        MutexLocker lock(m_mutex);
+        cachedImage->bitmap().unlockPixels();
+        ImageCacheMap::iterator iter = m_imageCacheMap.find(ImageCacheEntry::makeCacheKey(generator, cachedImage->scaledSize(), cachedImage->index(), cachedImage->generation()));
+        ASSERT_WITH_SECURITY_IMPLICATION(iter != m_imageCacheMap.end());
 
-    CacheEntry* cacheEntry = iter->value.get();
-    cacheEntry->decrementUseCount();
+        CacheEntry* cacheEntry = iter->value.get();
+        cacheEntry->decrementUseCount();
 
-    // Put the entry to the end of list.
-    m_orderedCacheList.remove(cacheEntry);
-    m_orderedCacheList.append(cacheEntry);
+        // Put the entry to the end of list.
+        m_orderedCacheList.remove(cacheEntry);
+        m_orderedCacheList.append(cacheEntry);
+
+        // FIXME: This code is temporary such that in the new Skia
+        // discardable memory path we do not cache images.
+        // Once the transition is complete the logic to handle
+        // image caching should be removed entirely.
+        if (!s_imageCachingEnabled && !cacheEntry->useCount()) {
+            removeFromCacheInternal(cacheEntry, &cacheEntriesToDelete);
+            removeFromCacheListInternal(cacheEntriesToDelete);
+        }
+    }
 }
 
 const ScaledImageFragment* ImageDecodingStore::insertAndLockCache(const ImageFrameGenerator* generator, PassOwnPtr<ScaledImageFragment> image)
@@ -235,23 +257,24 @@ void ImageDecodingStore::clear()
     size_t cacheLimitInBytes;
     {
         MutexLocker lock(m_mutex);
-        cacheLimitInBytes = m_cacheLimitInBytes;
-        m_cacheLimitInBytes = 0;
+        cacheLimitInBytes = m_heapLimitInBytes;
+        m_heapLimitInBytes = 0;
     }
 
     prune();
 
     {
         MutexLocker lock(m_mutex);
-        m_cacheLimitInBytes = cacheLimitInBytes;
+        m_heapLimitInBytes = cacheLimitInBytes;
     }
 }
 
 void ImageDecodingStore::setCacheLimitInBytes(size_t cacheLimit)
 {
+    // Note that the discardable entries limit is constant (i.e. only the heap limit is updated).
     {
         MutexLocker lock(m_mutex);
-        m_cacheLimitInBytes = cacheLimit;
+        m_heapLimitInBytes = cacheLimit;
     }
     prune();
 }
@@ -259,7 +282,7 @@ void ImageDecodingStore::setCacheLimitInBytes(size_t cacheLimit)
 size_t ImageDecodingStore::memoryUsageInBytes()
 {
     MutexLocker lock(m_mutex);
-    return m_memoryUsageInBytes;
+    return m_heapMemoryUsageInBytes;
 }
 
 int ImageDecodingStore::cacheEntries()
@@ -293,7 +316,12 @@ void ImageDecodingStore::prune()
 
         // Walk the list of cache entries starting from the least recently used
         // and then keep them for deletion later.
-        while (cacheEntry && (m_memoryUsageInBytes > m_cacheLimitInBytes || !m_cacheLimitInBytes)) {
+        while (cacheEntry) {
+            const bool isPruneNeeded = m_heapMemoryUsageInBytes > m_heapLimitInBytes || !m_heapLimitInBytes
+                || m_discardableMemoryUsageInBytes > maxTotalSizeOfDiscardableEntries;
+            if (!isPruneNeeded)
+                break;
+
             // Cache is not used; Remove it.
             if (!cacheEntry->useCount())
                 removeFromCacheInternal(cacheEntry, &cacheEntriesToDelete);
@@ -327,11 +355,11 @@ bool ImageDecodingStore::lockCacheEntryInternal(ImageCacheEntry* cacheEntry, con
 template<class T, class U, class V>
 void ImageDecodingStore::insertCacheInternal(PassOwnPtr<T> cacheEntry, U* cacheMap, V* identifierMap)
 {
-    // Usage of discardable memory is not counted because we want to use more
-    // than the cache limit allows. Cache limit only applies to non-discardable
-    // objects.
-    if (!cacheEntry->isDiscardable())
-        incrementMemoryUsage(cacheEntry->memoryUsageInBytes());
+    const size_t cacheEntryBytes = cacheEntry->memoryUsageInBytes();
+    if (cacheEntry->isDiscardable())
+        m_discardableMemoryUsageInBytes += cacheEntryBytes;
+    else
+        m_heapMemoryUsageInBytes += cacheEntryBytes;
 
     // m_orderedCacheList is used to support LRU operations to reorder cache
     // entries quickly.
@@ -339,10 +367,11 @@ void ImageDecodingStore::insertCacheInternal(PassOwnPtr<T> cacheEntry, U* cacheM
 
     typename U::KeyType key = cacheEntry->cacheKey();
     typename V::AddResult result = identifierMap->add(cacheEntry->generator(), typename V::MappedType());
-    result.iterator->value.add(key);
+    result.storedValue->value.add(key);
     cacheMap->add(key, cacheEntry);
 
-    TRACE_COUNTER1("webkit", "ImageDecodingStoreMemoryUsageBytes", m_memoryUsageInBytes);
+    TRACE_COUNTER1("webkit", "ImageDecodingStoreDiscardableMemoryUsageBytes", m_discardableMemoryUsageInBytes);
+    TRACE_COUNTER1("webkit", "ImageDecodingStoreHeapMemoryUsageBytes", m_heapMemoryUsageInBytes);
     TRACE_COUNTER1("webkit", "ImageDecodingStoreNumOfImages", m_imageCacheMap.size());
     TRACE_COUNTER1("webkit", "ImageDecodingStoreNumOfDecoders", m_decoderCacheMap.size());
 }
@@ -350,8 +379,15 @@ void ImageDecodingStore::insertCacheInternal(PassOwnPtr<T> cacheEntry, U* cacheM
 template<class T, class U, class V>
 void ImageDecodingStore::removeFromCacheInternal(const T* cacheEntry, U* cacheMap, V* identifierMap, Vector<OwnPtr<CacheEntry> >* deletionList)
 {
-    if (!cacheEntry->isDiscardable())
-        decrementMemoryUsage(cacheEntry->memoryUsageInBytes());
+    const size_t cacheEntryBytes = cacheEntry->memoryUsageInBytes();
+    if (cacheEntry->isDiscardable()) {
+        ASSERT(m_discardableMemoryUsageInBytes >= cacheEntryBytes);
+        m_discardableMemoryUsageInBytes -= cacheEntryBytes;
+    } else {
+        ASSERT(m_heapMemoryUsageInBytes >= cacheEntryBytes);
+        m_heapMemoryUsageInBytes -= cacheEntryBytes;
+
+    }
 
     // Remove entry from identifier map.
     typename V::iterator iter = identifierMap->find(cacheEntry->generator());
@@ -363,7 +399,8 @@ void ImageDecodingStore::removeFromCacheInternal(const T* cacheEntry, U* cacheMa
     // Remove entry from cache map.
     deletionList->append(cacheMap->take(cacheEntry->cacheKey()));
 
-    TRACE_COUNTER1("webkit", "ImageDecodingStoreMemoryUsageBytes", m_memoryUsageInBytes);
+    TRACE_COUNTER1("webkit", "ImageDecodingStoreDiscardableMemoryUsageBytes", m_discardableMemoryUsageInBytes);
+    TRACE_COUNTER1("webkit", "ImageDecodingStoreHeapMemoryUsageBytes", m_heapMemoryUsageInBytes);
     TRACE_COUNTER1("webkit", "ImageDecodingStoreNumOfImages", m_imageCacheMap.size());
     TRACE_COUNTER1("webkit", "ImageDecodingStoreNumOfDecoders", m_decoderCacheMap.size());
 }

@@ -62,9 +62,9 @@ from webkitpy.layout_tests.port import config as port_config
 from webkitpy.layout_tests.port import driver
 from webkitpy.layout_tests.port import server_process
 from webkitpy.layout_tests.port.factory import PortFactory
-from webkitpy.layout_tests.servers import apache_http_server
-from webkitpy.layout_tests.servers import http_server
-from webkitpy.layout_tests.servers import websocket_server
+from webkitpy.layout_tests.servers import apache_http
+from webkitpy.layout_tests.servers import lighttpd
+from webkitpy.layout_tests.servers import pywebsocket
 
 _log = logging.getLogger(__name__)
 
@@ -100,6 +100,7 @@ class Port(object):
         ('retina', 'x86'),
 
         ('mountainlion', 'x86'),
+        ('mavericks', 'x86'),
         ('xp', 'x86'),
         ('win7', 'x86'),
         ('lucid', 'x86'),
@@ -110,13 +111,13 @@ class Port(object):
         )
 
     ALL_BASELINE_VARIANTS = [
-        'mac-mountainlion', 'mac-retina', 'mac-lion', 'mac-snowleopard',
+        'mac-mavericks', 'mac-mountainlion', 'mac-retina', 'mac-lion', 'mac-snowleopard',
         'win-win7', 'win-xp',
         'linux-x86_64', 'linux-x86',
     ]
 
     CONFIGURATION_SPECIFIER_MACROS = {
-        'mac': ['snowleopard', 'lion', 'retina', 'mountainlion'],
+        'mac': ['snowleopard', 'lion', 'retina', 'mountainlion', 'mavericks'],
         'win': ['xp', 'win7'],
         'linux': ['lucid'],
         'android': ['icecreamsandwich'],
@@ -431,10 +432,10 @@ class Port(object):
         return 'wdiff is not installed; please install it to generate word-by-word diffs.'
 
     def check_httpd(self):
-        if self._uses_apache():
-            httpd_path = self._path_to_apache()
+        if self.uses_apache():
+            httpd_path = self.path_to_apache()
         else:
-            httpd_path = self._path_to_lighttpd()
+            httpd_path = self.path_to_lighttpd()
 
         try:
             server_name = self._filesystem.basename(httpd_path)
@@ -684,6 +685,10 @@ class Port(object):
         for line in reftest_list_file.split('\n'):
             line = re.sub('#.+$', '', line)
             split_line = line.split()
+            if len(split_line) == 4:
+                # FIXME: Probably one of mozilla's extensions in the reftest.list format. Do we need to support this?
+                _log.warning("unsupported reftest.list line '%s' in %s" % (line, reftest_list_path))
+                continue
             if len(split_line) < 3:
                 continue
             expectation_type, test_file, ref_file = split_line
@@ -986,6 +991,10 @@ class Port(object):
         if self._dump_reader:
             self._filesystem.maybe_make_directory(self._dump_reader.crash_dumps_directory())
 
+    def num_workers(self, requested_num_workers):
+        """Returns the number of available workers (possibly less than the number requested)."""
+        return requested_num_workers
+
     def clean_up_test_run(self):
         """Perform port-specific work at the end of a test run."""
         if self._image_differ:
@@ -1082,16 +1091,16 @@ class Port(object):
         be the case when the tests aren't run on the host platform."""
         return False
 
-    def start_http_server(self, additional_dirs=None, number_of_servers=None):
+    def start_http_server(self, additional_dirs=None, number_of_drivers=None):
         """Start a web server. Raise an error if it can't start or is already running.
 
         Ports can stub this out if they don't need a web server to be running."""
         assert not self._http_server, 'Already running an http server.'
 
-        if self._uses_apache():
-            server = apache_http_server.LayoutTestApacheHttpd(self, self.results_directory(), additional_dirs=additional_dirs, number_of_servers=number_of_servers)
+        if self.uses_apache():
+            server = apache_http.ApacheHTTP(self, self.results_directory(), additional_dirs=additional_dirs, number_of_servers=(number_of_drivers * 4))
         else:
-            server = http_server.Lighttpd(self, self.results_directory(), additional_dirs=additional_dirs, number_of_servers=number_of_servers)
+            server = lighttpd.Lighttpd(self, self.results_directory(), additional_dirs=additional_dirs)
 
         server.start()
         self._http_server = server
@@ -1102,7 +1111,7 @@ class Port(object):
         Ports can stub this out if they don't need a websocket server to be running."""
         assert not self._websocket_server, 'Already running a websocket server.'
 
-        server = websocket_server.PyWebSocket(self, self.results_directory())
+        server = pywebsocket.PyWebSocket(self, self.results_directory())
         server.start()
         self._websocket_server = server
 
@@ -1202,6 +1211,7 @@ class Port(object):
     def _port_specific_expectations_files(self):
         paths = []
         paths.append(self.path_from_chromium_base('skia', 'skia_test_expectations.txt'))
+        paths.append(self.path_from_chromium_base('webkit', 'tools', 'layout_tests', 'test_expectations_w3c.txt'))
         paths.append(self._filesystem.join(self.layout_tests_dir(), 'NeverFixTests'))
         paths.append(self._filesystem.join(self.layout_tests_dir(), 'StaleTestExpectations'))
         paths.append(self._filesystem.join(self.layout_tests_dir(), 'SlowTests'))
@@ -1357,48 +1367,18 @@ class Port(object):
     def clobber_old_port_specific_results(self):
         pass
 
-    #
-    # PROTECTED ROUTINES
-    #
-    # The routines below should only be called by routines in this class
-    # or any of its subclasses.
-    #
-
-    def _uses_apache(self):
+    def uses_apache(self):
         return True
 
     # FIXME: This does not belong on the port object.
     @memoized
-    def _path_to_apache(self):
+    def path_to_apache(self):
         """Returns the full path to the apache binary.
 
         This is needed only by ports that use the apache_http_server module."""
-        raise NotImplementedError('Port._path_to_apache')
+        raise NotImplementedError('Port.path_to_apache')
 
-    # FIXME: This belongs on some platform abstraction instead of Port.
-    def _is_redhat_based(self):
-        return self._filesystem.exists('/etc/redhat-release')
-
-    def _is_debian_based(self):
-        return self._filesystem.exists('/etc/debian_version')
-
-    def _apache_version(self):
-        config = self._executive.run_command([self._path_to_apache(), '-v'])
-        return re.sub(r'(?:.|\n)*Server version: Apache/(\d+\.\d+)(?:.|\n)*', r'\1', config)
-
-    # We pass sys_platform into this method to make it easy to unit test.
-    def _apache_config_file_name_for_platform(self, sys_platform):
-        if sys_platform == 'cygwin':
-            return 'cygwin-httpd.conf'  # CYGWIN is the only platform to still use Apache 1.3.
-        if sys_platform.startswith('linux'):
-            if self._is_redhat_based():
-                return 'fedora-httpd-' + self._apache_version() + '.conf'
-            if self._is_debian_based():
-                return 'debian-httpd-' + self._apache_version() + '.conf'
-        # All platforms use apache2 except for CYGWIN (and Mac OS X Tiger and prior, which we no longer support).
-        return "apache2-httpd.conf"
-
-    def _path_to_apache_config_file(self):
+    def path_to_apache_config_file(self):
         """Returns the full path to the apache configuration file.
 
         If the WEBKIT_HTTP_SERVER_CONF_PATH environment variable is set, its
@@ -1413,6 +1393,55 @@ class Port(object):
 
         config_file_name = self._apache_config_file_name_for_platform(sys.platform)
         return self._filesystem.join(self.layout_tests_dir(), 'http', 'conf', config_file_name)
+
+    def path_to_lighttpd(self):
+        """Returns the path to the LigHTTPd binary.
+
+        This is needed only by ports that use the http_server.py module."""
+        raise NotImplementedError('Port._path_to_lighttpd')
+
+    def path_to_lighttpd_modules(self):
+        """Returns the path to the LigHTTPd modules directory.
+
+        This is needed only by ports that use the http_server.py module."""
+        raise NotImplementedError('Port._path_to_lighttpd_modules')
+
+    def path_to_lighttpd_php(self):
+        """Returns the path to the LigHTTPd PHP executable.
+
+        This is needed only by ports that use the http_server.py module."""
+        raise NotImplementedError('Port._path_to_lighttpd_php')
+
+
+    #
+    # PROTECTED ROUTINES
+    #
+    # The routines below should only be called by routines in this class
+    # or any of its subclasses.
+    #
+
+    # FIXME: This belongs on some platform abstraction instead of Port.
+    def _is_redhat_based(self):
+        return self._filesystem.exists('/etc/redhat-release')
+
+    def _is_debian_based(self):
+        return self._filesystem.exists('/etc/debian_version')
+
+    def _apache_version(self):
+        config = self._executive.run_command([self.path_to_apache(), '-v'])
+        return re.sub(r'(?:.|\n)*Server version: Apache/(\d+\.\d+)(?:.|\n)*', r'\1', config)
+
+    # We pass sys_platform into this method to make it easy to unit test.
+    def _apache_config_file_name_for_platform(self, sys_platform):
+        if sys_platform == 'cygwin':
+            return 'cygwin-httpd.conf'  # CYGWIN is the only platform to still use Apache 1.3.
+        if sys_platform.startswith('linux'):
+            if self._is_redhat_based():
+                return 'fedora-httpd-' + self._apache_version() + '.conf'
+            if self._is_debian_based():
+                return 'debian-httpd-' + self._apache_version() + '.conf'
+        # All platforms use apache2 except for CYGWIN (and Mac OS X Tiger and prior, which we no longer support).
+        return "apache2-httpd.conf"
 
     def _path_to_driver(self, configuration=None):
         """Returns the full path to the test driver."""
@@ -1435,24 +1464,6 @@ class Port(object):
 
         This is likely used only by diff_image()"""
         return self._build_path('image_diff')
-
-    def _path_to_lighttpd(self):
-        """Returns the path to the LigHTTPd binary.
-
-        This is needed only by ports that use the http_server.py module."""
-        raise NotImplementedError('Port._path_to_lighttpd')
-
-    def _path_to_lighttpd_modules(self):
-        """Returns the path to the LigHTTPd modules directory.
-
-        This is needed only by ports that use the http_server.py module."""
-        raise NotImplementedError('Port._path_to_lighttpd_modules')
-
-    def _path_to_lighttpd_php(self):
-        """Returns the path to the LigHTTPd PHP executable.
-
-        This is needed only by ports that use the http_server.py module."""
-        raise NotImplementedError('Port._path_to_lighttpd_php')
 
     @memoized
     def _path_to_wdiff(self):
@@ -1542,12 +1553,6 @@ class Port(object):
             VirtualTestSuite('threaded',
                              'transitions',
                              ['--enable-threaded-compositing']),
-            VirtualTestSuite('legacy-animations-engine',
-                             'animations',
-                             ['--disable-web-animations-css']),
-            VirtualTestSuite('legacy-animations-engine',
-                             'transitions',
-                             ['--disable-web-animations-css']),
             VirtualTestSuite('stable',
                              'webexposed',
                              ['--stable-release-mode']),
@@ -1571,6 +1576,12 @@ class Port(object):
             VirtualTestSuite('serviceworker',
                              'http/tests/serviceworker',
                              ['--enable-service-worker']),
+            VirtualTestSuite('targetedstylerecalc',
+                             'fast/css/invalidation',
+                             ['--enable-targeted-style-recalc']),
+            VirtualTestSuite('stable',
+                             'http/tests/websocket',
+                             ['--stable-release-mode']),
         ]
 
     @memoized

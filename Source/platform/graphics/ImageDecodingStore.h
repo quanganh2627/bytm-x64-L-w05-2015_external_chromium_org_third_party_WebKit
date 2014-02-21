@@ -92,6 +92,18 @@ public:
     static void initializeOnce();
     static void shutdown();
 
+    // Why do we need this?
+    // ImageDecodingStore is used in two code paths:
+    // 1. Android uses this to cache both images and decoders.
+    // 2. Skia discardable memory path has its own cache. We still want cache
+    //    decoders but not images because Skia will take care of it.
+    // Because of the two use cases we want to just disable image caching.
+    //
+    // FIXME: It is weird to have this behavior. We want to remove image
+    // caching from this class once the transition to Skia discardable memory
+    // is complete.
+    static void setImageCachingEnabled(bool);
+
     // Access a complete cached image object. A complete cached image object is
     // indexed by the origin (ImageFrameGenerator), scaled size and frame index
     // within the image file.
@@ -180,7 +192,7 @@ private:
         CacheEntry* m_next;
     };
 
-    class ImageCacheEntry : public CacheEntry {
+    class ImageCacheEntry FINAL : public CacheEntry {
     public:
         static PassOwnPtr<ImageCacheEntry> createAndUse(const ImageFrameGenerator* generator, PassOwnPtr<ScaledImageFragment> image)
         {
@@ -195,8 +207,8 @@ private:
 
         // FIXME: getSafeSize() returns size in bytes truncated to a 32-bits integer.
         //        Find a way to get the size in 64-bits.
-        virtual size_t memoryUsageInBytes() const { return cachedImage()->bitmap().getSafeSize(); }
-        virtual CacheType type() const { return TypeImage; }
+        virtual size_t memoryUsageInBytes() const OVERRIDE { return cachedImage()->bitmap().getSafeSize(); }
+        virtual CacheType type() const OVERRIDE { return TypeImage; }
 
         static ImageCacheKey makeCacheKey(const ImageFrameGenerator* generator, const SkISize& size, size_t index, size_t generation)
         {
@@ -210,7 +222,7 @@ private:
         OwnPtr<ScaledImageFragment> m_cachedImage;
     };
 
-    class DecoderCacheEntry : public CacheEntry {
+    class DecoderCacheEntry FINAL : public CacheEntry {
     public:
         static PassOwnPtr<DecoderCacheEntry> create(const ImageFrameGenerator* generator, PassOwnPtr<ImageDecoder> decoder, bool isDiscardable)
         {
@@ -224,8 +236,8 @@ private:
         {
         }
 
-        virtual size_t memoryUsageInBytes() const { return m_size.width() * m_size.height() * 4; }
-        virtual CacheType type() const { return TypeDecoder; }
+        virtual size_t memoryUsageInBytes() const OVERRIDE { return m_size.width() * m_size.height() * 4; }
+        virtual CacheType type() const OVERRIDE { return TypeDecoder; }
 
         static DecoderCacheKey makeCacheKey(const ImageFrameGenerator* generator, const SkISize& size)
         {
@@ -271,13 +283,6 @@ private:
     // Helper method to remove cache entry pointers from the LRU list.
     void removeFromCacheListInternal(const Vector<OwnPtr<CacheEntry> >& deletionList);
 
-    void incrementMemoryUsage(size_t size) { m_memoryUsageInBytes += size; }
-    void decrementMemoryUsage(size_t size)
-    {
-        ASSERT(m_memoryUsageInBytes >= size);
-        m_memoryUsageInBytes -= size;
-    }
-
     // A doubly linked list that maintains usage history of cache entries.
     // This is used for eviction of old entries.
     // Head of this list is the least recently used cache entry.
@@ -304,16 +309,18 @@ private:
     typedef HashMap<const ImageFrameGenerator*, DecoderCacheKeySet> DecoderCacheKeyMap;
     DecoderCacheKeyMap m_decoderCacheKeyMap;
 
-    size_t m_cacheLimitInBytes;
-    size_t m_memoryUsageInBytes;
+    size_t m_heapLimitInBytes;
+    size_t m_heapMemoryUsageInBytes;
+    size_t m_discardableMemoryUsageInBytes;
 
     // Protect concurrent access to these members:
     //   m_orderedCacheList
     //   m_imageCacheMap, m_decoderCacheMap and all CacheEntrys stored in it
     //   m_imageCacheKeyMap
     //   m_decoderCacheKeyMap
-    //   m_cacheLimitInBytes
-    //   m_memoryUsageInBytes
+    //   m_heapLimitInBytes
+    //   m_heapMemoryUsageInBytes
+    //   m_discardableMemoryUsageInBytes
     // This mutex also protects calls to underlying skBitmap's
     // lockPixels()/unlockPixels() as they are not threadsafe.
     Mutex m_mutex;

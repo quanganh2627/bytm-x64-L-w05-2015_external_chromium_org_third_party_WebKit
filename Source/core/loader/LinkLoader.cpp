@@ -36,12 +36,24 @@
 #include "core/dom/Document.h"
 #include "core/fetch/FetchRequest.h"
 #include "core/fetch/ResourceFetcher.h"
+#include "core/frame/Settings.h"
 #include "core/html/LinkRelAttribute.h"
 #include "core/loader/PrerenderHandle.h"
-#include "core/page/Settings.h"
+#include "platform/Prerender.h"
 #include "platform/network/DNS.h"
 
 namespace WebCore {
+
+static unsigned prerenderRelTypesFromRelAttribute(const LinkRelAttribute& relAttribute)
+{
+    unsigned result = 0;
+    if (relAttribute.isLinkPrerender())
+        result |= PrerenderRelTypePrerender;
+    if (relAttribute.isLinkNext())
+        result |= PrerenderRelTypeNext;
+
+    return result;
+}
 
 LinkLoader::LinkLoader(LinkLoaderClient* client)
     : m_client(client)
@@ -52,8 +64,6 @@ LinkLoader::LinkLoader(LinkLoaderClient* client)
 
 LinkLoader::~LinkLoader()
 {
-    if (m_cachedLinkResource)
-        m_cachedLinkResource->removeClient(this);
 }
 
 void LinkLoader::linkLoadTimerFired(Timer<LinkLoader>* timer)
@@ -70,15 +80,14 @@ void LinkLoader::linkLoadingErrorTimerFired(Timer<LinkLoader>* timer)
 
 void LinkLoader::notifyFinished(Resource* resource)
 {
-    ASSERT_UNUSED(resource, m_cachedLinkResource.get() == resource);
+    ASSERT(this->resource() == resource);
 
-    if (m_cachedLinkResource->errorOccurred())
+    if (resource->errorOccurred())
         m_linkLoadingErrorTimer.startOneShot(0);
     else
         m_linkLoadTimer.startOneShot(0);
 
-    m_cachedLinkResource->removeClient(this);
-    m_cachedLinkResource = 0;
+    clearResource();
 }
 
 void LinkLoader::didStartPrerender()
@@ -101,7 +110,7 @@ void LinkLoader::didSendDOMContentLoadedForPrerender()
     m_client->didSendDOMContentLoadedForLinkPrerender();
 }
 
-bool LinkLoader::loadLink(const LinkRelAttribute& relAttribute, const String& type, const KURL& href, Document& document)
+bool LinkLoader::loadLink(const LinkRelAttribute& relAttribute, const AtomicString& crossOriginMode, const String& type, const KURL& href, Document& document)
 {
     if (relAttribute.isDNSPrefetch()) {
         Settings* settings = document.settings();
@@ -117,22 +126,19 @@ bool LinkLoader::loadLink(const LinkRelAttribute& relAttribute, const String& ty
             return false;
         Resource::Type type = relAttribute.isLinkSubresource() ?  Resource::LinkSubresource : Resource::LinkPrefetch;
         FetchRequest linkRequest(ResourceRequest(document.completeURL(href)), FetchInitiatorTypeNames::link);
-        if (m_cachedLinkResource) {
-            m_cachedLinkResource->removeClient(this);
-            m_cachedLinkResource = 0;
-        }
-        m_cachedLinkResource = document.fetcher()->fetchLinkResource(type, linkRequest);
-        if (m_cachedLinkResource)
-            m_cachedLinkResource->addClient(this);
+        if (!crossOriginMode.isNull())
+            linkRequest.setCrossOriginAccessControl(document.securityOrigin(), crossOriginMode);
+        setResource(document.fetcher()->fetchLinkResource(type, linkRequest));
     }
 
-    if (relAttribute.isLinkPrerender()) {
+    if (const unsigned prerenderRelTypes = prerenderRelTypesFromRelAttribute(relAttribute)) {
         if (!m_prerender) {
-            m_prerender = PrerenderHandle::create(document, this, href);
+            m_prerender = PrerenderHandle::create(document, this, href, prerenderRelTypes);
         } else if (m_prerender->url() != href) {
             m_prerender->cancel();
-            m_prerender = PrerenderHandle::create(document, this, href);
+            m_prerender = PrerenderHandle::create(document, this, href, prerenderRelTypes);
         }
+        // TODO(gavinp): Handle changes to rel types of existing prerenders.
     } else if (m_prerender) {
         m_prerender->cancel();
         m_prerender.clear();

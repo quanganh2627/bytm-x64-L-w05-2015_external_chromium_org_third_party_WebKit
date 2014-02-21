@@ -66,11 +66,6 @@ const AtomicString& MonthInputType::formControlType() const
     return InputTypeNames::month;
 }
 
-DateComponents::Type MonthInputType::dateType() const
-{
-    return DateComponents::Month;
-}
-
 double MonthInputType::valueAsDate() const
 {
     DateComponents date;
@@ -108,11 +103,7 @@ StepRange MonthInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
     DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (monthDefaultStep, monthDefaultStepBase, monthStepScaleFactor, StepRange::ParsedStepValueShouldBeInteger));
 
-    const Decimal stepBase = findStepBase(Decimal::fromDouble(monthDefaultStepBase));
-    const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumMonth()));
-    const Decimal maximum = parseToNumber(element().fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumMonth()));
-    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
-    return StepRange(stepBase, minimum, maximum, step, stepDescription);
+    return InputType::createStepRange(anyStepHandling, Decimal::fromDouble(monthDefaultStepBase), Decimal::fromDouble(DateComponents::minimumMonth()), Decimal::fromDouble(DateComponents::maximumMonth()), stepDescription);
 }
 
 Decimal MonthInputType::parseToNumber(const String& src, const Decimal& defaultValue) const

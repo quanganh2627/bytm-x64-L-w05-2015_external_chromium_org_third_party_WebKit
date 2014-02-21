@@ -79,6 +79,7 @@ WebInspector.ObjectPropertiesSection.prototype = {
         /**
          * @param {?Array.<!WebInspector.RemoteObjectProperty>} properties
          * @param {?Array.<!WebInspector.RemoteObjectProperty>} internalProperties
+         * @this {WebInspector.ObjectPropertiesSection}
          */
         function callback(properties, internalProperties)
         {
@@ -160,11 +161,12 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         var propertyValue = /** @type {!WebInspector.RemoteObject} */ (this.property.value);
         console.assert(propertyValue);
-        return WebInspector.ObjectPropertyTreeElement.populate(this, propertyValue);
+        WebInspector.ObjectPropertyTreeElement.populate(this, propertyValue);
     },
 
     /**
      * @override
+     * @return {boolean}
      */
     ondblclick: function(event)
     {
@@ -283,6 +285,9 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
             this.parent.shouldRefreshChildren = true;
     },
 
+    /**
+     * @return {boolean}
+     */
     renderPromptAsBlock: function()
     {
         return false;
@@ -290,12 +295,16 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
 
     /**
      * @param {!Event=} event
+     * @return {!Array.<!Element|undefined>}
      */
     elementAndValueToEdit: function(event)
     {
         return [this.valueElement, (typeof this.valueElement._originalTextContent === "string") ? this.valueElement._originalTextContent : undefined];
     },
 
+    /**
+     * @param {!Event=} event
+     */
     startEditing: function(event)
     {
         var elementAndValueToEdit = this.elementAndValueToEdit(event);
@@ -318,6 +327,9 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
 
         this._prompt = new WebInspector.ObjectPropertyPrompt(this.editingCommitted.bind(this, null, elementToEdit.textContent, context.previousContent, context), this.editingCancelled.bind(this, null, context), this.renderPromptAsBlock());
 
+        /**
+         * @this {WebInspector.ObjectPropertyTreeElement}
+         */
         function blurListener()
         {
             this.editingCommitted(null, elementToEdit.textContent, context.previousContent, context);
@@ -355,8 +367,10 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
 
     editingCommitted: function(element, userInput, previousContent, context)
     {
-        if (userInput === previousContent)
-            return this.editingCancelled(element, context); // nothing changed, so cancel
+        if (userInput === previousContent) {
+            this.editingCancelled(element, context); // nothing changed, so cancel
+            return;
+        }
 
         this.editingEnded(context);
         this.applyExpression(userInput, true);
@@ -366,11 +380,13 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         if (isEnterKey(event)) {
             event.consume(true);
-            return this.editingCommitted(null, context.elementToEdit.textContent, context.previousContent, context);
+            this.editingCommitted(null, context.elementToEdit.textContent, context.previousContent, context);
+            return;
         }
         if (event.keyIdentifier === "U+001B") { // Esc
             event.consume();
-            return this.editingCancelled(null, context);
+            this.editingCancelled(null, context);
+            return;
         }
     },
 
@@ -378,6 +394,11 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         expression = expression.trim();
         var expressionLength = expression.length;
+
+        /**
+         * @param {?Protocol.Error} error
+         * @this {WebInspector.ObjectPropertyTreeElement}
+         */
         function callback(error)
         {
             if (!updateInterface)
@@ -397,6 +418,9 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         this.property.parentObject.setPropertyValue(this.property.name, expression.trim(), callback.bind(this));
     },
 
+    /**
+     * @return {string|undefined}
+     */
     propertyPath: function()
     {
         if ("_cachedPropertyPath" in this)
@@ -580,6 +604,7 @@ WebInspector.FunctionScopeMainTreeElement.prototype = {
         /**
          * @param {?Protocol.Error} error
          * @param {!DebuggerAgent.FunctionDetails} response
+         * @this {WebInspector.FunctionScopeMainTreeElement}
          */
         function didGetDetails(error, response)
         {
@@ -661,7 +686,7 @@ WebInspector.ScopeTreeElement = function(title, subtitle, remoteObject)
 WebInspector.ScopeTreeElement.prototype = {
     onpopulate: function()
     {
-        return WebInspector.ObjectPropertyTreeElement.populate(this, this._remoteObject);
+        WebInspector.ObjectPropertyTreeElement.populate(this, this._remoteObject);
     },
 
     __proto__: TreeElement.prototype
@@ -706,6 +731,7 @@ WebInspector.ArrayGroupingTreeElement._populateArray = function(treeElement, obj
  * @param {number} fromIndex
  * @param {number} toIndex
  * @param {boolean} topLevel
+ * @this {WebInspector.ArrayGroupingTreeElement}
  */
 WebInspector.ArrayGroupingTreeElement._populateRanges = function(treeElement, object, fromIndex, toIndex, topLevel)
 {
@@ -721,6 +747,10 @@ WebInspector.ArrayGroupingTreeElement._populateRanges = function(treeElement, ob
     function packRanges(fromIndex, toIndex, bucketThreshold, sparseIterationThreshold)
     {
         var ownPropertyNames = null;
+
+        /**
+         * @this {Object}
+         */
         function doLoop(iterationCallback)
         {
             if (toIndex - fromIndex < sparseIterationThreshold) {
@@ -800,6 +830,7 @@ WebInspector.ArrayGroupingTreeElement._populateRanges = function(treeElement, ob
  * @param {!WebInspector.RemoteObject} object
  * @param {number} fromIndex
  * @param {number} toIndex
+ * @this {WebInspector.ArrayGroupingTreeElement}
  */
 WebInspector.ArrayGroupingTreeElement._populateAsFragment = function(treeElement, object, fromIndex, toIndex)
 {
@@ -862,6 +893,7 @@ WebInspector.ArrayGroupingTreeElement._populateAsFragment = function(treeElement
 /**
  * @param {!TreeElement|!TreeOutline} treeElement
  * @param {!WebInspector.RemoteObject} object
+ * @this {WebInspector.ArrayGroupingTreeElement}
  */
 WebInspector.ArrayGroupingTreeElement._populateNonIndexProperties = function(treeElement, object)
 {
@@ -887,6 +919,7 @@ WebInspector.ArrayGroupingTreeElement._populateNonIndexProperties = function(tre
     /**
      * @param {?WebInspector.RemoteObject} arrayFragment
      * @param {boolean=} wasThrown
+     * @this {WebInspector.ArrayGroupingTreeElement}
      */
     function processObjectFragment(arrayFragment, wasThrown)
     {

@@ -29,6 +29,7 @@
 #include "HTMLNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/dom/Element.h"
+#include "core/dom/ElementTraversal.h"
 #include "core/editing/TextIterator.h"
 #include "core/editing/VisibleUnits.h"
 #include "core/editing/htmlediting.h"
@@ -46,13 +47,6 @@ static Node* enclosingListChild(Node* node, Node* listNode)
     return listChild;
 }
 
-PassRefPtr<HTMLElement> InsertListCommand::insertList(Document& document, Type type)
-{
-    RefPtr<InsertListCommand> insertCommand = create(document, type);
-    insertCommand->apply();
-    return insertCommand->m_listElement;
-}
-
 HTMLElement* InsertListCommand::fixOrphanedListChild(Node* node)
 {
     RefPtr<HTMLElement> listElement = createUnorderedListElement(document());
@@ -66,14 +60,18 @@ HTMLElement* InsertListCommand::fixOrphanedListChild(Node* node)
 PassRefPtr<HTMLElement> InsertListCommand::mergeWithNeighboringLists(PassRefPtr<HTMLElement> passedList)
 {
     RefPtr<HTMLElement> list = passedList;
-    Element* previousList = list->previousElementSibling();
+    Element* previousList = ElementTraversal::previousSibling(*list);
     if (canMergeLists(previousList, list.get()))
         mergeIdenticalElements(previousList, list);
 
-    if (!list || !list->nextElementSibling() || !list->nextElementSibling()->isHTMLElement())
+    if (!list)
+        return 0;
+
+    Element* nextSibling = ElementTraversal::nextSibling(*list);
+    if (!nextSibling || !nextSibling->isHTMLElement())
         return list.release();
 
-    RefPtr<HTMLElement> nextList = toHTMLElement(list->nextElementSibling());
+    RefPtr<HTMLElement> nextList = toHTMLElement(nextSibling);
     if (canMergeLists(list.get(), nextList.get())) {
         mergeIdenticalElements(list, nextList);
         return nextList.release();
@@ -134,6 +132,8 @@ void InsertListCommand::doApply()
         VisiblePosition startOfLastParagraph = startOfParagraph(endOfSelection, CanSkipOverEditingBoundary);
 
         if (startOfParagraph(startOfSelection, CanSkipOverEditingBoundary) != startOfLastParagraph) {
+            RefPtr<ContainerNode> scope;
+            int indexForEndOfSelection = indexForVisiblePosition(endOfSelection, scope);
             bool forceCreateList = !selectionHasListOfType(selection, listTag);
 
             RefPtr<Range> currentSelection = endingSelection().firstRange();
@@ -153,8 +153,6 @@ void InsertListCommand::doApply()
                 // FIXME: This is an inefficient way to keep selection alive because indexForVisiblePosition walks from
                 // the beginning of the document to the endOfSelection everytime this code is executed.
                 // But not using index is hard because there are so many ways we can lose selection inside doApplyForSingleParagraph.
-                RefPtr<ContainerNode> scope;
-                int indexForEndOfSelection = indexForVisiblePosition(endOfSelection, scope);
                 doApplyForSingleParagraph(forceCreateList, listTag, currentSelection.get());
                 if (endOfSelection.isNull() || endOfSelection.isOrphan() || startOfLastParagraph.isNull() || startOfLastParagraph.isOrphan()) {
                     endOfSelection = visiblePositionForIndex(indexForEndOfSelection, scope.get());
@@ -178,7 +176,11 @@ void InsertListCommand::doApply()
             setEndingSelection(endOfSelection);
             doApplyForSingleParagraph(forceCreateList, listTag, currentSelection.get());
             // Fetch the end of the selection, for the reason mentioned above.
-            endOfSelection = endingSelection().visibleEnd();
+            if (endOfSelection.isNull() || endOfSelection.isOrphan()) {
+                endOfSelection = visiblePositionForIndex(indexForEndOfSelection, scope.get());
+                if (endOfSelection.isNull())
+                    return;
+            }
             setEndingSelection(VisibleSelection(startOfSelection, endOfSelection, endingSelection().isDirectional()));
             return;
         }

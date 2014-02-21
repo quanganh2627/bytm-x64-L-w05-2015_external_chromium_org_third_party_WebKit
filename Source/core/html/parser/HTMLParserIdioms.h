@@ -26,10 +26,13 @@
 #define HTMLParserIdioms_h
 
 #include "core/dom/QualifiedName.h"
-#include "core/html/parser/HTMLIdentifier.h"
 #include "platform/Decimal.h"
 #include "wtf/Forward.h"
 #include "wtf/text/WTFString.h"
+
+namespace WTF {
+class TextEncoding;
+}
 
 namespace WebCore {
 
@@ -61,6 +64,10 @@ bool parseHTMLInteger(const String&, int&);
 
 // http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-non-negative-integers
 bool parseHTMLNonNegativeInteger(const String&, unsigned int&);
+
+typedef Vector<pair<String, String> > HTMLAttributeList;
+// The returned encoding might not be valid.
+WTF::TextEncoding encodingFromMetaAttributes(const HTMLAttributeList&);
 
 // Inline implementations of some of the functions declared above.
 
@@ -98,15 +105,31 @@ inline bool isNotHTMLSpace(CharType character)
 }
 
 bool threadSafeMatch(const QualifiedName&, const QualifiedName&);
-bool threadSafeMatch(const HTMLIdentifier&, const QualifiedName&);
-inline bool threadSafeHTMLNamesMatch(const HTMLIdentifier& tagName, const QualifiedName& qName)
+bool threadSafeMatch(const String&, const QualifiedName&);
+
+StringImpl* findStringIfStatic(const UChar* characters, unsigned length);
+
+enum CharacterWidth {
+    Likely8Bit,
+    Force8Bit,
+    Force16Bit
+};
+
+template<size_t inlineCapacity>
+static String attemptStaticStringCreation(const Vector<UChar, inlineCapacity>& vector, CharacterWidth width)
 {
-    // When the QualifiedName is known to HTMLIdentifier,
-    // all we have to do is a pointer compare.
-    ASSERT(HTMLIdentifier::isKnown(qName.localName().impl()));
-    return tagName.asStringImpl() == qName.localName().impl();
+    String string(findStringIfStatic(vector.data(), vector.size()));
+    if (string.impl())
+        return string;
+    if (width == Likely8Bit)
+        string = StringImpl::create8BitIfPossible(vector);
+    else if (width == Force8Bit)
+        string = String::make8BitFrom16BitSource(vector);
+    else
+        string = String(vector);
+
+    return string;
 }
 
 }
-
 #endif

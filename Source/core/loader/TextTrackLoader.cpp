@@ -49,8 +49,6 @@ TextTrackLoader::TextTrackLoader(TextTrackLoaderClient& client, Document& docume
 
 TextTrackLoader::~TextTrackLoader()
 {
-    if (m_resource)
-        m_resource->removeClient(this);
 }
 
 void TextTrackLoader::cueLoadTimerFired(Timer<TextTrackLoader>* timer)
@@ -68,15 +66,12 @@ void TextTrackLoader::cueLoadTimerFired(Timer<TextTrackLoader>* timer)
 
 void TextTrackLoader::cancelLoad()
 {
-    if (m_resource) {
-        m_resource->removeClient(this);
-        m_resource = 0;
-    }
+    clearResource();
 }
 
 void TextTrackLoader::dataReceived(Resource* resource, const char* data, int length)
 {
-    ASSERT(m_resource == resource);
+    ASSERT(this->resource() == resource);
 
     if (m_state == Failed)
         return;
@@ -87,24 +82,16 @@ void TextTrackLoader::dataReceived(Resource* resource, const char* data, int len
     m_cueParser->parseBytes(data, length);
 }
 
-void TextTrackLoader::corsPolicyPreventedLoad()
+void TextTrackLoader::corsPolicyPreventedLoad(SecurityOrigin* securityOrigin, const KURL& url)
 {
-    DEFINE_STATIC_LOCAL(String, consoleMessage, ("Cross-origin text track load denied by Cross-Origin Resource Sharing policy."));
+    String consoleMessage("Text track from origin '" + SecurityOrigin::create(url)->toString() + "' has been blocked from loading: Not at same origin as the document, and parent of track element does not have a 'crossorigin' attribute. Origin '" + securityOrigin->toString() + "' is therefore not allowed access.");
     m_document.addConsoleMessage(SecurityMessageSource, ErrorMessageLevel, consoleMessage);
     m_state = Failed;
 }
 
 void TextTrackLoader::notifyFinished(Resource* resource)
 {
-    ASSERT(m_resource == resource);
-
-    if (!m_crossOriginMode.isNull()
-        && !m_document.securityOrigin()->canRequest(resource->response().url())
-        && !resource->passesAccessControlCheck(m_document.securityOrigin())) {
-
-        corsPolicyPreventedLoad();
-    }
-
+    ASSERT(this->resource() == resource);
     if (m_state != Failed)
         m_state = resource->errorOccurred() ? Failed : Finished;
 
@@ -117,30 +104,23 @@ void TextTrackLoader::notifyFinished(Resource* resource)
     cancelLoad();
 }
 
-bool TextTrackLoader::load(const KURL& url, const String& crossOriginMode)
+bool TextTrackLoader::load(const KURL& url, const AtomicString& crossOriginMode)
 {
     cancelLoad();
 
     FetchRequest cueRequest(ResourceRequest(m_document.completeURL(url)), FetchInitiatorTypeNames::texttrack);
 
     if (!crossOriginMode.isNull()) {
-        m_crossOriginMode = crossOriginMode;
-        StoredCredentials allowCredentials = equalIgnoringCase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-        updateRequestForAccessControl(cueRequest.mutableResourceRequest(), m_document.securityOrigin(), allowCredentials);
-    } else {
-        // Cross-origin resources that are not suitably CORS-enabled may not load.
-        if (!m_document.securityOrigin()->canRequest(url)) {
-            corsPolicyPreventedLoad();
-            return false;
-        }
+        cueRequest.setCrossOriginAccessControl(m_document.securityOrigin(), crossOriginMode);
+    } else if (!m_document.securityOrigin()->canRequest(url)) {
+        // Text track elements without 'crossorigin' set on the parent are "No CORS"; report error if not same-origin.
+        corsPolicyPreventedLoad(m_document.securityOrigin(), url);
+        return false;
     }
 
     ResourceFetcher* fetcher = m_document.fetcher();
-    m_resource = fetcher->fetchRawResource(cueRequest);
-    if (!m_resource)
-        return false;
-    m_resource->addClient(this);
-    return true;
+    setResource(fetcher->fetchRawResource(cueRequest));
+    return resource();
 }
 
 void TextTrackLoader::newCuesParsed()

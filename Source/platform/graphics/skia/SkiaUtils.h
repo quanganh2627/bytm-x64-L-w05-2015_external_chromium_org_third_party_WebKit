@@ -73,12 +73,10 @@ inline SkRect WebCoreFloatRectToSKRect(const FloatRect& rect)
         SkFloatToScalar(rect.maxX()), SkFloatToScalar(rect.maxY()));
 }
 
-// Computes the smallest rectangle that, which when drawn to the given canvas,
-// will cover the same area as the source rectangle. It will clip to the canvas'
-// clip, doing the necessary coordinate transforms.
-//
-// srcRect and destRect can be the same.
-void ClipRectToCanvas(const GraphicsContext*, const SkRect& srcRect, SkRect* destRect);
+inline bool WebCoreFloatNearlyEqual(float a, float b)
+{
+    return SkScalarNearlyEqual(WebCoreFloatToSkScalar(a), WebCoreFloatToSkScalar(b));
+}
 
 // Determine if a given WebKit point is contained in a path
 bool PLATFORM_EXPORT SkPathContainsPoint(const SkPath&, const FloatPoint&, SkPath::FillType);

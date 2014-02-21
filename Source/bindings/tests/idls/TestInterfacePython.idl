@@ -32,12 +32,22 @@
     ActiveDOMObject,
     Conditional=CONDITION,
     Custom=LegacyCallAsFunction|ToV8,
-    GenerateVisitDOMWrapper=ownerNode,
     ImplementedAs=TestInterfacePythonImplementation,
     RuntimeEnabled=FeatureName,
+    SetWrapperReferenceTo(ReferencedType referencedName),
+    StrictTypeChecking,
 ] interface TestInterfacePython : TestInterfaceEmpty {
     // members needed to test [ImplementedAs], as this affect attribute
-    // configuration and method configuration
+    // configuration and method configuration, and [StrictTypeChecking]
+    const unsigned long UNSIGNED_LONG = 0;
+    attribute TestInterfacePython testInterfacePythonAttribute; // Self-referential interface type with [ImplementedAs]
+    attribute TestImplementedAsConstructor testImplementedAsConstructorAttribute;
+    static attribute DOMString staticStringAttribute;
+    void voidMethodTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg);
     [PerWorldBindings] attribute DOMString perWorldBindingsStringAttribute;
     [PerWorldBindings] void voidMethod();
 };
+
+TestInterfacePython implements TestImplements;
+TestInterfacePython implements TestImplements2;
+TestInterfacePython implements TestImplements3;

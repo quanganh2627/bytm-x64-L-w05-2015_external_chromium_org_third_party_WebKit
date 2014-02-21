@@ -39,7 +39,7 @@ class DOMFileSystemBase;
 class FileCallback;
 class FileWriterCallback;
 
-class FileEntry : public Entry {
+class FileEntry FINAL : public Entry {
 public:
     static PassRefPtr<FileEntry> create(PassRefPtr<DOMFileSystemBase> fileSystem, const String& fullPath)
     {
@@ -49,11 +49,13 @@ public:
     void createWriter(PassOwnPtr<FileWriterCallback>, PassOwnPtr<ErrorCallback> = nullptr);
     void file(PassOwnPtr<FileCallback>, PassOwnPtr<ErrorCallback> = nullptr);
 
-    virtual bool isFile() const { return true; }
+    virtual bool isFile() const OVERRIDE { return true; }
 
 private:
     FileEntry(PassRefPtr<DOMFileSystemBase>, const String& fullPath);
 };
+
+DEFINE_TYPE_CASTS(FileEntry, Entry, entry, entry->isFile(), entry.isFile());
 
 } // namespace
 

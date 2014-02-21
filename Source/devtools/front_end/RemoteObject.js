@@ -185,6 +185,10 @@ WebInspector.RemoteObject.prototype = {
      */
     getProperty: function(propertyPath, callback)
     {
+        /**
+         * @param {string} arrayStr
+         * @this {Object}
+         */
         function remoteFunction(arrayStr)
         {
             var result = this;
@@ -259,6 +263,7 @@ WebInspector.RemoteObject.prototype = {
          * @param {?Protocol.Error} error
          * @param {!RuntimeAgent.RemoteObject} result
          * @param {boolean=} wasThrown
+         * @this {WebInspector.RemoteObject}
          */
         function evaluatedCallback(error, result, wasThrown)
         {
@@ -521,6 +526,7 @@ WebInspector.ScopeRemoteObject.prototype = {
         /**
          * @param {?Array.<!WebInspector.RemoteObjectProperty>} properties
          * @param {?Array.<!WebInspector.RemoteObjectProperty>} internalProperties
+         * @this {WebInspector.ScopeRemoteObject}
          */
         function wrappedCallback(properties, internalProperties)
         {
@@ -558,6 +564,7 @@ WebInspector.ScopeRemoteObject.prototype = {
 
         /**
          * @param {?Protocol.Error} error
+         * @this {WebInspector.ScopeRemoteObject}
          */
         function setVariableValueCallback(error)
         {
@@ -622,9 +629,12 @@ WebInspector.RemoteObjectProperty = function(name, value, descriptor)
 }
 
 WebInspector.RemoteObjectProperty.prototype = {
+    /**
+     * @return {boolean}
+     */
     isAccessorProperty: function()
     {
-        return this.getter || this.setter;
+        return !!(this.getter || this.setter);
     }
 };
 
@@ -801,6 +811,10 @@ WebInspector.LocalJSONObject.prototype = {
             return [];
         var value = /** @type {!Object} */ (this._value);
 
+        /**
+         * @param {string} propName
+         * @this {WebInspector.LocalJSONObject}
+         */
         function buildProperty(propName)
         {
             return new WebInspector.RemoteObjectProperty(propName, new WebInspector.LocalJSONObject(this._value[propName]));
@@ -867,5 +881,7 @@ WebInspector.LocalJSONObject.prototype = {
         }
 
         callback(result);
-    }
+    },
+
+    __proto__: WebInspector.RemoteObject.prototype
 }

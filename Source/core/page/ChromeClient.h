@@ -27,13 +27,13 @@
 #include "core/loader/FrameLoader.h"
 #include "core/loader/NavigationPolicy.h"
 #include "core/frame/ConsoleTypes.h"
-#include "core/page/FocusDirection.h"
-#include "core/platform/PopupMenuClient.h"
+#include "core/page/FocusType.h"
 #include "core/rendering/RenderEmbeddedObject.h"
 #include "core/rendering/style/RenderStyleConstants.h"
 #include "platform/Cursor.h"
 #include "platform/HostWindow.h"
 #include "platform/PopupMenu.h"
+#include "platform/PopupMenuClient.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/scroll/ScrollTypes.h"
 #include "wtf/Forward.h"
@@ -57,8 +57,6 @@ class Element;
 class FileChooser;
 class FloatRect;
 class Frame;
-class Geolocation;
-class GraphicsContext3D;
 class GraphicsLayer;
 class GraphicsLayerFactory;
 class HitTestResult;
@@ -69,7 +67,6 @@ class Page;
 class PagePopup;
 class PagePopupClient;
 class PagePopupDriver;
-class PopupContainer;
 class PopupMenuClient;
 class SecurityOrigin;
 class Widget;
@@ -90,10 +87,9 @@ public:
     virtual FloatRect pageRect() = 0;
 
     virtual void focus() = 0;
-    virtual void unfocus() = 0;
 
-    virtual bool canTakeFocus(FocusDirection) = 0;
-    virtual void takeFocus(FocusDirection) = 0;
+    virtual bool canTakeFocus(FocusType) = 0;
+    virtual void takeFocus(FocusType) = 0;
 
     virtual void focusedNodeChanged(Node*) = 0;
 
@@ -145,12 +141,13 @@ public:
     virtual void invalidateContentsAndRootView(const IntRect&) = 0;
     virtual void invalidateContentsForSlowScroll(const IntRect&) = 0;
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
-    virtual IntPoint screenToRootView(const IntPoint&) const = 0;
     virtual IntRect rootViewToScreen(const IntRect&) const = 0;
     virtual blink::WebScreenInfo screenInfo() const = 0;
     virtual void setCursor(const Cursor&) = 0;
     virtual void scheduleAnimation() = 0;
     // End methods used by HostWindow.
+
+    virtual bool isCompositorFramePending() const = 0;
 
     virtual void dispatchViewportPropertiesDidChange(const ViewportDescription&) const { }
 
@@ -179,6 +176,8 @@ public:
     //    ENABLE(INPUT_MULTIPLE_FIELDS_UI)
     virtual PassRefPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&) = 0;
 
+    virtual void openTextDataListChooser(HTMLInputElement&) = 0;
+
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
 
     // Asychronous request to enumerate all files in a directory chosen by the user.
@@ -193,12 +192,6 @@ public:
 
     // Pass 0 as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) = 0;
-    // Sets a flag to specify that the view needs to be updated, so we need
-    // to do an eager layout before the drawing.
-    virtual void scheduleCompositingLayerFlush() = 0;
-    // Returns whether or not the client can render the composited layer,
-    // regardless of the settings.
-    virtual bool allowsAcceleratedCompositing() const { return true; }
 
     enum CompositingTrigger {
         ThreeDTransformTrigger = 1 << 0,
@@ -225,10 +218,6 @@ public:
     // Checks if there is an opened popup, called by RenderMenuList::showPopup().
     virtual bool hasOpenedPopup() const = 0;
     virtual PassRefPtr<PopupMenu> createPopupMenu(Frame&, PopupMenuClient*) const = 0;
-    // Creates a PagePopup object, and shows it beside originBoundsInRootView.
-    // The return value can be 0.
-    virtual PagePopup* openPagePopup(PagePopupClient*, const IntRect& originBoundsInRootView) = 0;
-    virtual void closePagePopup(PagePopup*) = 0;
     // For testing.
     virtual void setPagePopupDriver(PagePopupDriver*) = 0;
     virtual void resetPagePopupDriver() = 0;
@@ -254,11 +243,9 @@ public:
 
     virtual bool requestPointerLock() { return false; }
     virtual void requestPointerUnlock() { }
-    virtual bool isPointerLocked() { return false; }
 
     virtual FloatSize minimumWindowSize() const { return FloatSize(100, 100); };
 
-    virtual bool isEmptyChromeClient() const { return false; }
     virtual bool isChromeClientImpl() const { return false; }
 
     virtual void didAssociateFormControls(const Vector<RefPtr<Element> >&) { };
@@ -266,19 +253,13 @@ public:
     virtual void didEndEditingOnTextField(HTMLInputElement&) { }
     virtual void handleKeyboardEventOnTextField(HTMLInputElement&, KeyboardEvent&) { }
 
+    // FIXME: Remove this method once we have input routing in the browser
+    // process. See http://crbug.com/339659.
+    virtual void forwardInputEvent(WebCore::Document*, WebCore::Event*) { }
+
     // Input mehtod editor related functions.
     virtual void didCancelCompositionOnSelectionChange() { }
     virtual void willSetInputMethodState() { }
-
-    // Notifies the client of a new popup widget.  The client should place
-    // and size the widget with the given bounds, relative to the screen.
-    // If handleExternal is true, then drawing and input handling for the
-    // popup will be handled by the external embedder.
-    virtual void popupOpened(PopupContainer* popupContainer, const IntRect& bounds,
-                             bool handleExternal) = 0;
-
-    // Notifies the client a popup was closed.
-    virtual void popupClosed(PopupContainer* popupContainer) = 0;
 
 protected:
     virtual ~ChromeClient() { }

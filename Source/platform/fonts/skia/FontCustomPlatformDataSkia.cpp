@@ -35,6 +35,7 @@
 
 #include "platform/LayoutTestSupport.h"
 #include "platform/SharedBuffer.h"
+#include "platform/fonts/FontCache.h"
 #include "platform/fonts/FontPlatformData.h"
 #include "platform/fonts/opentype/OpenTypeSanitizer.h"
 #include "third_party/skia/include/core/SkStream.h"
@@ -55,6 +56,29 @@ FontCustomPlatformData::~FontCustomPlatformData()
 FontPlatformData FontCustomPlatformData::fontPlatformData(float size, bool bold, bool italic, FontOrientation orientation, FontWidthVariant)
 {
     ASSERT(m_typeface);
+#if OS(WIN)
+    // FIXME: Skia currently renders synthetic bold and italics with hinting and without
+    // linear metrics on windows. Using CreateFromName and specifying the bold/italics
+    // style allows for proper rendering of synthetic style. Once Skia has been updated
+    // this workaround will no longer be needed. crbug.com/332958
+    bool syntheticBold = bold && !m_typeface->isBold();
+    bool syntheticItalic = italic && !m_typeface->isItalic();
+    if (syntheticBold || syntheticItalic) {
+        SkString name;
+        m_typeface->getFamilyName(&name);
+
+        int style = SkTypeface::kNormal;
+        if (syntheticBold)
+            style |= SkTypeface::kBold;
+        if (syntheticItalic)
+            style |= SkTypeface::kItalic;
+
+        RefPtr<SkTypeface> typeface = adoptRef(FontCache::fontCache()->fontManager()->legacyCreateTypeface(name.c_str(), static_cast<SkTypeface::Style>(style)));
+        syntheticBold = false;
+        syntheticItalic = false;
+        return FontPlatformData(typeface.release(), "", size, syntheticBold, syntheticItalic, orientation);
+    }
+#endif
     return FontPlatformData(m_typeface.get(), "", size, bold && !m_typeface->isBold(), italic && !m_typeface->isItalic(), orientation);
 }
 
@@ -69,7 +93,11 @@ PassOwnPtr<FontCustomPlatformData> FontCustomPlatformData::create(SharedBuffer* 
     buffer = transcodeBuffer.get();
 
     RefPtr<SkMemoryStream> stream = adoptRef(new SkMemoryStream(buffer->getAsSkData().get()));
+#if OS(WIN) && !ENABLE(GDI_FONTS_ON_WINDOWS)
+    RefPtr<SkTypeface> typeface = adoptRef(FontCache::fontCache()->fontManager()->createFromStream(stream.get()));
+#else
     RefPtr<SkTypeface> typeface = adoptRef(SkTypeface::CreateFromStream(stream.get()));
+#endif
     if (!typeface)
         return nullptr;
 

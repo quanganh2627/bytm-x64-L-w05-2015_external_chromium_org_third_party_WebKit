@@ -42,7 +42,7 @@ class Frame;
 class Page;
 class Settings;
 
-class InternalSettings : public InternalSettingsGenerated {
+class InternalSettings FINAL : public InternalSettingsGenerated {
 public:
     class Backup {
     public:
@@ -53,6 +53,7 @@ public:
         bool m_originalAuthorShadowDOMForAnyElementEnabled;
         bool m_originalExperimentalWebSocketEnabled;
         bool m_originalStyleScoped;
+        bool m_originalCSP;
         bool m_originalOverlayScrollbarsEnabled;
         EditingBehaviorType m_originalEditingBehavior;
         bool m_originalTextAutosizingEnabled;
@@ -81,13 +82,13 @@ public:
     virtual ~InternalSettings();
     void resetToConsistentState();
 
-    void setStandardFontFamily(const String& family, const String& script, ExceptionState&);
-    void setSerifFontFamily(const String& family, const String& script, ExceptionState&);
-    void setSansSerifFontFamily(const String& family, const String& script, ExceptionState&);
-    void setFixedFontFamily(const String& family, const String& script, ExceptionState&);
-    void setCursiveFontFamily(const String& family, const String& script, ExceptionState&);
-    void setFantasyFontFamily(const String& family, const String& script, ExceptionState&);
-    void setPictographFontFamily(const String& family, const String& script, ExceptionState&);
+    void setStandardFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setSerifFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setSansSerifFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setFixedFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setCursiveFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setFantasyFontFamily(const AtomicString& family, const String& script, ExceptionState&);
+    void setPictographFontFamily(const AtomicString& family, const String& script, ExceptionState&);
 
     void setDefaultVideoPosterURL(const String& url, ExceptionState&);
     void setEditingBehavior(const String&, ExceptionState&);
@@ -118,6 +119,7 @@ public:
     void setLangAttributeAwareFormControlUIEnabled(bool);
     void setOverlayScrollbarsEnabled(bool);
     void setStyleScopedEnabled(bool);
+    void setExperimentalContentSecurityPolicyFeaturesEnabled(bool);
 
 private:
     explicit InternalSettings(Page*);

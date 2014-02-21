@@ -32,6 +32,7 @@
 #define NavigationScheduler_h
 
 #include "platform/Timer.h"
+#include "platform/weborigin/Referrer.h"
 #include "wtf/Forward.h"
 #include "wtf/HashMap.h"
 #include "wtf/Noncopyable.h"
@@ -42,10 +43,10 @@
 
 namespace WebCore {
 
+class Document;
 class FormSubmission;
 class Frame;
 class ScheduledNavigation;
-class SecurityOrigin;
 
 class NavigationDisablerForBeforeUnload {
     WTF_MAKE_NONCOPYABLE(NavigationDisablerForBeforeUnload);
@@ -76,7 +77,7 @@ public:
     bool locationChangePending();
 
     void scheduleRedirect(double delay, const String& url);
-    void scheduleLocationChange(SecurityOrigin*, const String& url, const String& referrer, bool lockBackForwardList = true);
+    void scheduleLocationChange(Document*, const String& url, const Referrer& referrer, bool lockBackForwardList = true);
     void scheduleFormSubmission(PassRefPtr<FormSubmission>);
     void scheduleRefresh();
     void scheduleHistoryNavigation(int steps);

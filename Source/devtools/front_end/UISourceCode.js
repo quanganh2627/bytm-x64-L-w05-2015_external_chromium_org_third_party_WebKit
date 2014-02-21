@@ -169,11 +169,12 @@ WebInspector.UISourceCode.prototype = {
          * @param {string=} newURL
          * @param {string=} newOriginURL
          * @param {!WebInspector.ResourceType=} newContentType
+         * @this {WebInspector.UISourceCode}
          */
         function innerCallback(success, newName, newURL, newOriginURL, newContentType)
         {
             if (success)
-                this._updateName(newName, newURL, newOriginURL, newContentType);
+                this._updateName(/** @type {string} */ (newName), /** @type {string} */ (newURL), /** @type {string} */ (newOriginURL), /** @type {!WebInspector.ResourceType} */ (newContentType));
             callback(success);
         }
     },
@@ -273,6 +274,7 @@ WebInspector.UISourceCode.prototype = {
 
         /**
          * @param {?string} updatedContent
+         * @this {WebInspector.UISourceCode}
          */
         function contentLoaded(updatedContent)
         {
@@ -358,11 +360,12 @@ WebInspector.UISourceCode.prototype = {
      */
     _saveURLWithFileManager: function(forceSaveAs, content)
     {
-        WebInspector.fileManager.save(this._url, content, forceSaveAs, callback.bind(this));
+        WebInspector.fileManager.save(this._url, /** @type {string} */ (content), forceSaveAs, callback.bind(this));
         WebInspector.fileManager.close(this._url);
 
         /**
          * @param {boolean} accepted
+         * @this {WebInspector.UISourceCode}
          */
         function callback(accepted)
         {
@@ -393,7 +396,7 @@ WebInspector.UISourceCode.prototype = {
     {
         if (this._savedWithFileManager || this.project().canSetFileContent() || !this._isEditable)
             return false;
-        if (WebInspector.extensionServer.hasSubscribers(WebInspector.extensionAPI.Events.ResourceContentCommitted))
+        if (this._project.workspace().hasResourceContentTrackingExtensions())
             return false;
         return !!this._hasCommittedChanges;
     },
@@ -700,6 +703,7 @@ WebInspector.UISourceCode.prototype = {
 
     /**
      * @param {!WebInspector.UILocation} uiLocation
+     * @return {!WebInspector.UILocation}
      */
     overrideLocation: function(uiLocation)
     {
@@ -927,7 +931,7 @@ WebInspector.LiveLocation.prototype = {
      */
     uiLocation: function()
     {
-        // Should be overridden by subclasses.
+        throw "Not implemented";
     },
 
     dispose: function()
@@ -1026,7 +1030,8 @@ WebInspector.Revision.prototype = {
     revertToThis: function()
     {
         /**
-         * @param {?string} content
+         * @param {string} content
+         * @this {WebInspector.Revision}
          */
         function revert(content)
         {
@@ -1053,7 +1058,7 @@ WebInspector.Revision.prototype = {
     },
 
     /**
-     * @param {function(?string)} callback
+     * @param {function(string)} callback
      */
     requestContent: function(callback)
     {
@@ -1096,6 +1101,9 @@ WebInspector.Revision.prototype = {
         }
         historyItems.push({url: url, loaderId: loaderId, timestamp: timestamp, key: key});
 
+        /**
+         * @this {WebInspector.Revision}
+         */
         function persist()
         {
             window.localStorage[key] = this._content;

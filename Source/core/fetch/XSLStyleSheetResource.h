@@ -27,24 +27,25 @@
 #define XSLStyleSheetResource_h
 
 #include "core/fetch/ResourcePtr.h"
+#include "core/fetch/StyleSheetResource.h"
 
 namespace WebCore {
 
 class ResourceFetcher;
 class TextResourceDecoder;
 
-class XSLStyleSheetResource : public Resource {
+class XSLStyleSheetResource FINAL : public StyleSheetResource {
 public:
     XSLStyleSheetResource(const ResourceRequest&);
 
     const String& sheet() const { return m_sheet; }
 
-    virtual void didAddClient(ResourceClient*);
-    virtual void setEncoding(const String&);
-    virtual String encoding() const;
+    virtual void didAddClient(ResourceClient*) OVERRIDE;
+    virtual void setEncoding(const String&) OVERRIDE;
+    virtual String encoding() const OVERRIDE;
 
 protected:
-    virtual void checkNotify();
+    virtual void checkNotify() OVERRIDE;
 
     String m_sheet;
     OwnPtr<TextResourceDecoder> m_decoder;

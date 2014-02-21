@@ -57,9 +57,23 @@ public:
             setDecodedSize(this->size());
         }
 
-        virtual void destroyDecodedData()
+    protected:
+        virtual void destroyDecodedDataIfPossible() OVERRIDE
         {
             setDecodedSize(0);
+        }
+    };
+
+    class FakeResource : public WebCore::Resource {
+    public:
+        FakeResource(const ResourceRequest& request, Type type)
+            : Resource(request, type)
+        {
+        }
+
+        void fakeEncodedSize(size_t size)
+        {
+            setEncodedSize(size);
         }
     };
 
@@ -89,14 +103,43 @@ protected:
 // Verifies that setters and getters for cache capacities work correcty.
 TEST_F(MemoryCacheTest, CapacityAccounting)
 {
-    const unsigned totalCapacity = 100;
-    const unsigned minDeadCapacity = 10;
-    const unsigned maxDeadCapacity = 50;
+    const size_t sizeMax = ~static_cast<size_t>(0);
+    const size_t totalCapacity = sizeMax / 4;
+    const size_t minDeadCapacity = sizeMax / 16;
+    const size_t maxDeadCapacity = sizeMax / 8;
     memoryCache()->setCapacities(minDeadCapacity, maxDeadCapacity, totalCapacity);
-
     ASSERT_EQ(totalCapacity, memoryCache()->capacity());
     ASSERT_EQ(minDeadCapacity, memoryCache()->minDeadCapacity());
     ASSERT_EQ(maxDeadCapacity, memoryCache()->maxDeadCapacity());
+}
+
+TEST_F(MemoryCacheTest, VeryLargeResourceAccounting)
+{
+    const size_t sizeMax = ~static_cast<size_t>(0);
+    const size_t totalCapacity = sizeMax / 4;
+    const size_t minDeadCapacity = sizeMax / 16;
+    const size_t maxDeadCapacity = sizeMax / 8;
+    const size_t resourceSize1 = sizeMax / 16;
+    const size_t resourceSize2 = sizeMax / 20;
+    memoryCache()->setCapacities(minDeadCapacity, maxDeadCapacity, totalCapacity);
+    ResourcePtr<FakeResource> cachedResource =
+        new FakeResource(ResourceRequest(""), Resource::Raw);
+    cachedResource->fakeEncodedSize(resourceSize1);
+
+    ASSERT_EQ(0u, memoryCache()->deadSize());
+    ASSERT_EQ(0u, memoryCache()->liveSize());
+    memoryCache()->add(cachedResource.get());
+    ASSERT_EQ(cachedResource->size(), memoryCache()->deadSize());
+    ASSERT_EQ(0u, memoryCache()->liveSize());
+
+    MockImageResourceClient client;
+    cachedResource->addClient(&client);
+    ASSERT_EQ(0u, memoryCache()->deadSize());
+    ASSERT_EQ(cachedResource->size(), memoryCache()->liveSize());
+
+    cachedResource->fakeEncodedSize(resourceSize2);
+    ASSERT_EQ(0u, memoryCache()->deadSize());
+    ASSERT_EQ(cachedResource->size(), memoryCache()->liveSize());
 }
 
 // Verifies that dead resources that exceed dead resource capacity are evicted
@@ -141,7 +184,7 @@ TEST_F(MemoryCacheTest, LiveResourceEvictionAtEndOfTask)
     memoryCache()->setCapacities(minDeadCapacity, maxDeadCapacity, totalCapacity);
     const char data[6] = "abcde";
     ResourcePtr<Resource> cachedDeadResource =
-        new Resource(ResourceRequest(""), Resource::Raw);
+        new Resource(ResourceRequest("http://foo"), Resource::Raw);
     cachedDeadResource->appendData(data, 3);
     ResourcePtr<Resource> cachedLiveResource =
         new FakeDecodedResource(ResourceRequest(""), Resource::Raw);
@@ -213,7 +256,7 @@ TEST_F(MemoryCacheTest, ClientRemoval)
 {
     const char data[6] = "abcde";
     ResourcePtr<Resource> resource1 =
-        new FakeDecodedResource(ResourceRequest(""), Resource::Raw);
+        new FakeDecodedResource(ResourceRequest("http://foo.com"), Resource::Raw);
     MockImageResourceClient client1;
     resource1->addClient(&client1);
     resource1->appendData(data, 4);
@@ -224,7 +267,7 @@ TEST_F(MemoryCacheTest, ClientRemoval)
     resource2->appendData(data, 4);
 
     const unsigned minDeadCapacity = 0;
-    const unsigned maxDeadCapacity = resource1->size() - 1;
+    const unsigned maxDeadCapacity = ((resource1->size() + resource2->size()) / 2) - 1;
     const unsigned totalCapacity = maxDeadCapacity;
     memoryCache()->setCapacities(minDeadCapacity, maxDeadCapacity, totalCapacity);
     memoryCache()->add(resource1.get());
@@ -265,7 +308,7 @@ TEST_F(MemoryCacheTest, DecodeCacheOrder)
     memoryCache()->setDelayBeforeLiveDecodedPrune(0);
     memoryCache()->setMaxPruneDeferralDelay(0);
     ResourcePtr<FakeDecodedResource> cachedImageLowPriority =
-        new FakeDecodedResource(ResourceRequest(""), Resource::Raw);
+        new FakeDecodedResource(ResourceRequest("http://foo.com"), Resource::Raw);
     ResourcePtr<FakeDecodedResource> cachedImageHighPriority =
         new FakeDecodedResource(ResourceRequest(""), Resource::Raw);
 

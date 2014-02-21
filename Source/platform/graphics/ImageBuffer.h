@@ -47,10 +47,13 @@
 
 class SkCanvas;
 
+namespace blink {
+class WebGraphicsContext3D;
+}
+
 namespace WebCore {
 
 class DrawingBuffer;
-class GraphicsContext3D;
 class Image;
 class IntPoint;
 class IntRect;
@@ -79,8 +82,13 @@ public:
     ~ImageBuffer();
 
     const IntSize& size() const { return m_surface->size(); }
+    bool isAccelerated() const { return m_surface->isAccelerated(); }
+
+    void setIsHidden(bool hidden) { m_surface->setIsHidden(hidden); }
 
     GraphicsContext* context() const;
+
+    const SkBitmap& bitmap() const;
 
     PassRefPtr<Image> copyImage(BackingStoreCopy = CopyBackingStore, ScaleBehavior = Scaled) const;
     // Give hints on the faster copyImage Mode, return DontCopyBackingStore if it supports the DontCopyBackingStore behavior
@@ -100,7 +108,7 @@ public:
     // FIXME: current implementations of this method have the restriction that they only work
     // with textures that are RGB or RGBA format, UNSIGNED_BYTE type and level 0, as specified in
     // Extensions3D::canUseCopyTextureCHROMIUM().
-    bool copyToPlatformTexture(GraphicsContext3D&, Platform3DObject, GC3Denum, GC3Denum, GC3Dint, bool, bool);
+    bool copyToPlatformTexture(blink::WebGraphicsContext3D*, Platform3DObject, GLenum, GLenum, GLint, bool, bool);
 
     Platform3DObject getBackingTexture();
     bool copyRenderingResultsFromDrawingBuffer(DrawingBuffer*);

@@ -39,23 +39,42 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static void runAutofocus(HTMLDialogElement* dialog)
+// This function chooses the focused element when showModal() is invoked, as described in the spec for showModal().
+static void setFocusForModalDialog(HTMLDialogElement* dialog)
 {
+    Element* focusableDescendant = 0;
     Node* next = 0;
     for (Node* node = dialog->firstChild(); node; node = next) {
-        if (node->isElementNode() && toElement(node)->isFormControlElement()) {
-            HTMLFormControlElement* control = toHTMLFormControlElement(node);
-            if (control->isAutofocusable()) {
-                control->focus();
-                control->setAutofocused();
-                return;
-            }
-        }
         if (node->hasTagName(dialogTag))
             next = NodeTraversal::nextSkippingChildren(*node, dialog);
         else
             next = NodeTraversal::next(*node, dialog);
+
+        if (!node->isElementNode())
+            continue;
+        Element* element = toElement(node);
+        if (element->isFormControlElement()) {
+            HTMLFormControlElement* control = toHTMLFormControlElement(node);
+            if (control->isAutofocusable()) {
+                control->focus();
+                return;
+            }
+        }
+        if (!focusableDescendant && element->isFocusable())
+            focusableDescendant = element;
     }
+
+    if (focusableDescendant) {
+        focusableDescendant->focus();
+        return;
+    }
+
+    if (dialog->isFocusable()) {
+        dialog->focus();
+        return;
+    }
+
+    dialog->document().setFocusedElement(0);
 }
 
 static void inertSubtreesChanged(Document& document)
@@ -72,7 +91,7 @@ static void inertSubtreesChanged(Document& document)
 
 HTMLDialogElement::HTMLDialogElement(Document& document)
     : HTMLElement(dialogTag, document)
-    , m_centeringMode(Uninitialized)
+    , m_centeringMode(NotCentered)
     , m_centeredPosition(0)
     , m_returnValue("")
 {
@@ -112,10 +131,10 @@ void HTMLDialogElement::closeDialog(const String& returnValue)
 
 void HTMLDialogElement::forceLayoutForCentering()
 {
-    m_centeringMode = Uninitialized;
+    m_centeringMode = NeedsCentering;
     document().updateLayoutIgnorePendingStylesheets();
-    if (m_centeringMode == Uninitialized)
-        m_centeringMode = NotCentered;
+    if (m_centeringMode == NeedsCentering)
+        setNotCentered();
 }
 
 void HTMLDialogElement::show()
@@ -123,7 +142,6 @@ void HTMLDialogElement::show()
     if (fastHasAttribute(openAttr))
         return;
     setBooleanAttribute(openAttr, true);
-    forceLayoutForCentering();
 }
 
 void HTMLDialogElement::showModal(ExceptionState& exceptionState)
@@ -140,21 +158,30 @@ void HTMLDialogElement::showModal(ExceptionState& exceptionState)
     document().addToTopLayer(this);
     setBooleanAttribute(openAttr, true);
 
-    runAutofocus(this);
-    forceLayoutForCentering();
+    // Throw away the AX cache first, so the subsequent steps don't have a chance of queuing up
+    // AX events on objects that would be invalidated when the cache is thrown away.
     inertSubtreesChanged(document());
+
+    forceLayoutForCentering();
+    setFocusForModalDialog(this);
+}
+
+void HTMLDialogElement::removedFrom(ContainerNode* insertionPoint)
+{
+    HTMLElement::removedFrom(insertionPoint);
+    setNotCentered();
+    // FIXME: We should call inertSubtreesChanged() here.
 }
 
 void HTMLDialogElement::setCentered(LayoutUnit centeredPosition)
 {
-    ASSERT(m_centeringMode == Uninitialized);
+    ASSERT(m_centeringMode == NeedsCentering);
     m_centeredPosition = centeredPosition;
     m_centeringMode = Centered;
 }
 
 void HTMLDialogElement::setNotCentered()
 {
-    ASSERT(m_centeringMode == Uninitialized);
     m_centeringMode = NotCentered;
 }
 
@@ -176,13 +203,6 @@ void HTMLDialogElement::defaultEventHandler(Event* event)
         return;
     }
     HTMLElement::defaultEventHandler(event);
-}
-
-bool HTMLDialogElement::shouldBeReparentedUnderRenderView(const RenderStyle* style) const
-{
-    if (style && style->position() == AbsolutePosition)
-        return true;
-    return Element::shouldBeReparentedUnderRenderView(style);
 }
 
 } // namespace WebCore

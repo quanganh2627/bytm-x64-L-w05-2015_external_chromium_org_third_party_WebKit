@@ -81,6 +81,7 @@ def _CommonChecks(input_api, output_api):
     results.extend(_CheckUnwantedDependencies(input_api, output_api))
     results.extend(_CheckChromiumPlatformMacros(input_api, output_api))
     results.extend(_CheckWatchlist(input_api, output_api))
+    results.extend(_CheckFilePermissions(input_api, output_api))
     return results
 
 
@@ -246,24 +247,6 @@ def _CheckChromiumPlatformMacros(input_api, output_api, source_file_filter=None)
     return []
 
 
-def _CompileDevtoolsFrontend(input_api, output_api):
-    if not input_api.platform.startswith('linux'):
-        return []
-    local_paths = [f.LocalPath() for f in input_api.AffectedFiles()]
-    if (any("devtools/front_end" in path for path in local_paths) or
-        any("InjectedScriptSource.js" in path for path in local_paths) or
-        any("InjectedScriptCanvasModuleSource.js" in path for path in local_paths)):
-        lint_path = input_api.os_path.join(input_api.PresubmitLocalPath(),
-            "Source", "devtools", "scripts", "compile_frontend.py")
-        out, _ = input_api.subprocess.Popen(
-            [input_api.python_executable, lint_path],
-            stdout=input_api.subprocess.PIPE,
-            stderr=input_api.subprocess.STDOUT).communicate()
-        if "WARNING" in out or "ERROR" in out:
-            return [output_api.PresubmitError(out)]
-    return []
-
-
 def _CheckForPrintfDebugging(input_api, output_api):
     """Generally speaking, we'd prefer not to land patches that printf
     debug output."""
@@ -289,12 +272,29 @@ def _CheckForFailInFile(input_api, f):
     return errors
 
 
+def _CheckFilePermissions(input_api, output_api):
+    """Check that all files have their permissions properly set."""
+    if input_api.platform == 'win32':
+        return []
+    path = input_api.os_path.join(
+        '..', '..', 'tools', 'checkperms', 'checkperms.py')
+    args = [sys.executable, path, '--root', input_api.change.RepositoryRoot()]
+    for f in input_api.AffectedFiles():
+        args += ['--file', f.LocalPath()]
+    checkperms = input_api.subprocess.Popen(
+        args, stdout=input_api.subprocess.PIPE)
+    errors = checkperms.communicate()[0].strip()
+    if errors:
+        return [output_api.PresubmitError(
+            'checkperms.py failed.', errors.splitlines())]
+    return []
+
+
 def CheckChangeOnUpload(input_api, output_api):
     results = []
     results.extend(_CommonChecks(input_api, output_api))
     results.extend(_CheckStyle(input_api, output_api))
     results.extend(_CheckForPrintfDebugging(input_api, output_api))
-    results.extend(_CompileDevtoolsFrontend(input_api, output_api))
     return results
 
 
@@ -310,4 +310,7 @@ def CheckChangeOnCommit(input_api, output_api):
     return results
 
 def GetPreferredTrySlaves(project, change):
-    return ['linux_blink_rel', 'mac_blink_rel', 'win_blink_rel']
+    return [
+        'linux_blink_rel', 'mac_blink_rel', 'win_blink_rel',
+        'linux_blink', 'mac_layout:webkit_lint', 'win_layout:webkit_lint',
+    ]

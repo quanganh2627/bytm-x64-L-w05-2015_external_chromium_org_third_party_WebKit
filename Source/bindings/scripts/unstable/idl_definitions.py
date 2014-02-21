@@ -79,23 +79,24 @@ class TypedObject:
         # interface itself.
         if not self.idl_type:
             return
-        # Convert string representation to and from an IdlType object
-        # to handle parsing of composite types (arrays and sequences)
-        idl_type_object = IdlType.from_string(self.idl_type)
-        base_type = idl_type_object.base_type
-        if base_type in typedefs:
-            idl_type_object.base_type = typedefs[base_type]
-            self.idl_type = str(idl_type_object)
+        # (Types are represented either as strings or as IdlUnionType objects.)
+        # Union types are objects, which have a member function for this
+        if isinstance(self.idl_type, IdlUnionType):
+            # Method 'resolve_typedefs' call is ok, but pylint can't infer this
+            # pylint: disable=E1101
+            self.idl_type.resolve_typedefs(typedefs)
+            return
+        # Otherwise, IDL type is represented as string, so use a function
+        self.idl_type = resolve_typedefs(self.idl_type, typedefs)
 
 
 # IDL classes
 
 
 class IdlDefinitions(BaseIdl):
-    def __init__(self, callback_functions=None, enumerations=None, exceptions=None, file_name=None, interfaces=None, typedefs=None):
+    def __init__(self, callback_functions=None, enumerations=None, file_name=None, interfaces=None, typedefs=None):
         self.callback_functions = callback_functions or {}
         self.enumerations = enumerations or {}
-        self.exceptions = exceptions or {}
         self.file_name = file_name or None
         self.interfaces = interfaces or {}
         # Typedefs are not exposed by bindings; resolve typedefs with the
@@ -107,8 +108,6 @@ class IdlDefinitions(BaseIdl):
     def resolve_typedefs(self, typedefs):
         for callback_function in self.callback_functions.itervalues():
             callback_function.resolve_typedefs(typedefs)
-        for exception in self.exceptions.itervalues():
-            exception.resolve_typedefs(typedefs)
         for interface in self.interfaces.itervalues():
             interface.resolve_typedefs(typedefs)
 
@@ -117,8 +116,7 @@ class IdlDefinitions(BaseIdl):
                 'idlDocument::callbackFunctions': self.callback_functions.values(),
                 'idlDocument::enumerations': self.enumerations.values(),
                 'idlDocument::fileName': self.file_name,
-                # Perl treats exceptions as a kind of interface
-                'idlDocument::interfaces': sorted(self.exceptions.values() + self.interfaces.values()),
+                'idlDocument::interfaces': sorted(self.interfaces.values()),
                 }
 
     def to_json(self, debug=False):
@@ -146,7 +144,6 @@ class IdlCallbackFunction(BaseIdl, TypedObject):
         TypedObject.resolve_typedefs(self, typedefs)
         for argument in self.arguments:
             argument.resolve_typedefs(typedefs)
-        raise ValueError('Typedefs in callback functions are untested!')
 
     def json_serializable(self):
         return {
@@ -178,6 +175,7 @@ class IdlInterface(BaseIdl):
         self.operations = operations or []
         self.is_callback = is_callback
         self.is_partial = is_partial
+        self.is_exception = False
         self.name = name
         self.parent = parent
 
@@ -201,7 +199,7 @@ class IdlInterface(BaseIdl):
             'domInterface::customConstructors': self.custom_constructors,
             'domInterface::extendedAttributes': none_to_value_is_missing(self.extended_attributes),
             'domInterface::functions': self.operations,
-            'domInterface::isException': None,
+            'domInterface::isException': false_to_none(self.is_exception),
             'domInterface::isCallback': boolean_to_perl(false_to_none(self.is_callback)),
             'domInterface::isPartial': false_to_none(self.is_partial),
             'domInterface::name': self.name,
@@ -209,38 +207,16 @@ class IdlInterface(BaseIdl):
             }
 
 
-class IdlException(BaseIdl):
+class IdlException(IdlInterface):
+    # Properly exceptions and interfaces are distinct, and thus should inherit a
+    # common base class (say, "IdlExceptionOrInterface").
+    # However, there is only one exception (DOMException), and new exceptions
+    # are not expected. Thus it is easier to implement exceptions as a
+    # restricted subclass of interfaces.
+    # http://www.w3.org/TR/WebIDL/#idl-exceptions
     def __init__(self, name=None, constants=None, operations=None, attributes=None, extended_attributes=None):
-        self.attributes = attributes or []
-        self.constants = constants or []
-        self.extended_attributes = extended_attributes or {}
-        self.operations = operations or []
-        self.name = name
-
-    def resolve_typedefs(self, typedefs):
-        for constant in self.constants:
-            constant.resolve_typedefs(typedefs)
-        for attribute in self.attributes:
-            attribute.resolve_typedefs(typedefs)
-        for operations in self.operations:
-            operations.resolve_typedefs(typedefs)
-
-    def json_serializable(self):
-        return {
-            # Perl code treats Exceptions as a kind of Interface
-            'domInterface::name': self.name,
-            'domInterface::attributes': self.attributes,
-            'domInterface::constants': self.constants,
-            'domInterface::extendedAttributes': none_to_value_is_missing(self.extended_attributes),
-            'domInterface::functions': self.operations,
-            # These values don't vary for exceptions
-            'domInterface::constructors': [],
-            'domInterface::customConstructors': [],
-            'domInterface::isException': 1,
-            'domInterface::isCallback': None,
-            'domInterface::isPartial': None,
-            'domInterface::parent': None,
-            }
+        IdlInterface.__init__(self, name=name, constants=constants, operations=operations, attributes=attributes, extended_attributes=extended_attributes)
+        self.is_exception = True
 
 
 class IdlAttribute(BaseIdl, TypedObject):
@@ -291,6 +267,8 @@ class IdlOperation(BaseIdl, TypedObject):
         self.extended_attributes = extended_attributes or {}
         self.specials = specials or []
         self.arguments = arguments or []
+        # FIXME: remove overloaded_index (only here for Perl compatibility),
+        # as overloading is handled in code generator (v8_interface.py).
         self.overloaded_index = overloaded_index
 
     def resolve_typedefs(self, typedefs):
@@ -342,6 +320,15 @@ class IdlArgument(BaseIdl, TypedObject):
 # Type classes
 
 
+def resolve_typedefs(idl_type, typedefs):
+    """Return an IDL type (as string) with typedefs resolved."""
+    # Converts a string representation to and from an IdlType object to handle
+    # parsing of composite types (arrays and sequences) and encapsulate typedef
+    # resolution, e.g., GLint[] -> unsigned long[] requires parsing the '[]'.
+    # Use fluent interface to avoid auxiliary variable.
+    return str(IdlType.from_string(idl_type).resolve_typedefs(typedefs))
+
+
 class IdlType:
     # FIXME: replace type strings with these objects,
     # so don't need to parse everywhere types are used.
@@ -383,10 +370,20 @@ class IdlType:
             return cls(base_type, is_sequence=True)
         return cls(type_string)
 
+    def resolve_typedefs(self, typedefs):
+        if self.base_type in typedefs:
+            self.base_type = typedefs[self.base_type]
+        return self  # Fluent interface
+
 
 class IdlUnionType(BaseIdl):
     def __init__(self, union_member_types=None):
         self.union_member_types = union_member_types or []
+
+    def resolve_typedefs(self, typedefs):
+        self.union_member_types = [
+            typedefs.get(union_member_type, union_member_type)
+            for union_member_type in self.union_member_types]
 
     def json_serializable(self):
         return {

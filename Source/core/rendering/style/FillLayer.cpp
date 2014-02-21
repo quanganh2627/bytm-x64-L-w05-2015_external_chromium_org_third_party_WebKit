@@ -34,8 +34,8 @@ struct SameSizeAsFillLayer {
 
     LengthSize m_sizeLength;
 
-    unsigned m_bitfields: 32;
-    unsigned m_bitfields2: 1;
+    unsigned m_bitfields1;
+    unsigned m_bitfields2;
 };
 
 COMPILE_ASSERT(sizeof(FillLayer) == sizeof(SameSizeAsFillLayer), FillLayer_should_stay_small);
@@ -65,8 +65,8 @@ FillLayer::FillLayer(EFillLayerType type, bool useInitialValues)
     , m_repeatYSet(useInitialValues)
     , m_xPosSet(useInitialValues)
     , m_yPosSet(useInitialValues)
-    , m_backgroundXOriginSet(useInitialValues)
-    , m_backgroundYOriginSet(useInitialValues)
+    , m_backgroundXOriginSet(false)
+    , m_backgroundYOriginSet(false)
     , m_compositeSet(useInitialValues || type == MaskFillLayer)
     , m_blendModeSet(useInitialValues)
     , m_maskSourceTypeSet(useInitialValues)

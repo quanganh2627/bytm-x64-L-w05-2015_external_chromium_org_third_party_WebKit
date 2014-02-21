@@ -44,6 +44,11 @@ RenderSVGModelObject::RenderSVGModelObject(SVGElement* node)
 {
 }
 
+bool RenderSVGModelObject::isChildAllowed(RenderObject* child, RenderStyle*) const
+{
+    return child->isSVG() && !(child->isSVGInline() || child->isSVGInlineText());
+}
+
 LayoutRect RenderSVGModelObject::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
     return SVGRenderSupport::clippedOverflowRectForRepaint(this, repaintContainer);
@@ -175,7 +180,7 @@ void RenderSVGModelObject::absoluteFocusRingQuads(Vector<FloatQuad>& quads)
     quads.append(localToAbsoluteQuad(FloatQuad(repaintRectInLocalCoordinates())));
 }
 
-bool RenderSVGModelObject::checkIntersection(RenderObject* renderer, const SVGRect& rect)
+bool RenderSVGModelObject::checkIntersection(RenderObject* renderer, const FloatRect& rect)
 {
     if (!renderer || renderer->style()->pointerEvents() == PE_NONE)
         return false;
@@ -188,7 +193,7 @@ bool RenderSVGModelObject::checkIntersection(RenderObject* renderer, const SVGRe
     return intersectsAllowingEmpty(rect, ctm.mapRect(svgElement->renderer()->repaintRectInLocalCoordinates()));
 }
 
-bool RenderSVGModelObject::checkEnclosure(RenderObject* renderer, const SVGRect& rect)
+bool RenderSVGModelObject::checkEnclosure(RenderObject* renderer, const FloatRect& rect)
 {
     if (!renderer || renderer->style()->pointerEvents() == PE_NONE)
         return false;

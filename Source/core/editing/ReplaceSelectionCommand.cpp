@@ -50,7 +50,6 @@
 #include "core/events/ThreadLocalEventNames.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLInputElement.h"
-#include "core/html/HTMLTitleElement.h"
 #include "core/frame/Frame.h"
 #include "core/rendering/RenderObject.h"
 #include "core/rendering/RenderText.h"
@@ -513,8 +512,9 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
                 continue;
             }
             removeNodeAttribute(element, styleAttr);
-        } else if (newInlineStyle->style()->propertyCount() != inlineStyle->propertyCount())
-            setNodeAttribute(element, styleAttr, newInlineStyle->style()->asText());
+        } else if (newInlineStyle->style()->propertyCount() != inlineStyle->propertyCount()) {
+            setNodeAttribute(element, styleAttr, AtomicString(newInlineStyle->style()->asText()));
+        }
 
         // FIXME: Tolerate differences in id, class, and style attributes.
         if (isNonTableCellHTMLBlockElement(element) && areIdenticalElements(element, element->parentNode())
@@ -665,12 +665,12 @@ void ReplaceSelectionCommand::removeUnrenderedTextNodesAtEnds(InsertedNodes& ins
 {
     document().updateLayoutIgnorePendingStylesheets();
 
-    Node& lastLeafInserted = insertedNodes.lastLeafInserted();
-    if (lastLeafInserted.isTextNode() && !nodeHasVisibleRenderText(toText(lastLeafInserted))
-        && !enclosingNodeWithTag(firstPositionInOrBeforeNode(&lastLeafInserted), selectTag)
-        && !enclosingNodeWithTag(firstPositionInOrBeforeNode(&lastLeafInserted), scriptTag)) {
-        insertedNodes.willRemoveNode(lastLeafInserted);
-        removeNode(&lastLeafInserted);
+    Node* lastLeafInserted = insertedNodes.lastLeafInserted();
+    if (lastLeafInserted && lastLeafInserted->isTextNode() && !nodeHasVisibleRenderText(toText(*lastLeafInserted))
+        && !enclosingNodeWithTag(firstPositionInOrBeforeNode(lastLeafInserted), selectTag)
+        && !enclosingNodeWithTag(firstPositionInOrBeforeNode(lastLeafInserted), scriptTag)) {
+        insertedNodes.willRemoveNode(*lastLeafInserted);
+        removeNode(lastLeafInserted);
     }
 
     // We don't have to make sure that firstNodeInserted isn't inside a select or script element, because
@@ -702,7 +702,7 @@ static void removeHeadContents(ReplacementFragment& fragment)
             || node->hasTagName(linkTag)
             || node->hasTagName(metaTag)
             || node->hasTagName(styleTag)
-            || isHTMLTitleElement(node)) {
+            || node->hasTagName(titleTag)) {
             next = NodeTraversal::nextSkippingChildren(*node);
             fragment.removeNode(node);
         } else {
@@ -788,8 +788,9 @@ void ReplaceSelectionCommand::handleStyleSpans(InsertedNodes& insertedNodes)
     if (style->isEmpty() || !wrappingStyleSpan->firstChild()) {
         insertedNodes.willRemoveNodePreservingChildren(*wrappingStyleSpan);
         removeNodePreservingChildren(wrappingStyleSpan);
-    } else
-        setNodeAttribute(wrappingStyleSpan, styleAttr, style->style()->asText());
+    } else {
+        setNodeAttribute(wrappingStyleSpan, styleAttr, AtomicString(style->style()->asText()));
+    }
 }
 
 void ReplaceSelectionCommand::mergeEndIfNeeded()
@@ -930,7 +931,7 @@ void ReplaceSelectionCommand::doApply()
         bool mergeBlocksAfterDelete = startIsInsideMailBlockquote || isEndOfParagraph(visibleEnd) || isStartOfBlock(visibleStart);
         // FIXME: We should only expand to include fully selected special elements if we are copying a
         // selection and pasting it on top of itself.
-        deleteSelection(false, mergeBlocksAfterDelete, true, false);
+        deleteSelection(false, mergeBlocksAfterDelete, false);
         visibleStart = endingSelection().visibleStart();
         if (fragment.hasInterchangeNewlineAtStart()) {
             if (isEndOfParagraph(visibleStart) && !isStartOfParagraph(visibleStart)) {
@@ -1123,7 +1124,7 @@ void ReplaceSelectionCommand::doApply()
     if (insertionBlock && insertionPos.deprecatedNode() == insertionBlock->parentNode() && (unsigned)insertionPos.deprecatedEditingOffset() < insertionBlock->nodeIndex() && !isStartOfParagraph(startOfInsertedContent))
         insertNodeAt(createBreakElement(document()).get(), startOfInsertedContent.deepEquivalent());
 
-    if (endBR && (plainTextFragment || shouldRemoveEndBR(endBR, originalVisPosBeforeEndBR))) {
+    if (endBR && (plainTextFragment || (shouldRemoveEndBR(endBR, originalVisPosBeforeEndBR) && !(fragment.hasInterchangeNewlineAtEnd() && selectionIsPlainText)))) {
         RefPtr<Node> parent = endBR->parentNode();
         insertedNodes.willRemoveNode(*endBR);
         removeNode(endBR);
@@ -1142,7 +1143,7 @@ void ReplaceSelectionCommand::doApply()
 
     // Setup m_startOfInsertedContent and m_endOfInsertedContent. This should be the last two lines of code that access insertedNodes.
     m_startOfInsertedContent = firstPositionInOrBeforeNode(insertedNodes.firstNodeInserted());
-    m_endOfInsertedContent = lastPositionInOrAfterNode(&insertedNodes.lastLeafInserted());
+    m_endOfInsertedContent = lastPositionInOrAfterNode(insertedNodes.lastLeafInserted());
 
     // Determine whether or not we should merge the end of inserted content with what's after it before we do
     // the start merge so that the start merge doesn't effect our decision.

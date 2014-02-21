@@ -28,25 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * @param {string} methodName
- */
-function dispatchMethodByName(methodName)
-{
-    var callId = ++lastCallId;
-    var argsArray = Array.prototype.slice.call(arguments, 1);
-    var callback = argsArray[argsArray.length - 1];
-    if (typeof callback === "function") {
-        argsArray.pop();
-        InspectorFrontendHost._callbacks[callId] = callback;
-    }
-
-    var message = { "id": callId, "method": methodName };
-    if (argsArray.length)
-        message.params = argsArray;
-    InspectorFrontendHost.sendMessageToEmbedder(JSON.stringify(message));
-}
-
 if (!window.InspectorFrontendHost) {
 
 /**
@@ -59,16 +40,25 @@ WebInspector.InspectorFrontendHostStub = function()
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
+    /**
+     * @return {string}
+     */
     getSelectionBackgroundColor: function()
     {
         return "#6e86ff";
     },
 
+    /**
+     * @return {string}
+     */
     getSelectionForegroundColor: function()
     {
         return "#ffffff";
     },
 
+    /**
+     * @return {string}
+     */
     platform: function()
     {
         var match = navigator.userAgent.match(/Windows NT/);
@@ -80,6 +70,9 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         return "linux";
     },
 
+    /**
+     * @return {string}
+     */
     port: function()
     {
         return "unknown";
@@ -95,14 +88,22 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         this._windowVisible = false;
     },
 
-    requestSetDockSide: function(side)
+    setIsDocked: function(isDocked)
     {
-        InspectorFrontendAPI.setDockSide(side);
     },
 
-    setWindowBounds: function(x, y, width, height, callback)
+    /**
+     * Requests inspected page to be placed atop of the inspector frontend
+     * with passed insets from the frontend sides, respecting minimum size passed.
+     * @param {{top: number, left: number, right: number, bottom: number}} insets
+     * @param {{width: number, height: number}} minSize
+     */
+    setContentsResizingStrategy: function(insets, minSize)
     {
-        callback();
+    },
+
+    inspectElementCompleted: function()
+    {
     },
 
     moveWindowBy: function(x, y)
@@ -110,14 +111,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     },
 
     setInjectedScriptForOrigin: function(origin, script)
-    {
-    },
-
-    loaded: function()
-    {
-    },
-
-    localizedStringsURL: function()
     {
     },
 
@@ -147,10 +140,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         WebInspector.log("Saving files is not enabled in hosted mode. Please inspect using chrome://inspect", WebInspector.ConsoleMessage.MessageLevel.Error, true);
     },
 
-    close: function(url)
-    {
-    },
-
     sendMessageToBackend: function(message)
     {
     },
@@ -171,11 +160,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
-    supportsFileSystems: function()
-    {
-        return false;
-    },
-
     requestFileSystems: function()
     {
     },
@@ -188,6 +172,11 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
+    /**
+     * @param {string} fileSystemId
+     * @param {string} registeredName
+     * @return {?WebInspector.IsolatedFileSystem}
+     */
     isolatedFileSystem: function(fileSystemId, registeredName)
     {
         return null;
@@ -213,6 +202,29 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
+    /**
+     * @return {number}
+     */
+    zoomFactor: function()
+    {
+        return 1;
+    },
+
+    zoomIn: function()
+    {
+    },
+
+    zoomOut: function()
+    {
+    },
+
+    resetZoom: function()
+    {
+    },
+
+    /**
+     * @return {boolean}
+     */
     isUnderTest: function()
     {
         return false;
@@ -221,59 +233,4 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
 InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub();
 
-} else if (InspectorFrontendHost.sendMessageToEmbedder) {
-  // Install message-based handlers with callbacks.
-    var lastCallId = 0;
-    InspectorFrontendHost._callbacks = [];
-
-    /**
-     * @param {number} id
-     * @param {?string} error
-     */
-    InspectorFrontendHost.embedderMessageAck = function(id, error)
-    {
-        var callback = InspectorFrontendHost._callbacks[id];
-        delete InspectorFrontendHost._callbacks[id];
-        if (callback)
-            callback(error);
-    }
-
-    var methodList = [
-        "addFileSystem",
-        "append",
-        "bringToFront",
-        "closeWindow",
-        "indexPath",
-        "moveWindowBy",
-        "openInNewTab",
-        "removeFileSystem",
-        "requestFileSystems",
-        "requestSetDockSide",
-        "save",
-        "searchInPath",
-        "setWindowBounds",
-        "stopIndexing"
-    ];
-
-    for (var i = 0; i < methodList.length; ++i)
-        InspectorFrontendHost[methodList[i]] = dispatchMethodByName.bind(null, methodList[i]);
-}
-
-/**
- * @constructor
- * @extends {WebInspector.HelpScreen}
- */
-WebInspector.RemoteDebuggingTerminatedScreen = function(reason)
-{
-    WebInspector.HelpScreen.call(this, WebInspector.UIString("Detached from the target"));
-    var p = this.contentElement.createChild("p");
-    p.classList.add("help-section");
-    p.createChild("span").textContent = "Remote debugging has been terminated with reason: ";
-    p.createChild("span", "error-message").textContent = reason;
-    p.createChild("br");
-    p.createChild("span").textContent = "Please re-attach to the new target.";
-}
-
-WebInspector.RemoteDebuggingTerminatedScreen.prototype = {
-    __proto__: WebInspector.HelpScreen.prototype
 }

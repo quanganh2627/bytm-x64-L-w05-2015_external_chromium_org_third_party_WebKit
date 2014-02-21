@@ -129,6 +129,13 @@ void ScrollView::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode v
         return;
 
     updateScrollbars(scrollOffset());
+
+    if (!layerForScrolling())
+        return;
+    blink::WebLayer* layer = layerForScrolling()->platformLayer();
+    if (!layer)
+        return;
+    layer->setUserScrollable(userInputScrollable(HorizontalScrollbar), userInputScrollable(VerticalScrollbar));
 }
 
 void ScrollView::scrollbarModes(ScrollbarMode& horizontalMode, ScrollbarMode& verticalMode) const
@@ -288,26 +295,31 @@ void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
     updateScrollbars(IntSize(newScrollPosition.x(), newScrollPosition.y()));
 }
 
-bool ScrollView::logicalScroll(ScrollLogicalDirection direction, ScrollGranularity granularity)
+bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
 {
-    return scroll(logicalToPhysical(direction, isVerticalDocument(), isFlippedDocument()), granularity);
+    ScrollDirection physicalDirection =
+        toPhysicalDirection(direction, isVerticalDocument(), isFlippedDocument());
+
+    return ScrollableArea::scroll(physicalDirection, granularity);
 }
 
 IntSize ScrollView::overhangAmount() const
 {
     IntSize stretch;
 
-    int physicalScrollY = scrollPosition().y() + scrollOrigin().y();
-    if (physicalScrollY < 0)
-        stretch.setHeight(physicalScrollY);
-    else if (contentsHeight() && physicalScrollY > contentsHeight() - visibleHeight())
-        stretch.setHeight(physicalScrollY - (contentsHeight() - visibleHeight()));
+    IntPoint currentScrollPosition = scrollPosition();
+    IntPoint minScrollPosition = minimumScrollPosition();
+    IntPoint maxScrollPosition = maximumScrollPosition();
 
-    int physicalScrollX = scrollPosition().x() + scrollOrigin().x();
-    if (physicalScrollX < 0)
-        stretch.setWidth(physicalScrollX);
-    else if (contentsWidth() && physicalScrollX > contentsWidth() - visibleWidth())
-        stretch.setWidth(physicalScrollX - (contentsWidth() - visibleWidth()));
+    if (currentScrollPosition.x() < minScrollPosition.x())
+        stretch.setWidth(currentScrollPosition.x() - minScrollPosition.x());
+    if (currentScrollPosition.x() > maxScrollPosition.x())
+        stretch.setWidth(currentScrollPosition.x() - maxScrollPosition.x());
+
+    if (currentScrollPosition.y() < minScrollPosition.y())
+        stretch.setHeight(currentScrollPosition.y() - minScrollPosition.y());
+    if (currentScrollPosition.y() > maxScrollPosition.y())
+        stretch.setHeight(currentScrollPosition.y() - maxScrollPosition.y());
 
     return stretch;
 }
@@ -620,14 +632,6 @@ IntRect ScrollView::contentsToScreen(const IntRect& rect) const
     return window->rootViewToScreen(contentsToRootView(rect));
 }
 
-IntPoint ScrollView::screenToContents(const IntPoint& point) const
-{
-    HostWindow* window = hostWindow();
-    if (!window)
-        return IntPoint();
-    return rootViewToContents(window->screenToRootView(point));
-}
-
 bool ScrollView::containsScrollbarsAvoidingResizer() const
 {
     return !m_scrollbarsAvoidingResizer;
@@ -710,13 +714,6 @@ void ScrollView::frameRectsChanged()
     HashSet<RefPtr<Widget> >::const_iterator end = m_children.end();
     for (HashSet<RefPtr<Widget> >::const_iterator current = m_children.begin(); current != end; ++current)
         (*current)->frameRectsChanged();
-}
-
-void ScrollView::clipRectChanged()
-{
-    HashSet<RefPtr<Widget> >::const_iterator end = m_children.end();
-    for (HashSet<RefPtr<Widget> >::const_iterator current = m_children.begin(); current != end; ++current)
-        (*current)->clipRectChanged();
 }
 
 static void positionScrollbarLayer(GraphicsLayer* graphicsLayer, Scrollbar* scrollbar)
@@ -1096,12 +1093,6 @@ void ScrollView::hide()
 
     Widget::hide();
 }
-
-bool ScrollView::isOffscreen() const
-{
-    return !isVisible();
-}
-
 
 void ScrollView::addPanScrollIcon(const IntPoint& iconPosition)
 {

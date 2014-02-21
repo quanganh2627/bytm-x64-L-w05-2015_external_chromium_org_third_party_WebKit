@@ -43,6 +43,8 @@
 
 using namespace WebCore;
 
+using blink::WebIDBDatabase;
+
 namespace {
 
 class IDBTransactionTest : public testing::Test {
@@ -65,7 +67,7 @@ private:
     RefPtr<Document> m_document;
 };
 
-class FakeWebIDBDatabase : public blink::WebIDBDatabase {
+class FakeWebIDBDatabase FINAL : public blink::WebIDBDatabase {
 public:
     static PassOwnPtr<FakeWebIDBDatabase> create() { return adoptPtr(new FakeWebIDBDatabase()); }
 
@@ -77,7 +79,7 @@ private:
     FakeWebIDBDatabase() { }
 };
 
-class FakeIDBDatabaseCallbacks : public IDBDatabaseCallbacks {
+class FakeIDBDatabaseCallbacks FINAL : public IDBDatabaseCallbacks {
 public:
     static PassRefPtr<FakeIDBDatabaseCallbacks> create() { return adoptRef(new FakeIDBDatabaseCallbacks()); }
     virtual void onVersionChange(int64_t oldVersion, int64_t newVersion) OVERRIDE { }
@@ -96,7 +98,7 @@ TEST_F(IDBTransactionTest, EnsureLifetime)
 
     const int64_t transactionId = 1234;
     const Vector<String> transactionScope;
-    RefPtr<IDBTransaction> transaction = IDBTransaction::create(executionContext(), transactionId, transactionScope, IndexedDB::TransactionReadOnly, db.get());
+    RefPtr<IDBTransaction> transaction = IDBTransaction::create(executionContext(), transactionId, transactionScope, blink::WebIDBDatabase::TransactionReadOnly, db.get());
 
     // Local reference, IDBDatabase's reference and IDBPendingTransactionMonitor's reference:
     EXPECT_EQ(3, transaction->refCount());
@@ -123,7 +125,7 @@ TEST_F(IDBTransactionTest, TransactionFinish)
 
     const int64_t transactionId = 1234;
     const Vector<String> transactionScope;
-    RefPtr<IDBTransaction> transaction = IDBTransaction::create(executionContext(), transactionId, transactionScope, IndexedDB::TransactionReadOnly, db.get());
+    RefPtr<IDBTransaction> transaction = IDBTransaction::create(executionContext(), transactionId, transactionScope, blink::WebIDBDatabase::TransactionReadOnly, db.get());
 
     // Local reference, IDBDatabase's reference and IDBPendingTransactionMonitor's reference:
     EXPECT_EQ(3, transaction->refCount());
@@ -145,6 +147,9 @@ TEST_F(IDBTransactionTest, TransactionFinish)
     // Fire an abort to make sure this doesn't free the transaction during use. The test
     // will not fail if it is, but ASAN would notice the error.
     db->onAbort(transactionId, DOMError::create(AbortError, "Aborted"));
+
+    // onAbort() should have cleared the transaction's reference to the database.
+    EXPECT_EQ(1, db->refCount());
 }
 
 } // namespace

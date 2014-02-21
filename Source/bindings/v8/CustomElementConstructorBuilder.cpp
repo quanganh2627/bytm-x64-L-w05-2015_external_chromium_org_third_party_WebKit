@@ -43,7 +43,6 @@
 #include "bindings/v8/ScriptState.h"
 #include "bindings/v8/UnsafePersistent.h"
 #include "bindings/v8/V8Binding.h"
-#include "bindings/v8/V8HiddenPropertyName.h"
 #include "bindings/v8/V8PerContextData.h"
 #include "core/dom/Document.h"
 #include "core/dom/custom/CustomElementCallbackDispatcher.h"
@@ -66,8 +65,7 @@ CustomElementConstructorBuilder::CustomElementConstructorBuilder(ScriptState* st
 
 bool CustomElementConstructorBuilder::isFeatureAllowed() const
 {
-    // Check that we are in the main world
-    return !DOMWrapperWorld::isolatedWorld(m_context);
+    return DOMWrapperWorld::world(m_context)->isMainWorld();
 }
 
 bool CustomElementConstructorBuilder::validateOptions(const AtomicString& type, QualifiedName& tagName, ExceptionState& exceptionState)
@@ -82,13 +80,13 @@ bool CustomElementConstructorBuilder::validateOptions(const AtomicString& type, 
         }
         m_prototype = prototypeScriptValue.v8Value().As<v8::Object>();
     } else {
-        m_prototype = v8::Object::New();
+        m_prototype = v8::Object::New(m_context->GetIsolate());
         v8::Local<v8::Object> basePrototype = V8PerContextData::from(m_context)->prototypeForType(&V8HTMLElement::wrapperTypeInfo);
         if (!basePrototype.IsEmpty())
             m_prototype->SetPrototype(basePrototype);
     }
 
-    String extends;
+    AtomicString extends;
     bool extendsProvidedAndNonNull = m_options->get("extends", extends);
 
     if (!V8PerContextData::from(m_context)) {
@@ -115,6 +113,10 @@ bool CustomElementConstructorBuilder::validateOptions(const AtomicString& type, 
             return false;
         }
     } else {
+        if (namespaceURI == SVGNames::svgNamespaceURI) {
+            CustomElementException::throwException(CustomElementException::ExtendsIsInvalidName, type, exceptionState);
+            return false;
+        }
         localName = type;
     }
 
@@ -141,11 +143,11 @@ PassRefPtr<CustomElementLifecycleCallbacks> CustomElementConstructorBuilder::cre
 
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::Handle<v8::Function> created = retrieveCallback(isolate, "createdCallback");
-    v8::Handle<v8::Function> enteredView = retrieveCallback(isolate, "enteredViewCallback");
-    v8::Handle<v8::Function> leftView = retrieveCallback(isolate, "leftViewCallback");
+    v8::Handle<v8::Function> attached = retrieveCallback(isolate, "attachedCallback");
+    v8::Handle<v8::Function> detached = retrieveCallback(isolate, "detachedCallback");
     v8::Handle<v8::Function> attributeChanged = retrieveCallback(isolate, "attributeChangedCallback");
 
-    m_callbacks = V8CustomElementLifecycleCallbacks::create(executionContext.get(), m_prototype, created, enteredView, leftView, attributeChanged);
+    m_callbacks = V8CustomElementLifecycleCallbacks::create(executionContext.get(), m_prototype, created, attached, detached, attributeChanged);
     return m_callbacks.get();
 }
 
@@ -187,10 +189,10 @@ bool CustomElementConstructorBuilder::createConstructor(Document* document, Cust
 
     m_constructor->SetName(v8Type->IsNull() ? v8TagName : v8Type.As<v8::String>());
 
-    V8HiddenPropertyName::setNamedHiddenReference(m_constructor, "customElementDocument", toV8(document, m_context->Global(), isolate));
-    V8HiddenPropertyName::setNamedHiddenReference(m_constructor, "customElementNamespaceURI", v8String(isolate, descriptor.namespaceURI()));
-    V8HiddenPropertyName::setNamedHiddenReference(m_constructor, "customElementTagName", v8TagName);
-    V8HiddenPropertyName::setNamedHiddenReference(m_constructor, "customElementType", v8Type);
+    setHiddenValue(isolate, m_constructor, "customElementDocument", toV8(document, m_context->Global(), isolate));
+    setHiddenValue(isolate, m_constructor, "customElementNamespaceURI", v8String(isolate, descriptor.namespaceURI()));
+    setHiddenValue(isolate, m_constructor, "customElementTagName", v8TagName);
+    setHiddenValue(isolate, m_constructor, "customElementType", v8Type);
 
     v8::Handle<v8::String> prototypeKey = v8String(isolate, "prototype");
     ASSERT(m_constructor->HasOwnProperty(prototypeKey));
@@ -203,7 +205,7 @@ bool CustomElementConstructorBuilder::createConstructor(Document* document, Cust
     // property.
     m_constructor->ForceSet(prototypeKey, m_prototype, v8::PropertyAttribute(v8::ReadOnly | v8::DontEnum | v8::DontDelete));
 
-    V8HiddenPropertyName::setNamedHiddenReference(m_prototype, "customElementIsInterfacePrototypeObject", v8::True(isolate));
+    setHiddenValue(isolate, m_prototype, "customElementIsInterfacePrototypeObject", v8::True(isolate));
     m_prototype->ForceSet(v8String(isolate, "constructor"), m_constructor, v8::DontEnum);
 
     return true;
@@ -211,7 +213,7 @@ bool CustomElementConstructorBuilder::createConstructor(Document* document, Cust
 
 bool CustomElementConstructorBuilder::prototypeIsValid(const AtomicString& type, ExceptionState& exceptionState) const
 {
-    if (m_prototype->InternalFieldCount() || !m_prototype->GetHiddenValue(V8HiddenPropertyName::customElementIsInterfacePrototypeObject(m_context->GetIsolate())).IsEmpty()) {
+    if (m_prototype->InternalFieldCount() || !getHiddenValue(m_context->GetIsolate(), m_prototype, "customElementIsInterfacePrototypeObject").IsEmpty()) {
         CustomElementException::throwException(CustomElementException::PrototypeInUse, type, exceptionState);
         return false;
     }
@@ -262,14 +264,14 @@ static void constructCustomElement(const v8::FunctionCallbackInfo<v8::Value>& in
     }
 
     if (info.Length() > 0) {
-        throwUninformativeAndGenericTypeError(isolate);
+        throwTypeError("This constructor should be called without arguments.", isolate);
         return;
     }
 
-    Document* document = V8Document::toNative(info.Callee()->GetHiddenValue(V8HiddenPropertyName::customElementDocument(isolate)).As<v8::Object>());
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, namespaceURI, info.Callee()->GetHiddenValue(V8HiddenPropertyName::customElementNamespaceURI(isolate)));
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, tagName, info.Callee()->GetHiddenValue(V8HiddenPropertyName::customElementTagName(isolate)));
-    v8::Handle<v8::Value> maybeType = info.Callee()->GetHiddenValue(V8HiddenPropertyName::customElementType(isolate));
+    Document* document = V8Document::toNative(getHiddenValue(isolate, info.Callee(), "customElementDocument").As<v8::Object>());
+    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, namespaceURI, getHiddenValue(isolate, info.Callee(), "customElementNamespaceURI"));
+    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, tagName, getHiddenValue(isolate, info.Callee(), "customElementTagName"));
+    v8::Handle<v8::Value> maybeType = getHiddenValue(isolate, info.Callee(), "customElementType");
     V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, type, maybeType);
 
     ExceptionState exceptionState(ExceptionState::ConstructionContext, "CustomElement", info.Holder(), info.GetIsolate());

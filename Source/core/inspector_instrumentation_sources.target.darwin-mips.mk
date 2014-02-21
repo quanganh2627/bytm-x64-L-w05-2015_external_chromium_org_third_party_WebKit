@@ -23,7 +23,6 @@ $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: $(LOCA
 	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python inspector/CodeGeneratorInstrumentation.py inspector/InspectorInstrumentation.idl --output_dir "$(gyp_shared_intermediate_dir)/blink"
 
 $(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
-$(gyp_shared_intermediate_dir)/blink/InspectorDatabaseInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
@@ -33,7 +32,6 @@ $(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp: $(gyp_sha
 GYP_GENERATED_OUTPUTS := \
 	$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InspectorDatabaseInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h \

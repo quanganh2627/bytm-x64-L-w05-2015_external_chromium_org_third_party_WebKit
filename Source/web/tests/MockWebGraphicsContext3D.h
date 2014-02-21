@@ -27,7 +27,6 @@
 #define MockWebGraphicsContext3D_h
 
 #include "platform/PlatformExport.h"
-#include "platform/graphics/GraphicsContext3D.h"
 #include "public/platform/WebGraphicsContext3D.h"
 
 namespace blink {
@@ -85,7 +84,7 @@ public:
 
     virtual WGC3Denum checkFramebufferStatus(WGC3Denum target)
     {
-        return WebCore::GraphicsContext3D::FRAMEBUFFER_COMPLETE;
+        return GL_FRAMEBUFFER_COMPLETE;
     }
 
     virtual void clear(WGC3Dbitfield mask) { }
@@ -131,13 +130,13 @@ public:
 
     virtual void getIntegerv(WGC3Denum pname, WGC3Dint* value)
     {
-        if (pname == WebCore::GraphicsContext3D::MAX_TEXTURE_SIZE)
+        if (pname == GL_MAX_TEXTURE_SIZE)
             *value = 1024;
     }
 
     virtual void getProgramiv(WebGLId program, WGC3Denum pname, WGC3Dint* value)
     {
-        if (pname == WebCore::GraphicsContext3D::LINK_STATUS)
+        if (pname == GL_LINK_STATUS)
             *value = 1;
     }
 
@@ -146,7 +145,7 @@ public:
 
     virtual void getShaderiv(WebGLId shader, WGC3Denum pname, WGC3Dint* value)
     {
-        if (pname == WebCore::GraphicsContext3D::COMPILE_STATUS)
+        if (pname == GL_COMPILE_STATUS)
             *value = 1;
     }
 
@@ -279,11 +278,11 @@ public:
 
     virtual WebGLId createQueryEXT() { return 1; }
     virtual void deleteQueryEXT(WebGLId) { }
-    virtual GC3Dboolean isQueryEXT(WebGLId) { return true; }
-    virtual void beginQueryEXT(GC3Denum, WebGLId) { }
-    virtual void endQueryEXT(GC3Denum) { }
-    virtual void getQueryivEXT(GC3Denum, GC3Denum, GC3Dint*) { }
-    virtual void getQueryObjectuivEXT(WebGLId, GC3Denum, GC3Duint*) { }
+    virtual GLboolean isQueryEXT(WebGLId) { return true; }
+    virtual void beginQueryEXT(GLenum, WebGLId) { }
+    virtual void endQueryEXT(GLenum) { }
+    virtual void getQueryivEXT(GLenum, GLenum, GLint*) { }
+    virtual void getQueryObjectuivEXT(WebGLId, GLenum, GLuint*) { }
 
 protected:
     unsigned m_nextTextureId;

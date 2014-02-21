@@ -32,13 +32,13 @@
 #define FrameTestHelpers_h
 
 #include "WebViewImpl.h"
+#include "public/web/WebFrameClient.h"
 #include "wtf/PassOwnPtr.h"
 #include <string>
 
 namespace blink {
 
 class WebFrameImpl;
-class WebFrameClient;
 class WebSettings;
 class WebViewClient;
 
@@ -68,8 +68,15 @@ public:
     WebViewImpl* webViewImpl() const { return m_webView; }
 
 private:
-    WebFrameImpl* m_mainFrame;
     WebViewImpl* m_webView;
+};
+
+// Minimal implementation of WebFrameClient needed for unit tests that load frames. Tests that load
+// frames and need further specialization of WebFrameClient behavior should subclass this.
+class TestWebFrameClient : public WebFrameClient {
+public:
+    virtual WebFrame* createChildFrame(WebFrame* parent, const WebString& frameName) OVERRIDE;
+    virtual void frameDetached(WebFrame*) OVERRIDE;
 };
 
 } // namespace FrameTestHelpers

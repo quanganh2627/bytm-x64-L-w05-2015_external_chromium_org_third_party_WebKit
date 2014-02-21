@@ -54,7 +54,7 @@ WebInspector.CanvasReplayStateView = function(traceLogPlayer)
 
     /** @type {!Object.<string, !Object.<string, boolean>>} */
     this._gridNodesExpandedState = {};
-    /** @type {!Object.<string, {scrollTop:number, scrollLeft:number}>} */
+    /** @type {!Object.<string, !{scrollTop: number, scrollLeft: number}>} */
     this._gridScrollPositions = {};
 
     /** @type {?CanvasAgent.ResourceId} */
@@ -262,8 +262,10 @@ WebInspector.CanvasReplayStateView.prototype = {
     {
         this._updateCurrentOption();
         var selectedResourceId = this._resourceSelector.selectedOption().value;
+
         /**
          * @param {?CanvasAgent.ResourceState} resourceState
+         * @this {WebInspector.CanvasReplayStateView}
          */
         function didReceiveResourceState(resourceState)
         {
@@ -280,8 +282,8 @@ WebInspector.CanvasReplayStateView.prototype = {
     _onCanvasTraceLogReceived: function(event)
     {
         var traceLog = /** @type {!CanvasAgent.TraceLog} */ (event.data);
-        if (traceLog)
-            this._collectResourcesFromTraceLog(traceLog);
+        console.assert(traceLog);
+        this._collectResourcesFromTraceLog(traceLog);
     },
 
     /**
@@ -290,8 +292,8 @@ WebInspector.CanvasReplayStateView.prototype = {
     _onCanvasResourceStateReceived: function(event)
     {
         var resourceState = /** @type {!CanvasAgent.ResourceState} */ (event.data);
-        if (resourceState)
-            this._collectResourcesFromResourceState(resourceState);
+        console.assert(resourceState);
+        this._collectResourcesFromResourceState(resourceState);
     },
 
     /**
@@ -350,6 +352,7 @@ WebInspector.CanvasReplayStateView.prototype = {
          * @param {!Array.<!CanvasAgent.ResourceStateDescriptor>|undefined} descriptors
          * @param {!WebInspector.DataGridNode} parent
          * @param {!Object=} nameToOldChildren
+         * @this {WebInspector.CanvasReplayStateView}
          */
         function appendResourceStateDescriptors(descriptors, parent, nameToOldChildren)
         {
@@ -381,16 +384,14 @@ WebInspector.CanvasReplayStateView.prototype = {
      */
     _updateDataGridHighlights: function(nodes)
     {
-        for (var i = 0, n = this._highlightedGridNodes.length; i < n; ++i) {
-            var node = this._highlightedGridNodes[i];
-            node.element.classList.remove("canvas-grid-node-highlighted");
-        }
+        for (var i = 0, n = this._highlightedGridNodes.length; i < n; ++i)
+            this._highlightedGridNodes[i].element.classList.remove("canvas-grid-node-highlighted");
 
         this._highlightedGridNodes = nodes;
 
         for (var i = 0, n = this._highlightedGridNodes.length; i < n; ++i) {
             var node = this._highlightedGridNodes[i];
-            node.element.classList.add("canvas-grid-node-highlighted");
+            WebInspector.runCSSAnimationOnce(node.element, "canvas-grid-node-highlighted");
             node.reveal();
         }
     },

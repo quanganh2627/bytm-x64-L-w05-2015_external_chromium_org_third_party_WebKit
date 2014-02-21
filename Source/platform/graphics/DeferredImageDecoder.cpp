@@ -26,8 +26,10 @@
 #include "config.h"
 #include "platform/graphics/DeferredImageDecoder.h"
 
+#include "platform/graphics/DecodingImageGenerator.h"
+#include "platform/graphics/ImageDecodingStore.h"
 #include "platform/graphics/LazyDecodingPixelRef.h"
-
+#include "third_party/skia/include/core/SkImageInfo.h"
 #include "wtf/PassOwnPtr.h"
 
 namespace WebCore {
@@ -37,12 +39,18 @@ namespace {
 // URI label for a lazily decoded SkPixelRef.
 const char labelLazyDecoded[] = "lazy";
 
+// URI label for SkDiscardablePixelRef.
+const char labelDiscardable[] = "discardable";
+
 } // namespace
 
 bool DeferredImageDecoder::s_enabled = false;
+bool DeferredImageDecoder::s_skiaDiscardableMemoryEnabled = false;
 
 DeferredImageDecoder::DeferredImageDecoder(PassOwnPtr<ImageDecoder> actualDecoder)
     : m_allDataReceived(false)
+    , m_lastDataSize(0)
+    , m_dataChanged(false)
     , m_actualDecoder(actualDecoder)
     , m_orientation(DefaultImageOrientation)
     , m_repetitionCount(cAnimationNone)
@@ -68,12 +76,21 @@ bool DeferredImageDecoder::isLazyDecoded(const SkBitmap& bitmap)
 {
     return bitmap.pixelRef()
         && bitmap.pixelRef()->getURI()
-        && !memcmp(bitmap.pixelRef()->getURI(), labelLazyDecoded, sizeof(labelLazyDecoded));
+        && (!memcmp(bitmap.pixelRef()->getURI(), labelLazyDecoded, sizeof(labelLazyDecoded))
+            || !memcmp(bitmap.pixelRef()->getURI(), labelDiscardable, sizeof(labelDiscardable)));
 }
 
 void DeferredImageDecoder::setEnabled(bool enabled)
 {
     s_enabled = enabled;
+#if !OS(ANDROID)
+    // FIXME: This code is temporary to enable discardable memory for
+    // non-Android platforms. In the future all platforms will be
+    // the same and we can remove this code.
+    s_skiaDiscardableMemoryEnabled = enabled;
+    if (enabled)
+        ImageDecodingStore::setImageCachingEnabled(false);
+#endif
 }
 
 String DeferredImageDecoder::filenameExtension() const
@@ -98,7 +115,11 @@ ImageFrame* DeferredImageDecoder::frameBufferAtIndex(size_t index)
 void DeferredImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
 {
     if (m_actualDecoder) {
+        const bool firstData = !m_data && data;
+        const bool moreData = data && data->size() > m_lastDataSize;
+        m_dataChanged = firstData || moreData;
         m_data = data;
+        m_lastDataSize = data->size();
         m_allDataReceived = allDataReceived;
         m_actualDecoder->setData(data, allDataReceived);
         prepareLazyDecodedFrames();
@@ -208,7 +229,7 @@ void DeferredImageDecoder::prepareLazyDecodedFrames()
     m_lazyDecodedFrames.resize(m_actualDecoder->frameCount());
     for (size_t i = previousSize; i < m_lazyDecodedFrames.size(); ++i) {
         OwnPtr<ImageFrame> frame(adoptPtr(new ImageFrame()));
-        frame->setSkBitmap(createLazyDecodingBitmap(i));
+        frame->setSkBitmap(createBitmap(i));
         frame->setDuration(m_actualDecoder->frameDurationAtIndex(i));
         frame->setStatus(m_actualDecoder->frameIsCompleteAtIndex(i) ? ImageFrame::FrameComplete : ImageFrame::FramePartial);
         m_lazyDecodedFrames[i] = frame.release();
@@ -216,8 +237,17 @@ void DeferredImageDecoder::prepareLazyDecodedFrames()
 
     // The last lazy decoded frame created from previous call might be
     // incomplete so update its state.
-    if (previousSize)
-        m_lazyDecodedFrames[previousSize - 1]->setStatus(m_actualDecoder->frameIsCompleteAtIndex(previousSize - 1) ? ImageFrame::FrameComplete : ImageFrame::FramePartial);
+    if (previousSize) {
+        const size_t lastFrame = previousSize - 1;
+        m_lazyDecodedFrames[lastFrame]->setStatus(m_actualDecoder->frameIsCompleteAtIndex(lastFrame) ? ImageFrame::FrameComplete : ImageFrame::FramePartial);
+
+        // If data has changed then create a new bitmap. This forces
+        // Skia to decode again.
+        if (m_dataChanged) {
+            m_dataChanged = false;
+            m_lazyDecodedFrames[lastFrame]->setSkBitmap(createBitmap(lastFrame));
+        }
+    }
 
     if (m_allDataReceived) {
         m_repetitionCount = m_actualDecoder->repetitionCount();
@@ -226,16 +256,54 @@ void DeferredImageDecoder::prepareLazyDecodedFrames()
     }
 }
 
+// Creates either a SkBitmap backed by SkDiscardablePixelRef or a SkBitmap using the
+// legacy LazyDecodingPixelRef.
+SkBitmap DeferredImageDecoder::createBitmap(size_t index)
+{
+    // This code is temporary until the transition to SkDiscardablePixelRef is complete.
+    if (s_skiaDiscardableMemoryEnabled)
+        return createSkiaDiscardableBitmap(index);
+    return createLazyDecodingBitmap(index);
+}
+
+// Creates a SkBitmap that is backed by SkDiscardablePixelRef.
+SkBitmap DeferredImageDecoder::createSkiaDiscardableBitmap(size_t index)
+{
+    IntSize decodedSize = m_actualDecoder->decodedSize();
+    ASSERT(decodedSize.width() > 0);
+    ASSERT(decodedSize.height() > 0);
+
+    SkImageInfo info;
+    info.fWidth = decodedSize.width();
+    info.fHeight = decodedSize.height();
+    info.fColorType = kBGRA_8888_SkColorType;
+    info.fAlphaType = kPremul_SkAlphaType;
+
+    SkBitmap bitmap;
+    DecodingImageGenerator* generator = new DecodingImageGenerator(m_frameGenerator, info, index);
+    bool installed = SkInstallDiscardablePixelRef(generator, &bitmap);
+    ASSERT_UNUSED(installed, installed);
+    bitmap.pixelRef()->setURI(labelDiscardable);
+    generator->setGenerationId(bitmap.getGenerationID());
+    return bitmap;
+}
+
 SkBitmap DeferredImageDecoder::createLazyDecodingBitmap(size_t index)
 {
     IntSize decodedSize = m_actualDecoder->decodedSize();
     ASSERT(decodedSize.width() > 0);
     ASSERT(decodedSize.height() > 0);
 
+    SkImageInfo info;
+    info.fWidth = decodedSize.width();
+    info.fHeight = decodedSize.height();
+    info.fColorType = kPMColor_SkColorType;
+    info.fAlphaType = kPremul_SkAlphaType;
+
     // Creates a lazily decoded SkPixelRef that references the entire image without scaling.
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, decodedSize.width(), decodedSize.height());
-    bitmap.setPixelRef(new LazyDecodingPixelRef(m_frameGenerator, index))->unref();
+    bitmap.setConfig(info);
+    bitmap.setPixelRef(new LazyDecodingPixelRef(info, m_frameGenerator, index))->unref();
 
     // Use the URI to identify this as a lazily decoded SkPixelRef of type LazyDecodingPixelRef.
     // FIXME: It would be more useful to give the actual image URI.

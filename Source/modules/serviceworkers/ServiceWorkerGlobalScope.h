@@ -30,7 +30,6 @@
 #ifndef ServiceWorkerGlobalScope_h
 #define ServiceWorkerGlobalScope_h
 
-#include "bindings/v8/ScriptObject.h"
 #include "bindings/v8/ScriptPromiseResolver.h"
 #include "core/dom/Promise.h"
 #include "core/workers/WorkerGlobalScope.h"
@@ -41,7 +40,7 @@ namespace WebCore {
 class ServiceWorkerThread;
 struct WorkerThreadStartupData;
 
-class ServiceWorkerGlobalScope : public WorkerGlobalScope {
+class ServiceWorkerGlobalScope FINAL : public WorkerGlobalScope {
 public:
     static PassRefPtr<ServiceWorkerGlobalScope> create(ServiceWorkerThread*, PassOwnPtr<WorkerThreadStartupData>);
 

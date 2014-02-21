@@ -38,6 +38,9 @@ WebInspector.ImageView = function(resource)
 }
 
 WebInspector.ImageView.prototype = {
+    /**
+     * @return {boolean}
+     */
     hasContent: function()
     {
         return true;
@@ -76,6 +79,9 @@ WebInspector.ImageView.prototype = {
 
         this.resource.populateImageSource(imagePreviewElement);
 
+        /**
+         * @this {WebInspector.ImageView}
+         */
         function onImageLoad()
         {
             var content = this.resource.content;

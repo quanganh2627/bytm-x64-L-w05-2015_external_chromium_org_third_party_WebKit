@@ -233,7 +233,8 @@ void NativeImageSkia::drawResampledBitmap(GraphicsContext* context, SkPaint& pai
 
     // This part of code limits scaling only to visible portion in the
     SkRect destRectVisibleSubset;
-    ClipRectToCanvas(context, destRect, &destRectVisibleSubset);
+    if (!context->canvas()->getClipBounds(&destRectVisibleSubset))
+        return;
 
     // ClipRectToCanvas often overshoots, resulting in a larger region than our
     // original destRect. Intersecting gets us back inside.
@@ -253,21 +254,18 @@ void NativeImageSkia::drawResampledBitmap(GraphicsContext* context, SkPaint& pai
 }
 
 NativeImageSkia::NativeImageSkia()
-    : m_resolutionScale(1)
-    , m_resizeRequests(0)
+    : m_resizeRequests(0)
 {
 }
 
-NativeImageSkia::NativeImageSkia(const SkBitmap& other, float resolutionScale)
+NativeImageSkia::NativeImageSkia(const SkBitmap& other)
     : m_image(other)
-    , m_resolutionScale(resolutionScale)
     , m_resizeRequests(0)
 {
 }
 
-NativeImageSkia::NativeImageSkia(const SkBitmap& image, float resolutionScale, const SkBitmap& resizedImage, const ImageResourceInfo& cachedImageInfo, int resizeRequests)
+NativeImageSkia::NativeImageSkia(const SkBitmap& image, const SkBitmap& resizedImage, const ImageResourceInfo& cachedImageInfo, int resizeRequests)
     : m_image(image)
-    , m_resolutionScale(resolutionScale)
     , m_resizedImage(resizedImage)
     , m_cachedImageInfo(cachedImageInfo)
     , m_resizeRequests(resizeRequests)
@@ -378,7 +376,7 @@ void NativeImageSkia::draw(GraphicsContext* context, const SkRect& srcRect, cons
         context->drawBitmapRect(bitmap(), &srcRect, destRect, &paint);
     }
     if (isLazyDecoded)
-        PlatformInstrumentation::didDrawLazyPixelRef(reinterpret_cast<unsigned long long>(bitmap().pixelRef()));
+        PlatformInstrumentation::didDrawLazyPixelRef(bitmap().getGenerationID());
     context->didDrawRect(destRect, paint, &bitmap());
 }
 
@@ -502,7 +500,7 @@ void NativeImageSkia::drawPattern(
     if (useBicubicFilter)
         paint.setFilterLevel(SkPaint::kHigh_FilterLevel);
     if (isLazyDecoded)
-        PlatformInstrumentation::didDrawLazyPixelRef(reinterpret_cast<unsigned long long>(bitmap().pixelRef()));
+        PlatformInstrumentation::didDrawLazyPixelRef(bitmap().getGenerationID());
 
     context->drawRect(destRect, paint);
 }

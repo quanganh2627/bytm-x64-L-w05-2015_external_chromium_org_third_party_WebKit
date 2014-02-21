@@ -28,6 +28,7 @@
 #define Internals_h
 
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "bindings/v8/ScriptPromise.h"
 #include "bindings/v8/ScriptValue.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/dom/ContextLifecycleObserver.h"
@@ -66,7 +67,7 @@ class SerializedScriptValue;
 class ShadowRoot;
 class TypeConversions;
 
-class Internals : public RefCounted<Internals>
+class Internals FINAL : public RefCounted<Internals>
     , public ContextLifecycleObserver {
 public:
     static PassRefPtr<Internals> create(Document*);
@@ -89,33 +90,32 @@ public:
     String styleResolverStatsReport(ExceptionState&) const;
     String styleResolverStatsTotalsReport(ExceptionState&) const;
 
+    bool isSharingStyle(Element*, Element*, ExceptionState&) const;
+
     size_t numberOfScopedHTMLStyleChildren(const Node*, ExceptionState&) const;
     PassRefPtr<CSSComputedStyleDeclaration> computedStyleIncludingVisitedInfo(Node*, ExceptionState&) const;
 
-    ShadowRoot* ensureShadowRoot(Element* host, ExceptionState&);
     ShadowRoot* shadowRoot(Element* host, ExceptionState&);
     ShadowRoot* youngestShadowRoot(Element* host, ExceptionState&);
     ShadowRoot* oldestShadowRoot(Element* host, ExceptionState&);
     ShadowRoot* youngerShadowRoot(Node* shadow, ExceptionState&);
-    ShadowRoot* olderShadowRoot(Node* shadow, ExceptionState&);
     String shadowRootType(const Node*, ExceptionState&) const;
     bool hasShadowInsertionPoint(const Node*, ExceptionState&) const;
     bool hasContentElement(const Node*, ExceptionState&) const;
     size_t countElementShadow(const Node*, ExceptionState&) const;
-    String shadowPseudoId(Element*, ExceptionState&);
-    void setShadowPseudoId(Element*, const String&, ExceptionState&);
+    const AtomicString& shadowPseudoId(Element*, ExceptionState&);
+    void setShadowPseudoId(Element*, const AtomicString&, ExceptionState&);
 
     // CSS Animation / Transition testing.
     unsigned numberOfActiveAnimations() const;
     void pauseAnimations(double pauseTime, ExceptionState&);
 
-    PassRefPtr<Element> createContentElement(ExceptionState&);
     bool isValidContentSelect(Element* insertionPoint, ExceptionState&);
     Node* treeScopeRootNode(Node*, ExceptionState&);
     Node* parentTreeScope(Node*, ExceptionState&);
-    bool hasSelectorForIdInShadow(Element* host, const String& idValue, ExceptionState&);
-    bool hasSelectorForClassInShadow(Element* host, const String& className, ExceptionState&);
-    bool hasSelectorForAttributeInShadow(Element* host, const String& attributeName, ExceptionState&);
+    bool hasSelectorForIdInShadow(Element* host, const AtomicString& idValue, ExceptionState&);
+    bool hasSelectorForClassInShadow(Element* host, const AtomicString& className, ExceptionState&);
+    bool hasSelectorForAttributeInShadow(Element* host, const AtomicString& attributeName, ExceptionState&);
     bool hasSelectorForPseudoClassInShadow(Element* host, const String& pseudoClass, ExceptionState&);
     unsigned short compareTreeScopePosition(const Node*, const Node*, ExceptionState&) const;
 
@@ -127,9 +127,12 @@ public:
     Node* previousNodeByWalker(Node*, ExceptionState&);
 
     unsigned updateStyleAndReturnAffectedElementCount(ExceptionState&) const;
+    unsigned needsLayoutCount(ExceptionState&) const;
 
     String visiblePlaceholder(Element*);
     void selectColorInColorChooser(Element*, const String& colorValue);
+    bool hasAutofocusRequest(Document*);
+    bool hasAutofocusRequest();
     Vector<String> formControlStateOfHistoryItem(ExceptionState&);
     void setFormControlStateOfHistoryItem(const Vector<String>&, ExceptionState&);
     void setEnableMockPagePopup(bool, ExceptionState&);
@@ -149,21 +152,18 @@ public:
     String markerDescriptionForNode(Node*, const String& markerType, unsigned index, ExceptionState&);
     void addTextMatchMarker(const Range*, bool isActive);
     void setMarkersActive(Node*, unsigned startOffset, unsigned endOffset, bool, ExceptionState&);
+    void setMarkedTextMatchesAreHighlighted(Document*, bool, ExceptionState&);
 
     void setScrollViewPosition(Document*, long x, long y, ExceptionState&);
-    void setPagination(Document* document, const String& mode, int gap, ExceptionState& ec) { setPagination(document, mode, gap, 0, ec); }
-    void setPagination(Document*, const String& mode, int gap, int pageLength, ExceptionState&);
     String viewportAsText(Document*, float devicePixelRatio, int availableWidth, int availableHeight, ExceptionState&);
 
     bool wasLastChangeUserEdit(Element* textField, ExceptionState&);
     bool elementShouldAutoComplete(Element* inputElement, ExceptionState&);
-    String suggestedValue(Element* inputElement, ExceptionState&);
-    void setSuggestedValue(Element* inputElement, const String&, ExceptionState&);
+    String suggestedValue(Element*, ExceptionState&);
+    void setSuggestedValue(Element*, const String&, ExceptionState&);
     void setEditingValue(Element* inputElement, const String&, ExceptionState&);
     void setAutofilled(Element*, bool enabled, ExceptionState&);
     void scrollElementToRect(Element*, long x, long y, long w, long h, ExceptionState&);
-
-    void paintControlTints(Document*, ExceptionState&);
 
     PassRefPtr<Range> rangeFromLocationAndLength(Element* scope, int rangeLocation, int rangeLength, ExceptionState&);
     unsigned locationFromRange(Element* scope, const Range*, ExceptionState&);
@@ -179,7 +179,7 @@ public:
     int lastSpellCheckRequestSequence(Document*, ExceptionState&);
     int lastSpellCheckProcessedSequence(Document*, ExceptionState&);
 
-    Vector<String> userPreferredLanguages() const;
+    Vector<AtomicString> userPreferredLanguages() const;
     void setUserPreferredLanguages(const Vector<String>&);
 
     unsigned wheelEventHandlerCount(Document*, ExceptionState&);
@@ -303,6 +303,14 @@ public:
 
     void forceCompositingUpdate(Document*, ExceptionState&);
 
+    bool isCompositorFramePending(Document*, ExceptionState&);
+
+    void setZoomFactor(float);
+
+    void setShouldRevealPassword(Element*, bool, ExceptionState&);
+
+    ScriptPromise addOneToPromise(ExecutionContext*, ScriptPromise);
+
 private:
     explicit Internals(Document*);
     Document* contextDocument() const;
@@ -314,7 +322,6 @@ private:
     RefPtr<DOMWindow> m_frontendWindow;
     OwnPtr<InspectorFrontendChannelDummy> m_frontendChannel;
     RefPtr<InternalRuntimeFlags> m_runtimeFlags;
-    RefPtr<ScrollingCoordinator> m_scrollingCoordinator;
     RefPtr<InternalProfilers> m_profilers;
 };
 

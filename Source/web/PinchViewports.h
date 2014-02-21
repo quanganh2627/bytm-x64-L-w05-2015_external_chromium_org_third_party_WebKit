@@ -51,10 +51,10 @@ class WebLayerTreeView;
 class WebScrollbarLayer;
 class WebViewImpl;
 
-class PinchViewports : WebCore::GraphicsLayerClient {
+class PinchViewports FINAL : WebCore::GraphicsLayerClient {
 public:
     static PassOwnPtr<PinchViewports> create(WebViewImpl* owner);
-    ~PinchViewports();
+    virtual ~PinchViewports();
 
     void setOverflowControlsHostLayer(WebCore::GraphicsLayer*);
     WebCore::GraphicsLayer* rootGraphicsLayer()
@@ -67,7 +67,7 @@ public:
     void clearViewportLayersForTreeView(WebLayerTreeView*) const;
 
     // GraphicsLayerClient implementation.
-    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time) OVERRIDE;
+    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double wallClockTime, double monotonicTime) OVERRIDE;
     virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& inClip) OVERRIDE;
 
     virtual String debugName(const WebCore::GraphicsLayer*) OVERRIDE;

@@ -36,11 +36,16 @@
 #include "RuntimeEnabledFeatures.h"
 #include "V8Interface1.h"
 #include "V8Interface2.h"
-#include "bindings/v8/ExceptionMessages.h"
+#include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8DOMConfiguration.h"
+#include "bindings/v8/V8GCController.h"
+#include "bindings/v8/V8ObjectConstructor.h"
 #include "core/dom/ContextFeatures.h"
 #include "core/dom/Document.h"
+#include "core/dom/Element.h"
 #include "platform/TraceEvent.h"
+#include "wtf/GetPtr.h"
+#include "wtf/RefPtr.h"
 
 namespace WebCore {
 
@@ -64,7 +69,7 @@ void webCoreInitializeScriptWrappableForInterface(WebCore::TestInterfacePython2*
 }
 
 namespace WebCore {
-const WrapperTypeInfo V8TestInterfacePython2::wrapperTypeInfo = { gin::kEmbedderBlink, V8TestInterfacePython2::domTemplate, V8TestInterfacePython2::derefObject, 0, 0, V8TestInterfacePython2::visitDOMWrapper, V8TestInterfacePython2::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype };
+const WrapperTypeInfo V8TestInterfacePython2::wrapperTypeInfo = { gin::kEmbedderBlink, V8TestInterfacePython2::domTemplate, V8TestInterfacePython2::derefObject, 0, 0, V8TestInterfacePython2::visitDOMWrapper, V8TestInterfacePython2::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype, false };
 
 namespace TestInterfacePython2V8Internal {
 
@@ -72,7 +77,18 @@ template <typename T> void V8_USE(T) { }
 
 } // namespace TestInterfacePython2V8Internal
 
-static v8::Handle<v8::FunctionTemplate> ConfigureV8TestInterfacePython2Template(v8::Handle<v8::FunctionTemplate> functionTemplate, v8::Isolate* isolate, WrapperWorldType currentWorldType)
+void V8TestInterfacePython2::visitDOMWrapper(void* object, const v8::Persistent<v8::Object>& wrapper, v8::Isolate* isolate)
+{
+    TestInterfacePython2* impl = fromInternalPointer(object);
+    if (Node* owner = impl->ownerNode()) {
+        Node* root = V8GCController::opaqueRootForGC(owner, isolate);
+        isolate->SetReferenceFromGroup(v8::UniqueId(reinterpret_cast<intptr_t>(root)), wrapper);
+        return;
+    }
+    setObjectGroup(object, wrapper, isolate);
+}
+
+static void configureV8TestInterfacePython2Template(v8::Handle<v8::FunctionTemplate> functionTemplate, v8::Isolate* isolate, WrapperWorldType currentWorldType)
 {
     functionTemplate->ReadOnlyPrototype();
 
@@ -86,8 +102,7 @@ static v8::Handle<v8::FunctionTemplate> ConfigureV8TestInterfacePython2Template(
     v8::Local<v8::ObjectTemplate> ALLOW_UNUSED prototypeTemplate = functionTemplate->PrototypeTemplate();
 
     // Custom toString template
-    functionTemplate->Set(v8::String::NewFromUtf8(isolate, "toString", v8::String::kInternalizedString), V8PerIsolateData::current()->toStringTemplate());
-    return functionTemplate;
+    functionTemplate->Set(v8AtomicString(isolate, "toString"), V8PerIsolateData::current()->toStringTemplate());
 }
 
 v8::Handle<v8::FunctionTemplate> V8TestInterfacePython2::domTemplate(v8::Isolate* isolate, WrapperWorldType currentWorldType)
@@ -99,22 +114,16 @@ v8::Handle<v8::FunctionTemplate> V8TestInterfacePython2::domTemplate(v8::Isolate
 
     TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
     v8::EscapableHandleScope handleScope(isolate);
-    v8::Local<v8::FunctionTemplate> templ =
-        ConfigureV8TestInterfacePython2Template(data->rawDOMTemplate(&wrapperTypeInfo, currentWorldType), isolate, currentWorldType);
+    v8::Local<v8::FunctionTemplate> templ = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
+    configureV8TestInterfacePython2Template(templ, isolate, currentWorldType);
     data->templateMap(currentWorldType).add(&wrapperTypeInfo, UnsafePersistent<v8::FunctionTemplate>(isolate, templ));
     return handleScope.Escape(templ);
 }
 
-bool V8TestInterfacePython2::hasInstance(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate, WrapperWorldType currentWorldType)
+bool V8TestInterfacePython2::hasInstance(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
 {
-    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, currentWorldType);
-}
-
-bool V8TestInterfacePython2::hasInstanceInAnyWorld(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
-{
-    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, MainWorld)
-        || V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, IsolatedWorld)
-        || V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue, WorkerWorld);
+    return V8PerIsolateData::from(isolate)->hasInstanceInMainWorld(&wrapperTypeInfo, jsValue)
+        || V8PerIsolateData::from(isolate)->hasInstanceInNonMainWorld(&wrapperTypeInfo, jsValue);
 }
 
 v8::Handle<v8::Object> wrap(TestInterfacePython2* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)

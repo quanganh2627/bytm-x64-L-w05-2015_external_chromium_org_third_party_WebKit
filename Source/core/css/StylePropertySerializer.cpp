@@ -25,7 +25,7 @@
 
 #include "CSSValueKeywords.h"
 #include "StylePropertyShorthand.h"
-#include "core/page/RuntimeCSSEnabled.h"
+#include "core/css/RuntimeCSSEnabled.h"
 #include "wtf/BitArray.h"
 #include "wtf/text/StringBuilder.h"
 
@@ -69,11 +69,6 @@ String StylePropertySerializer::asText() const
         String value;
 
         switch (propertyID) {
-        case CSSPropertyVariable:
-            if (numDecls++)
-                result.append(' ');
-            result.append(property.cssText());
-            continue;
         case CSSPropertyBackgroundPositionX:
             positionXPropertyIndex = n;
             continue;

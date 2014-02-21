@@ -85,23 +85,16 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGAltGlyphElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAltGlyphItemElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAngle.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimateColorElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedAngle.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedBoolean.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedColor.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedEnumeration.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedInteger.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedIntegerOptionalInteger.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedLength.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedLengthList.cpp \
+	third_party/WebKit/Source/core/svg/SVGAnimatedNewPropertyAnimator.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedNumber.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedNumberList.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedNumberOptionalNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedPath.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedPointList.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedPreserveAspectRatio.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedRect.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedString.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedTransformList.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedType.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedTypeAnimator.cpp \
@@ -109,6 +102,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGAnimateMotionElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimateTransformElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimationElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGBoolean.cpp \
 	third_party/WebKit/Source/core/svg/SVGCircleElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGClipPathElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGColor.cpp \
@@ -116,13 +110,13 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGCursorElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDefsElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDescElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGDiscardElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocument.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocumentExtensions.cpp \
 	third_party/WebKit/Source/core/svg/SVGElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstance.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstanceList.cpp \
 	third_party/WebKit/Source/core/svg/SVGEllipseElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGExternalResourcesRequired.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEBlendElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEColorMatrixElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEComponentTransferElement.cpp \
@@ -169,10 +163,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGHKernElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGImageElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGImageLoader.cpp \
-	third_party/WebKit/Source/core/svg/SVGLangSpace.cpp \
+	third_party/WebKit/Source/core/svg/SVGInteger.cpp \
+	third_party/WebKit/Source/core/svg/SVGIntegerOptionalInteger.cpp \
 	third_party/WebKit/Source/core/svg/SVGLength.cpp \
 	third_party/WebKit/Source/core/svg/SVGLengthContext.cpp \
 	third_party/WebKit/Source/core/svg/SVGLengthList.cpp \
+	third_party/WebKit/Source/core/svg/SVGLengthTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGLineElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGLinearGradientElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMPathElement.cpp \
@@ -180,6 +176,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGMaskElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMetadataElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMissingGlyphElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGNumber.cpp \
+	third_party/WebKit/Source/core/svg/SVGNumberOptionalNumber.cpp \
+	third_party/WebKit/Source/core/svg/SVGNumberTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumberList.cpp \
 	third_party/WebKit/Source/core/svg/SVGPaint.cpp \
 	third_party/WebKit/Source/core/svg/SVGParserUtilities.cpp \
@@ -197,18 +196,26 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGPathTraversalStateBuilder.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathUtilities.cpp \
 	third_party/WebKit/Source/core/svg/SVGPatternElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGPoint.cpp \
+	third_party/WebKit/Source/core/svg/SVGPointTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGPointList.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolyElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolygonElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolylineElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPreserveAspectRatio.cpp \
+	third_party/WebKit/Source/core/svg/SVGPreserveAspectRatioTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGRadialGradientElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGRect.cpp \
 	third_party/WebKit/Source/core/svg/SVGRectElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGRectTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGSVGElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGScriptElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGSetElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGStaticStringList.cpp \
 	third_party/WebKit/Source/core/svg/SVGStopElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGString.cpp \
 	third_party/WebKit/Source/core/svg/SVGStringList.cpp \
+	third_party/WebKit/Source/core/svg/SVGStringListTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGStyleElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGSwitchElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGSymbolElement.cpp \
@@ -234,11 +241,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/animation/SMILTimeContainer.cpp \
 	third_party/WebKit/Source/core/svg/animation/SVGSMILElement.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImageCache.cpp \
+	third_party/WebKit/Source/core/svg/graphics/SVGImageChromeClient.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImageForContainer.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFEImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilter.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilterBuilder.cpp \
+	third_party/WebKit/Source/core/svg/properties/NewSVGAnimatedProperty.cpp \
+	third_party/WebKit/Source/core/svg/properties/NewSVGPropertyTearOff.cpp \
 	third_party/WebKit/Source/core/svg/properties/SVGAnimatedProperty.cpp \
 	third_party/WebKit/Source/core/svg/properties/SVGAttributeToPropertyMap.cpp \
 	third_party/WebKit/Source/core/svg/properties/SVGPathSegListPropertyTearOff.cpp
@@ -271,14 +281,15 @@ MY_CFLAGS_Debug := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-g \
 	-fomit-frame-pointer \
 	-fdata-sections \
-	-ffunction-sections
+	-ffunction-sections \
+	-funwind-tables
 
 MY_DEFS_Debug := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -289,7 +300,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -298,17 +308,14 @@ MY_DEFS_Debug := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -316,13 +323,15 @@ MY_DEFS_Debug := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -350,7 +359,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
 	$(LOCAL_PATH)/third_party/skia/src/core \
@@ -390,7 +399,6 @@ LOCAL_CPPFLAGS_Debug := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 
@@ -422,14 +430,15 @@ MY_CFLAGS_Release := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-fno-ident \
 	-fdata-sections \
 	-ffunction-sections \
-	-fomit-frame-pointer
+	-fomit-frame-pointer \
+	-funwind-tables
 
 MY_DEFS_Release := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -440,7 +449,6 @@ MY_DEFS_Release := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -449,17 +457,14 @@ MY_DEFS_Release := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -467,13 +472,15 @@ MY_DEFS_Release := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -502,7 +509,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
 	$(LOCAL_PATH)/third_party/skia/src/core \
@@ -542,7 +549,6 @@ LOCAL_CPPFLAGS_Release := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 

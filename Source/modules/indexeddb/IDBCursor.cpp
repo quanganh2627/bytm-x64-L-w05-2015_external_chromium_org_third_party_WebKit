@@ -33,24 +33,20 @@
 #include "core/inspector/ScriptCallStack.h"
 #include "modules/indexeddb/IDBAny.h"
 #include "modules/indexeddb/IDBDatabase.h"
-#include "modules/indexeddb/IDBKey.h"
 #include "modules/indexeddb/IDBObjectStore.h"
-#include "modules/indexeddb/IDBRequest.h"
 #include "modules/indexeddb/IDBTracing.h"
 #include "modules/indexeddb/IDBTransaction.h"
 #include "modules/indexeddb/WebIDBCallbacksImpl.h"
-#include "platform/SharedBuffer.h"
-#include "platform/SharedBuffer.h"
-#include "public/platform/WebIDBCursor.h"
 #include "public/platform/WebIDBDatabase.h"
 #include "public/platform/WebIDBKeyRange.h"
 #include <limits>
 
+using blink::WebIDBCursor;
 using blink::WebIDBDatabase;
 
 namespace WebCore {
 
-PassRefPtr<IDBCursor> IDBCursor::create(PassOwnPtr<blink::WebIDBCursor> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
+PassRefPtr<IDBCursor> IDBCursor::create(PassOwnPtr<blink::WebIDBCursor> backend, WebIDBCursor::Direction direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
 {
     return adoptRef(new IDBCursor(backend, direction, request, source, transaction));
 }
@@ -79,7 +75,7 @@ const AtomicString& IDBCursor::directionPrevUnique()
     return prevunique;
 }
 
-IDBCursor::IDBCursor(PassOwnPtr<blink::WebIDBCursor> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
+IDBCursor::IDBCursor(PassOwnPtr<blink::WebIDBCursor> backend, WebIDBCursor::Direction direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
     : m_backend(backend)
     , m_request(request)
     , m_direction(direction)
@@ -147,6 +143,10 @@ PassRefPtr<IDBRequest> IDBCursor::update(ScriptState* state, ScriptValue& value,
 void IDBCursor::advance(unsigned long count, ExceptionState& exceptionState)
 {
     IDB_TRACE("IDBCursor::advance");
+    if (!count) {
+        exceptionState.throwTypeError("A count argument with value 0 (zero) was supplied, must be greater than 0.");
+        return;
+    }
     if (!m_gotValue) {
         exceptionState.throwDOMException(InvalidStateError, IDBDatabase::noValueErrorMessage);
         return;
@@ -165,11 +165,6 @@ void IDBCursor::advance(unsigned long count, ExceptionState& exceptionState)
         return;
     }
 
-    if (!count) {
-        exceptionState.throwUninformativeAndGenericTypeError();
-        return;
-    }
-
     m_request->setPendingCursor(this);
     m_gotValue = false;
     m_backend->advance(count, WebIDBCallbacksImpl::create(m_request).leakPtr());
@@ -177,18 +172,32 @@ void IDBCursor::advance(unsigned long count, ExceptionState& exceptionState)
 
 void IDBCursor::continueFunction(ExecutionContext* context, const ScriptValue& keyValue, ExceptionState& exceptionState)
 {
-    DOMRequestState requestState(context);
-    RefPtr<IDBKey> key = keyValue.isUndefined() ? 0 : scriptValueToIDBKey(&requestState, keyValue);
-    continueFunction(key.release(), exceptionState);
-}
-
-void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, ExceptionState& exceptionState)
-{
     IDB_TRACE("IDBCursor::continue");
+    DOMRequestState requestState(context);
+    RefPtr<IDBKey> key = keyValue.isUndefined() || keyValue.isNull() ? 0 : scriptValueToIDBKey(&requestState, keyValue);
     if (key && !key->isValid()) {
         exceptionState.throwDOMException(DataError, IDBDatabase::notValidKeyErrorMessage);
         return;
     }
+    continueFunction(key.release(), 0, exceptionState);
+}
+
+void IDBCursor::continuePrimaryKey(ExecutionContext* context, const ScriptValue& keyValue, const ScriptValue& primaryKeyValue, ExceptionState& exceptionState)
+{
+    IDB_TRACE("IDBCursor::continuePrimaryKey");
+    DOMRequestState requestState(context);
+    RefPtr<IDBKey> key = scriptValueToIDBKey(&requestState, keyValue);
+    RefPtr<IDBKey> primaryKey = scriptValueToIDBKey(&requestState, primaryKeyValue);
+    if (!key->isValid() || !primaryKey->isValid()) {
+        exceptionState.throwDOMException(DataError, IDBDatabase::notValidKeyErrorMessage);
+        return;
+    }
+    continueFunction(key.release(), primaryKey.release(), exceptionState);
+}
+
+void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, PassRefPtr<IDBKey> primaryKey, ExceptionState& exceptionState)
+{
+    ASSERT(!primaryKey || (key && primaryKey));
 
     if (m_transaction->isFinished()) {
         exceptionState.throwDOMException(TransactionInactiveError, IDBDatabase::transactionFinishedErrorMessage);
@@ -211,13 +220,18 @@ void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, ExceptionState& excepti
 
     if (key) {
         ASSERT(m_key);
-        if (m_direction == IndexedDB::CursorNext || m_direction == IndexedDB::CursorNextNoDuplicate) {
-            if (!m_key->isLessThan(key.get())) {
+        if (m_direction == WebIDBCursor::Next || m_direction == WebIDBCursor::NextNoDuplicate) {
+            const bool ok = m_key->isLessThan(key.get())
+                || (primaryKey && m_key->isEqual(key.get()) && m_primaryKey->isLessThan(primaryKey.get()));
+            if (!ok) {
                 exceptionState.throwDOMException(DataError, "The parameter is less than or equal to this cursor's position.");
                 return;
             }
+
         } else {
-            if (!key->isLessThan(m_key.get())) {
+            const bool ok = key->isLessThan(m_key.get())
+                || (primaryKey && key->isEqual(m_key.get()) && primaryKey->isLessThan(m_primaryKey.get()));
+            if (!ok) {
                 exceptionState.throwDOMException(DataError, "The parameter is greater than or equal to this cursor's position.");
                 return;
             }
@@ -228,7 +242,7 @@ void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, ExceptionState& excepti
     //        will be on the original context openCursor was called on. Is this right?
     m_request->setPendingCursor(this);
     m_gotValue = false;
-    m_backend->continueFunction(key, WebIDBCallbacksImpl::create(m_request).leakPtr());
+    m_backend->continueFunction(key, primaryKey, WebIDBCallbacksImpl::create(m_request).leakPtr());
 }
 
 PassRefPtr<IDBRequest> IDBCursor::deleteFunction(ExecutionContext* context, ExceptionState& exceptionState)
@@ -367,34 +381,34 @@ bool IDBCursor::isDeleted() const
     return m_source->idbIndex()->isDeleted();
 }
 
-IndexedDB::CursorDirection IDBCursor::stringToDirection(const String& directionString, ExceptionState& exceptionState)
+WebIDBCursor::Direction IDBCursor::stringToDirection(const String& directionString, ExceptionState& exceptionState)
 {
     if (directionString.isNull() || directionString == IDBCursor::directionNext())
-        return IndexedDB::CursorNext;
+        return WebIDBCursor::Next;
     if (directionString == IDBCursor::directionNextUnique())
-        return IndexedDB::CursorNextNoDuplicate;
+        return WebIDBCursor::NextNoDuplicate;
     if (directionString == IDBCursor::directionPrev())
-        return IndexedDB::CursorPrev;
+        return WebIDBCursor::Prev;
     if (directionString == IDBCursor::directionPrevUnique())
-        return IndexedDB::CursorPrevNoDuplicate;
+        return WebIDBCursor::PrevNoDuplicate;
 
-    exceptionState.throwUninformativeAndGenericTypeError();
-    return IndexedDB::CursorNext;
+    exceptionState.throwTypeError("The direction provided ('" + directionString + "') is not one of 'next', 'nextunique', 'prev', or 'prevunique'.");
+    return WebIDBCursor::Next;
 }
 
 const AtomicString& IDBCursor::directionToString(unsigned short direction)
 {
     switch (direction) {
-    case IndexedDB::CursorNext:
+    case WebIDBCursor::Next:
         return IDBCursor::directionNext();
 
-    case IndexedDB::CursorNextNoDuplicate:
+    case WebIDBCursor::NextNoDuplicate:
         return IDBCursor::directionNextUnique();
 
-    case IndexedDB::CursorPrev:
+    case WebIDBCursor::Prev:
         return IDBCursor::directionPrev();
 
-    case IndexedDB::CursorPrevNoDuplicate:
+    case WebIDBCursor::PrevNoDuplicate:
         return IDBCursor::directionPrevUnique();
 
     default:

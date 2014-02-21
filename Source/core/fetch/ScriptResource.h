@@ -33,15 +33,17 @@ namespace WebCore {
 class ResourceFetcher;
 class TextResourceDecoder;
 
-class ScriptResource : public Resource {
+class ScriptResource FINAL : public Resource {
 public:
+    typedef ResourceClient ClientType;
+
     ScriptResource(const ResourceRequest&, const String& charset);
     virtual ~ScriptResource();
 
     const String& script();
 
-    virtual void setEncoding(const String&);
-    virtual String encoding() const;
+    virtual void setEncoding(const String&) OVERRIDE;
+    virtual String encoding() const OVERRIDE;
     AtomicString mimeType() const;
 
     bool mimeTypeAllowedByNosniff() const;

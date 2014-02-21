@@ -104,23 +104,21 @@ public:
     PassOwnPtr<ErrorCallback> errorCallback() { return ErrorCallbackImpl::create(this); }
 
 private:
-    class SuccessCallbackImpl : public SuccessCallback {
+    class SuccessCallbackImpl FINAL : public SuccessCallback {
     public:
         static PassOwnPtr<SuccessCallbackImpl> create(HelperType* helper)
         {
             return adoptPtr(new SuccessCallbackImpl(helper));
         }
 
-        virtual bool handleEvent()
+        virtual void handleEvent()
         {
             m_helper->setError(FileError::OK);
-            return true;
         }
 
-        virtual bool handleEvent(CallbackArg arg)
+        virtual void handleEvent(CallbackArg arg)
         {
             m_helper->setResult(arg);
-            return true;
         }
 
     private:
@@ -131,18 +129,17 @@ private:
         HelperType* m_helper;
     };
 
-    class ErrorCallbackImpl : public ErrorCallback {
+    class ErrorCallbackImpl FINAL : public ErrorCallback {
     public:
         static PassOwnPtr<ErrorCallbackImpl> create(HelperType* helper)
         {
             return adoptPtr(new ErrorCallbackImpl(helper));
         }
 
-        virtual bool handleEvent(FileError* error)
+        virtual void handleEvent(FileError* error) OVERRIDE
         {
             ASSERT(error);
             m_helper->setError(error->code());
-            return true;
         }
 
     private:

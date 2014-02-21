@@ -48,11 +48,11 @@ void FetchContext::reportLocalLoadFailed(const KURL&)
 {
 }
 
-void FetchContext::addAdditionalRequestHeaders(Document&, ResourceRequest&, Resource::Type)
+void FetchContext::addAdditionalRequestHeaders(Document*, ResourceRequest&, FetchResourceType)
 {
 }
 
-CachePolicy FetchContext::cachePolicy(Resource::Type) const
+CachePolicy FetchContext::cachePolicy(Document*) const
 {
     return CachePolicyVerify;
 }
@@ -77,7 +77,7 @@ void FetchContext::dispatchDidDownloadData(DocumentLoader*, unsigned long, int, 
 {
 }
 
-void FetchContext::dispatchDidFinishLoading(DocumentLoader*, unsigned long, double)
+void FetchContext::dispatchDidFinishLoading(DocumentLoader*, unsigned long, double, int64_t)
 {
 }
 

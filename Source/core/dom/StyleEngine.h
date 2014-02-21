@@ -32,7 +32,6 @@
 #include "core/dom/Document.h"
 #include "core/dom/DocumentOrderedList.h"
 #include "core/dom/DocumentStyleSheetCollection.h"
-#include "core/dom/StyleTreeScopeTracker.h"
 #include "wtf/FastAllocBase.h"
 #include "wtf/ListHashSet.h"
 #include "wtf/RefPtr.h"
@@ -49,6 +48,7 @@ class Node;
 class RuleFeatureSet;
 class ShadowTreeStyleSheetCollection;
 class StyleResolver;
+class StyleRuleFontFace;
 class StyleSheet;
 class StyleSheetCollection;
 class StyleSheetContents;
@@ -95,6 +95,8 @@ public:
     const Vector<RefPtr<CSSStyleSheet> >& documentAuthorStyleSheets() const { return m_authorStyleSheets; }
     const Vector<RefPtr<CSSStyleSheet> >& injectedAuthorStyleSheets() const;
 
+    const Vector<RefPtr<StyleSheet> > activeStyleSheetsForInspector() const;
+
     void modifiedStyleSheet(StyleSheet*);
     void addStyleSheetCandidateNode(Node*, bool createdByParser);
     void removeStyleSheetCandidateNode(Node*, ContainerNode* scopingNode = 0);
@@ -105,15 +107,20 @@ public:
 
     void addAuthorSheet(PassRefPtr<StyleSheetContents> authorSheet);
 
-    bool needsUpdateActiveStylesheetsOnStyleRecalc() const { return m_needsUpdateActiveStylesheetsOnStyleRecalc; }
-
     void clearMediaQueryRuleSetStyleSheets();
+    void updateStyleSheetsInImport(DocumentStyleSheetCollector& parentCollector);
     bool updateActiveStyleSheets(StyleResolverUpdateMode);
 
     String preferredStylesheetSetName() const { return m_preferredStylesheetSetName; }
     String selectedStylesheetSetName() const { return m_selectedStylesheetSetName; }
     void setPreferredStylesheetSetName(const String& name) { m_preferredStylesheetSetName = name; }
     void setSelectedStylesheetSetName(const String& name) { m_selectedStylesheetSetName = name; }
+
+    void selectStylesheetSetName(const String& name)
+    {
+        setPreferredStylesheetSetName(name);
+        setSelectedStylesheetSetName(name);
+    }
 
     void addPendingSheet();
     enum RemovePendingSheetNotificationType {
@@ -139,10 +146,8 @@ public:
     void combineCSSFeatureFlags(const RuleFeatureSet&);
     void resetCSSFeatureFlags(const RuleFeatureSet&);
 
-    void didModifySeamlessParentStyleSheet() { m_dirtyTreeScopes.markDocument(); }
     void didRemoveShadowRoot(ShadowRoot*);
     void appendActiveAuthorStyleSheets();
-    void getActiveAuthorStyleSheets(Vector<const Vector<RefPtr<CSSStyleSheet> >*>& activeAuthorStyleSheets) const;
 
     StyleResolver* resolver() const
     {
@@ -164,25 +169,29 @@ public:
     void clearMasterResolver();
 
     CSSFontSelector* fontSelector() { return m_fontSelector.get(); }
-    void resetFontSelector();
+    void removeFontFaceRules(const Vector<const StyleRuleFontFace*>&);
+    void clearFontCache();
+    // updateGenericFontFamilySettings is used from WebSettingsImpl.
+    void updateGenericFontFamilySettings();
 
-    void didAttach();
     void didDetach();
     bool shouldClearResolver() const;
     StyleResolverChange resolverChanged(RecalcStyleTime, StyleResolverUpdateMode);
     unsigned resolverAccessCount() const;
 
-    void collectDocumentActiveStyleSheets(StyleSheetCollectionBase&);
-    void markDocumentDirty() { m_dirtyTreeScopes.markDocument(); }
+    void markDocumentDirty();
+
+    static PassRefPtr<CSSStyleSheet> createSheet(Element*, const String& text, TextPosition startPosition, bool createdByParser);
+    static void removeSheet(StyleSheetContents*);
 
 private:
     StyleEngine(Document&);
 
-    StyleSheetCollection* ensureStyleSheetCollectionFor(TreeScope&);
-    StyleSheetCollection* styleSheetCollectionFor(TreeScope&);
-    void activeStyleSheetsUpdatedForInspector();
+    TreeScopeStyleSheetCollection* ensureStyleSheetCollectionFor(TreeScope&);
+    TreeScopeStyleSheetCollection* styleSheetCollectionFor(TreeScope&);
     bool shouldUpdateShadowTreeStyleSheetCollection(StyleResolverUpdateMode);
-    void resolverThrowawayTimerFired(Timer<StyleEngine>*);
+
+    void markTreeScopeDirty(TreeScope&);
 
     bool isMaster() const { return m_isMaster; }
     Document* master();
@@ -195,6 +204,8 @@ private:
 
     void notifyPendingStyleSheetAdded();
     void notifyPendingStyleSheetRemoved(RemovePendingSheetNotificationType);
+
+    static PassRefPtr<CSSStyleSheet> parseSheet(Element*, const String& text, TextPosition startPosition, bool createdByParser);
 
     Document& m_document;
     bool m_isMaster;
@@ -210,12 +221,11 @@ private:
 
     Vector<RefPtr<CSSStyleSheet> > m_authorStyleSheets;
 
-    bool m_needsUpdateActiveStylesheetsOnStyleRecalc;
-
     DocumentStyleSheetCollection m_documentStyleSheetCollection;
-    HashMap<TreeScope*, OwnPtr<StyleSheetCollection> > m_styleSheetCollectionMap;
+    HashMap<TreeScope*, OwnPtr<TreeScopeStyleSheetCollection> > m_styleSheetCollectionMap;
 
-    StyleTreeScopeTracker m_dirtyTreeScopes;
+    bool m_documentScopeDirty;
+    TreeScopeSet m_dirtyTreeScopes;
     TreeScopeSet m_activeTreeScopes;
 
     String m_preferredStylesheetSetName;
@@ -230,8 +240,6 @@ private:
 
     bool m_ignorePendingStylesheets;
     bool m_didCalculateResolver;
-    unsigned m_lastResolverAccessCount;
-    Timer<StyleEngine> m_resolverThrowawayTimer;
     OwnPtr<StyleResolver> m_resolver;
 
     RefPtr<CSSFontSelector> m_fontSelector;

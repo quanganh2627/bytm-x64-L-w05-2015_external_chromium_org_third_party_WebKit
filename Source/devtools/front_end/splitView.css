@@ -32,8 +32,9 @@
 
 .split-view-contents {
     overflow: auto;
-    cursor: default;
+    display: flex;
     position: relative;
+    flex-direction: column;
 }
 
 .split-view-sidebar {
@@ -74,6 +75,10 @@
     right: 0;
     height: 5px;
     z-index: 1500;
+}
+
+.split-view.split-view-no-resizer > .split-view-resizer {
+    display: none;
 }
 
 .sidebar-overlay {

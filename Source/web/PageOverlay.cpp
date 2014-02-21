@@ -33,7 +33,7 @@
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "platform/graphics/GraphicsLayer.h"
 #include "platform/graphics/GraphicsLayerClient.h"
 #include "public/platform/WebLayer.h"
@@ -72,7 +72,7 @@ public:
 
     virtual ~OverlayGraphicsLayerClientImpl() { }
 
-    virtual void notifyAnimationStarted(const GraphicsLayer*, double time) { }
+    virtual void notifyAnimationStarted(const GraphicsLayer*, double wallClockTime, double monotonicTime) OVERRIDE { }
 
     virtual void paintContents(const GraphicsLayer*, GraphicsContext& gc, GraphicsLayerPaintingPhase, const IntRect& inClip)
     {

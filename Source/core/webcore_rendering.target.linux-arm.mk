@@ -26,7 +26,6 @@ GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/AbstractInlineTextBox.cpp \
 	third_party/WebKit/Source/core/rendering/AutoTableLayout.cpp \
-	third_party/WebKit/Source/core/rendering/BidiRun.cpp \
 	third_party/WebKit/Source/core/rendering/ClipRect.cpp \
 	third_party/WebKit/Source/core/rendering/CompositedLayerMapping.cpp \
 	third_party/WebKit/Source/core/rendering/CounterNode.cpp \
@@ -37,21 +36,17 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/FloatingObjects.cpp \
 	third_party/WebKit/Source/core/rendering/FlowThreadController.cpp \
 	third_party/WebKit/Source/core/rendering/GraphicsContextAnnotator.cpp \
-	third_party/WebKit/Source/core/rendering/TextAutosizer.cpp \
-	third_party/WebKit/Source/core/rendering/HitTestingTransformState.cpp \
 	third_party/WebKit/Source/core/rendering/HitTestLocation.cpp \
 	third_party/WebKit/Source/core/rendering/HitTestResult.cpp \
+	third_party/WebKit/Source/core/rendering/HitTestingTransformState.cpp \
+	third_party/WebKit/Source/core/rendering/ImageQualityController.cpp \
 	third_party/WebKit/Source/core/rendering/InlineBox.cpp \
 	third_party/WebKit/Source/core/rendering/InlineFlowBox.cpp \
 	third_party/WebKit/Source/core/rendering/InlineTextBox.cpp \
-	third_party/WebKit/Source/core/rendering/ImageQualityController.cpp \
-	third_party/WebKit/Source/core/rendering/LayoutState.cpp \
-	third_party/WebKit/Source/core/rendering/OrderIterator.cpp \
-	third_party/WebKit/Source/core/rendering/LayoutIndicator.cpp \
 	third_party/WebKit/Source/core/rendering/LayoutRectRecorder.cpp \
 	third_party/WebKit/Source/core/rendering/LayoutRepainter.cpp \
-	third_party/WebKit/Source/core/rendering/LineWidth.cpp \
-	third_party/WebKit/Source/core/rendering/Pagination.cpp \
+	third_party/WebKit/Source/core/rendering/LayoutState.cpp \
+	third_party/WebKit/Source/core/rendering/OrderIterator.cpp \
 	third_party/WebKit/Source/core/rendering/PointerEventsHitRules.cpp \
 	third_party/WebKit/Source/core/rendering/RenderApplet.cpp \
 	third_party/WebKit/Source/core/rendering/RenderBR.cpp \
@@ -73,8 +68,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderFrame.cpp \
 	third_party/WebKit/Source/core/rendering/RenderFrameSet.cpp \
 	third_party/WebKit/Source/core/rendering/RenderFullScreen.cpp \
-	third_party/WebKit/Source/core/rendering/RenderGrid.cpp \
 	third_party/WebKit/Source/core/rendering/RenderGeometryMap.cpp \
+	third_party/WebKit/Source/core/rendering/RenderGrid.cpp \
 	third_party/WebKit/Source/core/rendering/RenderHTMLCanvas.cpp \
 	third_party/WebKit/Source/core/rendering/RenderIFrame.cpp \
 	third_party/WebKit/Source/core/rendering/RenderImage.cpp \
@@ -83,15 +78,16 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderInline.cpp \
 	third_party/WebKit/Source/core/rendering/RenderInputSpeech.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayer.cpp \
+	third_party/WebKit/Source/core/rendering/RenderLayerBlendInfo.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerClipper.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerCompositor.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerFilterInfo.cpp \
+	third_party/WebKit/Source/core/rendering/RenderLayerModelObject.cpp \
+	third_party/WebKit/Source/core/rendering/RenderLayerReflectionInfo.cpp \
+	third_party/WebKit/Source/core/rendering/RenderLayerRepainter.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerScrollableArea.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerStackingNode.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerStackingNodeIterator.cpp \
-	third_party/WebKit/Source/core/rendering/RenderLayerReflectionInfo.cpp \
-	third_party/WebKit/Source/core/rendering/RenderLayerRepainter.cpp \
-	third_party/WebKit/Source/core/rendering/RenderLayerModelObject.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLineBoxList.cpp \
 	third_party/WebKit/Source/core/rendering/RenderListBox.cpp \
 	third_party/WebKit/Source/core/rendering/RenderListItem.cpp \
@@ -105,8 +101,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderMultiColumnBlock.cpp \
 	third_party/WebKit/Source/core/rendering/RenderMultiColumnFlowThread.cpp \
 	third_party/WebKit/Source/core/rendering/RenderMultiColumnSet.cpp \
-	third_party/WebKit/Source/core/rendering/RenderNamedFlowFragment.cpp \
-	third_party/WebKit/Source/core/rendering/RenderNamedFlowThread.cpp \
 	third_party/WebKit/Source/core/rendering/RenderObject.cpp \
 	third_party/WebKit/Source/core/rendering/RenderObjectChildList.cpp \
 	third_party/WebKit/Source/core/rendering/RenderPart.cpp \
@@ -149,10 +143,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderWidget.cpp \
 	third_party/WebKit/Source/core/rendering/RenderWordBreak.cpp \
 	third_party/WebKit/Source/core/rendering/RootInlineBox.cpp \
-	third_party/WebKit/Source/core/rendering/ScrollBehavior.cpp \
+	third_party/WebKit/Source/core/rendering/ScrollAlignment.cpp \
 	third_party/WebKit/Source/core/rendering/SubtreeLayoutScope.cpp \
+	third_party/WebKit/Source/core/rendering/TextAutosizer.cpp \
 	third_party/WebKit/Source/core/rendering/break_lines.cpp \
-	third_party/WebKit/Source/core/rendering/animation/WebAnimationProvider.cpp \
+	third_party/WebKit/Source/core/rendering/line/BreakingContext.cpp \
+	third_party/WebKit/Source/core/rendering/line/LineBreaker.cpp \
+	third_party/WebKit/Source/core/rendering/line/LineWidth.cpp \
+	third_party/WebKit/Source/core/rendering/line/TrailingObjects.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/BoxShape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/PolygonShape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/RasterShape.cpp \
@@ -173,12 +171,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/style/ShadowList.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleBackgroundData.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleBoxData.cpp \
+	third_party/WebKit/Source/core/rendering/style/StyleDeprecatedFlexibleBoxData.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleFetchedImage.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleFetchedImageSet.cpp \
-	third_party/WebKit/Source/core/rendering/style/StyleFetchedShader.cpp \
-	third_party/WebKit/Source/core/rendering/style/StyleCustomFilterProgramCache.cpp \
-	third_party/WebKit/Source/core/rendering/style/StyleCustomFilterProgram.cpp \
-	third_party/WebKit/Source/core/rendering/style/StyleDeprecatedFlexibleBoxData.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleFilterData.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleFlexibleBoxData.cpp \
 	third_party/WebKit/Source/core/rendering/style/StyleGeneratedImage.cpp \
@@ -221,14 +216,15 @@ MY_CFLAGS_Debug := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-g \
 	-fomit-frame-pointer \
 	-fdata-sections \
-	-ffunction-sections
+	-ffunction-sections \
+	-funwind-tables
 
 MY_DEFS_Debug := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -239,7 +235,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -248,17 +243,14 @@ MY_DEFS_Debug := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -266,13 +258,15 @@ MY_DEFS_Debug := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -300,7 +294,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
 	$(LOCAL_PATH)/third_party/skia/src/core \
@@ -340,7 +334,6 @@ LOCAL_CPPFLAGS_Debug := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 
@@ -372,14 +365,15 @@ MY_CFLAGS_Release := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-fno-ident \
 	-fdata-sections \
 	-ffunction-sections \
-	-fomit-frame-pointer
+	-fomit-frame-pointer \
+	-funwind-tables
 
 MY_DEFS_Release := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -390,7 +384,6 @@ MY_DEFS_Release := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -399,17 +392,14 @@ MY_DEFS_Release := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -417,13 +407,15 @@ MY_DEFS_Release := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
+	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -452,7 +444,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
-	$(LOCAL_PATH)/third_party/angle_dx11/include \
+	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
 	$(LOCAL_PATH)/third_party/skia/src/core \
@@ -492,7 +484,6 @@ LOCAL_CPPFLAGS_Release := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 

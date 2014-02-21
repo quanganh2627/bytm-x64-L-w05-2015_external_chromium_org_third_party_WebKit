@@ -36,7 +36,6 @@
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/graphics/skia/SkiaUtils.h"
 #include "platform/transforms/AffineTransform.h"
-#include "third_party/skia/include/core/SkPathMeasure.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "wtf/MathExtras.h"
 
@@ -177,10 +176,8 @@ float Path::normalAngleAtLength(float length, bool& ok) const
     return normal;
 }
 
-bool Path::pointAndNormalAtLength(float length, FloatPoint& point, float& normal) const
+static bool calculatePointAndNormalOnPath(SkPathMeasure& measure, SkScalar length, FloatPoint& point, float& normalAngle, SkScalar* accumulatedLength = 0)
 {
-    SkPathMeasure measure(m_path, false);
-
     do {
         SkScalar contourLength = measure.getLength();
         if (length <= contourLength) {
@@ -188,15 +185,54 @@ bool Path::pointAndNormalAtLength(float length, FloatPoint& point, float& normal
             SkPoint position;
 
             if (measure.getPosTan(length, &position, &tangent)) {
-                normal = rad2deg(SkScalarToFloat(SkScalarATan2(tangent.fY, tangent.fX)));
+                normalAngle = rad2deg(SkScalarToFloat(SkScalarATan2(tangent.fY, tangent.fX)));
                 point = FloatPoint(SkScalarToFloat(position.fX), SkScalarToFloat(position.fY));
                 return true;
             }
         }
         length -= contourLength;
+        if (accumulatedLength)
+            *accumulatedLength += contourLength;
     } while (measure.nextContour());
+    return false;
+}
+
+bool Path::pointAndNormalAtLength(float length, FloatPoint& point, float& normal) const
+{
+    SkPathMeasure measure(m_path, false);
+
+    if (calculatePointAndNormalOnPath(measure, WebCoreFloatToSkScalar(length), point, normal))
+        return true;
 
     normal = 0;
+    point = FloatPoint(0, 0);
+    return false;
+}
+
+Path::PositionCalculator::PositionCalculator(const Path& path)
+    : m_path(path.skPath())
+    , m_pathMeasure(path.skPath(), false)
+    , m_accumulatedLength(0)
+{
+}
+
+bool Path::PositionCalculator::pointAndNormalAtLength(float length, FloatPoint& point, float& normalAngle)
+{
+    SkScalar skLength = WebCoreFloatToSkScalar(length);
+    if (skLength >= 0) {
+        if (skLength < m_accumulatedLength) {
+            // Reset path measurer to rewind (and restart from 0).
+            m_pathMeasure.setPath(&m_path, false);
+            m_accumulatedLength = 0;
+        } else {
+            skLength -= m_accumulatedLength;
+        }
+
+        if (calculatePointAndNormalOnPath(m_pathMeasure, skLength, point, normalAngle, &m_accumulatedLength))
+            return true;
+    }
+
+    normalAngle = 0;
     point = FloatPoint(0, 0);
     return false;
 }
@@ -278,7 +314,7 @@ void Path::closeSubpath()
 
 void Path::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float startAngle, float endAngle, bool anticlockwise)
 {
-    ASSERT(std::abs(endAngle - startAngle) < 4 * piFloat);
+    ASSERT(ellipseIsRenderable(startAngle, endAngle));
     ASSERT(startAngle >= 0 && startAngle < 2 * piFloat);
     ASSERT((anticlockwise && (startAngle - endAngle) >= 0) || (!anticlockwise && (endAngle - startAngle) >= 0));
 
@@ -286,7 +322,6 @@ void Path::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float s
     SkScalar cy = WebCoreFloatToSkScalar(p.y());
     SkScalar radiusXScalar = WebCoreFloatToSkScalar(radiusX);
     SkScalar radiusYScalar = WebCoreFloatToSkScalar(radiusY);
-    SkScalar s360 = SkIntToScalar(360);
 
     SkRect oval;
     oval.set(cx - radiusXScalar, cy - radiusYScalar, cx + radiusXScalar, cy + radiusYScalar);
@@ -294,22 +329,21 @@ void Path::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float s
     float sweep = endAngle - startAngle;
     SkScalar startDegrees = WebCoreFloatToSkScalar(startAngle * 180 / piFloat);
     SkScalar sweepDegrees = WebCoreFloatToSkScalar(sweep * 180 / piFloat);
+    SkScalar s360 = SkIntToScalar(360);
 
     // We can't use SkPath::addOval(), because addOval() makes new sub-path. addOval() calls moveTo() and close() internally.
 
     // Use s180, not s360, because SkPath::arcTo(oval, angle, s360, false) draws nothing.
     SkScalar s180 = SkIntToScalar(180);
-    if (sweepDegrees >= s360) {
+    if (SkScalarNearlyEqual(sweepDegrees, s360)) {
         // SkPath::arcTo can't handle the sweepAngle that is equal to or greater than 2Pi.
         m_path.arcTo(oval, startDegrees, s180, false);
         m_path.arcTo(oval, startDegrees + s180, s180, false);
-        m_path.arcTo(oval, startDegrees + s360, sweepDegrees - s360, false);
         return;
     }
-    if (sweepDegrees <= -s360) {
+    if (SkScalarNearlyEqual(sweepDegrees, -s360)) {
         m_path.arcTo(oval, startDegrees, -s180, false);
         m_path.arcTo(oval, startDegrees - s180, -s180, false);
-        m_path.arcTo(oval, startDegrees - s360, sweepDegrees + s360, false);
         return;
     }
 
@@ -328,7 +362,7 @@ void Path::addRect(const FloatRect& rect)
 
 void Path::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool anticlockwise)
 {
-    ASSERT(std::abs(endAngle - startAngle) < 4 * piFloat);
+    ASSERT(ellipseIsRenderable(startAngle, endAngle));
     ASSERT(startAngle >= 0 && startAngle < 2 * piFloat);
     ASSERT((anticlockwise && (startAngle - endAngle) >= 0) || (!anticlockwise && (endAngle - startAngle) >= 0));
 
@@ -447,5 +481,13 @@ bool Path::unionPath(const Path& other)
 {
     return Op(m_path, other.m_path, kUnion_PathOp, &m_path);
 }
+
+#if !ASSERT_DISABLED
+bool ellipseIsRenderable(float startAngle, float endAngle)
+{
+    return (std::abs(endAngle - startAngle) < 2 * piFloat)
+        || WebCoreFloatNearlyEqual(std::abs(endAngle - startAngle), 2 * piFloat);
+}
+#endif
 
 }

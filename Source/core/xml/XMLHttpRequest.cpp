@@ -32,16 +32,16 @@
 #include "core/editing/markup.h"
 #include "core/events/Event.h"
 #include "core/fetch/CrossOriginAccessControl.h"
-#include "core/fetch/TextResourceDecoder.h"
 #include "core/fileapi/Blob.h"
 #include "core/fileapi/File.h"
 #include "core/fileapi/Stream.h"
 #include "core/frame/ContentSecurityPolicy.h"
 #include "core/html/DOMFormData.h"
 #include "core/html/HTMLDocument.h"
+#include "core/html/parser/TextResourceDecoder.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/loader/ThreadableLoader.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "core/xml/XMLHttpRequestProgressEvent.h"
 #include "core/xml/XMLHttpRequestUpload.h"
 #include "platform/Logging.h"
@@ -517,7 +517,7 @@ void XMLHttpRequest::open(const AtomicString& method, const KURL& url, Exception
 
 void XMLHttpRequest::open(const AtomicString& method, const KURL& url, bool async, ExceptionState& exceptionState)
 {
-    WTF_LOG(Network, "XMLHttpRequest %p open('%s', '%s', %d)", this, method.string().utf8().data(), url.elidedString().utf8().data(), async);
+    WTF_LOG(Network, "XMLHttpRequest %p open('%s', '%s', %d)", this, method.utf8().data(), url.elidedString().utf8().data(), async);
 
     if (!internalAbort())
         return;
@@ -818,7 +818,6 @@ void XMLHttpRequest::createRequest(ExceptionState& exceptionState)
         request.addHTTPHeaderFields(m_requestHeaders);
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = SendCallbacks;
     options.sniffContent = DoNotSniffContent;
     options.preflightPolicy = uploadEvents ? ForcePreflight : ConsiderPreflight;
     options.allowCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
@@ -1107,7 +1106,7 @@ void XMLHttpRequest::setRequestHeaderInternal(const AtomicString& name, const At
 {
     HTTPHeaderMap::AddResult result = m_requestHeaders.add(name, value);
     if (!result.isNewEntry)
-        result.iterator->value = result.iterator->value + ", " + value;
+        result.storedValue->value = result.storedValue->value + ", " + value;
 }
 
 const AtomicString& XMLHttpRequest::getRequestHeader(const AtomicString& name) const
@@ -1187,9 +1186,7 @@ AtomicString XMLHttpRequest::responseMIMEType() const
 
 bool XMLHttpRequest::responseIsXML() const
 {
-    // FIXME: Remove the lower() call when DOMImplementation.isXMLMIMEType() is modified
-    //        to do case insensitive MIME type matching.
-    return DOMImplementation::isXMLMIMEType(responseMIMEType().lower());
+    return DOMImplementation::isXMLMIMEType(responseMIMEType());
 }
 
 int XMLHttpRequest::status() const
@@ -1264,7 +1261,7 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier, double)
 
     clearVariablesForLoading();
 
-    InspectorInstrumentation::didFinishXHRLoading(executionContext(), this, this, identifier, m_responseText, m_url, m_lastSendURL, m_lastSendLineNumber);
+    InspectorInstrumentation::didFinishXHRLoading(executionContext(), this, this, identifier, m_responseText, m_method, m_url, m_lastSendURL, m_lastSendLineNumber);
 
     // Prevent dropProtection releasing the last reference, and retain |this| until the end of this method.
     RefPtr<XMLHttpRequest> protect(this);

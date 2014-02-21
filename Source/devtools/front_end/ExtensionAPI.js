@@ -104,6 +104,10 @@ function defineCommonExtensionSymbols(apiPrivate)
     };
 }
 
+/**
+ * @param {number} injectedScriptId
+ * @return {!Object}
+ */
 function injectedExtensionAPI(injectedScriptId)
 {
 
@@ -156,7 +160,10 @@ EventSinkImpl.prototype = {
             extensionServer.sendRequest({ command: commands.Unsubscribe, type: this._type });
     },
 
-    _fire: function()
+    /**
+     * @param {...} vararg
+     */
+    _fire: function(vararg)
     {
         var listeners = this._listeners.slice();
         for (var i = 0; i < listeners.length; ++i)
@@ -216,6 +223,9 @@ ConsoleAPI.prototype = {
  */
 function Network()
 {
+    /**
+     * @this {EventSinkImpl}
+     */
     function dispatchRequestEvent(message)
     {
         var request = message.arguments[1];
@@ -239,12 +249,12 @@ Network.prototype = {
             }
             callback(result);
         }
-        return extensionServer.sendRequest({ command: commands.GetHAR }, callback && callbackWrapper);
+        extensionServer.sendRequest({ command: commands.GetHAR }, callback && callbackWrapper);
     },
 
     addRequestHeaders: function(headers)
     {
-        return extensionServer.sendRequest({ command: commands.AddRequestHeaders, headers: headers, extensionId: window.location.hostname });
+        extensionServer.sendRequest({ command: commands.AddRequestHeaders, headers: headers, extensionId: window.location.hostname });
     }
 }
 
@@ -343,6 +353,9 @@ function ExtensionViewImpl(id)
 {
     this._id = id;
 
+    /**
+     * @this {EventSinkImpl}
+     */
     function dispatchShowEvent(message)
     {
         var frameIndex = message.arguments[0];
@@ -357,6 +370,7 @@ function ExtensionViewImpl(id)
 
 /**
  * @constructor
+ * @extends {ExtensionViewImpl}
  */
 function PanelWithSidebarImpl(hostPanelName)
 {
@@ -384,6 +398,47 @@ PanelWithSidebarImpl.prototype = {
     __proto__: ExtensionViewImpl.prototype
 }
 
+function declareInterfaceClass(implConstructor)
+{
+    return function()
+    {
+        var impl = { __proto__: implConstructor.prototype };
+        implConstructor.apply(impl, arguments);
+        populateInterfaceClass(this, impl);
+    }
+}
+
+function defineDeprecatedProperty(object, className, oldName, newName)
+{
+    var warningGiven = false;
+    function getter()
+    {
+        if (!warningGiven) {
+            console.warn(className + "." + oldName + " is deprecated. Use " + className + "." + newName + " instead");
+            warningGiven = true;
+        }
+        return object[newName];
+    }
+    object.__defineGetter__(oldName, getter);
+}
+
+function extractCallbackArgument(args)
+{
+    var lastArgument = args[args.length - 1];
+    return typeof lastArgument === "function" ? lastArgument : undefined;
+}
+
+var AuditCategory = declareInterfaceClass(AuditCategoryImpl);
+var AuditResult = declareInterfaceClass(AuditResultImpl);
+var Button = declareInterfaceClass(ButtonImpl);
+var EventSink = declareInterfaceClass(EventSinkImpl);
+var ExtensionPanel = declareInterfaceClass(ExtensionPanelImpl);
+var ExtensionSidebarPane = declareInterfaceClass(ExtensionSidebarPaneImpl);
+var PanelWithSidebar = declareInterfaceClass(PanelWithSidebarImpl);
+var Request = declareInterfaceClass(RequestImpl);
+var Resource = declareInterfaceClass(ResourceImpl);
+var Timeline = declareInterfaceClass(TimelineImpl);
+
 /**
  * @constructor
  * @extends {PanelWithSidebar}
@@ -393,6 +448,10 @@ function ElementsPanel()
     PanelWithSidebar.call(this, "elements");
 }
 
+ElementsPanel.prototype = {
+    __proto__: PanelWithSidebar.prototype
+}
+
 /**
  * @constructor
  * @extends {PanelWithSidebar}
@@ -400,6 +459,10 @@ function ElementsPanel()
 function SourcesPanel()
 {
     PanelWithSidebar.call(this, "sources");
+}
+
+SourcesPanel.prototype = {
+    __proto__: PanelWithSidebar.prototype
 }
 
 /**
@@ -413,6 +476,9 @@ function ExtensionPanelImpl(id)
 }
 
 ExtensionPanelImpl.prototype = {
+    /**
+     * @return {!Object}
+     */
     createStatusBarButton: function(iconPath, tooltipText, disabled)
     {
         var id = "button-" + extensionServer.nextObjectId();
@@ -480,7 +546,9 @@ ExtensionSidebarPaneImpl.prototype = {
     setPage: function(page)
     {
         extensionServer.sendRequest({ command: commands.SetSidebarPage, id: this._id, page: page });
-    }
+    },
+
+    __proto__: ExtensionViewImpl.prototype
 }
 
 /**
@@ -514,6 +582,9 @@ function Audits()
 }
 
 Audits.prototype = {
+    /**
+     * @return {!AuditCategory}
+     */
     addCategory: function(displayName, resultCount)
     {
         var id = "extension-audit-category-" + extensionServer.nextObjectId();
@@ -529,6 +600,9 @@ Audits.prototype = {
  */
 function AuditCategoryImpl(id)
 {
+    /**
+     * @this {EventSinkImpl}
+     */
     function dispatchAuditEvent(request)
     {
         var auditResult = new AuditResult(request.arguments[0]);
@@ -575,6 +649,9 @@ AuditResultImpl.prototype = {
         extensionServer.sendRequest(request);
     },
 
+    /**
+     * @return {!Object}
+     */
     createResult: function()
     {
         return new AuditResultNode(Array.prototype.slice.call(arguments));
@@ -590,11 +667,17 @@ AuditResultImpl.prototype = {
         extensionServer.sendRequest({ command: commands.StopAuditCategoryRun, resultId: this._id });
     },
 
+    /**
+     * @type {!Object.<string, string>}
+     */
     get Severity()
     {
         return apiPrivate.audits.Severity;
     },
 
+    /**
+     * @return {!{type: string, arguments: !Array.<string|number>}}
+     */
     createResourceLink: function(url, lineNumber)
     {
         return {
@@ -603,6 +686,9 @@ AuditResultImpl.prototype = {
         };
     },
 
+    /**
+     * @return {!{type: string, arguments: !Array.<string|number>}}
+     */
     _nodeFactory: function(type)
     {
         return {
@@ -623,6 +709,9 @@ function AuditResultNode(contents)
 }
 
 AuditResultNode.prototype = {
+    /**
+     * @return {!Object}
+     */
     addChild: function()
     {
         var node = new AuditResultNode(Array.prototype.slice.call(arguments));
@@ -636,14 +725,22 @@ AuditResultNode.prototype = {
  */
 function InspectedWindow()
 {
+    /**
+     * @this {EventSinkImpl}
+     */
     function dispatchResourceEvent(message)
     {
         this._fire(new Resource(message.arguments[0]));
     }
+
+    /**
+     * @this {EventSinkImpl}
+     */
     function dispatchResourceContentEvent(message)
     {
         this._fire(new Resource(message.arguments[0]), message.arguments[1]);
     }
+
     this.onResourceAdded = new EventSink(events.ResourceAdded, dispatchResourceEvent);
     this.onResourceContentCommitted = new EventSink(events.ResourceContentCommitted, dispatchResourceContentEvent);
 }
@@ -659,9 +756,12 @@ InspectedWindow.prototype = {
             console.warn("Passing userAgent as string parameter to inspectedWindow.reload() is deprecated. " +
                          "Use inspectedWindow.reload({ userAgent: value}) instead.");
         }
-        return extensionServer.sendRequest({ command: commands.Reload, options: options });
+        extensionServer.sendRequest({ command: commands.Reload, options: options });
     },
 
+    /**
+     * @return {?Object}
+     */
     eval: function(expression, evaluateOptions)
     {
         var callback = extractCallbackArgument(arguments);
@@ -678,7 +778,8 @@ InspectedWindow.prototype = {
         };
         if (typeof evaluateOptions === "object")
             request.evaluateOptions = evaluateOptions;
-        return extensionServer.sendRequest(request, callback && callbackWrapper);
+        extensionServer.sendRequest(request, callback && callbackWrapper);
+        return null;
     },
 
     getResources: function(callback)
@@ -691,7 +792,7 @@ InspectedWindow.prototype = {
         {
             callback(resources.map(wrapResource));
         }
-        return extensionServer.sendRequest({ command: commands.GetPageResources }, callback && callbackWrapper);
+        extensionServer.sendRequest({ command: commands.GetPageResources }, callback && callbackWrapper);
     }
 }
 
@@ -722,12 +823,12 @@ ResourceImpl.prototype = {
             callback(response.content, response.encoding);
         }
 
-        return extensionServer.sendRequest({ command: commands.GetResourceContent, url: this._url }, callback && callbackWrapper);
+        extensionServer.sendRequest({ command: commands.GetResourceContent, url: this._url }, callback && callbackWrapper);
     },
 
     setContent: function(content, commit, callback)
     {
-        return extensionServer.sendRequest({ command: commands.SetResourceContent, url: this._url, content: content, commit: commit }, callback);
+        extensionServer.sendRequest({ command: commands.SetResourceContent, url: this._url, content: content, commit: commit }, callback);
     }
 }
 
@@ -788,9 +889,12 @@ ExtensionServerClient.prototype = {
     {
         if (typeof callback === "function")
             message.requestId = this._registerCallback(callback);
-        return this._port.postMessage(message);
+        this._port.postMessage(message);
     },
 
+    /**
+     * @return {boolean}
+     */
     hasHandler: function(command)
     {
         return !!this._handlers[command];
@@ -806,6 +910,9 @@ ExtensionServerClient.prototype = {
         delete this._handlers[command];
     },
 
+    /**
+     * @return {string}
+     */
     nextObjectId: function()
     {
         return injectedScriptId + "_" + ++this._lastObjectId;
@@ -856,52 +963,61 @@ function populateInterfaceClass(interface, implementation)
     }
 }
 
-function declareInterfaceClass(implConstructor)
-{
-    return function()
-    {
-        var impl = { __proto__: implConstructor.prototype };
-        implConstructor.apply(impl, arguments);
-        populateInterfaceClass(this, impl);
-    }
-}
-
-function defineDeprecatedProperty(object, className, oldName, newName)
-{
-    var warningGiven = false;
-    function getter()
-    {
-        if (!warningGiven) {
-            console.warn(className + "." + oldName + " is deprecated. Use " + className + "." + newName + " instead");
-            warningGiven = true;
-        }
-        return object[newName];
-    }
-    object.__defineGetter__(oldName, getter);
-}
-
-function extractCallbackArgument(args)
-{
-    var lastArgument = args[args.length - 1];
-    return typeof lastArgument === "function" ? lastArgument : undefined;
-}
-
-var AuditCategory = declareInterfaceClass(AuditCategoryImpl);
-var AuditResult = declareInterfaceClass(AuditResultImpl);
-var Button = declareInterfaceClass(ButtonImpl);
-var EventSink = declareInterfaceClass(EventSinkImpl);
-var ExtensionPanel = declareInterfaceClass(ExtensionPanelImpl);
-var ExtensionSidebarPane = declareInterfaceClass(ExtensionSidebarPaneImpl);
-var PanelWithSidebar = declareInterfaceClass(PanelWithSidebarImpl);
-var Request = declareInterfaceClass(RequestImpl);
-var Resource = declareInterfaceClass(ResourceImpl);
-var Timeline = declareInterfaceClass(TimelineImpl);
-
 // extensionServer is a closure variable defined by the glue below -- make sure we fail if it's not there.
 if (!extensionServer)
     extensionServer = new ExtensionServerClient();
 
 return new InspectorExtensionAPI();
+}
+
+/**
+ * @suppress {checkVars, checkTypes}
+ */
+function platformExtensionAPI(coreAPI)
+{
+    function getTabId()
+    {
+        return tabId;
+    }
+    chrome = window.chrome || {};
+    // Override chrome.devtools as a workaround for a error-throwing getter being exposed
+    // in extension pages loaded into a non-extension process (only happens for remote client
+    // extensions)
+    var devtools_descriptor = Object.getOwnPropertyDescriptor(chrome, "devtools");
+    if (!devtools_descriptor || devtools_descriptor.get)
+        Object.defineProperty(chrome, "devtools", { value: {}, enumerable: true });
+    // Only expose tabId on chrome.devtools.inspectedWindow, not webInspector.inspectedWindow.
+    chrome.devtools.inspectedWindow = {};
+    chrome.devtools.inspectedWindow.__defineGetter__("tabId", getTabId);
+    chrome.devtools.inspectedWindow.__proto__ = coreAPI.inspectedWindow;
+    chrome.devtools.network = coreAPI.network;
+    chrome.devtools.panels = coreAPI.panels;
+
+    // default to expose experimental APIs for now.
+    if (extensionInfo.exposeExperimentalAPIs !== false) {
+        chrome.experimental = chrome.experimental || {};
+        chrome.experimental.devtools = chrome.experimental.devtools || {};
+
+        var properties = Object.getOwnPropertyNames(coreAPI);
+        for (var i = 0; i < properties.length; ++i) {
+            var descriptor = Object.getOwnPropertyDescriptor(coreAPI, properties[i]);
+            Object.defineProperty(chrome.experimental.devtools, properties[i], descriptor);
+        }
+        chrome.experimental.devtools.inspectedWindow = chrome.devtools.inspectedWindow;
+    }
+    if (extensionInfo.exposeWebInspectorNamespace)
+        window.webInspector = coreAPI;
+}
+
+/**
+ * @param {!ExtensionDescriptor} extensionInfo
+ * @return {string}
+ */
+function buildPlatformExtensionAPI(extensionInfo)
+{
+    return "var extensionInfo = " + JSON.stringify(extensionInfo) + ";" +
+       "var tabId = " + WebInspector._inspectedTabId + ";" +
+       platformExtensionAPI.toString();
 }
 
 /**

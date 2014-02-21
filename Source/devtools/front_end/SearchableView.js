@@ -39,9 +39,6 @@ WebInspector.SearchableView = function(searchable)
     WebInspector.View.call(this);
 
     this._searchProvider = searchable;
-
-    this.element.classList.add("vbox");
-    this.element.style.flex = "auto";
     this.element.addEventListener("keydown", this._onKeyDown.bind(this), false);
 
     this._footerElementContainer = this.element.createChild("div", "inspector-footer status-bar hidden");
@@ -110,7 +107,7 @@ WebInspector.SearchableView = function(searchable)
     this._replaceCheckboxElement = this._replaceElement.createChild("input");
     this._replaceCheckboxElement.type = "checkbox";
     this._replaceCheckboxElement.id = "search-replace-trigger";
-    this._replaceCheckboxElement.addEventListener("click", this._updateSecondRowVisibility.bind(this), false);
+    this._replaceCheckboxElement.addEventListener("change", this._updateSecondRowVisibility.bind(this), false);
 
     this._replaceLabelElement = this._replaceElement.createChild("label");
     this._replaceLabelElement.textContent = WebInspector.UIString("Replace");
@@ -180,6 +177,11 @@ WebInspector.SearchableView.prototype = {
     {
         this._shortcuts = {};
 
+        /**
+         * @param {!Array.<!WebInspector.KeyboardShortcut.Descriptor>} shortcuts
+         * @param {function()} handler
+         * @this {WebInspector.SearchableView}
+         */
         function register(shortcuts, handler)
         {
             for (var i = 0; i < shortcuts.length; ++i)
@@ -201,11 +203,11 @@ WebInspector.SearchableView.prototype = {
     },
 
     /**
-     * @param {boolean} canReplace
+     * @param {boolean} replaceable
      */
-    setCanReplace: function(canReplace)
+    setReplaceable: function(replaceable)
     {
-        this._canReplace = canReplace;
+        this._replaceable = replaceable;
     },
 
     /**
@@ -225,6 +227,9 @@ WebInspector.SearchableView.prototype = {
         this._updateSearchMatchesCountAndCurrentMatchIndex(this._searchProvider.currentSearchMatches, currentMatchIndex);
     },
 
+    /**
+     * @return {boolean}
+     */
     isSearchVisible: function()
     {
         return this._searchIsVisible;
@@ -233,7 +238,8 @@ WebInspector.SearchableView.prototype = {
     closeSearch: function()
     {
         this.cancelSearch();
-        WebInspector.setCurrentFocusElement(WebInspector.previousFocusElement());
+        if (WebInspector.currentFocusElement().isDescendant(this._footerElementContainer))
+            WebInspector.setCurrentFocusElement(WebInspector.previousFocusElement());
     },
 
     _toggleSearchBar: function(toggled)
@@ -264,8 +270,8 @@ WebInspector.SearchableView.prototype = {
     handleFindNextShortcut: function()
     {
         if (!this._searchIsVisible)
-            return true;
-        this._searchProvider.jumpToPreviousSearchResult();
+            return false;
+        this._searchProvider.jumpToNextSearchResult();
         return true;
     },
 
@@ -275,8 +281,8 @@ WebInspector.SearchableView.prototype = {
     handleFindPreviousShortcut: function()
     {
         if (!this._searchIsVisible)
-            return true;
-        this._searchProvider.jumpToNextSearchResult();
+            return false;
+        this._searchProvider.jumpToPreviousSearchResult();
         return true;
     },
 
@@ -357,13 +363,8 @@ WebInspector.SearchableView.prototype = {
 
     _updateReplaceVisibility: function()
     {
-        if (!this._searchIsVisible)
-            return;
-
-        if (this._canReplace)
-            this._replaceElement.classList.remove("hidden");
-        else {
-            this._replaceElement.classList.add("hidden");
+        this._replaceElement.enableStyleClass("hidden", !this._replaceable);
+        if (!this._replaceable) {
             this._replaceCheckboxElement.checked = false;
             this._updateSecondRowVisibility();
         }
@@ -461,8 +462,6 @@ WebInspector.SearchableView.prototype = {
 
     _updateSecondRowVisibility: function()
     {
-        if (!this._searchIsVisible)
-            return;
         if (this._replaceCheckboxElement.checked) {
             this._footerElement.classList.add("toolbar-search-replace");
             this._secondRowElement.classList.remove("hidden");
@@ -483,14 +482,14 @@ WebInspector.SearchableView.prototype = {
 
     _replace: function()
     {
-        this._searchProvider.replaceSelectionWith(this._replaceInputElement.value);
+        /** @type {!WebInspector.Replaceable} */ (this._searchProvider).replaceSelectionWith(this._replaceInputElement.value);
         delete this._currentQuery;
         this._performSearch(true, true);
     },
 
     _replaceAll: function()
     {
-        this._searchProvider.replaceAllWith(this._searchInputElement.value, this._replaceInputElement.value);
+        /** @type {!WebInspector.Replaceable} */ (this._searchProvider).replaceAllWith(this._searchInputElement.value, this._replaceInputElement.value);
     },
 
     _onInput: function(event)
@@ -524,5 +523,25 @@ WebInspector.Searchable.prototype = {
 
     jumpToNextSearchResult: function() { },
 
-    jumpToPreviousSearchResult: function() { },
+    jumpToPreviousSearchResult: function() { }
+}
+
+/**
+ * @interface
+ */
+WebInspector.Replaceable = function()
+{
+}
+
+WebInspector.Replaceable.prototype = {
+    /**
+     * @param {string} text
+     */
+    replaceSelectionWith: function(text) { },
+
+    /**
+     * @param {string} query
+     * @param {string} replacement
+     */
+    replaceAllWith: function(query, replacement) { }
 }

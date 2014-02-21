@@ -35,7 +35,7 @@ namespace WebCore {
 struct FileMetadata;
 class KURL;
 
-class File : public Blob {
+class File FINAL : public Blob {
 public:
     // AllContentTypes should only be used when the full path/name are trusted; otherwise, it could
     // allow arbitrary pages to determine what applications an user has installed.
@@ -55,9 +55,9 @@ public:
     }
 
     // For deserialization.
-    static PassRefPtr<File> create(const String& path, PassRefPtr<BlobDataHandle> blobDataHandle)
+    static PassRefPtr<File> create(const String& path, const String& name, const String& relativePath, bool hasSnaphotData, uint64_t size, double lastModified, PassRefPtr<BlobDataHandle> blobDataHandle)
     {
-        return adoptRef(new File(path, blobDataHandle));
+        return adoptRef(new File(path, name, relativePath, hasSnaphotData, size, lastModified, blobDataHandle));
     }
 
     static PassRefPtr<File> createWithRelativePath(const String& path, const String& relativePath);
@@ -86,8 +86,12 @@ public:
     }
 
     virtual unsigned long long size() const OVERRIDE;
+    virtual PassRefPtr<Blob> slice(long long start = 0, long long end = std::numeric_limits<long long>::max(), const String& contentType = String()) const OVERRIDE;
+
     virtual bool isFile() const OVERRIDE { return true; }
     virtual bool hasBackingFile() const OVERRIDE { return m_hasBackingFile; }
+
+    virtual void appendTo(BlobData&) const OVERRIDE;
 
     const String& path() const { ASSERT(m_hasBackingFile); return m_path; }
     const String& name() const { return m_name; }
@@ -101,16 +105,16 @@ public:
     // Note that this involves synchronous file operation. Think twice before calling this function.
     void captureSnapshot(long long& snapshotSize, double& snapshotModificationTime) const;
 
+    // Returns true if this has a valid snapshot metadata (i.e. m_snapshotSize >= 0).
+    bool hasValidSnapshotMetadata() const { return m_snapshotSize >= 0; }
+
 private:
     File(const String& path, ContentTypeLookupPolicy);
     File(const String& path, const String& name, ContentTypeLookupPolicy);
-    File(const String& path, PassRefPtr<BlobDataHandle>);
+    File(const String& path, const String& name, const String& relativePath, bool hasSnaphotData, uint64_t size, double lastModified, PassRefPtr<BlobDataHandle>);
     File(const String& name, double modificationTime, PassRefPtr<BlobDataHandle>);
     File(const String& name, const FileMetadata&);
     File(const KURL& fileSystemURL, const FileMetadata&);
-
-    // Returns true if this has a valid snapshot metadata (i.e. m_snapshotSize >= 0).
-    bool hasValidSnapshotMetadata() const { return m_snapshotSize >= 0; }
 
     bool m_hasBackingFile;
     String m_path;
@@ -126,17 +130,7 @@ private:
     String m_relativePath;
 };
 
-inline File* toFile(Blob* blob)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!blob || blob->isFile());
-    return static_cast<File*>(blob);
-}
-
-inline const File* toFile(const Blob* blob)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!blob || blob->isFile());
-    return static_cast<const File*>(blob);
-}
+DEFINE_TYPE_CASTS(File, Blob, blob, blob->isFile(), blob.isFile());
 
 } // namespace WebCore
 

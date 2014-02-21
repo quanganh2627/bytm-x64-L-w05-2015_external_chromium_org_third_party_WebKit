@@ -113,18 +113,16 @@ File::File(const String& path, const String& name, ContentTypeLookupPolicy polic
     ScriptWrappable::init(this);
 }
 
-File::File(const String& path, PassRefPtr<BlobDataHandle> blobDataHandle)
+File::File(const String& path, const String& name, const String& relativePath, bool hasSnaphotData, uint64_t size, double lastModified, PassRefPtr<BlobDataHandle> blobDataHandle)
     : Blob(blobDataHandle)
-    , m_hasBackingFile(true)
+    , m_hasBackingFile(!path.isEmpty() || !relativePath.isEmpty())
     , m_path(path)
-    , m_name(blink::Platform::current()->fileUtilities()->baseName(path))
-    , m_snapshotSize(-1)
-    , m_snapshotModificationTime(invalidFileTime())
+    , m_name(name)
+    , m_snapshotSize(hasSnaphotData ? static_cast<long long>(size) : -1)
+    , m_snapshotModificationTime(hasSnaphotData ? lastModified : invalidFileTime())
+    , m_relativePath(relativePath)
 {
     ScriptWrappable::init(this);
-    // FIXME: File object serialization/deserialization does not include
-    // newer file object data members: m_name and m_relativePath.
-    // See SerializedScriptValue.cpp.
 }
 
 File::File(const String& name, double modificationTime, PassRefPtr<BlobDataHandle> blobDataHandle)
@@ -183,6 +181,29 @@ unsigned long long File::size() const
     return static_cast<unsigned long long>(size);
 }
 
+PassRefPtr<Blob> File::slice(long long start, long long end, const String& contentType) const
+{
+    if (!m_hasBackingFile)
+        return Blob::slice(start, end, contentType);
+
+    // FIXME: This involves synchronous file operation. We need to figure out how to make it asynchronous.
+    long long size;
+    double modificationTime;
+    captureSnapshot(size, modificationTime);
+    clampSliceOffsets(size, start, end);
+
+    long long length = end - start;
+    OwnPtr<BlobData> blobData = BlobData::create();
+    blobData->setContentType(contentType);
+    if (!m_fileSystemURL.isEmpty()) {
+        blobData->appendFileSystemURL(m_fileSystemURL, start, length, modificationTime);
+    } else {
+        ASSERT(!m_path.isEmpty());
+        blobData->appendFile(m_path, start, length, modificationTime);
+    }
+    return Blob::create(BlobDataHandle::create(blobData.release(), length));
+}
+
 void File::captureSnapshot(long long& snapshotSize, double& snapshotModificationTime) const
 {
     if (hasValidSnapshotMetadata()) {
@@ -202,6 +223,25 @@ void File::captureSnapshot(long long& snapshotSize, double& snapshotModification
 
     snapshotSize = metadata.length;
     snapshotModificationTime = metadata.modificationTime;
+}
+
+void File::appendTo(BlobData& blobData) const
+{
+    if (!m_hasBackingFile) {
+        Blob::appendTo(blobData);
+        return;
+    }
+
+    // FIXME: This involves synchronous file operation. We need to figure out how to make it asynchronous.
+    long long size;
+    double modificationTime;
+    captureSnapshot(size, modificationTime);
+    if (!m_fileSystemURL.isEmpty()) {
+        blobData.appendFileSystemURL(m_fileSystemURL, 0, size, modificationTime);
+        return;
+    }
+    ASSERT(!m_path.isEmpty());
+    blobData.appendFile(m_path, 0, size, modificationTime);
 }
 
 } // namespace WebCore

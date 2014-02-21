@@ -88,7 +88,14 @@ private:
         uint16_t* glyphs() { return &m_glyphs[0]; }
         float* advances() { return &m_advances[0]; }
         FloatPoint* offsets() { return &m_offsets[0]; }
-        uint16_t* glyphToCharacterIndexes() { return &m_glyphToCharacterIndexes[0]; }
+        bool hasGlyphToCharacterIndexes() const
+        {
+            return m_glyphToCharacterIndexes.size() > 0;
+        }
+        uint16_t* glyphToCharacterIndexes()
+        {
+            return &m_glyphToCharacterIndexes[0];
+        }
         float width() { return m_width; }
         bool rtl() { return m_direction == RTL; }
         hb_script_t script() { return m_script; }
@@ -122,11 +129,12 @@ private:
 
     void setFontFeatures();
 
-    bool collectHarfBuzzRuns();
-    bool shapeHarfBuzzRuns(bool shouldSetDirection);
+    bool createHarfBuzzRuns();
+    bool shapeHarfBuzzRuns();
     bool fillGlyphBuffer(GlyphBuffer*);
     void fillGlyphBufferFromHarfBuzzRun(GlyphBuffer*, HarfBuzzRun*, FloatPoint& firstOffsetOfNextRun);
     void setGlyphPositionsForHarfBuzzRun(HarfBuzzRun*, hb_buffer_t*);
+    void addHarfBuzzRun(unsigned startCharacter, unsigned endCharacter, const SimpleFontData*, UScriptCode);
 
     GlyphBufferAdvance createGlyphBufferAdvance(float, float);
 
@@ -135,11 +143,11 @@ private:
     unsigned m_normalizedBufferLength;
     const TextRun& m_run;
 
-    int m_wordSpacingAdjustment; // Delta adjustment (pixels) for each word break.
+    float m_wordSpacingAdjustment; // Delta adjustment (pixels) for each word break.
     float m_padding; // Pixels to be distributed over the line at word breaks.
     float m_padPerWordBreak; // Pixels to be added to each word break.
     float m_padError; // m_padPerWordBreak might have a fractional component. Since we only add a whole number of padding pixels at each word break we accumulate error. This is the number of pixels that we are behind so far.
-    int m_letterSpacing; // Pixels to be added after each glyph.
+    float m_letterSpacing; // Pixels to be added after each glyph.
 
     Vector<hb_feature_t, 4> m_features;
     Vector<OwnPtr<HarfBuzzRun>, 16> m_harfBuzzRuns;

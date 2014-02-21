@@ -48,7 +48,6 @@ struct ComponentCase {
     const int port;
     const char* user;
     const char* pass;
-    const char* path;
     const char* lastPath;
     const char* query;
     const char* ref;
@@ -111,21 +110,21 @@ TEST(KURLTest, SameGetters)
 TEST(KURLTest, DISABLED_DifferentGetters)
 {
     ComponentCase cases[] = {
-        // url                                    protocol      host        port  user  pass    path                lastPath  query      ref
+        // url                                    protocol      host        port  user  pass             lastPath  query      ref
 
         // Old WebKit allows references and queries in what we call "path" URLs
         // like javascript, so the path here will only consist of "hello!".
-        {"javascript:hello!?#/\\world",           "javascript", "",         0,    "",   0,      "hello!?#/\\world", "world",  0,         0},
+        {"javascript:hello!?#/\\world",           "javascript", "",         0,    "",   0,               "world",  0,         0},
 
         // Old WebKit doesn't handle "parameters" in paths, so will
         // disagree with us about where the path is for this URL.
-        {"http://a.com/hello;world",              "http",       "a.com",    0,    "",   0,      "/hello;world",     "hello",  0,         0},
+        {"http://a.com/hello;world",              "http",       "a.com",    0,    "",   0,               "hello",  0,         0},
 
         // WebKit doesn't like UTF-8 or UTF-16 input.
-        {"http://\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xbd\xa0\xe5\xa5\xbd/", "http", "xn--6qqa088eba", 0, "", 0, "/",       0,        0,         0},
+        {"http://\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xbd\xa0\xe5\xa5\xbd/", "http", "xn--6qqa088eba", 0, "", 0, 0,        0,         0},
 
         // WebKit %-escapes non-ASCII characters in reference, but we don't.
-        {"http://www.google.com/foo/blah?bar=baz#\xce\xb1\xce\xb2", "http", "www.google.com", 0, "", 0, "/foo/blah/", "blah", "bar=baz", "\xce\xb1\xce\xb2"},
+        {"http://www.google.com/foo/blah?bar=baz#\xce\xb1\xce\xb2", "http", "www.google.com", 0, "", 0,  "blah", "bar=baz", "\xce\xb1\xce\xb2"},
     };
 
     for (size_t i = 0; i < arraysize(cases); i++) {
@@ -192,7 +191,6 @@ TEST(KURLTest, Setters)
         const char* pass;
         const char* path;
         const char* query;
-        const char* ref;
 
         // The full expected URL with the given "set" applied.
         const char* expectedProtocol;
@@ -202,28 +200,25 @@ TEST(KURLTest, Setters)
         const char* expectedPass;
         const char* expectedPath;
         const char* expectedQuery;
-        const char* expectedRef;
     } cases[] = {
-         // url                                   protocol      host               port  user  pass    path            query      ref
-        {"http://www.google.com/",                "https",      "news.google.com", 8888, "me", "pass", "/foo",         "?q=asdf", "heehee",
+        // url                                    protocol      host               port  user  pass    path            query
+        {"http://www.google.com/",                "https",      "news.google.com", 8888, "me", "pass", "/foo",         "?q=asdf",
                                                   "https://www.google.com/",
                                                                 "https://news.google.com/",
                                                                                    "https://news.google.com:8888/",
                                                                                          "https://me@news.google.com:8888/",
                                                                                                "https://me:pass@news.google.com:8888/",
                                                                                                        "https://me:pass@news.google.com:8888/foo",
-                                                                                                                       "https://me:pass@news.google.com:8888/foo?q=asdf",
-                                                                                                                                  "https://me:pass@news.google.com:8888/foo?q=asdf#heehee"},
+                                                                                                                       "https://me:pass@news.google.com:8888/foo?q=asdf"},
 
-        {"https://me:pass@google.com:88/a?f#b",   "http",       "goo.com",         92,   "",   "",     "/",            0,      "",
+        {"https://me:pass@google.com:88/a?f#b",   "http",       "goo.com",         92,   "",   "",     "/",            0,
                                                   "http://me:pass@google.com:88/a?f#b",
                                                                 "http://me:pass@goo.com:88/a?f#b",
                                                                                    "http://me:pass@goo.com:92/a?f#b",
                                                                                          "http://:pass@goo.com:92/a?f#b",
                                                                                                "http://goo.com:92/a?f#b",
                                                                                                         "http://goo.com:92/?f#b",
-                                                                                                                       "http://goo.com:92/#b",
-                                                                                                                                  "https://goo.com:92/"},
+                                                                                                                       "http://goo.com:92/#b"},
     };
 
     for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
@@ -288,7 +283,7 @@ TEST(KURLTest, Decode)
     // Test the error behavior for invalid UTF-8 (we differ from WebKit here).
     WTF::String invalid = WebCore::decodeURLEscapeSequences(
         "%e4%a0%e5%a5%bd");
-    char16 invalidExpectedHelper[4] = { 0x00e4, 0x00a0, 0x597d, 0 };
+    UChar invalidExpectedHelper[4] = { 0x00e4, 0x00a0, 0x597d, 0 };
     WTF::String invalidExpected(
         reinterpret_cast<const ::UChar*>(invalidExpectedHelper),
         3);
@@ -334,7 +329,7 @@ TEST(KURLTest, Encode)
     EXPECT_EQ(reference, output);
 
     // Also test that it gets converted to UTF-8 properly.
-    char16 wideInputHelper[3] = { 0x4f60, 0x597d, 0 };
+    UChar wideInputHelper[3] = { 0x4f60, 0x597d, 0 };
     WTF::String wideInput(
         reinterpret_cast<const ::UChar*>(wideInputHelper), 2);
     WTF::String wideReference("%E4%BD%A0%E5%A5%BD");

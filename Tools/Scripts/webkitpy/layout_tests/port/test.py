@@ -102,8 +102,8 @@ class TestList(object):
 #
 # These numbers may need to be updated whenever we add or delete tests. This includes virtual tests.
 #
-TOTAL_TESTS = 110
-TOTAL_SKIPS = 28
+TOTAL_TESTS = 114
+TOTAL_SKIPS = 29
 
 UNEXPECTED_PASSES = 1
 UNEXPECTED_FAILURES = 25
@@ -143,6 +143,10 @@ def unit_test_list():
               expected_text="foo\n\n", actual_text="foo\n")
     tests.add('failures/expected/newlines_with_excess_CR.html',
               expected_text="foo\r\r\r\n", actual_text="foo\n")
+    tests.add('failures/expected/testharness.html',
+            actual_text='This is a testharness.js-based test.\nFAIL: assert fired\n.Harness: the test ran to completion.\n\n', expected_text=None,
+              actual_image=None, expected_image=None,
+              actual_checksum=None)
     tests.add('failures/expected/text.html', actual_text='text_fail-png')
     tests.add('failures/expected/crash_then_text.html')
     tests.add('failures/expected/skip_text.html', actual_text='text diff')
@@ -192,6 +196,10 @@ layer at (0,0) size 800x34
     tests.add('passes/checksum_in_image.html',
               expected_image='tEXtchecksum\x00checksum_in_image-checksum')
     tests.add('passes/skipped/skip.html')
+    tests.add('passes/testharness.html',
+            actual_text='This is a testharness.js-based test.\nPASS: assert is fine\nHarness: the test ran to completion.\n\n', expected_text=None,
+              actual_image=None, expected_image=None,
+              actual_checksum=None)
 
     # Note that here the checksums don't match but the images do, so this test passes "unexpectedly".
     # See https://bugs.webkit.org/show_bug.cgi?id=69444 .
@@ -204,6 +212,10 @@ layer at (0,0) size 800x34
 
     # For reftests.
     tests.add_reftest('passes/reftest.html', 'passes/reftest-expected.html', same_image=True)
+
+    # This adds a different virtual reference to ensure that that also works.
+    tests.add('virtual/passes/reftest-expected.html', actual_checksum='xxx', actual_image='XXX', is_reftest=True)
+
     tests.add_reftest('passes/mismatch.html', 'passes/mismatch-expected-mismatch.html', same_image=False)
     tests.add_reftest('passes/svgreftest.svg', 'passes/svgreftest-expected.svg', same_image=True)
     tests.add_reftest('passes/xhtreftest.xht', 'passes/xhtreftest-expected.html', same_image=True)
@@ -293,6 +305,7 @@ Bug(test) failures/expected/newlines_trailing.html [ Failure ]
 Bug(test) failures/expected/newlines_with_excess_CR.html [ Failure ]
 Bug(test) failures/expected/reftest.html [ ImageOnlyFailure ]
 Bug(test) failures/expected/text.html [ Failure ]
+Bug(test) failures/expected/testharness.html [ Failure ]
 Bug(test) failures/expected/timeout.html [ Timeout ]
 Bug(test) failures/expected/keyboard.html [ WontFix ]
 Bug(test) failures/expected/exception.html [ WontFix ]
@@ -477,7 +490,7 @@ class TestPort(Port):
     def _driver_class(self):
         return TestDriver
 
-    def start_http_server(self, additional_dirs=None, number_of_servers=None):
+    def start_http_server(self, additonal_dirs=None, number_of_drivers=None):
         pass
 
     def start_websocket_server(self):
@@ -495,19 +508,19 @@ class TestPort(Port):
     def release_http_lock(self):
         pass
 
-    def _path_to_lighttpd(self):
+    def path_to_lighttpd(self):
         return "/usr/sbin/lighttpd"
 
-    def _path_to_lighttpd_modules(self):
+    def path_to_lighttpd_modules(self):
         return "/usr/lib/lighttpd"
 
-    def _path_to_lighttpd_php(self):
+    def path_to_lighttpd_php(self):
         return "/usr/bin/php-cgi"
 
-    def _path_to_apache(self):
+    def path_to_apache(self):
         return "/usr/sbin/httpd"
 
-    def _path_to_apache_config_file(self):
+    def path_to_apache_config_file(self):
         return self._filesystem.join(self.layout_tests_dir(), 'http', 'conf', 'httpd.conf')
 
     def path_to_generic_test_expectations_file(self):
@@ -568,13 +581,6 @@ class TestDriver(Driver):
         return [self._port._path_to_driver()] + [pixel_tests_flag] + self._port.get_option('additional_drt_flag', []) + per_test_args
 
     def run_test(self, driver_input, stop_when_done):
-        base = self._port.lookup_virtual_test_base(driver_input.test_name)
-        if base:
-            virtual_driver_input = copy.copy(driver_input)
-            virtual_driver_input.test_name = base
-            virtual_driver_input.args = self._port.lookup_virtual_test_args(driver_input.test_name)
-            return self.run_test(virtual_driver_input, stop_when_done)
-
         if not self.started:
             self.started = True
             self.pid = TestDriver.next_pid

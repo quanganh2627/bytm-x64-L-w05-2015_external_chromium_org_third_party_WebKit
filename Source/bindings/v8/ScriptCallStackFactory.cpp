@@ -56,12 +56,12 @@ static ScriptCallFrame toScriptCallFrame(v8::Handle<v8::StackFrame> frame)
     String sourceName;
     v8::Local<v8::String> sourceNameValue(frame->GetScriptNameOrSourceURL());
     if (!sourceNameValue.IsEmpty())
-        sourceName = toWebCoreString(sourceNameValue);
+        sourceName = toCoreString(sourceNameValue);
 
     String functionName;
     v8::Local<v8::String> functionNameValue(frame->GetFunctionName());
     if (!functionNameValue.IsEmpty())
-        functionName = toWebCoreString(functionNameValue);
+        functionName = toCoreString(functionNameValue);
 
     int sourceLineNumber = frame->GetLineNumber();
     int sourceColumn = frame->GetColumn();
@@ -114,7 +114,7 @@ PassRefPtr<ScriptCallStack> createScriptCallStackForConsole(size_t maxStackSize)
 {
     size_t stackSize = 1;
     if (InspectorInstrumentation::hasFrontends()) {
-        ExecutionContext* executionContext = getExecutionContext();
+        ExecutionContext* executionContext = currentExecutionContext(v8::Isolate::GetCurrent());
         if (InspectorInstrumentation::consoleAgentEnabled(executionContext))
             stackSize = maxStackSize;
     }

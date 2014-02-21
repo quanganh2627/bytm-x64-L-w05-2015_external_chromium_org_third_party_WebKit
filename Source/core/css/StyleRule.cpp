@@ -22,14 +22,12 @@
 #include "config.h"
 #include "core/css/StyleRule.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "core/css/CSSFilterRule.h"
 #include "core/css/CSSFontFaceRule.h"
 #include "core/css/CSSImportRule.h"
 #include "core/css/CSSKeyframesRule.h"
 #include "core/css/CSSMediaRule.h"
 #include "core/css/CSSPageRule.h"
-#include "core/css/CSSRegionRule.h"
 #include "core/css/CSSStyleRule.h"
 #include "core/css/CSSSupportsRule.h"
 #include "core/css/CSSViewportRule.h"
@@ -72,9 +70,6 @@ void StyleRuleBase::destroy()
     case Supports:
         delete toStyleRuleSupports(this);
         return;
-    case Region:
-        delete toStyleRuleRegion(this);
-        return;
     case Import:
         delete toStyleRuleImport(this);
         return;
@@ -100,27 +95,25 @@ PassRefPtr<StyleRuleBase> StyleRuleBase::copy() const
 {
     switch (type()) {
     case Style:
-        return static_cast<const StyleRule*>(this)->copy();
+        return toStyleRule(this)->copy();
     case Page:
-        return static_cast<const StyleRulePage*>(this)->copy();
+        return toStyleRulePage(this)->copy();
     case FontFace:
-        return static_cast<const StyleRuleFontFace*>(this)->copy();
+        return toStyleRuleFontFace(this)->copy();
     case Media:
-        return static_cast<const StyleRuleMedia*>(this)->copy();
+        return toStyleRuleMedia(this)->copy();
     case Supports:
-        return static_cast<const StyleRuleSupports*>(this)->copy();
-    case Region:
-        return static_cast<const StyleRuleRegion*>(this)->copy();
+        return toStyleRuleSupports(this)->copy();
     case Import:
         // FIXME: Copy import rules.
         ASSERT_NOT_REACHED();
         return 0;
     case Keyframes:
-        return static_cast<const StyleRuleKeyframes*>(this)->copy();
+        return toStyleRuleKeyframes(this)->copy();
     case Viewport:
-        return static_cast<const StyleRuleViewport*>(this)->copy();
+        return toStyleRuleViewport(this)->copy();
     case Filter:
-        return static_cast<const StyleRuleFilter*>(this)->copy();
+        return toStyleRuleFilter(this)->copy();
     case Unknown:
     case Charset:
     case Keyframe:
@@ -150,9 +143,6 @@ PassRefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet
         break;
     case Supports:
         rule = CSSSupportsRule::create(toStyleRuleSupports(self), parentSheet);
-        break;
-    case Region:
-        rule = CSSRegionRule::create(toStyleRuleRegion(self), parentSheet);
         break;
     case Import:
         rule = CSSImportRule::create(toStyleRuleImport(self), parentSheet);
@@ -314,20 +304,6 @@ StyleRuleSupports::StyleRuleSupports(const StyleRuleSupports& o)
     , m_conditionText(o.m_conditionText)
     , m_conditionIsSupported(o.m_conditionIsSupported)
 {
-}
-
-StyleRuleRegion::StyleRuleRegion(Vector<OwnPtr<CSSParserSelector> >* selectors, Vector<RefPtr<StyleRuleBase> >& adoptRules)
-    : StyleRuleGroup(Region, adoptRules)
-{
-    ASSERT(RuntimeEnabledFeatures::cssRegionsEnabled());
-    m_selectorList.adoptSelectorVector(*selectors);
-}
-
-StyleRuleRegion::StyleRuleRegion(const StyleRuleRegion& o)
-    : StyleRuleGroup(o)
-    , m_selectorList(o.m_selectorList)
-{
-    ASSERT(RuntimeEnabledFeatures::cssRegionsEnabled());
 }
 
 StyleRuleViewport::StyleRuleViewport()

@@ -215,7 +215,7 @@ class Manager(object):
             self._start_servers(tests_to_run)
 
             initial_results = self._run_tests(tests_to_run, tests_to_skip, self._options.repeat_each, self._options.iterations,
-                int(self._options.child_processes), retrying=False)
+                self._port.num_workers(int(self._options.child_processes)), retrying=False)
 
             # Don't retry failures when interrupted by user or failures limit exception.
             should_retry_failures = should_retry_failures and not (initial_results.interrupted or initial_results.keyboard_interrupted)
@@ -276,7 +276,7 @@ class Manager(object):
     def _start_servers(self, tests_to_run):
         if self._port.requires_http_server() or any(self._is_http_test(test) for test in tests_to_run):
             self._printer.write_update('Starting HTTP server ...')
-            self._port.start_http_server(number_of_servers=(2 * self._options.max_locked_shards))
+            self._port.start_http_server(number_of_drivers=self._options.max_locked_shards)
             self._http_server_started = True
 
         if any(self._is_websocket_test(test) for test in tests_to_run):

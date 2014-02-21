@@ -51,7 +51,7 @@ bool ScriptValue::getString(String& result) const
     v8::Handle<v8::Value> string = v8Value();
     if (string.IsEmpty() || !string->IsString())
         return false;
-    result = toWebCoreString(string.As<v8::String>());
+    result = toCoreString(string.As<v8::String>());
     return true;
 }
 
@@ -82,13 +82,13 @@ static PassRefPtr<JSONValue> v8ToJSONValue(v8::Handle<v8::Value> value, int maxD
     if (value->IsNumber())
         return JSONBasicValue::create(value->NumberValue());
     if (value->IsString())
-        return JSONString::create(toWebCoreString(value.As<v8::String>()));
+        return JSONString::create(toCoreString(value.As<v8::String>()));
     if (value->IsArray()) {
         v8::Handle<v8::Array> array = v8::Handle<v8::Array>::Cast(value);
         RefPtr<JSONArray> inspectorArray = JSONArray::create();
         uint32_t length = array->Length();
         for (uint32_t i = 0; i < length; i++) {
-            v8::Local<v8::Value> value = array->Get(v8::Int32::New(i, isolate));
+            v8::Local<v8::Value> value = array->Get(v8::Int32::New(isolate, i));
             RefPtr<JSONValue> element = v8ToJSONValue(value, maxDepth, isolate);
             if (!element)
                 return 0;
@@ -102,14 +102,15 @@ static PassRefPtr<JSONValue> v8ToJSONValue(v8::Handle<v8::Value> value, int maxD
         v8::Local<v8::Array> propertyNames = object->GetPropertyNames();
         uint32_t length = propertyNames->Length();
         for (uint32_t i = 0; i < length; i++) {
-            v8::Local<v8::Value> name = propertyNames->Get(v8::Int32::New(i, isolate));
+            v8::Local<v8::Value> name = propertyNames->Get(v8::Int32::New(isolate, i));
             // FIXME(yurys): v8::Object should support GetOwnPropertyNames
             if (name->IsString() && !object->HasRealNamedProperty(v8::Handle<v8::String>::Cast(name)))
                 continue;
             RefPtr<JSONValue> propertyValue = v8ToJSONValue(object->Get(name), maxDepth, isolate);
             if (!propertyValue)
                 return 0;
-            jsonObject->setValue(toWebCoreStringWithNullCheck(name), propertyValue);
+            V8TRYCATCH_FOR_V8STRINGRESOURCE_RETURN(V8StringResource<WithNullCheck>, nameString, name, 0);
+            jsonObject->setValue(nameString, propertyValue);
         }
         return jsonObject;
     }

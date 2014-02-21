@@ -96,6 +96,9 @@ WebInspector.ResourceTreeModel.prototype = {
         this._cachedResourcesProcessed = true;
     },
 
+    /**
+     * @return {boolean}
+     */
     cachedResourcesLoaded: function()
     {
         return this._cachedResourcesProcessed;
@@ -137,11 +140,12 @@ WebInspector.ResourceTreeModel.prototype = {
     },
 
     /**
-     * @param {string} securityOrigin
+     * @param {string|undefined} securityOrigin
      */
     _removeSecurityOrigin: function(securityOrigin)
     {
-        console.assert(this._securityOriginFrameCount[securityOrigin]);
+        if (typeof securityOrigin === "undefined")
+            return;
         if (this._securityOriginFrameCount[securityOrigin] === 1) {
             delete this._securityOriginFrameCount[securityOrigin];
             this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.SecurityOriginRemoved, securityOrigin);
@@ -165,6 +169,7 @@ WebInspector.ResourceTreeModel.prototype = {
     {
         /**
          * @param {!WebInspector.ResourceTreeFrame} frame
+         * @this {WebInspector.ResourceTreeModel}
          */
         function removeOriginForFrame(frame)
         {
@@ -209,17 +214,14 @@ WebInspector.ResourceTreeModel.prototype = {
         if (!this._cachedResourcesProcessed)
             return;
         var frame = this._frames[framePayload.id];
-        if (frame) {
-            // Navigation within existing frame.
-            this._removeSecurityOrigin(frame.securityOrigin);
-            frame._navigate(framePayload);
-        } else {
-            // Either a new frame or a main frame navigation to the new backend process.
-            console.error("Navigated unregistered frame.");
+        if (!frame) {
+            // Simulate missed "frameAttached" for a main frame navigation to the new backend process.
+            console.assert(!framePayload.parentId, "Main frame shouldn't have parent frame id.");
             frame = this._frameAttached(framePayload.id, framePayload.parentId || "");
-            if (!frame)
-                return;
+            console.assert(frame);
         }
+        this._removeSecurityOrigin(frame.securityOrigin);
+        frame._navigate(framePayload);
         var addedOrigin = frame.securityOrigin;
 
         if (frame.isMainFrame())
@@ -398,7 +400,7 @@ WebInspector.ResourceTreeModel.prototype = {
 
     /**
      * @param {string} url
-     * @return {!WebInspector.Resource}
+     * @return {?WebInspector.Resource}
      */
     resourceForURL: function(url)
     {
@@ -664,7 +666,7 @@ WebInspector.ResourceTreeFrame.prototype = {
             }
         }
         this._callForFrameResources(filter);
-        return result;
+        return result || null;
     },
 
     /**
@@ -683,6 +685,22 @@ WebInspector.ResourceTreeFrame.prototype = {
                 return true;
         }
         return false;
+    },
+
+    /**
+     * @return {string}
+     */
+    displayName: function()
+    {
+        if (!this._parentFrame)
+            return WebInspector.UIString("<top frame>");
+        var subtitle = new WebInspector.ParsedURL(this._url).displayName;
+        if (subtitle) {
+            if (!this._name)
+                return subtitle;
+            return this._name + "( " + subtitle + " )";
+        }
+        return WebInspector.UIString("<iframe>");
     }
 }
 
@@ -774,6 +792,6 @@ WebInspector.PageDispatcher.prototype = {
 }
 
 /**
- * @type {?WebInspector.ResourceTreeModel}
+ * @type {!WebInspector.ResourceTreeModel}
  */
-WebInspector.resourceTreeModel = null;
+WebInspector.resourceTreeModel;

@@ -65,12 +65,12 @@ void SetTimeoutOrInterval(const v8::FunctionCallbackInfo<v8::Value>& info, bool 
     v8::Handle<v8::Context> v8Context = script->context();
     if (function->IsString()) {
         if (ContentSecurityPolicy* policy = workerGlobalScope->contentSecurityPolicy()) {
-            if (!policy->allowEval()) {
+            if (!policy->allowScriptEval()) {
                 v8SetReturnValue(info, 0);
                 return;
             }
         }
-        action = adoptPtr(new ScheduledAction(v8Context, toWebCoreString(function.As<v8::String>()), workerGlobalScope->url(), info.GetIsolate()));
+        action = adoptPtr(new ScheduledAction(v8Context, toCoreString(function.As<v8::String>()), workerGlobalScope->url(), info.GetIsolate()));
     } else if (function->IsFunction()) {
         size_t paramCount = argumentCount >= 2 ? argumentCount - 2 : 0;
         OwnPtr<v8::Local<v8::Value>[]> params;

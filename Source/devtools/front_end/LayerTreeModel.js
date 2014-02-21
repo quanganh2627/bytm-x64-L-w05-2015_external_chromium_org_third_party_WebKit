@@ -66,6 +66,10 @@ WebInspector.LayerTreeModel.prototype = {
             return;
         this._enabled = true;
         WebInspector.domAgent.requestDocument(onDocumentAvailable.bind(this));
+
+        /**
+         * @this {WebInspector.LayerTreeModel}
+         */
         function onDocumentAvailable()
         {
             // The agent might have been disabled while we were waiting for the document.
@@ -350,20 +354,17 @@ WebInspector.Layer.prototype = {
      */
     requestCompositingReasons: function(callback)
     {
-        /**
-         * @param {?string} error
-         * @param {!Array.<string>} compositingReasons
-         */
-        function callbackWrapper(error, compositingReasons)
-        {
-            if (error) {
-                console.error("LayerTreeAgent.reasonsForCompositingLayer(): " + error);
-                callback([]);
-                return;
-            }
-            callback(compositingReasons);
-        }
-        LayerTreeAgent.compositingReasons(this.id(), callbackWrapper.bind(this));
+        var wrappedCallback = InspectorBackend.wrapClientCallback(callback, "LayerTreeAgent.reasonsForCompositingLayer(): ", undefined, []);
+        LayerTreeAgent.compositingReasons(this.id(), wrappedCallback);
+    },
+
+    /**
+     * @param {function(!WebInspector.PaintProfilerSnapshot=)} callback
+     */
+    requestSnapshot: function(callback)
+    {
+        var wrappedCallback = InspectorBackend.wrapClientCallback(callback, "LayerTreeAgent.makeSnapshot(): ", WebInspector.PaintProfilerSnapshot);
+        LayerTreeAgent.makeSnapshot(this.id(), wrappedCallback);
     },
 
     /**
@@ -373,6 +374,7 @@ WebInspector.Layer.prototype = {
     {
         this._lastPaintRect = rect;
         this._paintCount = this.paintCount() + 1;
+        this._image = null;
     },
 
     /**
@@ -384,6 +386,7 @@ WebInspector.Layer.prototype = {
         this._parent = null;
         this._paintCount = 0;
         this._layerPayload = layerPayload;
+        this._image = null;
     }
 }
 

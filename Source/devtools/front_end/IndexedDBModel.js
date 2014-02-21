@@ -266,6 +266,7 @@ WebInspector.IndexedDBModel.prototype = {
         /**
          * @param {?Protocol.Error} error
          * @param {!Array.<string>} databaseNames
+         * @this {WebInspector.IndexedDBModel}
          */
         function callback(error, databaseNames)
         {
@@ -290,6 +291,7 @@ WebInspector.IndexedDBModel.prototype = {
         /**
          * @param {?Protocol.Error} error
          * @param {!IndexedDBAgent.DatabaseWithObjectStores} databaseWithObjectStores
+         * @this {WebInspector.IndexedDBModel}
          */
         function callback(error, databaseWithObjectStores)
         {
@@ -364,6 +366,7 @@ WebInspector.IndexedDBModel.prototype = {
          * @param {?Protocol.Error} error
          * @param {!Array.<!IndexedDBAgent.DataEntry>} dataEntries
          * @param {boolean} hasMore
+         * @this {WebInspector.IndexedDBModel}
          */
         function innerCallback(error, dataEntries, hasMore)
         {
@@ -376,9 +379,9 @@ WebInspector.IndexedDBModel.prototype = {
                 return;
             var entries = [];
             for (var i = 0; i < dataEntries.length; ++i) {
-                var key = WebInspector.RemoteObject.fromPayload(dataEntries[i].key);
-                var primaryKey = WebInspector.RemoteObject.fromPayload(dataEntries[i].primaryKey);
-                var value = WebInspector.RemoteObject.fromPayload(dataEntries[i].value);
+                var key = WebInspector.RemoteObject.fromLocalObject(JSON.parse(dataEntries[i].key));
+                var primaryKey = WebInspector.RemoteObject.fromLocalObject(JSON.parse(dataEntries[i].primaryKey));
+                var value = WebInspector.RemoteObject.fromLocalObject(JSON.parse(dataEntries[i].value));
                 entries.push(new WebInspector.IndexedDBModel.Entry(key, primaryKey, value));
             }
             callback(entries, hasMore);
@@ -418,6 +421,7 @@ WebInspector.IndexedDBModel.DatabaseId = function(securityOrigin, name)
 WebInspector.IndexedDBModel.DatabaseId.prototype = {
     /**
      * @param {!WebInspector.IndexedDBModel.DatabaseId} databaseId
+     * @return {boolean}
      */
     equals: function(databaseId)
     {

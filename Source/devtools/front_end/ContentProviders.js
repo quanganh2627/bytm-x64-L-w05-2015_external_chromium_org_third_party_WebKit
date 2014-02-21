@@ -97,6 +97,7 @@ WebInspector.ConcatenatedScriptsContentProvider.prototype = {
 
         /**
          * @param {?string} content
+         * @this {WebInspector.ConcatenatedScriptsContentProvider}
          */
         function didRequestSource(content)
         {
@@ -134,6 +135,7 @@ WebInspector.ConcatenatedScriptsContentProvider.prototype = {
         /**
          * @param {!WebInspector.Script} script
          * @param {!Array.<!PageAgent.SearchMatch>} searchMatches
+         * @this {WebInspector.ConcatenatedScriptsContentProvider}
          */
         function searchCallback(script, searchMatches)
         {
@@ -180,16 +182,14 @@ WebInspector.ConcatenatedScriptsContentProvider.prototype = {
         }
 
         return content;
-    },
-
-    __proto__: WebInspector.ContentProvider.prototype
+    }
 }
 
 /**
  * @constructor
+ * @implements {WebInspector.ContentProvider}
  * @param {string} sourceURL
  * @param {!WebInspector.ResourceType} contentType
- * @implements {WebInspector.ContentProvider}
  */
 WebInspector.CompilerSourceMappingContentProvider = function(sourceURL, contentType)
 {
@@ -226,6 +226,7 @@ WebInspector.CompilerSourceMappingContentProvider.prototype = {
          * @param {number} statusCode
          * @param {!NetworkAgent.Headers} headers
          * @param {string} content
+         * @this {WebInspector.CompilerSourceMappingContentProvider}
          */
         function contentLoaded(error, statusCode, headers, content)
         {
@@ -261,9 +262,7 @@ WebInspector.CompilerSourceMappingContentProvider.prototype = {
 
             callback(WebInspector.ContentProvider.performSearchInContent(content, query, caseSensitive, isRegex));
         }
-    },
-
-    __proto__: WebInspector.ContentProvider.prototype
+    }
 }
 
 /**
@@ -311,6 +310,9 @@ WebInspector.StaticContentProvider.prototype = {
      */
     searchInContent: function(query, caseSensitive, isRegex, callback)
     {
+        /**
+         * @this {WebInspector.StaticContentProvider}
+         */
         function performSearch()
         {
             callback(WebInspector.ContentProvider.performSearchInContent(this._content, query, caseSensitive, isRegex));
@@ -318,7 +320,5 @@ WebInspector.StaticContentProvider.prototype = {
 
         // searchInContent should call back later.
         window.setTimeout(performSearch.bind(this), 0);
-    },
-
-    __proto__: WebInspector.ContentProvider.prototype
+    }
 }

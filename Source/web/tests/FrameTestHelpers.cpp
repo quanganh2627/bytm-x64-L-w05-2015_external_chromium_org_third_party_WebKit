@@ -33,7 +33,6 @@
 
 #include "URLTestHelpers.h"
 #include "wtf/StdLibExtras.h"
-#include "WebFrameClient.h"
 #include "WebFrameImpl.h"
 #include "WebSettings.h"
 #include "WebViewClient.h"
@@ -68,7 +67,7 @@ public:
 
 WebFrameClient* defaultWebFrameClient()
 {
-    DEFINE_STATIC_LOCAL(WebFrameClient, client, ());
+    DEFINE_STATIC_LOCAL(TestWebFrameClient, client, ());
     return &client;
 }
 
@@ -97,8 +96,7 @@ void runPendingTasks()
 }
 
 WebViewHelper::WebViewHelper()
-    : m_mainFrame(0)
-    , m_webView(0)
+    : m_webView(0)
 {
 }
 
@@ -124,8 +122,7 @@ WebViewImpl* WebViewHelper::initialize(bool enableJavascript, WebFrameClient* we
         m_webView->settings()->setForceCompositingMode(true);
     }
 
-    m_mainFrame = WebFrameImpl::create(webFrameClient);
-    m_webView->setMainFrame(m_mainFrame);
+    m_webView->setMainFrame(WebFrameImpl::create(webFrameClient));
 
     return m_webView;
 }
@@ -146,11 +143,22 @@ void WebViewHelper::reset()
         m_webView->close();
         m_webView = 0;
     }
-    if (m_mainFrame) {
-        m_mainFrame->close();
-        m_mainFrame = 0;
-    }
 }
+
+WebFrame* TestWebFrameClient::createChildFrame(WebFrame* parent, const WebString& frameName)
+{
+    WebFrame* frame = WebFrame::create(this);
+    parent->appendChild(frame);
+    return frame;
+}
+
+void TestWebFrameClient::frameDetached(WebFrame* frame)
+{
+    if (frame->parent())
+        frame->parent()->removeChild(frame);
+    frame->close();
+}
+
 
 } // namespace FrameTestHelpers
 } // namespace blink

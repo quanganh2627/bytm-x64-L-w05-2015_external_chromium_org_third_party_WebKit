@@ -136,11 +136,21 @@ WebInspector.WatchExpressionsSection = function()
 WebInspector.WatchExpressionsSection.NewWatchExpression = "\xA0";
 
 WebInspector.WatchExpressionsSection.prototype = {
+    /**
+     * @param {?Event=} e
+     */
     update: function(e)
     {
         if (e)
             e.consume();
 
+        /***
+         * @param {string} expression
+         * @param {number} watchIndex
+         * @param {?WebInspector.RemoteObject} result
+         * @param {boolean} wasThrown
+         * @this {WebInspector.WatchExpressionsSection}
+         */
         function appendResult(expression, watchIndex, result, wasThrown)
         {
             if (!result)
@@ -256,6 +266,9 @@ WebInspector.WatchExpressionsSection.prototype = {
         this.update();
     },
 
+    /**
+     * @return {?TreeElement}
+     */
     findAddedTreeElement: function()
     {
         var children = this.propertiesTreeOutline.children;
@@ -263,8 +276,12 @@ WebInspector.WatchExpressionsSection.prototype = {
             if (children[i].property.name === WebInspector.WatchExpressionsSection.NewWatchExpression)
                 return children[i];
         }
+        return null;
     },
 
+    /**
+     * @return {number}
+     */
     saveExpressions: function()
     {
         var toSave = [];
@@ -420,6 +437,9 @@ WebInspector.WatchExpressionTreeElement.prototype = {
         this.treeOutline.section.updateExpression(this, null);
     },
 
+    /**
+     * @return {boolean}
+     */
     renderPromptAsBlock: function()
     {
         return true;
@@ -427,6 +447,7 @@ WebInspector.WatchExpressionTreeElement.prototype = {
 
     /**
      * @param {!Event=} event
+     * @return {!Array.<!Element|string>}
      */
     elementAndValueToEdit: function(event)
     {

@@ -42,7 +42,7 @@
 #include "WebFrame.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
-#include "WebHelperPluginImpl.h"
+#include "WebHelperPlugin.h"
 #include "WebHitTestResult.h"
 #include "WebInputEvent.h"
 #include "WebSettings.h"
@@ -52,17 +52,23 @@
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/html/HTMLDocument.h"
+#include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/loader/FrameLoadRequest.h"
 #include "core/frame/FrameView.h"
 #include "core/page/Chrome.h"
-#include "core/page/Settings.h"
-#include "core/platform/chromium/KeyboardCodes.h"
+#include "core/frame/Settings.h"
+#include "platform/KeyboardCodes.h"
+#include "platform/Timer.h"
+#include "platform/graphics/Color.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebSize.h"
 #include "public/platform/WebThread.h"
 #include "public/platform/WebUnitTestSupport.h"
 #include "public/web/WebWidgetClient.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkBitmapDevice.h"
+#include "third_party/skia/include/core/SkCanvas.h"
 
 using namespace blink;
 using blink::FrameTestHelpers::runPendingTasks;
@@ -152,8 +158,8 @@ public:
     virtual blink::WebWidget* createPopupMenu(blink::WebPopupType popupType) OVERRIDE
     {
         EXPECT_EQ(WebPopupTypeHelperPlugin, popupType);
+        // The caller owns the object, but we retain a pointer for use in closeWidgetNow().
         m_helperPluginWebWidget = blink::WebHelperPlugin::create(this);
-        // The caller owns the object, but we retain a pointer for use in closeWidgetSoon().
         return m_helperPluginWebWidget;
     }
 
@@ -167,14 +173,22 @@ public:
     virtual void closeWidgetSoon() OVERRIDE
     {
         ASSERT_TRUE(m_helperPluginWebWidget);
+        // m_helperPluginWebWidget->close() must be called asynchronously.
+        if (!m_closeTimer.isActive())
+            m_closeTimer.startOneShot(0);
+    }
+
+    void closeWidgetNow(WebCore::Timer<HelperPluginCreatingWebViewClient>* timer)
+    {
         m_helperPluginWebWidget->close();
         m_helperPluginWebWidget = 0;
     }
 
     // Local methods
     HelperPluginCreatingWebViewClient()
-        :   m_helperPluginWebWidget(0)
-        ,   m_webFrameClient(0)
+        : m_helperPluginWebWidget(0)
+        , m_webFrameClient(0)
+        , m_closeTimer(this, &HelperPluginCreatingWebViewClient::closeWidgetNow)
     {
     }
 
@@ -183,6 +197,7 @@ public:
 private:
     WebWidget* m_helperPluginWebWidget;
     WebFrameClient* m_webFrameClient;
+    WebCore::Timer<HelperPluginCreatingWebViewClient> m_closeTimer;
 };
 
 class DateTimeChooserWebViewClient : public WebViewClient {
@@ -272,6 +287,35 @@ TEST_F(WebViewTest, SetBaseBackgroundColorBeforeMainFrame)
     // webView does not have a frame yet, but we should still be able to set the background color.
     webView->setBaseBackgroundColor(kBlue);
     EXPECT_EQ(kBlue, webView->backgroundColor());
+}
+
+TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent)
+{
+    const WebColor kAlphaRed = 0x80FF0000;
+    const WebColor kAlphaGreen = 0x8000FF00;
+    const int kWidth = 100;
+    const int kHeight = 100;
+
+    // Set WebView background to green with alpha.
+    WebView* webView = m_webViewHelper.initialize();
+    webView->setBaseBackgroundColor(kAlphaGreen);
+    webView->settings()->setShouldClearDocumentBackground(false);
+    webView->resize(WebSize(kWidth, kHeight));
+    webView->layout();
+
+    // Set canvas background to red with alpha.
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, kWidth, kHeight);
+    bitmap.allocPixels();
+    SkBitmapDevice device(bitmap);
+    SkCanvas canvas(&device);
+    canvas.clear(kAlphaRed);
+    webView->paint(&canvas, WebRect(0, 0, kWidth, kHeight));
+
+    // The result should be a blend of red and green.
+    SkColor color = bitmap.getColor(kWidth / 2, kHeight / 2);
+    EXPECT_TRUE(WebCore::redChannel(color));
+    EXPECT_TRUE(WebCore::greenChannel(color));
 }
 
 TEST_F(WebViewTest, FocusIsInactive)
@@ -746,7 +790,7 @@ TEST_F(WebViewTest, IsSelectionAnchorFirst)
 TEST_F(WebViewTest, HistoryResetScrollAndScaleState)
 {
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("hello_world.html"));
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initializeAndLoad(m_baseURL + "hello_world.html"));
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(m_baseURL + "hello_world.html");
     webViewImpl->resize(WebSize(640, 480));
     webViewImpl->layout();
     EXPECT_EQ(0, webViewImpl->mainFrame()->scrollOffset().width);
@@ -800,7 +844,7 @@ TEST_F(WebViewTest, EnterFullscreenResetScrollAndScaleState)
 {
     EnterFullscreenWebViewClient client;
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("hello_world.html"));
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initializeAndLoad(m_baseURL + "hello_world.html", true, 0, &client));
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(m_baseURL + "hello_world.html", true, 0, &client);
     webViewImpl->settings()->setFullScreenEnabled(true);
     webViewImpl->resize(WebSize(640, 480));
     webViewImpl->layout();
@@ -943,6 +987,8 @@ TEST_F(WebViewTest, DetectContentAroundPosition)
     webView->handleInputEvent(event);
     runPendingTasks();
     EXPECT_TRUE(client.pendingIntentsCancelled());
+
+    m_webViewHelper.reset(); // Explicitly reset to break dependency on locally scoped client.
 }
 
 TEST_F(WebViewTest, ClientTapHandling)
@@ -1151,7 +1197,7 @@ TEST_F(WebViewTest, SetCompositionFromExistingTextTriggersAutofillTextChange)
 TEST_F(WebViewTest, ShadowRoot)
 {
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("shadow_dom_test.html"));
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initializeAndLoad(m_baseURL + "shadow_dom_test.html", true));
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(m_baseURL + "shadow_dom_test.html", true);
 
     WebDocument document = webViewImpl->mainFrame()->document();
     {
@@ -1171,16 +1217,17 @@ TEST_F(WebViewTest, ShadowRoot)
 TEST_F(WebViewTest, HelperPlugin)
 {
     HelperPluginCreatingWebViewClient client;
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initialize(true, 0, &client));
+    WebViewImpl* webViewImpl = m_webViewHelper.initialize(true, 0, &client);
 
     WebFrameImpl* frame = toWebFrameImpl(webViewImpl->mainFrame());
     client.setWebFrameClient(frame->client());
 
-    WebHelperPluginImpl* helperPlugin = webViewImpl->createHelperPlugin("dummy-plugin-type", frame->document());
+    OwnPtr<WebHelperPlugin> helperPlugin = adoptPtr(webViewImpl->createHelperPlugin("dummy-plugin-type", frame->document()));
     EXPECT_TRUE(helperPlugin);
     EXPECT_EQ(0, helperPlugin->getPlugin()); // Invalid plugin type means no plugin.
 
-    webViewImpl->closeHelperPluginSoon(helperPlugin);
+    helperPlugin.clear();
+    runPendingTasks();
 
     m_webViewHelper.reset(); // Explicitly reset to break dependency on locally scoped client.
 }
@@ -1217,7 +1264,7 @@ TEST_F(WebViewTest, FocusExistingFrameOnNavigate)
 {
     ViewCreatingWebViewClient client;
     FrameTestHelpers::WebViewHelper m_webViewHelper;
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initialize(true, 0, &client));
+    WebViewImpl* webViewImpl = m_webViewHelper.initialize(true, 0, &client);
     webViewImpl->page()->settings().setJavaScriptCanOpenWindowsAutomatically(true);
     WebFrameImpl* frame = toWebFrameImpl(webViewImpl->mainFrame());
     frame->setName("_start");
@@ -1225,7 +1272,7 @@ TEST_F(WebViewTest, FocusExistingFrameOnNavigate)
     // Make a request that will open a new window
     WebURLRequest webURLRequest;
     webURLRequest.initialize();
-    WebCore::FrameLoadRequest request(0, webURLRequest.toResourceRequest(), WTF::String("_blank"));
+    WebCore::FrameLoadRequest request(0, webURLRequest.toResourceRequest(), "_blank");
     webViewImpl->page()->mainFrame()->loader().load(request);
     ASSERT_TRUE(client.createdWebView());
     EXPECT_FALSE(client.didFocusCalled());
@@ -1233,7 +1280,7 @@ TEST_F(WebViewTest, FocusExistingFrameOnNavigate)
     // Make a request from the new window that will navigate the original window. The original window should be focused.
     WebURLRequest webURLRequestWithTargetStart;
     webURLRequestWithTargetStart.initialize();
-    WebCore::FrameLoadRequest requestWithTargetStart(0, webURLRequestWithTargetStart.toResourceRequest(), WTF::String("_start"));
+    WebCore::FrameLoadRequest requestWithTargetStart(0, webURLRequestWithTargetStart.toResourceRequest(), "_start");
     toWebViewImpl(client.createdWebView())->page()->mainFrame()->loader().load(requestWithTargetStart);
     EXPECT_TRUE(client.didFocusCalled());
 
@@ -1286,7 +1333,7 @@ TEST_F(WebViewTest, ChooseValueFromDateTimeChooser)
     DateTimeChooserWebViewClient client;
     std::string url = m_baseURL + "date_time_chooser.html";
     URLTestHelpers::registerMockedURLLoad(toKURL(url), "date_time_chooser.html");
-    WebViewImpl* webViewImpl = toWebViewImpl(m_webViewHelper.initializeAndLoad(url, true, 0, &client));
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(url, true, 0, &client);
 
     WebCore::Document* document = webViewImpl->mainFrameImpl()->frame()->document();
 
@@ -1349,4 +1396,229 @@ TEST_F(WebViewTest, ChooseValueFromDateTimeChooser)
 }
 #endif
 
+TEST_F(WebViewTest, DispatchesFocusBlurOnViewToggle)
+{
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), "focus_blur_events.html");
+    WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "focus_blur_events.html", true, 0);
+
+    webView->setFocus(true);
+    webView->setFocus(false);
+    webView->setFocus(true);
+
+    WebElement element = webView->mainFrame()->document().getElementById("message");
+    // Expect not to see duplication of events.
+    EXPECT_STREQ("blurfocus", element.innerText().utf8().data());
 }
+
+TEST_F(WebViewTest, SmartClipData)
+{
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("Ahem.ttf"));
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("smartclip.html"));
+    WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "smartclip.html");
+    webView->resize(WebSize(500, 500));
+    webView->layout();
+    WebRect cropRect(300, 125, 100, 50);
+
+    // FIXME: We should test the structure of the data we get back.
+    EXPECT_FALSE(webView->getSmartClipData(cropRect).isEmpty());
+}
+
+class CreateChildCounterFrameClient : public FrameTestHelpers::TestWebFrameClient {
+public:
+    CreateChildCounterFrameClient() : m_count(0) { }
+    virtual WebFrame* createChildFrame(WebFrame* parent, const WebString& frameName) OVERRIDE;
+
+    int count() const { return m_count; }
+
+private:
+    int m_count;
+};
+
+WebFrame* CreateChildCounterFrameClient::createChildFrame(WebFrame* parent, const WebString& frameName)
+{
+    ++m_count;
+    return TestWebFrameClient::createChildFrame(parent, frameName);
+}
+
+TEST_F(WebViewTest, AddFrameInCloseUnload)
+{
+    CreateChildCounterFrameClient frameClient;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("add_frame_in_unload.html"));
+    m_webViewHelper.initializeAndLoad(m_baseURL + "add_frame_in_unload.html", true, &frameClient);
+    m_webViewHelper.reset();
+    EXPECT_EQ(0, frameClient.count());
+}
+
+TEST_F(WebViewTest, AddFrameInCloseURLUnload)
+{
+    CreateChildCounterFrameClient frameClient;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("add_frame_in_unload.html"));
+    m_webViewHelper.initializeAndLoad(m_baseURL + "add_frame_in_unload.html", true, &frameClient);
+    m_webViewHelper.webViewImpl()->dispatchUnloadEvent();
+    EXPECT_EQ(0, frameClient.count());
+    m_webViewHelper.reset();
+}
+
+TEST_F(WebViewTest, AddFrameInNavigateUnload)
+{
+    CreateChildCounterFrameClient frameClient;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("add_frame_in_unload.html"));
+    m_webViewHelper.initializeAndLoad(m_baseURL + "add_frame_in_unload.html", true, &frameClient);
+    FrameTestHelpers::loadFrame(m_webViewHelper.webView()->mainFrame(), "about:blank");
+    EXPECT_EQ(0, frameClient.count());
+    m_webViewHelper.reset();
+}
+
+TEST_F(WebViewTest, AddFrameInChildInNavigateUnload)
+{
+    CreateChildCounterFrameClient frameClient;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("add_frame_in_unload_wrapper.html"));
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("add_frame_in_unload.html"));
+    m_webViewHelper.initializeAndLoad(m_baseURL + "add_frame_in_unload_wrapper.html", true, &frameClient);
+    FrameTestHelpers::loadFrame(m_webViewHelper.webView()->mainFrame(), "about:blank");
+    EXPECT_EQ(1, frameClient.count());
+    m_webViewHelper.reset();
+}
+
+class TouchEventHandlerWebViewClient : public WebViewClient {
+public:
+    // WebWidgetClient methods
+    virtual void hasTouchEventHandlers(bool state) OVERRIDE
+    {
+        m_hasTouchEventHandlerCount[state]++;
+    }
+
+    // Local methods
+    TouchEventHandlerWebViewClient() : m_hasTouchEventHandlerCount()
+    {
+    }
+
+    int getAndResetHasTouchEventHandlerCallCount(bool state)
+    {
+        int value = m_hasTouchEventHandlerCount[state];
+        m_hasTouchEventHandlerCount[state] = 0;
+        return value;
+    }
+
+private:
+    int m_hasTouchEventHandlerCount[2];
+};
+
+// This test verifies that WebWidgetClient::hasTouchEventHandlers is called accordingly for various
+// calls to Document::did{Add|Remove|Clear}TouchEventHandler. Verifying that those calls are made
+// correctly is the job of LayoutTests/fast/events/touch/touch-handler-count.html.
+TEST_F(WebViewTest, HasTouchEventHandlers)
+{
+    TouchEventHandlerWebViewClient client;
+    std::string url = m_baseURL + "has_touch_event_handlers.html";
+    URLTestHelpers::registerMockedURLLoad(toKURL(url), "has_touch_event_handlers.html");
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(url, true, 0, &client);
+
+    // The page is initialized with at least one no-handlers call.
+    // In practice we get two such calls because WebViewHelper::initializeAndLoad first
+    // initializes and empty frame, and then loads a document into it, so there are two
+    // FrameLoader::commitProvisionalLoad calls.
+    EXPECT_GE(client.getAndResetHasTouchEventHandlerCallCount(false), 1);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding the first document handler results in a has-handlers call.
+    WebCore::Document* document = webViewImpl->mainFrameImpl()->frame()->document();
+    document->didAddTouchEventHandler(document);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding another handler has no effect.
+    document->didAddTouchEventHandler(document);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Removing the duplicate handler has no effect.
+    document->didRemoveTouchEventHandler(document);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Removing the final handler results in a no-handlers call.
+    document->didRemoveTouchEventHandler(document);
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding a handler on a div results in a has-handlers call.
+    WebCore::Element* parentDiv = document->getElementById("parentdiv");
+    ASSERT(parentDiv);
+    document->didAddTouchEventHandler(parentDiv);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding a duplicate handler on the div, clearing all document handlers
+    // (of which there are none) and removing the extra handler on the div
+    // all have no effect.
+    document->didAddTouchEventHandler(parentDiv);
+    document->didClearTouchEventHandlers(document);
+    document->didRemoveTouchEventHandler(parentDiv);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Removing the final handler on the div results in a no-handlers call.
+    document->didRemoveTouchEventHandler(parentDiv);
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding two handlers then clearing them in a single call results in a
+    // has-handlers then no-handlers call.
+    document->didAddTouchEventHandler(parentDiv);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(true));
+    document->didAddTouchEventHandler(parentDiv);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+    document->didClearTouchEventHandlers(parentDiv);
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding a handler inside of a child iframe results in a has-handlers call.
+    WebCore::Element* childFrame = document->getElementById("childframe");
+    ASSERT(childFrame);
+    WebCore::Document* childDocument = toHTMLIFrameElement(childFrame)->contentDocument();
+    WebCore::Element* childDiv = childDocument->getElementById("childdiv");
+    ASSERT(childDiv);
+    childDocument->didAddTouchEventHandler(childDiv);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding and clearing handlers in the parent doc or elsewhere in the child doc
+    // has no impact.
+    document->didAddTouchEventHandler(document);
+    document->didAddTouchEventHandler(childFrame);
+    childDocument->didAddTouchEventHandler(childDocument);
+    document->didClearTouchEventHandlers(document);
+    document->didClearTouchEventHandlers(childFrame);
+    childDocument->didClearTouchEventHandlers(childDocument);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Removing the final handler inside the child frame results in a no-handlers call.
+    childDocument->didRemoveTouchEventHandler(childDiv);
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding a handler inside the child frame results in a has-handlers call.
+    childDocument->didAddTouchEventHandler(childDocument);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Adding a handler in the parent document and removing the one in the frame
+    // has no effect.
+    document->didAddTouchEventHandler(childFrame);
+    childDocument->didRemoveTouchEventHandler(childDocument);
+    childDocument->didClearTouchEventHandlers(childDocument);
+    document->didClearTouchEventHandlers(document);
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+
+    // Now removing the handler in the parent document results in a no-handlers call.
+    document->didRemoveTouchEventHandler(childFrame);
+    EXPECT_EQ(1, client.getAndResetHasTouchEventHandlerCallCount(false));
+    EXPECT_EQ(0, client.getAndResetHasTouchEventHandlerCallCount(true));
+}
+
+} // namespace

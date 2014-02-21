@@ -185,7 +185,7 @@ void BaseMultipleFieldsDateAndTimeInputType::editControlValueChanged()
         input->setNeedsValidityCheck();
     } else {
         input->setValueInternal(newValue, DispatchNoEvent);
-        input->setNeedsStyleRecalc();
+        input->setNeedsStyleRecalc(SubtreeStyleChange);
         input->dispatchFormControlInputEvent();
         input->dispatchFormControlChangeEvent();
     }
@@ -379,15 +379,15 @@ void BaseMultipleFieldsDateAndTimeInputType::destroyShadowSubtree()
     m_isDestroyingShadowSubtree = false;
 }
 
-void BaseMultipleFieldsDateAndTimeInputType::handleFocusEvent(Element* oldFocusedElement, FocusDirection direction)
+void BaseMultipleFieldsDateAndTimeInputType::handleFocusEvent(Element* oldFocusedElement, FocusType type)
 {
     DateTimeEditElement* edit = dateTimeEditElement();
     if (!edit || m_isDestroyingShadowSubtree)
         return;
-    if (direction == FocusDirectionBackward) {
+    if (type == FocusTypeBackward) {
         if (element().document().page())
-            element().document().page()->focusController().advanceFocus(direction);
-    } else if (direction == FocusDirectionNone || direction == FocusDirectionMouse || direction == FocusDirectionPage) {
+            element().document().page()->focusController().advanceFocus(type);
+    } else if (type == FocusTypeNone || type == FocusTypeMouse || type == FocusTypePage) {
         edit->focusByOwner(oldFocusedElement);
     } else {
         edit->focusByOwner();
@@ -540,18 +540,10 @@ void BaseMultipleFieldsDateAndTimeInputType::updatePickerIndicatorVisibility()
         showPickerIndicator();
         return;
     }
-    if (RuntimeEnabledFeatures::dataListElementEnabled()) {
-        if (HTMLDataListElement* dataList = element().dataList()) {
-            RefPtr<HTMLCollection> options = dataList->options();
-            for (unsigned i = 0; HTMLOptionElement* option = toHTMLOptionElement(options->item(i)); ++i) {
-                if (element().isValidValue(option->value())) {
-                    showPickerIndicator();
-                    return;
-                }
-            }
-        }
+    if (element().hasValidDataListOptions())
+        showPickerIndicator();
+    else
         hidePickerIndicator();
-    }
 }
 
 void BaseMultipleFieldsDateAndTimeInputType::hidePickerIndicator()
@@ -603,10 +595,13 @@ void BaseMultipleFieldsDateAndTimeInputType::updateClearButtonVisibility()
     if (!clearButton)
         return;
 
-    if (element().isRequired() || !dateTimeEditElement()->anyEditableFieldsHaveValues())
-        clearButton->setInlineStyleProperty(CSSPropertyVisibility, CSSValueHidden);
-    else
-        clearButton->removeInlineStyleProperty(CSSPropertyVisibility);
+    if (element().isRequired() || !dateTimeEditElement()->anyEditableFieldsHaveValues()) {
+        clearButton->setInlineStyleProperty(CSSPropertyOpacity, 0.0, CSSPrimitiveValue::CSS_NUMBER);
+        clearButton->setInlineStyleProperty(CSSPropertyPointerEvents, CSSValueNone);
+    } else {
+        clearButton->removeInlineStyleProperty(CSSPropertyOpacity);
+        clearButton->removeInlineStyleProperty(CSSPropertyPointerEvents);
+    }
 }
 
 } // namespace WebCore

@@ -36,7 +36,6 @@
 #include <objidl.h>
 #include <unicode/uchar.h>
 #include <unicode/unorm.h>
-#include "platform/fonts/Font.h"
 #include "platform/fonts/FontCache.h"
 #include "platform/fonts/FontDescription.h"
 #include "platform/fonts/win/FontPlatformDataWin.h"
@@ -116,13 +115,6 @@ PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const Fo
     winFont.lfHeight = -lroundf(scaledSize);
     HFONT hfont = CreateFontIndirect(&winFont);
     return SimpleFontData::create(FontPlatformData(hfont, scaledSize, m_platformData.orientation()), isCustomFont() ? CustomFontData::create(false) : 0);
-}
-
-bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
-{
-  // This used to be implemented with IMLangFontLink2, but since that code has
-  // been disabled, this would always return false anyway.
-  return false;
 }
 
 void SimpleFontData::determinePitch()

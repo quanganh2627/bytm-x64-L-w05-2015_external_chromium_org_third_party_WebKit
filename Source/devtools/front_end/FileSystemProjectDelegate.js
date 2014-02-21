@@ -55,6 +55,10 @@ WebInspector.FileSystemProjectDelegate._scriptExtensions = ["js", "java", "coffe
 WebInspector.FileSystemProjectDelegate._styleSheetExtensions = ["css", "scss", "sass", "less"].keySet();
 WebInspector.FileSystemProjectDelegate._documentExtensions = ["htm", "html", "asp", "aspx", "phtml", "jsp"].keySet();
 
+/**
+ * @param {string} fileSystemPath
+ * @return {string}
+ */
 WebInspector.FileSystemProjectDelegate.projectId = function(fileSystemPath)
 {
     return "filesystem:" + fileSystemPath;
@@ -164,6 +168,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
         /**
          * @param {boolean} success
          * @param {string=} newName
+         * @this {WebInspector.FileSystemProjectDelegate}
          */
         function innerCallback(success, newName)
         {
@@ -171,14 +176,16 @@ WebInspector.FileSystemProjectDelegate.prototype = {
                 callback(false, newName);
                 return;
             }
+            var validNewName = /** @type {string} */ (newName);
+            console.assert(validNewName);
             var slash = filePath.lastIndexOf("/");
             var parentPath = filePath.substring(0, slash);
-            filePath = parentPath + "/" + newName;
+            filePath = parentPath + "/" + validNewName;
             var newURL = this._workspace.urlForPath(this._fileSystem.path(), filePath);
-            var extension = this._extensionForPath(newName);
+            var extension = this._extensionForPath(validNewName);
             var newOriginURL = this._fileSystemURL + filePath
             var newContentType = this._contentTypeForExtension(extension);
-            callback(true, newName, newURL, newOriginURL, newContentType);
+            callback(true, validNewName, newURL, newOriginURL, newContentType);
         }
     },
 
@@ -207,8 +214,8 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     },
 
     /**
-     * @param {Array.<string>} queries
-     * @param {Array.<string>} fileQueries
+     * @param {!Array.<string>} queries
+     * @param {!Array.<string>} fileQueries
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
      * @param {!WebInspector.Progress} progress
@@ -216,13 +223,16 @@ WebInspector.FileSystemProjectDelegate.prototype = {
      */
     findFilesMatchingSearchRequest: function(queries, fileQueries, caseSensitive, isRegex, progress, callback)
     {
-        var result = [];
+        var result = null;
         var queriesToRun = queries.slice();
         if (!queriesToRun.length)
             queriesToRun.push("");
         progress.setTotalWork(queriesToRun.length);
         searchNextQuery.call(this);
 
+        /**
+         * @this {WebInspector.FileSystemProjectDelegate}
+         */
         function searchNextQuery()
         {
             if (!queriesToRun.length) {
@@ -235,6 +245,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
 
         /**
          * @param {!Array.<string>} files
+         * @this {WebInspector.FileSystemProjectDelegate}
          */
         function innerCallback(files)
         {
@@ -277,7 +288,7 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     /**
      * @param {string} query
      * @param {!WebInspector.Progress} progress
-     * @param {function(Array.<string>)} callback
+     * @param {function(!Array.<string>)} callback
      */
     _searchInPath: function(query, progress, callback)
     {
@@ -287,11 +298,13 @@ WebInspector.FileSystemProjectDelegate.prototype = {
 
         /**
          * @param {!Array.<string>} files
+         * @this {WebInspector.FileSystemProjectDelegate}
          */
         function innerCallback(files)
         {
             /**
              * @param {string} fullPath
+             * @this {WebInspector.FileSystemProjectDelegate}
              */
             function trimAndNormalizeFileSystemPath(fullPath)
             {
@@ -446,17 +459,25 @@ WebInspector.FileSystemProjectDelegate.prototype = {
 
         /**
          * @param {?string} filePath
+         * @this {WebInspector.FileSystemProjectDelegate}
          */
         function innerCallback(filePath)
         {
+            if (!filePath) {
+                callback(null);
+                return;
+            }
             createFilePath = filePath;
-            if (!filePath || !content) {
+            if (!content) {
                 contentSet.call(this);
                 return;
             }
             this._fileSystem.setFileContent(filePath, content, contentSet.bind(this));
         }
 
+        /**
+         * @this {WebInspector.FileSystemProjectDelegate}
+         */
         function contentSet()
         {
             this._addFile(createFilePath);
@@ -510,14 +531,14 @@ WebInspector.FileSystemProjectDelegate.prototype = {
     {
         this.dispatchEventToListeners(WebInspector.ProjectDelegate.Events.Reset, null);
     },
-    
+
     __proto__: WebInspector.Object.prototype
 }
 
 /**
- * @type {?WebInspector.FileSystemProjectDelegate}
+ * @type {!WebInspector.FileSystemProjectDelegate}
  */
-WebInspector.fileSystemProjectDelegate = null;
+WebInspector.fileSystemProjectDelegate;
 
 /**
  * @constructor
@@ -561,6 +582,7 @@ WebInspector.FileSystemWorkspaceProvider.prototype = {
 
     /**
      * @param {!WebInspector.UISourceCode} uiSourceCode
+     * @return {string}
      */
     fileSystemPath: function(uiSourceCode)
     {
@@ -569,7 +591,8 @@ WebInspector.FileSystemWorkspaceProvider.prototype = {
     },
 
     /**
-     * @param {!WebInspector.FileSystemProjectDelegate} fileSystemPath
+     * @param {string} fileSystemPath
+     * @return {!WebInspector.FileSystemProjectDelegate}
      */
     delegate: function(fileSystemPath)
     {
@@ -579,6 +602,6 @@ WebInspector.FileSystemWorkspaceProvider.prototype = {
 }
 
 /**
- * @type {?WebInspector.FileSystemWorkspaceProvider}
+ * @type {!WebInspector.FileSystemWorkspaceProvider}
  */
-WebInspector.fileSystemWorkspaceProvider = null;
+WebInspector.fileSystemWorkspaceProvider;

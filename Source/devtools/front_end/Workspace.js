@@ -148,8 +148,8 @@ WebInspector.ProjectDelegate.prototype = {
     searchInFileContent: function(path, query, caseSensitive, isRegex, callback) { },
 
     /**
-     * @param {Array.<string>} queries
-     * @param {Array.<string>} fileQueries
+     * @param {!Array.<string>} queries
+     * @param {!Array.<string>} fileQueries
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
      * @param {!WebInspector.Progress} progress
@@ -171,7 +171,7 @@ WebInspector.ProjectDelegate.prototype = {
  */
 WebInspector.Project = function(workspace, projectDelegate)
 {
-    /** @type {!Object.<string, {uiSourceCode: !WebInspector.UISourceCode, index: number}>} */
+    /** @type {!Object.<string, !{uiSourceCode: !WebInspector.UISourceCode, index: number}>} */
     this._uiSourceCodesMap = {};
     /** @type {!Array.<!WebInspector.UISourceCode>} */
     this._uiSourceCodesList = [];
@@ -265,6 +265,14 @@ WebInspector.Project.prototype = {
     },
 
     /**
+     * @return {!WebInspector.Workspace}
+     */
+    workspace: function()
+    {
+        return this._workspace;
+    },
+
+    /**
      * @param {string} path
      * @return {?WebInspector.UISourceCode}
      */
@@ -333,6 +341,7 @@ WebInspector.Project.prototype = {
 
         /**
          * @param {?string} content
+         * @this {WebInspector.Project}
          */
         function onSetContent(content)
         {
@@ -369,6 +378,7 @@ WebInspector.Project.prototype = {
          * @param {string=} newURL
          * @param {string=} newOriginURL
          * @param {!WebInspector.ResourceType=} newContentType
+         * @this {WebInspector.Project}
          */
         function innerCallback(success, newName, newURL, newOriginURL, newContentType)
         {
@@ -448,8 +458,8 @@ WebInspector.Project.prototype = {
     },
 
     /**
-     * @param {Array.<string>} queries
-     * @param {Array.<string>} fileQueries
+     * @param {!Array.<string>} queries
+     * @param {!Array.<string>} fileQueries
      * @param {boolean} caseSensitive
      * @param {boolean} isRegex
      * @param {!WebInspector.Progress} progress
@@ -493,6 +503,7 @@ WebInspector.Workspace = function(fileSystemMapping)
     this._fileSystemMapping = fileSystemMapping;
     /** @type {!Object.<string, !WebInspector.Project>} */
     this._projects = {};
+    this._hasResourceContentTrackingExtensions = false;
 }
 
 WebInspector.Workspace.Events = {
@@ -629,8 +640,6 @@ WebInspector.Workspace.prototype = {
      */
     hasMappingForURL: function(url)
     {
-        if (!InspectorFrontendHost.supportsFileSystems())
-            return false;
         return this._fileSystemMapping.hasMappingForURL(url);
     },
 
@@ -652,8 +661,6 @@ WebInspector.Workspace.prototype = {
      */
     uiSourceCodeForURL: function(url)
     {
-        if (!InspectorFrontendHost.supportsFileSystems())
-            return this._networkUISourceCodeForURL(url);
         var file = this._fileSystemMapping.fileForURL(url);
         if (!file)
             return this._networkUISourceCodeForURL(url);
@@ -696,10 +703,26 @@ WebInspector.Workspace.prototype = {
         WebInspector.suggestReload();
     },
 
+    /**
+     * @param {boolean} hasExtensions
+     */
+    setHasResourceContentTrackingExtensions: function(hasExtensions)
+    {
+        this._hasResourceContentTrackingExtensions = hasExtensions;
+    },
+
+    /**
+     * @return {boolean}
+     */
+    hasResourceContentTrackingExtensions: function()
+    {
+        return this._hasResourceContentTrackingExtensions;
+    },
+
     __proto__: WebInspector.Object.prototype
 }
 
 /**
- * @type {?WebInspector.Workspace}
+ * @type {!WebInspector.Workspace}
  */
-WebInspector.workspace = null;
+WebInspector.workspace;

@@ -78,12 +78,16 @@ public:
 private:
     explicit DeferredImageDecoder(PassOwnPtr<ImageDecoder> actualDecoder);
     void prepareLazyDecodedFrames();
+    SkBitmap createBitmap(size_t index);
+    SkBitmap createSkiaDiscardableBitmap(size_t index);
     SkBitmap createLazyDecodingBitmap(size_t index);
     void activateLazyDecoding();
     void setData(PassRefPtr<SharedBuffer>, bool allDataReceived);
 
     RefPtr<SharedBuffer> m_data;
     bool m_allDataReceived;
+    unsigned m_lastDataSize;
+    bool m_dataChanged;
     OwnPtr<ImageDecoder> m_actualDecoder;
 
     String m_filenameExtension;
@@ -95,6 +99,7 @@ private:
     RefPtr<ImageFrameGenerator> m_frameGenerator;
 
     static bool s_enabled;
+    static bool s_skiaDiscardableMemoryEnabled;
 };
 
 } // namespace WebCore

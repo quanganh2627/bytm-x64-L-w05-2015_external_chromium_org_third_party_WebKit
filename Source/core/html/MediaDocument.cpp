@@ -42,7 +42,7 @@
 #include "core/loader/DocumentLoader.h"
 #include "core/loader/FrameLoader.h"
 #include "core/frame/Frame.h"
-#include "core/platform/chromium/KeyboardCodes.h"
+#include "platform/KeyboardCodes.h"
 
 namespace WebCore {
 
@@ -134,7 +134,7 @@ static inline HTMLVideoElement* descendentVideoElement(Node* root)
     ASSERT(root);
 
     for (Node* node = root; node; node = NodeTraversal::next(*node, root)) {
-        if (isHTMLVideoElement(node))
+        if (node->hasTagName(videoTag))
             return toHTMLVideoElement(node);
     }
 

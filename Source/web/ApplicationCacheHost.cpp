@@ -46,7 +46,7 @@
 #include "core/loader/appcache/ApplicationCache.h"
 #include "core/frame/Frame.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "platform/exported/WrappedResourceRequest.h"
 #include "platform/exported/WrappedResourceResponse.h"
 #include "platform/weborigin/SecurityOrigin.h"
@@ -109,8 +109,8 @@ void ApplicationCacheHost::selectCacheWithManifest(const KURL& manifestURL)
             // during navigation.
             // see WebCore::ApplicationCacheGroup::selectCache()
             Frame* frame = m_documentLoader->frame();
-            frame->navigationScheduler().scheduleLocationChange(frame->document()->securityOrigin(),
-                frame->document()->url(), frame->document()->referrer());
+            frame->navigationScheduler().scheduleLocationChange(frame->document(),
+                frame->document()->url(), Referrer(frame->document()->referrer(), frame->document()->referrerPolicy()));
         }
     }
 }

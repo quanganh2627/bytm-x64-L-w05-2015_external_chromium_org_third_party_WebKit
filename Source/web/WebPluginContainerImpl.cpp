@@ -47,7 +47,8 @@
 #include "HTMLNames.h"
 #include "WebPrintParams.h"
 #include "bindings/v8/ScriptController.h"
-#include "core/dom/Clipboard.h"
+#include "core/clipboard/Clipboard.h"
+#include "core/clipboard/DataObject.h"
 #include "core/events/GestureEvent.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
@@ -63,12 +64,11 @@
 #include "core/frame/FrameView.h"
 #include "core/page/Page.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
-#include "core/platform/chromium/ChromiumDataObject.h"
-#include "core/platform/chromium/KeyboardCodes.h"
 #include "core/plugins/PluginOcclusionSupport.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderBox.h"
 #include "platform/HostWindow.h"
+#include "platform/KeyboardCodes.h"
 #include "platform/PlatformGestureEvent.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/graphics/GraphicsContext.h"
@@ -213,11 +213,6 @@ void WebPluginContainerImpl::frameRectsChanged()
 void WebPluginContainerImpl::widgetPositionsUpdated()
 {
     Widget::widgetPositionsUpdated();
-    reportGeometry();
-}
-
-void WebPluginContainerImpl::clipRectChanged()
-{
     reportGeometry();
 }
 
@@ -466,7 +461,7 @@ void WebPluginContainerImpl::loadFrameRequest(const WebURLRequest& request, cons
         WebDataSourceImpl::setNextPluginLoadObserver(observer.release());
     }
 
-    FrameLoadRequest frameRequest(frame->document()->securityOrigin(), request.toResourceRequest(), target);
+    FrameLoadRequest frameRequest(frame->document(), request.toResourceRequest(), target);
     UserGestureIndicator gestureIndicator(request.hasUserGesture() ? DefinitelyProcessingNewUserGesture : PossiblyProcessingUserGesture);
     frame->loader().load(frameRequest);
 }
@@ -707,8 +702,7 @@ void WebPluginContainerImpl::handleMouseEvent(MouseEvent* event)
     Page* page = parentView->frame().page();
     if (!page)
         return;
-    ChromeClientImpl* chromeClient = toChromeClientImpl(page->chrome().client());
-    chromeClient->setCursorForPlugin(cursorInfo);
+    toChromeClientImpl(page->chrome().client()).setCursorForPlugin(cursorInfo);
 }
 
 void WebPluginContainerImpl::handleDragEvent(MouseEvent* event)

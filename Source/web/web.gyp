@@ -36,12 +36,13 @@
         '../build/scripts/scripts.gypi',
         '../build/win/precompile.gypi',
         '../modules/modules.gypi',
+        '../platform/blink_platform.gypi',
         '../wtf/wtf.gypi',
         'web.gypi',
     ],
     'targets': [
         {
-            'target_name': 'webkit',
+            'target_name': 'blink_web',
             'type': '<(component)',
             'variables': { 'enable_wexit_time_destructors': 1, },
             'dependencies': [
@@ -72,15 +73,14 @@
                 'INSIDE_BLINK',
             ],
             'sources': [
-                '<@(webcore_platform_support_files)',
                 '<@(web_files)',
             ],
             'conditions': [
                 ['component=="shared_library"', {
                     'dependencies': [
-                        '../core/core.gyp:webcore_derived',
-                        '../core/core.gyp:webcore_test_support',
-                        '../modules/modules.gyp:modules_test_support',
+                        '../core/core.gyp:webcore_generated',
+                        '../core/core.gyp:webcore_testing',
+                        '../modules/modules.gyp:modules_testing',
                         '../wtf/wtf_tests.gyp:wtf_unittest_helpers',
                         '<(DEPTH)/base/base.gyp:test_support_base',
                         '<(DEPTH)/testing/gmock.gyp:gmock',
@@ -109,13 +109,15 @@
                         '../core/testing/v8', # for WebCoreTestSupport.h, needed to link in window.internals code.
                     ],
                     'sources': [
-                        # Compile Blink unittest files into webkit.dll in component build mode
+                        # Compile Blink unittest files into blink_web.dll in component build mode
                         # since there're methods that are tested but not exported.
                         # WebUnitTests.* exports an API that runs all the unittests inside
-                        # webkit.dll.
+                        # blink_web.dll.
                         '<@(bindings_unittest_files)',
                         '<@(core_unittest_files)',
                         '<@(modules_unittest_files)',
+                        # FIXME: the next line should not be needed. We prefer to run these unit tests outside blink_web.dll.
+                        '<@(platform_web_unittest_files)',
                         '<@(web_unittest_files)',
                         'WebTestingSupport.cpp',
                         'tests/WebUnitTests.cpp',   # Components test runner support.
@@ -129,7 +131,7 @@
                         ['clang==1', {
                             # FIXME: It would be nice to enable this in shared builds too,
                             # but the test files have global constructors from the GTEST macro
-                            # and we pull in the test files into the webkit target in the
+                            # and we pull in the test files into the blink_web target in the
                             # shared build.
                             'cflags!': ['-Wglobal-constructors'],
                             'xcode_settings': {
@@ -330,8 +332,8 @@
                     'type': 'static_library',
                     'dependencies': [
                         '../config.gyp:config',
-                        '../core/core.gyp:webcore_test_support',
-                        '../modules/modules.gyp:modules_test_support',
+                        '../core/core.gyp:webcore_testing',
+                        '../modules/modules.gyp:modules_testing',
                         '../wtf/wtf.gyp:wtf',
                         '<(DEPTH)/skia/skia.gyp:skia',
                     ],

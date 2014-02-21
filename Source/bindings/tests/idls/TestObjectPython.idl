@@ -30,6 +30,9 @@
 
 enum TestEnum {"", "EnumValue1", "EnumValue2", "EnumValue3"};
 
+callback VoidCallbackFunction = void ();
+callback AnyCallbackFunctionOptionalAnyArg = any (optional any optionalAnyArg);
+
 interface TestObjectPython {
     // Constants
     const unsigned short CONST_VALUE_0 = 0;
@@ -64,7 +67,7 @@ interface TestObjectPython {
     // Basic types
     attribute Date dateAttribute;
     attribute DOMString stringAttribute;
-    readonly attribute DOMTimeStamp readonlyDOMTimeStampAttribute;  // FIXME: Perl CG doesn't translate typedef DOMTimeStamp -> unsigned long long; remove readonly once moved to Python-only
+    readonly attribute DOMTimeStamp readonlyDOMTimeStampAttribute; // FIXME: Perl CG doesn't translate typedef DOMTimeStamp -> unsigned long long; remove readonly once moved to Python-only
     attribute boolean booleanAttribute;
     attribute byte byteAttribute;
     attribute double doubleAttribute;
@@ -76,7 +79,14 @@ interface TestObjectPython {
     attribute unsigned long unsignedLongAttribute;
     attribute unsigned long long unsignedLongLongAttribute;
     attribute unsigned short unsignedShortAttribute;
-    // Names that with an acronym
+    // Interface type
+    attribute TestInterfaceEmpty testInterfaceEmptyAttribute;
+    // Self-reference
+    attribute TestObjectPython testObjectPythonAttribute;
+    // Callback function type
+    attribute VoidCallbackFunction voidCallbackFunctionAttribute;
+    attribute AnyCallbackFunctionOptionalAnyArg anyCallbackFunctionOptionalAnyArgAttribute;
+    // Names that begin with an acronym
     attribute long cssAttribute;
     attribute long imeAttribute;
     attribute long svgAttribute;
@@ -87,25 +97,24 @@ interface TestObjectPython {
     attribute any anyAttribute;
     // Custom type conversions
     attribute Promise promiseAttribute;
+    attribute Window windowAttribute;
     // DOM Node types
     attribute Document documentAttribute;
     attribute DocumentFragment documentFragmentAttribute;
     attribute DocumentType documentTypeAttribute;
     attribute Element elementAttribute;
-    attribute Entity entityAttribute;
     attribute Node nodeAttribute;
     attribute ShadowRoot shadowRootAttribute;
     // Typed arrays
     attribute ArrayBuffer arrayBufferAttribute;
     attribute Float32Array float32ArrayAttribute;
     attribute Uint8Array uint8ArrayAttribute;
-    // Usual case for is_keep_alive_for_gc
-    attribute TestInterfaceEmpty testInterfaceEmptyAttribute;
     // Exceptions for is_keep_alive_for_gc
-    attribute TestInterfaceEmpty self;
-    readonly attribute Window readonlyWindowAttribute;  // FIXME: support [ImplementedAs] on interface
-    attribute HTMLCollection htmlCollectionAttribute;
-    attribute HTMLElement htmlElementAttribute;
+    readonly attribute TestInterfaceEmpty self;
+    readonly attribute EventTarget readonlyEventTargetAttribute;
+    readonly attribute Window readonlyWindowAttribute;
+    readonly attribute HTMLCollection htmlCollectionAttribute;
+    readonly attribute HTMLElement htmlElementAttribute;
     // Arrays
     attribute DOMString[] stringArrayAttribute;
     attribute TestInterfaceEmpty[] testInterfaceEmptyArrayAttribute;
@@ -113,13 +122,13 @@ interface TestObjectPython {
     // Nullable attributes
     attribute DOMString? nullableStringAttribute;
     attribute long? nullableLongAttribute;
+    attribute TestInterface? nullableTestInterfaceAttribute;
     // Enumerations
     attribute TestEnum testEnumAttribute;
     // Static attributes
     static attribute DOMString staticStringAttribute;
     static attribute long staticLongAttribute;
     // Constructors
-    // attribute attribute TestSubObjConstructor TestSubObj;
     attribute TestObjectAConstructor testObjectAConstructorAttribute;
     // Exceptional type
     attribute EventHandler eventHandlerAttribute;
@@ -130,7 +139,7 @@ interface TestObjectPython {
     [ActivityLogging=SetterForAllWorlds] attribute long activityLoggingSetterForAllWorldsLongAttribute;
     [CachedAttribute=isValueDirty] attribute any cachedAttributeAnyAttribute;
     [CallWith=ExecutionContext] attribute any callWithExecutionContextAnyAttribute;
-    [CheckSecurity=Node] readonly attribute Document checkSecurityForNodeReadonlyDocumentAttribute;  // All uses are read only
+    [CheckSecurity=Node] readonly attribute Document checkSecurityForNodeReadonlyDocumentAttribute; // All uses are read only
     [Conditional=CONDITION] attribute long conditionalLongAttribute;
     [Conditional=CONDITION_1&CONDITION_2] attribute long conditionalAndLongAttribute;
     [Conditional=CONDITION_1|CONDITION_2] attribute long conditionalOrLongAttribute;
@@ -143,7 +152,6 @@ interface TestObjectPython {
     [DeprecateAs=LongAttribute] attribute long deprecatedLongAttribute;
     [EnforceRange] attribute long enforceRangeLongAttribute;
     [ExposeJSAccessors] attribute long exposeJSAccessorsLongAttribute;
-    [RaisesException=Getter] attribute long getterRaisesExceptionLongAttribute;
     [ImplementedAs=implementedAsName] attribute long implementedAsLongAttribute;
     [Custom, ImplementedAs=implementedAsNameWithCustom] attribute long customImplementedAsLongAttribute;
     [Custom=Getter, ImplementedAs=implementedAsNameWithCustomGetter] attribute long customGetterImplementedAsLongAttribute;
@@ -152,12 +160,21 @@ interface TestObjectPython {
     [NotEnumerable] attribute long notEnumerableLongAttribute;
     [PerContextEnabled=FeatureName] attribute long perContextEnabledLongAttribute;
     [PerWorldBindings] attribute long perWorldBindingsLongAttribute;
-    [PerWorldBindings] readonly attribute long perWorldBindingsReadonlyLongAttribute;  // Separate read only attribute to check attribute configuration
+    [PerWorldBindings] readonly attribute long perWorldBindingsReadonlyLongAttribute; // Separate read only attribute to check attribute configuration
+    [PerWorldBindings] readonly attribute TestInterfaceEmpty perWorldBindingsReadonlyTestInterfaceEmptyAttribute;
     [ActivityLogging=ForAllWorlds, PerWorldBindings] attribute long activityLoggingAccessPerWorldBindingsLongAttribute;
     [ActivityLogging=ForIsolatedWorlds, PerWorldBindings] attribute long activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttribute;
     [ActivityLogging=GetterForAllWorlds, PerWorldBindings] attribute long activityLoggingGetterPerWorldBindingsLongAttribute;
     [ActivityLogging=GetterForIsolatedWorlds, PerWorldBindings] attribute long activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttribute;
+    [PutForwards=href] readonly attribute TestNode location;
+    [PutForwards=hrefThrows] readonly attribute TestNode locationWithException;
+    [PutForwards=hrefCallWith] readonly attribute TestNode locationWithCallWith;
+    [PerWorldBindings, PutForwards=href] readonly attribute TestNode locationWithPerWorldBindings;
     [RaisesException] attribute long raisesExceptionLongAttribute;
+    [RaisesException=Getter] attribute long raisesExceptionGetterLongAttribute;
+    [RaisesException=Setter] attribute long setterRaisesExceptionLongAttribute;
+    [RaisesException] attribute TestInterfaceEmpty raisesExceptionTestInterfaceEmptyAttribute;
+    [CachedAttribute=isValueDirty, RaisesException] attribute any cachedAttributeRaisesExceptionGetterAnyAttribute;
     [Reflect] attribute TestInterface reflectTestInterfaceAttribute;
     [Reflect=reflectedNameAttribute] attribute TestInterface reflectReflectedNameAttributeTestAttribute;
     // [Reflect] exceptional types: exceptional getters, exceptional setters,
@@ -173,12 +190,23 @@ interface TestObjectPython {
     [Reflect=id] attribute DOMString reflectedId;
     [Reflect=name] attribute DOMString reflectedName;
     [Reflect=class] attribute DOMString reflectedClass;
+    // Limited value attributes and enumerated attributes
+    [Reflect, ReflectOnly="unique"] attribute DOMString limitedToOnlyOneAttribute;
+    [Reflect, ReflectOnly="Per"|"Paal"|"Espen"] attribute DOMString limitedToOnlyAttribute;
+    [Reflect=Other, ReflectOnly="Value1"|"Value2" ] attribute DOMString limitedToOnlyOtherAttribute;
+    [Reflect, ReflectOnly="rsa"|"dsa", ReflectMissing="rsa"] attribute DOMString limitedWithMissingDefaultAttribute;
+    [Reflect, ReflectOnly="ltr"|"rtl"|"auto", ReflectMissing="auto", ReflectInvalid="ltr"] attribute DOMString limitedWithInvalidMissingDefaultAttribute;
+    [Reflect, ReflectOnly="anonymous"|"use-credentials", ReflectEmpty="anonymous", ReflectInvalid="anonymous"] readonly attribute DOMString corsSettingAttribute;
+    [Reflect, ReflectOnly="empty"|"missing"|"invalid"|"a-normal", ReflectEmpty="empty", ReflectMissing="missing", ReflectInvalid="invalid"] readonly attribute DOMString limitedWithEmptyMissingInvalidAttribute;
+
     [Replaceable] readonly attribute long replaceableReadonlyLongAttribute;
+    [Replaceable, PutForwards=href] readonly attribute TestNode locationReplaceable;
     [RuntimeEnabled=FeatureName] attribute long runtimeEnabledLongAttribute;
+    [PerContextEnabled=FeatureName, RuntimeEnabled=FeatureName] attribute long perContextEnabledRuntimeEnabledLongAttribute;
     [Conditional=CONDITION, RuntimeEnabled=FeatureName] attribute long conditionalRuntimeEnabledLongAttribute;
     [SetterCallWith=ActiveWindow&FirstWindow] attribute DOMString setterCallWithActiveWindowAndFirstWindowStringAttribute;
-    [RaisesException=Setter] attribute long setterRaisesExceptionLongAttribute;
-    [StrictTypeChecking] attribute float strictTypeCheckingFloatAttribute;  // nop for non-interface types
+    [SetterCallWith=ExecutionContext] attribute DOMString setterCallWithExecutionContextStringAttribute;
+    [StrictTypeChecking] attribute float strictTypeCheckingFloatAttribute; // nop for non-interface types
     [StrictTypeChecking] attribute TestInterface strictTypeCheckingTestInterfaceAttribute;
     [TreatNullAs=NullString] attribute DOMString treatNullAsNullStringStringAttribute;
     [TreatReturnedNullStringAs=Null] attribute DOMString treatReturnedNullStringAsNullStringAttribute;
@@ -186,6 +214,7 @@ interface TestObjectPython {
     [Reflect, URL] attribute DOMString urlStringAttribute;
     [Reflect=ReflectUrlAttribute, URL] attribute DOMString urlStringAttribute;
     [Unforgeable] attribute long unforgeableLongAttribute;
+    [Reflect="ReflectUrlAttributeAsAString"] attribute DOMString anotherStringAttribute;
 
 
     // Methods
@@ -211,7 +240,7 @@ interface TestObjectPython {
 
     void voidMethodDateArg(Date dateArg);
     void voidMethodStringArg(DOMString stringArg);
-    // void voidMethodDOMTimeStampArg(DOMTimeStamp domTimeStampArg);  // FIXME: Perl CG doesn't translate typedef DOMTimeStamp -> unsigned long long; uncomment once moved to Python-only
+    // void voidMethodDOMTimeStampArg(DOMTimeStamp domTimeStampArg); // FIXME: Perl CG doesn't translate typedef DOMTimeStamp -> unsigned long long; uncomment once moved to Python-only
     void voidMethodBooleanArg(boolean booleanArg);
     void voidMethodByteArg(byte byteArg);
     void voidMethodDoubleArg(double doubleArg);
@@ -227,11 +256,17 @@ interface TestObjectPython {
     TestInterfaceEmpty testInterfaceEmptyMethod();
     void voidMethodTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg);
     void voidMethodLongArgTestInterfaceEmptyArg(long longArg, TestInterfaceEmpty testInterfaceEmptyArg);
+    // Callback function type
+    VoidCallbackFunction voidCallbackFunctionMethod();
+    AnyCallbackFunctionOptionalAnyArg anyCallbackFunctionOptionalAnyArgMethod();
+    void voidMethodVoidCallbackFunctionArg(VoidCallbackFunction voidCallbackFunctionArg);
+    void voidMethodAnyCallbackFunctionOptionalAnyArg(AnyCallbackFunctionOptionalAnyArg anyCallbackFunctionOptionalAnyArgArg);
     // Custom type conversions
     CompareHow compareHowMethod();
     any anyMethod();
-    void voidMethodMediaQueryListListenerArg(MediaQueryListListener mediaQueryListListenerArg);
     void voidMethodCompareHowArg(CompareHow compareHowArg);
+    void voidMethodEventTargetArg(EventTarget eventTargetArg);
+    void voidMethodMediaQueryListListenerArg(MediaQueryListListener mediaQueryListListenerArg);
     void voidMethodAnyArg(any anyArg);
     // DOM node types
     void voidMethodAttrArg(Attr attrArg);
@@ -267,6 +302,10 @@ interface TestObjectPython {
     // Nullable types
     // Currently only used on interface type arguments
     void voidMethodNullableStringArg(TestInterfaceEmpty? nullableTestInterfaceEmptyArg);
+    // Callback interface types
+    void voidMethodTestCallbackInterfaceArg(TestCallbackInterface testCallbackInterfaceArg);
+    void voidMethodOptionalTestCallbackInterfaceArg(optional TestCallbackInterface optionalTestCallbackInterfaceArg);
+    void voidMethodNullableTestCallbackInterfaceArg(TestCallbackInterface? testCallbackInterfaceArg);
     // Enumerations
     TestEnum testEnumMethod();
     void voidMethodTestEnumArg(TestEnum testEnumTypeArg);
@@ -320,6 +359,8 @@ interface TestObjectPython {
     void overloadedMethodF(TestInterfaceEmpty? testInterfaceEmptyNullableArg);
     void overloadedMethodG();
     void overloadedMethodG([StrictTypeChecking] DOMString strictTypeCheckingStringArg);
+    void overloadedMethodH();
+    void overloadedMethodH(TestCallbackInterface testCallbackInterfaceArg);
 
     [PerWorldBindings] void overloadedPerWorldBindingsMethod();
     [PerWorldBindings] void overloadedPerWorldBindingsMethod(long longArg);
@@ -334,6 +375,7 @@ interface TestObjectPython {
     void removeEventListener(DOMString type,
                              EventListener listener,
                              optional boolean useCapture);
+    [RaisesException] boolean dispatchEvent(Event event);
 
     // Extended attributes for arguments
     // [Clamp]
@@ -374,17 +416,27 @@ interface TestObjectPython {
     [NotEnumerable] void notEnumerableVoidMethod();
     [PerContextEnabled=FeatureName] void perContextEnabledVoidMethod();
     [PerWorldBindings] void perWorldBindingsVoidMethod();
+    [PerWorldBindings] void perWorldBindingsVoidMethodTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg);
     [ActivityLogging=ForAllWorlds, PerWorldBindings] void activityLoggingForAllWorldsPerWorldBindingsVoidMethod();
     [ActivityLogging=ForIsolatedWorlds, PerWorldBindings] void activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethod();
-    [PerWorldBindings] void perWorldBindingsVoidMethodTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg);
     [RaisesException] void raisesExceptionVoidMethod();
+    [RaisesException] DOMString raisesExceptionStringMethod();
     [RaisesException] void raisesExceptionVoidMethodOptionalLongArg(optional long optionalLongArg);
+    [RaisesException] void raisesExceptionVoidMethodTestCallbackInterfaceArg(TestCallbackInterface testCallbackInterfaceArg);
+    [RaisesException] void raisesExceptionVoidMethodOptionalTestCallbackInterfaceArg(optional TestCallbackInterface optionalTestCallbackInterfaceArg);
+    [RaisesException] TestInterfaceEmpty raisesExceptionTestInterfaceEmptyVoidMethod();
     [ReadOnly] void readOnlyVoidMethod();
     [NotEnumerable, ReadOnly] void notEnumerableReadOnlyVoidMethod();
     [RuntimeEnabled=FeatureName] void runtimeEnabledVoidMethod();
     [PerWorldBindings, RuntimeEnabled=FeatureName] void perWorldBindingsRuntimeEnabledVoidMethod();
     [StrictTypeChecking] void strictTypeCheckingVoidMethodTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg);
+    [StrictTypeChecking] void strictTypeCheckingVoidMethodNullableTestInterfaceEmptyArg(TestInterfaceEmpty? testInterfaceEmptyArg);
     [TreatReturnedNullStringAs=Null] DOMString treatReturnedNullStringAsNullStringMethod();
     [TreatReturnedNullStringAs=Undefined] DOMString treatReturnedNullStringAsUndefinedStringMethod();
     [Unforgeable] void unforgeableVoidMethod();
+
+    // Extended attributes on referenced interfaces
+    // (not self; self-reference tests at interface themselves)
+    attribute TestInterfacePython testInterfacePythonAttribute; // [ImplementedAs]
+    attribute TestInterfaceWillBeGarbageCollected? testInterfaceWillBeGarbageCollectedAttribute; // [WillBeGarbageCollected]
 };

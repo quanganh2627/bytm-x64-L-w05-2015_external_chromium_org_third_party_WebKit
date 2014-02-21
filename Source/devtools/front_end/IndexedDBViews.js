@@ -38,7 +38,6 @@ WebInspector.IDBDatabaseView = function(database)
     WebInspector.View.call(this);
     this.registerRequiredCSS("indexedDBViews.css");
 
-    this.element.classList.add("fill");
     this.element.classList.add("indexed-db-database-view");
 
     this._headersListElement = this.element.createChild("ol", "outline-disclosure");
@@ -318,6 +317,7 @@ WebInspector.IDBDataView.prototype = {
         /**
          * @param {!Array.<!WebInspector.IndexedDBModel.Entry>} entries
          * @param {boolean} hasMore
+         * @this {WebInspector.IDBDataView}
          */
         function callback(entries, hasMore)
         {
@@ -354,6 +354,9 @@ WebInspector.IDBDataView.prototype = {
 
     _clearButtonClicked: function(event)
     {
+        /**
+         * @this {WebInspector.IDBDataView}
+         */
         function cleared() {
             this._clearButton.setEnabled(true);
             this._updateData(true);

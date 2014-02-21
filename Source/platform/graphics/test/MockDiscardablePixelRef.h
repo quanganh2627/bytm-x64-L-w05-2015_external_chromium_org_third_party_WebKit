@@ -32,7 +32,14 @@ namespace WebCore {
 
 class MockDiscardablePixelRef : public SkPixelRef {
 public:
-    MockDiscardablePixelRef() : discarded(false) { setURI("discardable"); }
+    MockDiscardablePixelRef(const SkImageInfo& info, size_t rowbytes)
+        : SkPixelRef(info)
+        , m_rowBytes(rowbytes)
+        , discarded(false)
+    {
+        setURI("discardable");
+    }
+
     ~MockDiscardablePixelRef() { }
 
     void discard()
@@ -41,16 +48,31 @@ public:
         discarded = true;
     }
 
+    class Allocator : public SkBitmap::Allocator {
+    public:
+        virtual bool allocPixelRef(SkBitmap* dst, SkColorTable* ct) SK_OVERRIDE {
+            SkImageInfo info;
+            if (!dst->asImageInfo(&info)) {
+                return false;
+            }
+            SkAutoTUnref<SkPixelRef> pr(new MockDiscardablePixelRef(info, dst->rowBytes()));
+            dst->setPixelRef(pr);
+            return true;
+        }
+    };
+
     SK_DECLARE_UNFLATTENABLE_OBJECT()
 
 protected:
-    // SkPixelRef implementation.
-    virtual void* onLockPixels(SkColorTable**)
+    virtual bool onNewLockPixels(LockRec* rec)
     {
         if (discarded)
-            return 0;
+            return false;
         m_lockedMemory = &discarded;
-        return m_lockedMemory;
+        rec->fPixels = m_lockedMemory;
+        rec->fColorTable = 0;
+        rec->fRowBytes = m_rowBytes;
+        return true;
     }
 
     virtual void onUnlockPixels()
@@ -60,6 +82,7 @@ protected:
 
 private:
     void* m_lockedMemory;
+    size_t m_rowBytes;
     bool discarded;
 };
 

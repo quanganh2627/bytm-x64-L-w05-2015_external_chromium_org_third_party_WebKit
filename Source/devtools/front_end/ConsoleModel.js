@@ -54,6 +54,10 @@ WebInspector.ConsoleModel.prototype = {
             ConsoleAgent.setMonitoringXHREnabled(true);
 
         this._enablingConsole = true;
+
+        /**
+         * @this {WebInspector.ConsoleModel}
+         */
         function callback()
         {
             delete this._enablingConsole;
@@ -161,8 +165,9 @@ WebInspector.ConsoleModel.prototype = {
  * @param {number=} line
  * @param {number=} column
  * @param {number=} repeatCount
+ * @param {!NetworkAgent.RequestId=} requestId
  */
-WebInspector.ConsoleMessage = function(source, level, url, line, column, repeatCount)
+WebInspector.ConsoleMessage = function(source, level, url, line, column, repeatCount, requestId)
 {
     this.source = source;
     this.level = level;
@@ -175,9 +180,17 @@ WebInspector.ConsoleMessage = function(source, level, url, line, column, repeatC
     this.repeatCount = repeatCount;
     this.repeatDelta = repeatCount;
     this.totalRepeatCount = repeatCount;
+    this._request = requestId ? WebInspector.networkLog.requestForId(requestId) : null;
 }
 
 WebInspector.ConsoleMessage.prototype = {
+    /**
+     * @param {!Node} messageElement
+     */
+    setMessageElement: function(messageElement)
+    {
+    },
+
     /**
      * @return {boolean}
      */
@@ -196,7 +209,7 @@ WebInspector.ConsoleMessage.prototype = {
      */
     clone: function()
     {
-        // Implemented by concrete instances
+        throw "Not implemented";
     },
 
     /**
@@ -204,7 +217,15 @@ WebInspector.ConsoleMessage.prototype = {
      */
     location: function()
     {
-        // Implemented by concrete instances
+        throw "Not implemented";
+    },
+
+    /**
+     * @return {?WebInspector.NetworkRequest}
+     */
+    request: function()
+    {
+        return this._request;
     }
 }
 
@@ -267,7 +288,6 @@ WebInspector.ConsoleMessage.MessageLevel = {
     Debug: "debug"
 }
 
-
 /**
  * @constructor
  * @implements {ConsoleAgent.Dispatcher}
@@ -316,6 +336,6 @@ WebInspector.ConsoleDispatcher.prototype = {
 }
 
 /**
- * @type {?WebInspector.ConsoleModel}
+ * @type {!WebInspector.ConsoleModel}
  */
-WebInspector.console = null;
+WebInspector.console;

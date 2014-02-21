@@ -29,6 +29,37 @@
  */
 
 /**
+ * @constructor
+ */
+function SourceMapV3()
+{
+    /** @type {number} */ this.version;
+    /** @type {string|undefined} */ this.file;
+    /** @type {!Array.<string>} */ this.sources;
+    /** @type {!Array.<!SourceMapV3.Section>|undefined} */ this.sections;
+    /** @type {string} */ this.mappings;
+    /** @type {string|undefined} */ this.sourceRoot;
+}
+
+/**
+ * @constructor
+ */
+SourceMapV3.Section = function()
+{
+    /** @type {!SourceMapV3} */ this.map;
+    /** @type {!SourceMapV3.Offset} */ this.offset;
+}
+
+/**
+ * @constructor
+ */
+SourceMapV3.Offset = function()
+{
+    /** @type {number} */ this.line;
+    /** @type {number} */ this.column;
+}
+
+/**
  * Implements Source Map V3 model. See http://code.google.com/p/closure-compiler/wiki/SourceMaps
  * for format description.
  * @constructor
@@ -64,6 +95,7 @@ WebInspector.SourceMap.hasSourceMapRequestHeader = function(request)
  * @param {string} sourceMapURL
  * @param {string} compiledURL
  * @param {function(?WebInspector.SourceMap)} callback
+ * @this {WebInspector.SourceMap}
  */
 WebInspector.SourceMap.load = function(sourceMapURL, compiledURL, callback)
 {
@@ -161,7 +193,7 @@ WebInspector.SourceMap.prototype = {
     /**
      * @param {number} lineNumber in compiled resource
      * @param {number} columnNumber in compiled resource
-     * @return {?Array.<*>}
+     * @return {?Array.<number|string>}
      */
     findEntry: function(lineNumber, columnNumber)
     {

@@ -44,9 +44,9 @@ namespace WebCore {
 
 class ExecutionContext;
 
-class {{v8_class}} : public {{cpp_class}}, public ActiveDOMCallback {
+class {{v8_class}} FINAL : public {{cpp_class}}, public ActiveDOMCallback {
 public:
-    static PassOwnPtr<{{v8_class}}> create(v8::Handle<v8::Object> callback, ExecutionContext* context)
+    static PassOwnPtr<{{v8_class}}> create(v8::Handle<v8::Function> callback, ExecutionContext* context)
     {
         ASSERT(context);
         return adoptPtr(new {{v8_class}}(callback, context));
@@ -55,12 +55,13 @@ public:
     virtual ~{{v8_class}}();
 
 {% for method in methods %}
-    virtual {{method.return_cpp_type}} {{method.name}}({{method.argument_declarations | join(', ')}});
+    virtual {{method.return_cpp_type}} {{method.name}}({{method.argument_declarations | join(', ')}}) OVERRIDE;
 {% endfor %}
 private:
-    {{v8_class}}(v8::Handle<v8::Object>, ExecutionContext*);
+    {{v8_class}}(v8::Handle<v8::Function>, ExecutionContext*);
 
-    ScopedPersistent<v8::Object> m_callback;
+    v8::Isolate* m_isolate;
+    ScopedPersistent<v8::Function> m_callback;
     RefPtr<DOMWrapperWorld> m_world;
 };
 

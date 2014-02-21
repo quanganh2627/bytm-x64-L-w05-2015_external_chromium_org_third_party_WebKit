@@ -55,8 +55,8 @@ void FontPlatformData::setupPaint(SkPaint* paint, GraphicsContext* context) cons
     const float ts = m_textSize >= 0 ? m_textSize : 12;
     paint->setTextSize(SkFloatToScalar(m_textSize));
     paint->setTypeface(typeface());
-    paint->setFakeBoldText(m_fakeBold);
-    paint->setTextSkewX(m_fakeItalic ? -SK_Scalar1 / 4 : 0);
+    paint->setFakeBoldText(m_syntheticBold);
+    paint->setTextSkewX(m_syntheticItalic ? -SK_Scalar1 / 4 : 0);
     paint->setSubpixelText(m_useSubpixelPositioning);
 
     int textFlags = paintTextFlags();
@@ -115,14 +115,14 @@ static bool isWebFont(const String& familyName)
         && '=' == familyName[22] && '=' == familyName[23];
 }
 
-int FontPlatformData::paintTextFlags() const
+static int computePaintTextFlags(String fontFamilyName)
 {
     int textFlags = getSystemTextFlags();
 
     // Many web-fonts are so poorly hinted that they are terrible to read when drawn in BW.
     // In these cases, we have decided to FORCE these fonts to be drawn with at least grayscale AA,
     // even when the System (getSystemTextFlags) tells us to draw only in BW.
-    if (isWebFont(fontFamilyName()) && !isRunningLayoutTest())
+    if (isWebFont(fontFamilyName) && !isRunningLayoutTest())
         textFlags |= SkPaint::kAntiAlias_Flag;
     return textFlags;
 }
@@ -144,10 +144,11 @@ PassRefPtr<SkTypeface> CreateTypefaceFromHFont(HFONT hfont, int* size)
 
 FontPlatformData::FontPlatformData(WTF::HashTableDeletedValueType)
     : m_textSize(-1)
-    , m_fakeBold(false)
-    , m_fakeItalic(false)
+    , m_syntheticBold(false)
+    , m_syntheticItalic(false)
     , m_orientation(Horizontal)
     , m_typeface(adoptRef(SkTypeface::RefDefault()))
+    , m_paintTextFlags(0)
     , m_isHashTableDeletedValue(true)
     , m_useSubpixelPositioning(false)
 {
@@ -159,10 +160,11 @@ FontPlatformData::FontPlatformData(WTF::HashTableDeletedValueType)
 
 FontPlatformData::FontPlatformData()
     : m_textSize(0)
-    , m_fakeBold(false)
-    , m_fakeItalic(false)
+    , m_syntheticBold(false)
+    , m_syntheticItalic(false)
     , m_orientation(Horizontal)
     , m_typeface(adoptRef(SkTypeface::RefDefault()))
+    , m_paintTextFlags(0)
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(false)
 {
@@ -176,24 +178,26 @@ FontPlatformData::FontPlatformData()
 FontPlatformData::FontPlatformData(HFONT font, float size, FontOrientation orientation)
     : m_font(RefCountedHFONT::create(font))
     , m_textSize(size)
-    , m_fakeBold(false)
-    , m_fakeItalic(false)
+    , m_syntheticBold(false)
+    , m_syntheticItalic(false)
     , m_orientation(orientation)
     , m_scriptCache(0)
     , m_typeface(CreateTypefaceFromHFont(font, 0))
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(false)
 {
+    m_paintTextFlags = computePaintTextFlags(fontFamilyName());
 }
 #endif
 
 // FIXME: this constructor is needed for SVG fonts but doesn't seem to do much
 FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
     : m_textSize(size)
-    , m_fakeBold(false)
-    , m_fakeItalic(false)
+    , m_syntheticBold(false)
+    , m_syntheticItalic(false)
     , m_orientation(Horizontal)
     , m_typeface(adoptRef(SkTypeface::RefDefault()))
+    , m_paintTextFlags(0)
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(false)
 {
@@ -205,10 +209,11 @@ FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
 
 FontPlatformData::FontPlatformData(const FontPlatformData& data)
     : m_textSize(data.m_textSize)
-    , m_fakeBold(data.m_fakeBold)
-    , m_fakeItalic(data.m_fakeItalic)
+    , m_syntheticBold(data.m_syntheticBold)
+    , m_syntheticItalic(data.m_syntheticItalic)
     , m_orientation(data.m_orientation)
     , m_typeface(data.m_typeface)
+    , m_paintTextFlags(data.m_paintTextFlags)
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(data.m_useSubpixelPositioning)
 {
@@ -220,10 +225,11 @@ FontPlatformData::FontPlatformData(const FontPlatformData& data)
 
 FontPlatformData::FontPlatformData(const FontPlatformData& data, float textSize)
     : m_textSize(textSize)
-    , m_fakeBold(data.m_fakeBold)
-    , m_fakeItalic(data.m_fakeItalic)
+    , m_syntheticBold(data.m_syntheticBold)
+    , m_syntheticItalic(data.m_syntheticItalic)
     , m_orientation(data.m_orientation)
     , m_typeface(data.m_typeface)
+    , m_paintTextFlags(data.m_paintTextFlags)
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(data.m_useSubpixelPositioning)
 {
@@ -234,23 +240,23 @@ FontPlatformData::FontPlatformData(const FontPlatformData& data, float textSize)
 }
 
 FontPlatformData::FontPlatformData(PassRefPtr<SkTypeface> tf, const char* family,
-    float textSize, bool fakeBold, bool fakeItalic, FontOrientation orientation,
+    float textSize, bool syntheticBold, bool syntheticItalic, FontOrientation orientation,
     bool useSubpixelPositioning)
     : m_textSize(textSize)
-    , m_fakeBold(fakeBold)
-    , m_fakeItalic(fakeItalic)
+    , m_syntheticBold(syntheticBold)
+    , m_syntheticItalic(syntheticItalic)
     , m_orientation(orientation)
     , m_typeface(tf)
     , m_isHashTableDeletedValue(false)
     , m_useSubpixelPositioning(useSubpixelPositioning)
 {
+    m_paintTextFlags = computePaintTextFlags(fontFamilyName());
+#if !USE(HARFBUZZ)
     // FIXME: This can be removed together with m_font once the last few
     // uses of hfont() has been eliminated.
     LOGFONT logFont;
     SkLOGFONTFromTypeface(m_typeface.get(), &logFont);
     logFont.lfHeight = -textSize;
-
-#if !USE(HARFBUZZ)
     HFONT hFont = CreateFontIndirect(&logFont);
     m_font = hFont ? RefCountedHFONT::create(hFont) : 0;
     m_scriptCache = 0;
@@ -261,10 +267,11 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& data)
 {
     if (this != &data) {
         m_textSize = data.m_textSize;
-        m_fakeBold = data.m_fakeBold;
-        m_fakeItalic = data.m_fakeItalic;
+        m_syntheticBold = data.m_syntheticBold;
+        m_syntheticItalic = data.m_syntheticItalic;
         m_orientation = data.m_orientation;
         m_typeface = data.m_typeface;
+        m_paintTextFlags = data.m_paintTextFlags;
 
 #if !USE(HARFBUZZ)
         m_font = data.m_font;
@@ -340,8 +347,8 @@ bool FontPlatformData::operator==(const FontPlatformData& a) const
 {
     return SkTypeface::Equal(m_typeface.get(), a.m_typeface.get())
         && m_textSize == a.m_textSize
-        && m_fakeBold == a.m_fakeBold
-        && m_fakeItalic == a.m_fakeItalic
+        && m_syntheticBold == a.m_syntheticBold
+        && m_syntheticItalic == a.m_syntheticItalic
         && m_orientation == a.m_orientation
         && m_isHashTableDeletedValue == a.m_isHashTableDeletedValue;
 }

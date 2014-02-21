@@ -30,76 +30,79 @@
 #include "core/events/MouseEvent.h"
 #include "core/html/HTMLDivElement.h"
 #include "core/html/shadow/MediaControlElements.h"
-#include "core/page/Page.h"
 #include "core/rendering/RenderTheme.h"
 
 namespace WebCore {
 
 class Document;
 class Event;
-class Page;
 class MediaPlayer;
 
 class RenderBox;
 class RenderMedia;
 
-// An abstract class with the media control elements that all ports support.
 class MediaControls : public HTMLDivElement {
-  public:
+public:
     virtual ~MediaControls() {}
 
-    // This function is to be implemented in your port-specific media
-    // controls implementation since it will return a child instance.
     static PassRefPtr<MediaControls> create(Document&);
 
     virtual void setMediaController(MediaControllerInterface*);
 
-    virtual void reset();
-    virtual void reportedError();
-    virtual void loadedMetadata();
+    void reset();
 
-    virtual void show();
-    virtual void hide();
-    virtual void makeOpaque();
-    virtual void makeTransparent();
-    virtual bool shouldHideControls();
+    void show();
+    void hide();
 
-    virtual void bufferingProgressed();
+    void bufferingProgressed();
     virtual void playbackStarted();
-    virtual void playbackProgressed();
+    void playbackProgressed();
     virtual void playbackStopped();
 
-    virtual void updateStatusDisplay() { };
-    virtual void updateCurrentTimeDisplay() = 0;
-    virtual void showVolumeSlider();
+    void updateCurrentTimeDisplay();
+    void showVolumeSlider();
 
-    virtual void changedMute();
-    virtual void changedVolume();
+    void changedMute();
+    void changedVolume();
 
-    virtual void changedClosedCaptionsVisibility();
-    virtual void refreshClosedCaptionsButtonVisibility();
-    virtual void closedCaptionTracksChanged();
+    void changedClosedCaptionsVisibility();
+    void refreshClosedCaptionsButtonVisibility();
+    void closedCaptionTracksChanged();
 
-    virtual void enteredFullscreen();
-    virtual void exitedFullscreen();
+    void enteredFullscreen();
+    void exitedFullscreen();
 
-    virtual bool willRespondToMouseMoveEvents() OVERRIDE { return true; }
-
-    virtual void hideFullscreenControlsTimerFired(Timer<MediaControls>*);
-    virtual void startHideFullscreenControlsTimer();
-    virtual void stopHideFullscreenControlsTimer();
-
-    virtual void createTextTrackDisplay();
-    virtual void showTextTrackDisplay();
-    virtual void hideTextTrackDisplay();
-    virtual void updateTextTrackDisplay();
+    void updateTextTrackDisplay();
 
 protected:
     explicit MediaControls(Document&);
 
-    virtual void defaultEventHandler(Event*);
+    virtual bool initializeControls(Document&);
 
-    virtual bool containsRelatedTarget(Event*);
+    virtual bool shouldHideControls();
+
+    virtual void insertTextTrackContainer(PassRefPtr<MediaControlTextTrackContainerElement>);
+
+private:
+    void makeOpaque();
+    void makeTransparent();
+
+    void hideFullscreenControlsTimerFired(Timer<MediaControls>*);
+    void startHideFullscreenControlsTimer();
+    void stopHideFullscreenControlsTimer();
+
+    void createTextTrackDisplay();
+    void showTextTrackDisplay();
+    void hideTextTrackDisplay();
+
+    // Node
+    virtual bool isMediaControls() const OVERRIDE FINAL { return true; }
+    virtual bool willRespondToMouseMoveEvents() OVERRIDE { return true; }
+    virtual void defaultEventHandler(Event*) OVERRIDE;
+    bool containsRelatedTarget(Event*);
+
+    // Element
+    virtual const AtomicString& shadowPseudoId() const OVERRIDE;
 
     MediaControllerInterface* m_mediaController;
 
@@ -117,25 +120,15 @@ protected:
     MediaControlPanelVolumeSliderElement* m_volumeSlider;
     MediaControlToggleClosedCaptionsButtonElement* m_toggleClosedCaptionsButton;
     MediaControlFullscreenButtonElement* m_fullScreenButton;
+    MediaControlTimeRemainingDisplayElement* m_durationDisplay;
+    MediaControlPanelEnclosureElement* m_enclosure;
 
     Timer<MediaControls> m_hideFullscreenControlsTimer;
     bool m_isFullscreen;
     bool m_isMouseOverControls;
-
-private:
-    virtual bool isMediaControls() const { return true; }
-
-    virtual const AtomicString& pseudo() const;
 };
 
-inline MediaControls* toMediaControls(Node* node)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->isMediaControls());
-    return static_cast<MediaControls*>(node);
-}
-
-// This will catch anyone doing an unneccessary cast.
-void toMediaControls(const MediaControls*);
+DEFINE_NODE_TYPE_CASTS(MediaControls, isMediaControls());
 
 }
 

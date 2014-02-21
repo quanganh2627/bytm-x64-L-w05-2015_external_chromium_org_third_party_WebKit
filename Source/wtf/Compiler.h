@@ -76,7 +76,10 @@
 #define WTF_COMPILER_SUPPORTS_CXX_NULLPTR 1
 #endif
 
-#if !COMPILER(CLANG)
+#if COMPILER(CLANG)
+/* Keep strong enums turned off when building with clang-cl: We cannot yet build all of Blink without fallback to cl.exe, and strong enums are exposed at ABI boundaries. */
+#undef WTF_COMPILER_SUPPORTS_CXX_STRONG_ENUMS
+#else
 #define WTF_COMPILER_SUPPORTS_CXX_OVERRIDE_CONTROL 1
 #define WTF_COMPILER_QUIRK_FINAL_IS_CALLED_SEALED 1
 #endif
@@ -257,18 +260,13 @@
 #endif
 #endif
 
-/* ABI */
-#if defined(__ARM_EABI__) || defined(__EABI__)
-#define WTF_COMPILER_SUPPORTS_EABI 1
-#endif
-
 /* WTF_PRETTY_FUNCTION */
 
-#if COMPILER(GCC) || COMPILER(CLANG)
-#define WTf_COMPILER_SUPPORTS_PRETTY_FUNCTION 1
+#if COMPILER(GCC)
+#define WTF_COMPILER_SUPPORTS_PRETTY_FUNCTION 1
 #define WTF_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif COMPILER(MSVC)
-#define WTf_COMPILER_SUPPORTS_PRETTY_FUNCTION 1
+#define WTF_COMPILER_SUPPORTS_PRETTY_FUNCTION 1
 #define WTF_PRETTY_FUNCTION __FUNCDNAME__
 #else
 #define WTF_PRETTY_FUNCTION __FUNCTION__

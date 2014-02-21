@@ -31,8 +31,7 @@
 #include "core/dom/Node.h"
 #include "core/editing/SpellChecker.h"
 #include "core/frame/Frame.h"
-#include "core/page/Page.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "platform/text/TextCheckerClient.h"
 
 namespace WebCore {

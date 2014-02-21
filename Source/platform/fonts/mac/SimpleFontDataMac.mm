@@ -155,7 +155,7 @@ void SimpleFontData::platformInit()
             fallbackFontFamily = @"Times New Roman";
         else
             fallbackFontFamily = webFallbackFontFamily();
-        
+
         // Try setting up the alternate font.
         // This is a last ditch effort to use a substitute font when something has gone wrong.
 #if !ERROR_DISABLED
@@ -195,11 +195,12 @@ void SimpleFontData::platformInit()
         WTF_LOG_ERROR("failed to set up font, using system font %s", m_platformData.font());
         initFontData(this);
     }
-    
+
     int iAscent;
     int iDescent;
     int iLineGap;
     unsigned unitsPerEm;
+
     iAscent = CGFontGetAscent(m_platformData.cgFont());
     // Some fonts erroneously specify a positive descender value. We follow Core Text in assuming that
     // such fonts meant the same distance, but in the reverse direction.
@@ -211,6 +212,7 @@ void SimpleFontData::platformInit()
     float ascent = scaleEmToUnits(iAscent, unitsPerEm) * pointSize;
     float descent = -scaleEmToUnits(iDescent, unitsPerEm) * pointSize;
     float lineGap = scaleEmToUnits(iLineGap, unitsPerEm) * pointSize;
+    float underlineThickness = CTFontGetUnderlineThickness(m_platformData.ctFont());
 
     // We need to adjust Times, Helvetica, and Courier to closely match the
     // vertical metrics of their Microsoft counterparts that are the de facto
@@ -230,7 +232,7 @@ void SimpleFontData::platformInit()
         lineGap -= 3 - descent;
         descent = 3;
     }
-    
+
     if (platformData().orientation() == Vertical && !isTextOrientationFallback())
         m_hasVerticalGlyphs = fontHasVerticalGlyphs(m_platformData.ctFont());
 
@@ -253,6 +255,7 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setDescent(descent);
     m_fontMetrics.setLineGap(lineGap);
     m_fontMetrics.setXHeight(xHeight);
+    m_fontMetrics.setUnderlineThickness(underlineThickness);
 }
 
 static CFDataRef copyFontTableForTag(FontPlatformData& platformData, FourCharCode tableName)
@@ -264,7 +267,7 @@ void SimpleFontData::platformCharWidthInit()
 {
     m_avgCharWidth = 0;
     m_maxCharWidth = 0;
-    
+
     RetainPtr<CFDataRef> os2Table(AdoptCF, copyFontTableForTag(m_platformData, 'OS/2'));
     if (os2Table && CFDataGetLength(os2Table.get()) >= 4) {
         const UInt8* os2 = CFDataGetBytePtr(os2Table.get());
@@ -334,15 +337,6 @@ PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const Fo
     END_BLOCK_OBJC_EXCEPTIONS;
 
     return 0;
-}
-
-bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
-{
-    NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<unichar*>(characters) length:length freeWhenDone:NO];
-    NSCharacterSet *set = [[m_platformData.font() coveredCharacterSet] invertedSet];
-    bool result = set && [string rangeOfCharacterFromSet:set].location == NSNotFound;
-    [string release];
-    return result;
 }
 
 void SimpleFontData::determinePitch()
@@ -425,7 +419,7 @@ bool SimpleFontData::canRenderCombiningCharacterSequence(const UChar* characters
 
     WTF::HashMap<String, bool>::AddResult addResult = m_combiningCharacterSequenceSupport->add(String(characters, length), false);
     if (!addResult.isNewEntry)
-        return addResult.iterator->value;
+        return addResult.storedValue->value;
 
     RetainPtr<CGFontRef> cgFont(AdoptCF, CTFontCopyGraphicsFont(platformData().ctFont(), 0));
 
@@ -445,7 +439,7 @@ bool SimpleFontData::canRenderCombiningCharacterSequence(const UChar* characters
             return false;
     }
 
-    addResult.iterator->value = true;
+    addResult.storedValue->value = true;
     return true;
 }
 

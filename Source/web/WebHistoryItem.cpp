@@ -33,8 +33,8 @@
 
 #include "WebSerializedScriptValue.h"
 #include "bindings/v8/SerializedScriptValue.h"
-#include "core/history/HistoryItem.h"
 #include "core/html/forms/FormController.h"
+#include "core/loader/HistoryItem.h"
 #include "platform/network/FormData.h"
 #include "platform/weborigin/KURL.h"
 #include "public/platform/WebHTTPBody.h"
@@ -109,13 +109,18 @@ void WebHistoryItem::setOriginalURLString(const WebString& originalURLString)
 
 WebString WebHistoryItem::referrer() const
 {
-    return m_private->referrer();
+    return m_private->referrer().referrer;
 }
 
-void WebHistoryItem::setReferrer(const WebString& referrer)
+WebReferrerPolicy WebHistoryItem::referrerPolicy() const
+{
+    return static_cast<WebReferrerPolicy>(m_private->referrer().referrerPolicy);
+}
+
+void WebHistoryItem::setReferrer(const WebString& referrer, WebReferrerPolicy referrerPolicy)
 {
     ensureMutable();
-    m_private->setReferrer(referrer);
+    m_private->setReferrer(Referrer(referrer, static_cast<ReferrerPolicy>(referrerPolicy)));
 }
 
 WebString WebHistoryItem::target() const

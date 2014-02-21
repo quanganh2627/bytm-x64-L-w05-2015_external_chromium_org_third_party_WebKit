@@ -40,7 +40,6 @@
 #include "modules/webdatabase/sqlite/SQLiteStatement.h"
 #include "modules/webdatabase/sqlite/SQLiteTransaction.h"
 #include "platform/weborigin/DatabaseIdentifier.h"
-#include "platform/weborigin/SecurityOrigin.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebDatabaseObserver.h"
 #include "wtf/HashMap.h"
@@ -452,11 +451,6 @@ String DatabaseBackendBase::fileName() const
     return m_filename.isolatedCopy();
 }
 
-DatabaseDetails DatabaseBackendBase::details() const
-{
-    return DatabaseDetails(stringIdentifier(), displayName(), estimatedSize(), 0);
-}
-
 bool DatabaseBackendBase::getVersionFromDatabase(String& version, bool shouldCacheVersion)
 {
     String query(String("SELECT value FROM ") + infoTableName +  " WHERE key = '" + versionKey + "';");
@@ -531,12 +525,6 @@ void DatabaseBackendBase::enableAuthorizer()
 {
     ASSERT(m_databaseAuthorizer);
     m_databaseAuthorizer->enable();
-}
-
-void DatabaseBackendBase::setAuthorizerReadOnly()
-{
-    ASSERT(m_databaseAuthorizer);
-    m_databaseAuthorizer->setReadOnly();
 }
 
 void DatabaseBackendBase::setAuthorizerPermissions(int permissions)

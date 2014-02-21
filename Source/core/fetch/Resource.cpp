@@ -24,6 +24,7 @@
 #include "config.h"
 #include "core/fetch/Resource.h"
 
+#include "FetchInitiatorTypeNames.h"
 #include "core/fetch/CachedMetadata.h"
 #include "core/fetch/CrossOriginAccessControl.h"
 #include "core/fetch/MemoryCache.h"
@@ -105,23 +106,20 @@ Resource::Resource(const ResourceRequest& request, Type type)
     , m_accessCount(0)
     , m_handleCount(0)
     , m_preloadCount(0)
+    , m_protectorCount(0)
     , m_preloadResult(PreloadNotReferenced)
     , m_cacheLiveResourcePriority(CacheLiveResourcePriorityLow)
-    , m_inLiveDecodedResourcesList(false)
     , m_requestedFromNetworkingLayer(false)
     , m_inCache(false)
     , m_loading(false)
     , m_switchingClientsToRevalidatedResource(false)
     , m_type(type)
     , m_status(Pending)
+    , m_wasPurged(false)
+    , m_needsSynchronousCacheHit(false)
 #ifndef NDEBUG
     , m_deleted(false)
-    , m_lruIndex(0)
 #endif
-    , m_nextInAllResourcesList(0)
-    , m_prevInAllResourcesList(0)
-    , m_nextInLiveResourcesList(0)
-    , m_prevInLiveResourcesList(0)
     , m_resourceToRevalidate(0)
     , m_proxyResource(0)
 {
@@ -224,6 +222,13 @@ void Resource::setResourceBuffer(PassRefPtr<SharedBuffer> resourceBuffer)
     setEncodedSize(m_data->size());
 }
 
+void Resource::setDataBufferingPolicy(DataBufferingPolicy dataBufferingPolicy)
+{
+    m_options.dataBufferingPolicy = dataBufferingPolicy;
+    m_data.clear();
+    setEncodedSize(0);
+}
+
 void Resource::error(Resource::Status status)
 {
     if (m_resourceToRevalidate)
@@ -267,52 +272,100 @@ bool Resource::passesAccessControlCheck(SecurityOrigin* securityOrigin, String& 
     return WebCore::passesAccessControlCheck(m_response, resourceRequest().allowCookies() ? AllowStoredCredentials : DoNotAllowStoredCredentials, securityOrigin, errorDescription);
 }
 
-bool Resource::isExpired() const
-{
-    if (m_response.isNull())
-        return false;
-
-    return currentAge() > freshnessLifetime();
-}
-
-double Resource::currentAge() const
+static double currentAge(const ResourceResponse& response, double responseTimestamp)
 {
     // RFC2616 13.2.3
     // No compensation for latency as that is not terribly important in practice
-    double dateValue = m_response.date();
-    double apparentAge = std::isfinite(dateValue) ? std::max(0., m_responseTimestamp - dateValue) : 0;
-    double ageValue = m_response.age();
+    double dateValue = response.date();
+    double apparentAge = std::isfinite(dateValue) ? std::max(0., responseTimestamp - dateValue) : 0;
+    double ageValue = response.age();
     double correctedReceivedAge = std::isfinite(ageValue) ? std::max(apparentAge, ageValue) : apparentAge;
-    double residentTime = currentTime() - m_responseTimestamp;
+    double residentTime = currentTime() - responseTimestamp;
     return correctedReceivedAge + residentTime;
 }
 
-double Resource::freshnessLifetime() const
+static double freshnessLifetime(const ResourceResponse& response, double responseTimestamp)
 {
 #if !OS(ANDROID)
     // On desktop, local files should be reloaded in case they change.
-    if (m_response.url().isLocalFile())
+    if (response.url().isLocalFile())
         return 0;
 #endif
 
-    // Cache other non-http resources liberally.
-    if (!m_response.url().protocolIsInHTTPFamily())
+    // Cache other non-http / non-filesystem resources liberally.
+    if (!response.url().protocolIsInHTTPFamily()
+        && !response.url().protocolIs("filesystem"))
         return std::numeric_limits<double>::max();
 
     // RFC2616 13.2.4
-    double maxAgeValue = m_response.cacheControlMaxAge();
+    double maxAgeValue = response.cacheControlMaxAge();
     if (std::isfinite(maxAgeValue))
         return maxAgeValue;
-    double expiresValue = m_response.expires();
-    double dateValue = m_response.date();
-    double creationTime = std::isfinite(dateValue) ? dateValue : m_responseTimestamp;
+    double expiresValue = response.expires();
+    double dateValue = response.date();
+    double creationTime = std::isfinite(dateValue) ? dateValue : responseTimestamp;
     if (std::isfinite(expiresValue))
         return expiresValue - creationTime;
-    double lastModifiedValue = m_response.lastModified();
+    double lastModifiedValue = response.lastModified();
     if (std::isfinite(lastModifiedValue))
         return (creationTime - lastModifiedValue) * 0.1;
     // If no cache headers are present, the specification leaves the decision to the UA. Other browsers seem to opt for 0.
     return 0;
+}
+
+static bool canUseResponse(const ResourceResponse& response, double responseTimestamp)
+{
+    if (response.isNull())
+        return false;
+
+    // FIXME: Why isn't must-revalidate considered a reason we can't use the response?
+    if (response.cacheControlContainsNoCache() || response.cacheControlContainsNoStore())
+        return false;
+
+    if (response.httpStatusCode() == 303)  {
+        // Must not be cached.
+        return false;
+    }
+
+    if (response.httpStatusCode() == 302 || response.httpStatusCode() == 307) {
+        // Default to not cacheable.
+        // FIXME: Consider allowing these to be cached if they have headers permitting caching.
+        return false;
+    }
+
+    return currentAge(response, responseTimestamp) <= freshnessLifetime(response, responseTimestamp);
+}
+
+void Resource::willSendRequest(ResourceRequest& request, const ResourceResponse& response)
+{
+    m_redirectChain.append(RedirectPair(request, response));
+    m_requestedFromNetworkingLayer = true;
+}
+
+bool Resource::unlock()
+{
+    if (hasClients() || m_proxyResource || m_resourceToRevalidate || !m_loadFinishTime || !isSafeToUnlock())
+        return false;
+
+    if (m_purgeableData) {
+        ASSERT(!m_data);
+        return true;
+    }
+    if (!m_data)
+        return false;
+
+    // Should not make buffer purgeable if it has refs other than this since we don't want two copies.
+    if (!m_data->hasOneRef())
+        return false;
+
+    m_data->createPurgeableBuffer();
+    if (!m_data->hasPurgeableBuffer())
+        return false;
+
+    m_purgeableData = m_data->releasePurgeableBuffer();
+    m_purgeableData->unlock();
+    m_data.clear();
+    return true;
 }
 
 void Resource::responseReceived(const ResourceResponse& response)
@@ -363,7 +416,7 @@ CachedMetadata* Resource::cachedMetadata(unsigned dataTypeID) const
 
 void Resource::setCacheLiveResourcePriority(CacheLiveResourcePriority priority)
 {
-    if (inCache() && m_inLiveDecodedResourcesList && cacheLiveResourcePriority() != static_cast<unsigned>(priority)) {
+    if (inCache() && memoryCache()->isInLiveDecodedResourcesList(this) && cacheLiveResourcePriority() != static_cast<unsigned>(priority)) {
         memoryCache()->removeFromLiveDecodedResourcesList(this);
         m_cacheLiveResourcePriority = priority;
         memoryCache()->insertInLiveDecodedResourcesList(this);
@@ -423,7 +476,7 @@ bool Resource::addClientToSet(ResourceClient* client)
         memoryCache()->addToLiveResourcesSize(this);
 
     // If we have existing data to send to the new client and the resource type supprts it, send it asynchronously.
-    if (!m_response.isNull() && !m_proxyResource && !shouldSendCachedDataSynchronouslyForType(type())) {
+    if (!m_response.isNull() && !m_proxyResource && !shouldSendCachedDataSynchronouslyForType(type()) && !m_needsSynchronousCacheHit) {
         m_clientsAwaitingCallback.add(client);
         ResourceCallback::callbackHandler()->schedule(this);
         return false;
@@ -499,12 +552,12 @@ bool Resource::deleteIfPossible()
     return false;
 }
 
-void Resource::setDecodedSize(unsigned size)
+void Resource::setDecodedSize(size_t size)
 {
     if (size == m_decodedSize)
         return;
 
-    int delta = size - m_decodedSize;
+    ptrdiff_t delta = size - m_decodedSize;
 
     // The object must now be moved to a different queue, since its size has been changed.
     // We have to remove explicitly before updating m_decodedSize, so that we find the correct previous
@@ -525,9 +578,9 @@ void Resource::setDecodedSize(unsigned size)
         // violation of the invariant that the list is to be kept sorted
         // by access time. The weakening of the invariant does not pose
         // a problem. For more details please see: https://bugs.webkit.org/show_bug.cgi?id=30209
-        if (m_decodedSize && !m_inLiveDecodedResourcesList && hasClients())
+        if (m_decodedSize && !memoryCache()->isInLiveDecodedResourcesList(this) && hasClients())
             memoryCache()->insertInLiveDecodedResourcesList(this);
-        else if (!m_decodedSize && m_inLiveDecodedResourcesList)
+        else if (!m_decodedSize && memoryCache()->isInLiveDecodedResourcesList(this))
             memoryCache()->removeFromLiveDecodedResourcesList(this);
 
         // Update the cache's size totals.
@@ -535,12 +588,12 @@ void Resource::setDecodedSize(unsigned size)
     }
 }
 
-void Resource::setEncodedSize(unsigned size)
+void Resource::setEncodedSize(size_t size)
 {
     if (size == m_encodedSize)
         return;
 
-    int delta = size - m_encodedSize;
+    ptrdiff_t delta = size - m_encodedSize;
 
     // The object must now be moved to a different queue, since its size has been changed.
     // We have to remove explicitly before updating m_encodedSize, so that we find the correct previous
@@ -563,7 +616,7 @@ void Resource::didAccessDecodedData(double timeStamp)
 {
     m_lastDecodedAccessTime = timeStamp;
     if (inCache()) {
-        if (m_inLiveDecodedResourcesList) {
+        if (memoryCache()->isInLiveDecodedResourcesList(this)) {
             memoryCache()->removeFromLiveDecodedResourcesList(this);
             memoryCache()->insertInLiveDecodedResourcesList(this);
         }
@@ -579,6 +632,12 @@ void Resource::finishPendingClients()
         m_clients.add(client);
         didAddClient(client);
     }
+}
+
+void Resource::prune()
+{
+    destroyDecodedDataIfPossible();
+    unlock();
 }
 
 void Resource::setResourceToRevalidate(Resource* resource)
@@ -750,6 +809,20 @@ void Resource::unregisterHandle(ResourcePtrBase* h)
         deleteIfPossible();
 }
 
+bool Resource::canReuseRedirectChain() const
+{
+    for (size_t i = 0; i < m_redirectChain.size(); ++i) {
+        if (!canUseResponse(m_redirectChain[i].m_redirectResponse, m_responseTimestamp))
+            return false;
+    }
+    return true;
+}
+
+bool Resource::mustRevalidateDueToCacheHeaders() const
+{
+    return !canUseResponse(m_response, m_responseTimestamp);
+}
+
 bool Resource::canUseCacheValidator() const
 {
     if (m_loading || errorOccurred())
@@ -760,90 +833,34 @@ bool Resource::canUseCacheValidator() const
     return m_response.hasCacheValidatorFields();
 }
 
-bool Resource::mustRevalidateDueToCacheHeaders(CachePolicy cachePolicy) const
+bool Resource::isPurgeable() const
 {
-    ASSERT(cachePolicy == CachePolicyRevalidate || cachePolicy == CachePolicyCache || cachePolicy == CachePolicyVerify);
-
-    if (cachePolicy == CachePolicyRevalidate)
-        return true;
-
-    if (m_response.cacheControlContainsNoCache() || m_response.cacheControlContainsNoStore()) {
-        WTF_LOG(ResourceLoading, "Resource %p mustRevalidate because of m_response.cacheControlContainsNoCache() || m_response.cacheControlContainsNoStore()\n", this);
-        return true;
-    }
-
-    if (cachePolicy == CachePolicyCache) {
-        if (m_response.cacheControlContainsMustRevalidate() && isExpired()) {
-            WTF_LOG(ResourceLoading, "Resource %p mustRevalidate because of cachePolicy == CachePolicyCache and m_response.cacheControlContainsMustRevalidate() && isExpired()\n", this);
-            return true;
-        }
-        return false;
-    }
-
-    // CachePolicyVerify
-    if (isExpired()) {
-        WTF_LOG(ResourceLoading, "Resource %p mustRevalidate because of isExpired()\n", this);
-        return true;
-    }
-
-    return false;
+    return m_purgeableData && !m_purgeableData->isLocked();
 }
 
-bool Resource::isSafeToMakePurgeable() const
+bool Resource::wasPurged() const
 {
-    return !hasClients() && !m_proxyResource && !m_resourceToRevalidate;
+    return m_wasPurged;
 }
 
-bool Resource::makePurgeable(bool purgeable)
+bool Resource::lock()
 {
-    if (purgeable) {
-        ASSERT(isSafeToMakePurgeable());
-
-        if (m_purgeableData) {
-            ASSERT(!m_data);
-            return true;
-        }
-        if (!m_data)
-            return false;
-
-        // Should not make buffer purgeable if it has refs other than this since we don't want two copies.
-        if (!m_data->hasOneRef())
-            return false;
-
-        m_data->createPurgeableBuffer();
-        if (!m_data->hasPurgeableBuffer())
-            return false;
-
-        m_purgeableData = m_data->releasePurgeableBuffer();
-        m_purgeableData->unlock();
-        m_data.clear();
-        return true;
-    }
-
     if (!m_purgeableData)
         return true;
 
     ASSERT(!m_data);
     ASSERT(!hasClients());
 
-    if (!m_purgeableData->lock())
+    if (!m_purgeableData->lock()) {
+        m_wasPurged = true;
         return false;
+    }
 
     m_data = SharedBuffer::adoptPurgeableBuffer(m_purgeableData.release());
     return true;
 }
 
-bool Resource::isPurgeable() const
-{
-    return m_purgeableData && m_purgeableData->isPurgeable();
-}
-
-bool Resource::wasPurged() const
-{
-    return m_purgeableData && m_purgeableData->wasPurged();
-}
-
-unsigned Resource::overheadSize() const
+size_t Resource::overheadSize() const
 {
     static const int kAverageClientsHashMapSize = 384;
     return sizeof(Resource) + m_response.memoryUsage() + kAverageClientsHashMapSize + m_resourceRequest.url().string().length() * 2;
@@ -889,6 +906,64 @@ void Resource::ResourceCallback::timerFired(Timer<ResourceCallback>*)
     m_resourcesWithPendingClients.clear();
     for (size_t i = 0; i < resources.size(); i++)
         resources[i]->finishPendingClients();
+}
+
+static const char* initatorTypeNameToString(const AtomicString& initiatorTypeName)
+{
+    if (initiatorTypeName == FetchInitiatorTypeNames::css)
+        return "CSS resource";
+    if (initiatorTypeName == FetchInitiatorTypeNames::document)
+        return "Document";
+    if (initiatorTypeName == FetchInitiatorTypeNames::icon)
+        return "Icon";
+    if (initiatorTypeName == FetchInitiatorTypeNames::internal)
+        return "Internal resource";
+    if (initiatorTypeName == FetchInitiatorTypeNames::link)
+        return "Link element resource";
+    if (initiatorTypeName == FetchInitiatorTypeNames::processinginstruction)
+        return "Processing instruction";
+    if (initiatorTypeName == FetchInitiatorTypeNames::texttrack)
+        return "Text track";
+    if (initiatorTypeName == FetchInitiatorTypeNames::xml)
+        return "XML resource";
+    if (initiatorTypeName == FetchInitiatorTypeNames::xmlhttprequest)
+        return "XMLHttpRequest";
+
+    return "Resource";
+}
+
+const char* Resource::resourceTypeToString(Type type, const FetchInitiatorInfo& initiatorInfo)
+{
+    switch (type) {
+    case Resource::MainResource:
+        return "Main resource";
+    case Resource::Image:
+        return "Image";
+    case Resource::CSSStyleSheet:
+        return "CSS stylesheet";
+    case Resource::Script:
+        return "Script";
+    case Resource::Font:
+        return "Font";
+    case Resource::Raw:
+        return initatorTypeNameToString(initiatorInfo.name);
+    case Resource::SVGDocument:
+        return "SVG document";
+    case Resource::XSLStyleSheet:
+        return "XSL stylesheet";
+    case Resource::LinkPrefetch:
+        return "Link prefetch resource";
+    case Resource::LinkSubresource:
+        return "Link subresource";
+    case Resource::TextTrack:
+        return "Text track";
+    case Resource::Shader:
+        return "Shader";
+    case Resource::ImportResource:
+        return "Imported resource";
+    }
+    ASSERT_NOT_REACHED();
+    return initatorTypeNameToString(initiatorInfo.name);
 }
 
 #if !LOG_DISABLED

@@ -29,11 +29,15 @@
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
+#include "SVGNames.h"
+#include "XLinkNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/accessibility/AXObjectCache.h"
+#include "core/clipboard/Clipboard.h"
+#include "core/clipboard/DataObject.h"
+#include "core/clipboard/Pasteboard.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/css/StylePropertySet.h"
-#include "core/dom/Clipboard.h"
 #include "core/dom/DocumentFragment.h"
 #include "core/dom/DocumentMarkerController.h"
 #include "core/dom/NodeList.h"
@@ -45,7 +49,6 @@
 #include "core/editing/IndentOutdentCommand.h"
 #include "core/editing/InputMethodController.h"
 #include "core/editing/InsertListCommand.h"
-#include "core/editing/ModifySelectionListLevel.h"
 #include "core/editing/RemoveFormatCommand.h"
 #include "core/editing/RenderedPosition.h"
 #include "core/editing/ReplaceSelectionCommand.h"
@@ -61,22 +64,24 @@
 #include "core/events/ScopedEventQueue.h"
 #include "core/events/TextEvent.h"
 #include "core/events/ThreadLocalEventNames.h"
+#include "core/fetch/ImageResource.h"
 #include "core/fetch/ResourceFetcher.h"
+#include "core/frame/Frame.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/Settings.h"
 #include "core/html/HTMLImageElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLTextAreaElement.h"
+#include "core/html/parser/HTMLParserIdioms.h"
 #include "core/loader/EmptyClients.h"
 #include "core/page/EditorClient.h"
 #include "core/page/EventHandler.h"
 #include "core/page/FocusController.h"
-#include "core/frame/Frame.h"
-#include "core/frame/FrameView.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
-#include "core/platform/Pasteboard.h"
-#include "core/platform/chromium/ChromiumDataObject.h"
 #include "core/rendering/HitTestResult.h"
+#include "core/rendering/RenderImage.h"
 #include "platform/KillRing.h"
+#include "platform/weborigin/KURL.h"
 #include "wtf/unicode/CharacterNames.h"
 
 namespace WebCore {
@@ -110,7 +115,7 @@ VisibleSelection Editor::selectionForCommand(Event* event)
     // If the target is a text control, and the current selection is outside of its shadow tree,
     // then use the saved selection for that text control.
     HTMLTextFormControlElement* textFormControlOfSelectionStart = enclosingTextFormControl(selection.start());
-    HTMLTextFormControlElement* textFromControlOfTarget = isHTMLTextFormControlElement(event->target()->toNode()) ? toHTMLTextFormControlElement(event->target()->toNode()) : 0;
+    HTMLTextFormControlElement* textFromControlOfTarget = isHTMLTextFormControlElement(*event->target()->toNode()) ? toHTMLTextFormControlElement(event->target()->toNode()) : 0;
     if (textFromControlOfTarget && (selection.start().isNull() || textFromControlOfTarget != textFormControlOfSelectionStart)) {
         if (RefPtr<Range> range = textFromControlOfTarget->selection())
             return VisibleSelection(range.get(), DOWNSTREAM, selection.isDirectional());
@@ -418,6 +423,34 @@ void Editor::writeSelectionToPasteboard(Pasteboard* pasteboard, Range* selectedR
     pasteboard->writeHTML(html, url, plainText, canSmartCopyOrDelete());
 }
 
+static void writeImageNodeToPasteboard(Pasteboard* pasteboard, Node* node, const String& title)
+{
+    ASSERT(pasteboard);
+    ASSERT(node);
+
+    if (!(node->renderer() && node->renderer()->isImage()))
+        return;
+
+    RenderImage* renderer = toRenderImage(node->renderer());
+    ImageResource* cachedImage = renderer->cachedImage();
+    if (!cachedImage || cachedImage->errorOccurred())
+        return;
+    Image* image = cachedImage->imageForRenderer(renderer);
+    ASSERT(image);
+
+    // FIXME: This should probably be reconciled with HitTestResult::absoluteImageURL.
+    AtomicString urlString;
+    if (node->hasTagName(imgTag) || node->hasTagName(inputTag))
+        urlString = toElement(node)->getAttribute(srcAttr);
+    else if (node->hasTagName(SVGNames::imageTag))
+        urlString = toElement(node)->getAttribute(XLinkNames::hrefAttr);
+    else if (node->hasTagName(embedTag) || node->hasTagName(objectTag))
+        urlString = toElement(node)->imageSourceURL();
+    KURL url = urlString.isEmpty() ? KURL() : node->document().completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
+
+    pasteboard->writeImage(image, url, title);
+}
+
 // Returns whether caller should continue with "the default processing", which is the same as
 // the event handler NOT setting the return value to false
 bool Editor::dispatchCPPEvent(const AtomicString &eventType, ClipboardAccessPolicy policy, PasteMode pasteMode)
@@ -430,14 +463,14 @@ bool Editor::dispatchCPPEvent(const AtomicString &eventType, ClipboardAccessPoli
         Clipboard::CopyAndPaste,
         policy,
         policy == ClipboardWritable
-            ? ChromiumDataObject::create()
-            : ChromiumDataObject::createFromPasteboard(pasteMode));
+            ? DataObject::create()
+            : DataObject::createFromPasteboard(pasteMode));
 
     RefPtr<Event> evt = ClipboardEvent::create(eventType, true, true, clipboard);
     target->dispatchEvent(evt, IGNORE_EXCEPTION);
     bool noDefaultProcessing = evt->defaultPrevented();
     if (noDefaultProcessing && policy == ClipboardWritable) {
-        RefPtr<ChromiumDataObject> dataObject = clipboard->dataObject();
+        RefPtr<DataObject> dataObject = clipboard->dataObject();
         Pasteboard::generalPasteboard()->writeDataObject(dataObject.release());
     }
 
@@ -537,83 +570,6 @@ TriState Editor::selectionOrderedListState() const
     }
 
     return FalseTriState;
-}
-
-PassRefPtr<Node> Editor::insertOrderedList()
-{
-    if (!canEditRichly())
-        return 0;
-
-    ASSERT(m_frame.document());
-    RefPtr<Node> newList = InsertListCommand::insertList(*m_frame.document(), InsertListCommand::OrderedList);
-    revealSelectionAfterEditingOperation();
-    return newList;
-}
-
-PassRefPtr<Node> Editor::insertUnorderedList()
-{
-    if (!canEditRichly())
-        return 0;
-
-    ASSERT(m_frame.document());
-    RefPtr<Node> newList = InsertListCommand::insertList(*m_frame.document(), InsertListCommand::UnorderedList);
-    revealSelectionAfterEditingOperation();
-    return newList;
-}
-
-bool Editor::canIncreaseSelectionListLevel()
-{
-    ASSERT(m_frame.document());
-    return canEditRichly() && IncreaseSelectionListLevelCommand::canIncreaseSelectionListLevel(*m_frame.document());
-}
-
-bool Editor::canDecreaseSelectionListLevel()
-{
-    ASSERT(m_frame.document());
-    return canEditRichly() && DecreaseSelectionListLevelCommand::canDecreaseSelectionListLevel(*m_frame.document());
-}
-
-PassRefPtr<Node> Editor::increaseSelectionListLevel()
-{
-    if (!canEditRichly() || m_frame.selection().isNone())
-        return 0;
-
-    ASSERT(m_frame.document());
-    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevel(*m_frame.document());
-    revealSelectionAfterEditingOperation();
-    return newList;
-}
-
-PassRefPtr<Node> Editor::increaseSelectionListLevelOrdered()
-{
-    if (!canEditRichly() || m_frame.selection().isNone())
-        return 0;
-
-    ASSERT(m_frame.document());
-    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(*m_frame.document());
-    revealSelectionAfterEditingOperation();
-    return newList.release();
-}
-
-PassRefPtr<Node> Editor::increaseSelectionListLevelUnordered()
-{
-    if (!canEditRichly() || m_frame.selection().isNone())
-        return 0;
-
-    ASSERT(m_frame.document());
-    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(*m_frame.document());
-    revealSelectionAfterEditingOperation();
-    return newList.release();
-}
-
-void Editor::decreaseSelectionListLevel()
-{
-    if (!canEditRichly() || m_frame.selection().isNone())
-        return;
-
-    ASSERT(m_frame.document());
-    DecreaseSelectionListLevelCommand::decreaseSelectionListLevel(*m_frame.document());
-    revealSelectionAfterEditingOperation();
 }
 
 void Editor::removeFormattingAndStyle()
@@ -922,7 +878,7 @@ void Editor::copy()
     } else {
         Document* document = m_frame.document();
         if (HTMLImageElement* imageElement = imageElementFromImageDocument(document))
-            Pasteboard::generalPasteboard()->writeImage(imageElement, document->url(), document->title());
+            writeImageNodeToPasteboard(Pasteboard::generalPasteboard(), imageElement, document->title());
         else
             writeSelectionToPasteboard(Pasteboard::generalPasteboard(), selectedRange().get(), m_frame.selectedTextForClipboard());
     }
@@ -968,11 +924,7 @@ void Editor::performDelete()
 
 void Editor::copyImage(const HitTestResult& result)
 {
-    KURL url = result.absoluteLinkURL();
-    if (url.isEmpty())
-        url = result.absoluteImageURL();
-
-    Pasteboard::generalPasteboard()->writeImage(result.innerNonSharedNode(), url, result.altDisplayString());
+    writeImageNodeToPasteboard(Pasteboard::generalPasteboard(), result.innerNonSharedNode(), result.altDisplayString());
 }
 
 bool Editor::canUndo()
@@ -1004,7 +956,7 @@ void Editor::redo()
 void Editor::setBaseWritingDirection(WritingDirection direction)
 {
     Node* focusedElement = frame().document()->focusedElement();
-    if (focusedElement && isHTMLTextFormControlElement(focusedElement)) {
+    if (focusedElement && isHTMLTextFormControlElement(*focusedElement)) {
         if (direction == NaturalWritingDirection)
             return;
         toHTMLElement(focusedElement)->setAttribute(dirAttr, direction == LeftToRightWritingDirection ? "ltr" : "rtl");

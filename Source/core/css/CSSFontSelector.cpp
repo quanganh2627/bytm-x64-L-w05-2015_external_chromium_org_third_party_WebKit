@@ -28,18 +28,16 @@
 #include "core/css/CSSFontSelector.h"
 
 #include "RuntimeEnabledFeatures.h"
-#include "core/css/CSSFontFace.h"
-#include "core/css/CSSFontFaceRule.h"
-#include "core/css/CSSFontFaceSource.h"
 #include "core/css/CSSSegmentedFontFace.h"
 #include "core/css/CSSValueList.h"
+#include "core/css/FontFaceSet.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/Document.h"
 #include "core/fetch/FontResource.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/loader/FrameLoader.h"
 #include "core/frame/Frame.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "platform/fonts/FontCache.h"
 #include "platform/fonts/SimpleFontData.h"
 #include "wtf/text/AtomicString.h"
@@ -117,6 +115,7 @@ CSSFontSelector::CSSFontSelector(Document* document)
     ASSERT(m_document);
     ASSERT(m_document->frame());
     FontCache::fontCache()->addClient(this);
+    FontFaceSet::from(document)->addFontFacesToFontFaceCache(&m_fontFaceCache, this);
 }
 
 CSSFontSelector::~CSSFontSelector()
@@ -125,19 +124,19 @@ CSSFontSelector::~CSSFontSelector()
     FontCache::fontCache()->removeClient(this);
 }
 
-void CSSFontSelector::registerForInvalidationCallbacks(FontSelectorClient* client)
+void CSSFontSelector::registerForInvalidationCallbacks(CSSFontSelectorClient* client)
 {
     m_clients.add(client);
 }
 
-void CSSFontSelector::unregisterForInvalidationCallbacks(FontSelectorClient* client)
+void CSSFontSelector::unregisterForInvalidationCallbacks(CSSFontSelectorClient* client)
 {
     m_clients.remove(client);
 }
 
 void CSSFontSelector::dispatchInvalidationCallbacks()
 {
-    Vector<FontSelectorClient*> clients;
+    Vector<CSSFontSelectorClient*> clients;
     copyToVector(m_clients, clients);
     for (size_t i = 0; i < clients.size(); ++i)
         clients[i]->fontsNeedUpdate(this);
@@ -151,16 +150,6 @@ void CSSFontSelector::fontLoaded()
 void CSSFontSelector::fontCacheInvalidated()
 {
     dispatchInvalidationCallbacks();
-}
-
-void CSSFontSelector::addFontFaceRule(const StyleRuleFontFace* fontFaceRule, PassRefPtr<CSSFontFace> cssFontFace)
-{
-    m_cssSegmentedFontFaceCache.add(this, fontFaceRule, cssFontFace);
-}
-
-void CSSFontSelector::removeFontFaceRule(const StyleRuleFontFace* fontFaceRule)
-{
-    m_cssSegmentedFontFaceCache.remove(fontFaceRule);
 }
 
 static AtomicString familyNameFromSettings(const GenericFontFamilySettings& settings, const FontDescription& fontDescription, const AtomicString& genericFamilyName)
@@ -193,7 +182,7 @@ static AtomicString familyNameFromSettings(const GenericFontFamilySettings& sett
 
 PassRefPtr<FontData> CSSFontSelector::getFontData(const FontDescription& fontDescription, const AtomicString& familyName)
 {
-    if (CSSSegmentedFontFace* face = m_cssSegmentedFontFaceCache.get(fontDescription, familyName))
+    if (CSSSegmentedFontFace* face = m_fontFaceCache.get(fontDescription, familyName))
         return face->getFontData(fontDescription);
 
     // Try to return the correct font based off our settings, in case we were handed the generic font family name.
@@ -204,14 +193,9 @@ PassRefPtr<FontData> CSSFontSelector::getFontData(const FontDescription& fontDes
     return FontCache::fontCache()->getFontData(fontDescription, settingsFamilyName);
 }
 
-CSSSegmentedFontFace* CSSFontSelector::getFontFace(const FontDescription& fontDescription, const AtomicString& familyName)
-{
-    return m_cssSegmentedFontFaceCache.get(fontDescription, familyName);
-}
-
 void CSSFontSelector::willUseFontData(const FontDescription& fontDescription, const AtomicString& family)
 {
-    CSSSegmentedFontFace* face = getFontFace(fontDescription, family);
+    CSSSegmentedFontFace* face = m_fontFaceCache.get(fontDescription, family);
     if (face)
         face->willUseFontData(fontDescription);
 }
@@ -230,6 +214,12 @@ void CSSFontSelector::beginLoadingFontSoon(FontResource* font)
 void CSSFontSelector::loadPendingFonts()
 {
     m_fontLoader.loadPendingFonts();
+}
+
+void CSSFontSelector::updateGenericFontFamilySettings(Document& document)
+{
+    ASSERT(document.settings());
+    m_genericFontFamilySettings = document.settings()->genericFontFamilySettings();
 }
 
 }

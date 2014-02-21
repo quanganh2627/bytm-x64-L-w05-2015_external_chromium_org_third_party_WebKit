@@ -50,7 +50,6 @@ public:
     SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes*>&);
 
     Vector<SVGTextLayoutAttributes*>& layoutAttributes() { return m_layoutAttributes; }
-    SVGTextChunkBuilder& chunkLayoutBuilder() { return m_chunkLayoutBuilder; }
 
     void beginTextPathLayout(RenderObject*, SVGTextLayoutEngine& lineLayout);
     void endTextPathLayout();
@@ -97,7 +96,7 @@ private:
     bool m_inPathLayout;
 
     // Text on path layout
-    Path m_textPath;
+    Path::PositionCalculator* m_textPathCalculator;
     float m_textPathLength;
     float m_textPathStartOffset;
     float m_textPathCurrentOffset;

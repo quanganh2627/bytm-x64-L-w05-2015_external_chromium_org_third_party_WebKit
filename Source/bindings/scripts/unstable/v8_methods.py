@@ -48,8 +48,8 @@ def generate_method(interface, method):
     is_static = method.is_static
     name = method.name
 
+    v8_types.add_includes_for_type(idl_type)
     this_cpp_value = cpp_value(interface, method, len(arguments))
-    this_custom_signature = custom_signature(method, arguments)
 
     def function_template():
         if is_static:
@@ -57,13 +57,6 @@ def generate_method(interface, method):
         if 'Unforgeable' in extended_attributes:
             return 'instanceTemplate'
         return 'prototypeTemplate'
-
-    def signature():
-        if this_custom_signature:
-            return name + 'Signature'
-        if is_static or 'DoNotCheckSignature' in extended_attributes:
-            return 'v8::Local<v8::Signature>()'
-        return 'defaultSignature'
 
     is_call_with_script_arguments = has_extended_attribute_value(method, 'CallWith', 'ScriptArguments')
     if is_call_with_script_arguments:
@@ -78,41 +71,49 @@ def generate_method(interface, method):
     is_custom_element_callbacks = 'CustomElementCallbacks' in extended_attributes
     if is_custom_element_callbacks:
         includes.add('core/dom/custom/CustomElementCallbackDispatcher.h')
-    is_raises_exception = 'RaisesException' in extended_attributes
-    if is_raises_exception:
-        includes.update(['bindings/v8/ExceptionMessages.h',
-                         'bindings/v8/ExceptionState.h'])
 
-    contents = {
+    is_check_security_for_frame = (
+        'CheckSecurity' in interface.extended_attributes and
+        'DoNotCheckSecurity' not in extended_attributes)
+    is_raises_exception = 'RaisesException' in extended_attributes
+
+    return {
         'activity_logging_world_list': v8_utilities.activity_logging_world_list(method),  # [ActivityLogging]
         'arguments': [generate_argument(interface, method, argument, index)
                       for index, argument in enumerate(arguments)],
         'conditional_string': v8_utilities.conditional_string(method),
         'cpp_type': v8_types.cpp_type(idl_type),
         'cpp_value': this_cpp_value,
-        'custom_signature': this_custom_signature,
         'deprecate_as': v8_utilities.deprecate_as(method),  # [DeprecateAs]
-        'do_not_check_signature': not(this_custom_signature or is_static or
+        'do_not_check_signature': not(is_static or
             v8_utilities.has_extended_attribute(method,
                 ['DoNotCheckSecurity', 'DoNotCheckSignature', 'NotEnumerable',
                  'ReadOnly', 'RuntimeEnabled', 'Unforgeable'])),
         'function_template': function_template(),
         'idl_type': idl_type,
+        'has_exception_state':
+            is_raises_exception or
+            is_check_security_for_frame or
+            any(argument for argument in arguments
+                if argument.idl_type == 'SerializedScriptValue' or
+                   v8_types.is_integer_type(argument.idl_type)) or
+            name in ['addEventListener', 'removeEventListener', 'dispatchEvent'],
         'is_call_with_execution_context': has_extended_attribute_value(method, 'CallWith', 'ExecutionContext'),
         'is_call_with_script_arguments': is_call_with_script_arguments,
         'is_call_with_script_state': is_call_with_script_state,
-        'is_check_security_for_frame': (
-            'CheckSecurity' in interface.extended_attributes and
-            'DoNotCheckSecurity' not in extended_attributes),
+        'is_check_security_for_frame': is_check_security_for_frame,
         'is_check_security_for_node': is_check_security_for_node,
         'is_custom': 'Custom' in extended_attributes,
         'is_custom_element_callbacks': is_custom_element_callbacks,
         'is_do_not_check_security': 'DoNotCheckSecurity' in extended_attributes,
+        'is_do_not_check_signature': 'DoNotCheckSignature' in extended_attributes,
         'is_per_world_bindings': 'PerWorldBindings' in extended_attributes,
         'is_raises_exception': is_raises_exception,
         'is_read_only': 'ReadOnly' in extended_attributes,
         'is_static': is_static,
-        'is_strict_type_checking': 'StrictTypeChecking' in extended_attributes,
+        'is_strict_type_checking':
+            'StrictTypeChecking' in extended_attributes or
+            'StrictTypeChecking' in interface.extended_attributes,
         'is_variadic': arguments and arguments[-1].is_variadic,
         'measure_as': v8_utilities.measure_as(method),  # [MeasureAs]
         'name': name,
@@ -126,11 +127,12 @@ def generate_method(interface, method):
         'per_context_enabled_function': v8_utilities.per_context_enabled_function_name(method),  # [PerContextEnabled]
         'property_attributes': property_attributes(method),
         'runtime_enabled_function': v8_utilities.runtime_enabled_function_name(method),  # [RuntimeEnabled]
-        'signature': signature(),
-        'v8_set_return_value': v8_set_return_value(method, this_cpp_value),
+        'signature': 'v8::Local<v8::Signature>()' if is_static or 'DoNotCheckSignature' in extended_attributes else 'defaultSignature',
+        'union_arguments': union_arguments(idl_type),
+        'v8_set_return_value_for_main_world': v8_set_return_value(interface.name, method, this_cpp_value, for_main_world=True),
+        'v8_set_return_value': v8_set_return_value(interface.name, method, this_cpp_value),
         'world_suffixes': ['', 'ForMainWorld'] if 'PerWorldBindings' in extended_attributes else [''],  # [PerWorldBindings]
     }
-    return contents
 
 
 def generate_argument(interface, method, argument, index):
@@ -145,20 +147,28 @@ def generate_argument(interface, method, argument, index):
         'idl_type': idl_type,
         'index': index,
         'is_clamp': 'Clamp' in extended_attributes,
+        'is_callback_interface': v8_types.is_callback_interface(idl_type),
         'is_nullable': argument.is_nullable,
         'is_optional': argument.is_optional,
         'is_strict_type_checking': 'StrictTypeChecking' in extended_attributes,
         'is_variadic_wrapper_type': argument.is_variadic and v8_types.is_wrapper_type(idl_type),
         'is_wrapper_type': v8_types.is_wrapper_type(idl_type),
         'name': argument.name,
-        'v8_set_return_value': v8_set_return_value(method, this_cpp_value),
+        'v8_set_return_value_for_main_world': v8_set_return_value(interface.name, method, this_cpp_value, for_main_world=True),
+        'v8_set_return_value': v8_set_return_value(interface.name, method, this_cpp_value),
         'v8_value_to_local_cpp_value': v8_value_to_local_cpp_value(argument, index),
     }
 
 
+################################################################################
+# Value handling
+################################################################################
+
 def cpp_value(interface, method, number_of_arguments):
     def cpp_argument(argument):
-        if argument.idl_type in ['NodeFilter', 'XPathNSResolver']:
+        idl_type = argument.idl_type
+        if (v8_types.is_callback_interface(idl_type) or
+            idl_type in ['NodeFilter', 'XPathNSResolver']):
             # FIXME: remove this special case
             return '%s.release()' % argument.name
         return argument.name
@@ -166,7 +176,14 @@ def cpp_value(interface, method, number_of_arguments):
     # Truncate omitted optional arguments
     arguments = method.arguments[:number_of_arguments]
     cpp_arguments = v8_utilities.call_with_arguments(method)
+    if ('ImplementedBy' in method.extended_attributes and
+        not method.is_static):
+        cpp_arguments.append('imp')
     cpp_arguments.extend(cpp_argument(argument) for argument in arguments)
+    this_union_arguments = union_arguments(method.idl_type)
+    if this_union_arguments:
+        cpp_arguments.extend(this_union_arguments)
+
     if 'RaisesException' in method.extended_attributes:
         cpp_arguments.append('exceptionState')
 
@@ -174,49 +191,29 @@ def cpp_value(interface, method, number_of_arguments):
     return '%s(%s)' % (cpp_method_name, ', '.join(cpp_arguments))
 
 
-def v8_set_return_value(method, cpp_value):
+def v8_set_return_value(interface_name, method, cpp_value, for_main_world=False):
     idl_type = method.idl_type
+    extended_attributes = method.extended_attributes
     if idl_type == 'void':
         return None
-    # [CallWith=ScriptState]
-    if has_extended_attribute_value(method, 'CallWith', 'ScriptState'):
-        cpp_value = 'result'  # use local variable for value
-    return v8_types.v8_set_return_value(idl_type, cpp_value, method.extended_attributes)
+    is_union_type = v8_types.is_union_type(idl_type)
 
+    release = False
+    # [CallWith=ScriptState], [RaisesException]
+    if (has_extended_attribute_value(method, 'CallWith', 'ScriptState') or
+        'RaisesException' in extended_attributes or
+        is_union_type):
+        # use local variable for value
+        cpp_value = 'result'
 
-def custom_signature(method, arguments):
-    def argument_template(argument):
-        idl_type = argument.idl_type
-        if (v8_types.is_wrapper_type(idl_type) and
-            not v8_types.is_typed_array_type(idl_type) and
-            # Compatibility: all other browsers accepts a callable for
-            # XPathNSResolver, despite it being against spec.
-            not idl_type == 'XPathNSResolver'):
-            return 'V8PerIsolateData::from(isolate)->rawDOMTemplate(&V8{idl_type}::wrapperTypeInfo, currentWorldType)'.format(idl_type=idl_type)
-        return 'v8::Handle<v8::FunctionTemplate>()'
+        if is_union_type:
+            release = [v8_types.is_interface_type(union_member_type)
+                       for union_member_type in idl_type.union_member_types]
+        else:
+            release = v8_types.is_interface_type(idl_type)
 
-    if (any(argument.is_optional and
-            'Default' not in argument.extended_attributes
-            for argument in arguments) or
-        all(not v8_types.is_wrapper_type(argument.idl_type)
-            for argument in arguments) or
-        # For [StrictTypeChecking], type checking is done in the generated code
-        'StrictTypeChecking' in method.extended_attributes):
-        return None
-    return ', '.join([argument_template(argument) for argument in arguments])
-
-
-# [NotEnumerable]
-def property_attributes(method):
-    extended_attributes = method.extended_attributes
-    property_attributes_list = []
-    if 'NotEnumerable' in extended_attributes:
-        property_attributes_list.append('v8::DontEnum')
-    if 'ReadOnly' in extended_attributes:
-        property_attributes_list.append('v8::ReadOnly')
-    if property_attributes_list:
-        property_attributes_list.insert(0, 'v8::DontDelete')
-    return property_attributes_list
+    script_wrappable = 'imp' if v8_types.inherits_interface(interface_name, 'Node') else ''
+    return v8_types.v8_set_return_value(idl_type, cpp_value, extended_attributes, script_wrappable=script_wrappable, release=release, for_main_world=for_main_world)
 
 
 def v8_value_to_local_cpp_value(argument, index):
@@ -234,3 +231,29 @@ def v8_value_to_local_cpp_value(argument, index):
         v8_value = 'info[%s]' % index
     return v8_types.v8_value_to_local_cpp_value(
         idl_type, argument.extended_attributes, v8_value, name, index=index)
+
+
+################################################################################
+# Auxiliary functions
+################################################################################
+
+# [NotEnumerable]
+def property_attributes(method):
+    extended_attributes = method.extended_attributes
+    property_attributes_list = []
+    if 'NotEnumerable' in extended_attributes:
+        property_attributes_list.append('v8::DontEnum')
+    if 'ReadOnly' in extended_attributes:
+        property_attributes_list.append('v8::ReadOnly')
+    if property_attributes_list:
+        property_attributes_list.insert(0, 'v8::DontDelete')
+    return property_attributes_list
+
+
+def union_arguments(idl_type):
+    """Return list of ['result0Enabled', 'result0', 'result1Enabled', ...] for union types, for use in setting return value"""
+    if not v8_types.is_union_type(idl_type):
+        return None
+    return [arg
+            for i in range(len(idl_type.union_member_types))
+            for arg in ['result%sEnabled' % i, 'result%s' % i]]

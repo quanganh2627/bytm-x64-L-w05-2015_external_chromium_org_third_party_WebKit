@@ -57,11 +57,13 @@ void V8TextTrackCue::constructorCustom(const v8::FunctionCallbackInfo<v8::Value>
     V8TRYCATCH_VOID(double, endTime, static_cast<double>(info[1]->NumberValue()));
     V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, text, info[2]);
 
-    Document& document = *toDocument(getExecutionContext());
-    UseCounter::count(document, UseCounter::TextTrackCueConstructor);
-    VTTCue* impl = VTTCue::create(document, startTime, endTime, text).leakRef();
-    v8::Handle<v8::Object> wrapper = wrap(impl, info.Holder(), info.GetIsolate());
-    info.GetReturnValue().Set(wrapper);
+    Document& document = *toDocument(currentExecutionContext(info.GetIsolate()));
+    UseCounter::countDeprecation(document, UseCounter::TextTrackCueConstructor);
+
+    RefPtr<VTTCue> impl = VTTCue::create(document, startTime, endTime, text);
+    v8::Handle<v8::Object> wrapper = wrap(impl.get(), info.Holder(), info.GetIsolate());
+
+    v8SetReturnValue(info, wrapper);
 }
 
 } // namespace WebCore

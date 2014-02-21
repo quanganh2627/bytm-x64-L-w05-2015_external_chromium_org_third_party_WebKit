@@ -13,7 +13,7 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
 GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp)/config.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_gyp)/webcore.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_core_webcore_derived_gyp)/third_party_WebKit_Source_core_webcore_derived_gyp.a \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_core_webcore_generated_gyp)/third_party_WebKit_Source_core_webcore_generated_gyp.a \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
@@ -26,20 +26,13 @@ LOCAL_GENERATED_SOURCES :=
 GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 
 LOCAL_SRC_FILES := \
-	third_party/WebKit/Source/modules/crypto/AesCbcParams.cpp \
-	third_party/WebKit/Source/modules/crypto/AesCtrParams.cpp \
-	third_party/WebKit/Source/modules/crypto/AesKeyGenParams.cpp \
 	third_party/WebKit/Source/modules/crypto/Algorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/Crypto.cpp \
 	third_party/WebKit/Source/modules/crypto/CryptoResultImpl.cpp \
 	third_party/WebKit/Source/modules/crypto/DOMWindowCrypto.cpp \
-	third_party/WebKit/Source/modules/crypto/HmacKeyParams.cpp \
-	third_party/WebKit/Source/modules/crypto/HmacParams.cpp \
 	third_party/WebKit/Source/modules/crypto/Key.cpp \
 	third_party/WebKit/Source/modules/crypto/KeyPair.cpp \
 	third_party/WebKit/Source/modules/crypto/NormalizeAlgorithm.cpp \
-	third_party/WebKit/Source/modules/crypto/RsaKeyGenParams.cpp \
-	third_party/WebKit/Source/modules/crypto/RsaSsaParams.cpp \
 	third_party/WebKit/Source/modules/crypto/SubtleCrypto.cpp \
 	third_party/WebKit/Source/modules/crypto/WorkerCrypto.cpp \
 	third_party/WebKit/Source/modules/crypto/WorkerGlobalScopeCrypto.cpp \
@@ -52,6 +45,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationDispatcher.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationData.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationEvent.cpp \
+	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationInspectorAgent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceRotationRate.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceSensorEventController.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceSensorEventDispatcher.cpp \
@@ -83,6 +77,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/filesystem/FileWriterBase.cpp \
 	third_party/WebKit/Source/modules/filesystem/FileWriterSync.cpp \
 	third_party/WebKit/Source/modules/filesystem/HTMLInputElementFileSystem.cpp \
+	third_party/WebKit/Source/modules/filesystem/InspectorFileSystemAgent.cpp \
+	third_party/WebKit/Source/modules/filesystem/InspectorFrontendHostFileSystem.cpp \
 	third_party/WebKit/Source/modules/filesystem/LocalFileSystem.cpp \
 	third_party/WebKit/Source/modules/filesystem/WorkerGlobalScopeFileSystem.cpp \
 	third_party/WebKit/Source/modules/gamepad/Gamepad.cpp \
@@ -91,7 +87,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/geolocation/Coordinates.cpp \
 	third_party/WebKit/Source/modules/geolocation/Geolocation.cpp \
 	third_party/WebKit/Source/modules/geolocation/GeolocationController.cpp \
+	third_party/WebKit/Source/modules/geolocation/GeolocationInspectorAgent.cpp \
+	third_party/WebKit/Source/modules/geolocation/Geoposition.cpp \
 	third_party/WebKit/Source/modules/geolocation/NavigatorGeolocation.cpp \
+	third_party/WebKit/Source/modules/geolocation/PositionError.cpp \
+	third_party/WebKit/Source/modules/geolocation/PositionOptions.cpp \
 	third_party/WebKit/Source/modules/imagebitmap/ImageBitmapFactories.cpp \
 	third_party/WebKit/Source/modules/indexeddb/DOMWindowIndexedDatabase.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBAny.cpp \
@@ -111,6 +111,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/indexeddb/IDBRequest.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBTransaction.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBVersionChangeEvent.cpp \
+	third_party/WebKit/Source/modules/indexeddb/InspectorIndexedDBAgent.cpp \
 	third_party/WebKit/Source/modules/indexeddb/PageGroupIndexedDatabase.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBDatabaseCallbacksImpl.cpp \
@@ -128,12 +129,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediasource/WebKitSourceBuffer.cpp \
 	third_party/WebKit/Source/modules/mediasource/WebKitSourceBufferList.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaConstraintsImpl.cpp \
+	third_party/WebKit/Source/modules/mediastream/MediaDeviceInfo.cpp \
+	third_party/WebKit/Source/modules/mediastream/MediaDevicesRequest.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaStream.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaStreamEvent.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaStreamRegistry.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaStreamTrack.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaStreamTrackEvent.cpp \
-	third_party/WebKit/Source/modules/mediastream/MediaStreamTrackSourcesRequest.cpp \
+	third_party/WebKit/Source/modules/mediastream/MediaStreamTrackSourcesRequestImpl.cpp \
 	third_party/WebKit/Source/modules/mediastream/NavigatorMediaStream.cpp \
 	third_party/WebKit/Source/modules/mediastream/NavigatorUserMediaError.cpp \
 	third_party/WebKit/Source/modules/mediastream/RTCDTMFSender.cpp \
@@ -153,9 +156,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediastream/UserMediaController.cpp \
 	third_party/WebKit/Source/modules/mediastream/UserMediaRequest.cpp \
 	third_party/WebKit/Source/modules/mediastream/URLMediaStream.cpp \
-	third_party/WebKit/Source/modules/mediastream/WebMediaStreamTrackSourcesRequest.cpp \
-	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerGlobalScope.cpp \
-	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerThread.cpp \
 	third_party/WebKit/Source/modules/navigatorcontentutils/NavigatorContentUtils.cpp \
 	third_party/WebKit/Source/modules/notifications/DOMWindowNotifications.cpp \
 	third_party/WebKit/Source/modules/notifications/Notification.cpp \
@@ -164,18 +164,31 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/notifications/NotificationController.cpp \
 	third_party/WebKit/Source/modules/notifications/WebKitNotification.cpp \
 	third_party/WebKit/Source/modules/notifications/WorkerGlobalScopeNotifications.cpp \
+	third_party/WebKit/Source/modules/performance/SharedWorkerPerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerGlobalScopePerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerPerformance.cpp \
+	third_party/WebKit/Source/modules/quota/DeprecatedStorageInfo.cpp \
+	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuota.cpp \
+	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuotaCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/quota/DOMWindowQuota.cpp \
 	third_party/WebKit/Source/modules/quota/NavigatorStorageQuota.cpp \
-	third_party/WebKit/Source/modules/quota/StorageInfo.cpp \
 	third_party/WebKit/Source/modules/quota/StorageErrorCallback.cpp \
+	third_party/WebKit/Source/modules/quota/StorageInfo.cpp \
 	third_party/WebKit/Source/modules/quota/StorageQuota.cpp \
-	third_party/WebKit/Source/modules/quota/WebStorageQuotaCallbacksImpl.cpp \
+	third_party/WebKit/Source/modules/quota/StorageQuotaCallbacksImpl.cpp \
+	third_party/WebKit/Source/modules/quota/StorageQuotaClient.cpp \
 	third_party/WebKit/Source/modules/quota/WorkerNavigatorStorageQuota.cpp \
-	third_party/WebKit/Source/modules/serviceworkers/ServiceWorker.cpp \
-	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerError.cpp \
+	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientation.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/InstallEvent.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/InstallPhaseEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/NavigatorServiceWorker.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorker.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerContainer.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerError.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerGlobalScope.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerGlobalScopeClient.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerThread.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/WaitUntilObserver.cpp \
 	third_party/WebKit/Source/modules/speech/DOMWindowSpeechSynthesis.cpp \
 	third_party/WebKit/Source/modules/speech/SpeechGrammar.cpp \
 	third_party/WebKit/Source/modules/speech/SpeechGrammarList.cpp \
@@ -250,6 +263,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseThread.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseTracker.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DOMWindowWebDatabase.cpp \
+	third_party/WebKit/Source/modules/webdatabase/InspectorDatabaseAgent.cpp \
+	third_party/WebKit/Source/modules/webdatabase/InspectorDatabaseResource.cpp \
 	third_party/WebKit/Source/modules/webdatabase/QuotaTracker.cpp \
 	third_party/WebKit/Source/modules/webdatabase/SQLError.cpp \
 	third_party/WebKit/Source/modules/webdatabase/SQLResultSet.cpp \
@@ -323,14 +338,15 @@ MY_CFLAGS_Debug := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-g \
 	-fomit-frame-pointer \
 	-fdata-sections \
-	-ffunction-sections
+	-ffunction-sections \
+	-funwind-tables
 
 MY_DEFS_Debug := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -341,7 +357,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -350,17 +365,14 @@ MY_DEFS_Debug := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -368,8 +380,9 @@ MY_DEFS_Debug := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -430,7 +443,6 @@ LOCAL_CPPFLAGS_Debug := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 
@@ -462,14 +474,15 @@ MY_CFLAGS_Release := \
 	-Wno-extra \
 	-Wno-ignored-qualifiers \
 	-Wno-type-limits \
+	-Wno-unused-but-set-variable \
 	-Os \
 	-fno-ident \
 	-fdata-sections \
 	-ffunction-sections \
-	-fomit-frame-pointer
+	-fomit-frame-pointer \
+	-funwind-tables
 
 MY_DEFS_Release := \
-	'-DANGLE_DX11' \
 	'-DV8_DEPRECATION_WARNINGS' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
@@ -480,7 +493,6 @@ MY_DEFS_Release := \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC' \
 	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
@@ -489,17 +501,14 @@ MY_DEFS_Release := \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
-	'-DENABLE_ENCRYPTED_MEDIA_V2=1' \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
 	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
-	'-DENABLE_TOUCH_ICON_LOADING=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
+	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
-	'-DENABLE_ORIENTATION_EVENTS=1' \
-	'-DENABLE_NAVIGATOR_CONTENT_UTILS=0' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -507,8 +516,9 @@ MY_DEFS_Release := \
 	'-DGR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"' \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
-	'-DSK_SUPPORT_LEGACY_COLORTYPE=1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
+	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -570,7 +580,6 @@ LOCAL_CPPFLAGS_Release := \
 	-Wsign-compare \
 	-Wno-c++0x-compat \
 	-Wno-abi \
-	-Wno-error=c++0x-compat \
 	-Wno-non-virtual-dtor \
 	-Wno-sign-promo
 
@@ -621,7 +630,7 @@ LOCAL_LDFLAGS_Release := \
 LOCAL_LDFLAGS := $(LOCAL_LDFLAGS_$(GYP_CONFIGURATION))
 
 LOCAL_STATIC_LIBRARIES := \
-	third_party_WebKit_Source_core_webcore_derived_gyp \
+	third_party_WebKit_Source_core_webcore_generated_gyp \
 	skia_skia_library_gyp
 
 # Enable grouping to fix circular references

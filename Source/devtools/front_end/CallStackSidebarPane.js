@@ -33,11 +33,12 @@ WebInspector.CallStackSidebarPane = function()
     this.bodyElement.addEventListener("keydown", this._keyDown.bind(this), true);
     this.bodyElement.tabIndex = 0;
 
-    var asyncCheckbox = this.titleElement.appendChild(WebInspector.SettingsTab.createSettingCheckbox(WebInspector.UIString("Async"), WebInspector.settings.enableAsyncStackTraces, true, undefined, WebInspector.UIString("Capture async stack traces")));
-    asyncCheckbox.classList.add("scripts-callstack-async");
-    asyncCheckbox.addEventListener("click", consumeEvent, false);
-
-    WebInspector.settings.enableAsyncStackTraces.addChangeListener(this._asyncStackTracesStateChanged, this);
+    if (WebInspector.experimentsSettings.asyncStackTraces.isEnabled()) {
+        var asyncCheckbox = this.titleElement.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Async"), WebInspector.settings.enableAsyncStackTraces, true, undefined, WebInspector.UIString("Capture async stack traces")));
+        asyncCheckbox.classList.add("scripts-callstack-async");
+        asyncCheckbox.addEventListener("click", consumeEvent, false);
+        WebInspector.settings.enableAsyncStackTraces.addChangeListener(this._asyncStackTracesStateChanged, this);
+    }
 }
 
 WebInspector.CallStackSidebarPane.Events = {
@@ -66,8 +67,13 @@ WebInspector.CallStackSidebarPane.prototype = {
         this._appendSidebarPlacards(callFrames);
 
         while (asyncStackTrace) {
-            var title = "[" + (asyncStackTrace.description || WebInspector.UIString("Async Call")) + "]";
+            var title = asyncStackTrace.description;
+            if (title)
+                title += " " + WebInspector.UIString("(async)");
+            else
+                title = WebInspector.UIString("Async Call");
             var asyncPlacard = new WebInspector.Placard(title, "");
+            asyncPlacard.element.classList.add("placard-label");
             this.bodyElement.appendChild(asyncPlacard.element);
             this._appendSidebarPlacards(asyncStackTrace.callFrames, asyncPlacard);
             asyncStackTrace = asyncStackTrace.asyncStackTrace;
@@ -100,7 +106,7 @@ WebInspector.CallStackSidebarPane.prototype = {
     {
         var contextMenu = new WebInspector.ContextMenu(event);
 
-        if (!placard._callFrame.isAsync() && WebInspector.debuggerModel.canSetScriptSource())
+        if (!placard._callFrame.isAsync())
             contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Restart frame" : "Restart Frame"), this._restartFrame.bind(this, placard));
 
         contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy stack trace" : "Copy Stack Trace"), this._copyStackTrace.bind(this));
@@ -161,9 +167,8 @@ WebInspector.CallStackSidebarPane.prototype = {
     {
         var index = this._selectedCallFrameIndex();
         if (index === -1)
-            return true;
-        this._selectPlacardByIndex(index + 1);
-        return true;
+            return false;
+        return this._selectPlacardByIndex(index + 1);
     },
 
     /**
@@ -173,19 +178,20 @@ WebInspector.CallStackSidebarPane.prototype = {
     {
         var index = this._selectedCallFrameIndex();
         if (index === -1)
-            return true;
-        this._selectPlacardByIndex(index - 1);
-        return true;
+            return false;
+        return this._selectPlacardByIndex(index - 1);
     },
 
     /**
      * @param {number} index
+     * @return {boolean}
      */
     _selectPlacardByIndex: function(index)
     {
         if (index < 0 || index >= this.placards.length)
-            return;
-        this._placardSelected(this.placards[index])
+            return false;
+        this._placardSelected(this.placards[index]);
+        return true;
     },
 
     /**
@@ -209,6 +215,7 @@ WebInspector.CallStackSidebarPane.prototype = {
      */
     _placardSelected: function(placard)
     {
+        placard.element.scrollIntoViewIfNeeded();
         this.dispatchEventToListeners(WebInspector.CallStackSidebarPane.Events.CallFrameSelected, placard._callFrame);
     },
 
@@ -228,8 +235,8 @@ WebInspector.CallStackSidebarPane.prototype = {
      */
     registerShortcuts: function(registerShortcutDelegate)
     {
-        registerShortcutDelegate(WebInspector.SourcesPanelDescriptor.ShortcutKeys.NextCallFrame, this._selectNextCallFrameOnStack.bind(this));
-        registerShortcutDelegate(WebInspector.SourcesPanelDescriptor.ShortcutKeys.PrevCallFrame, this._selectPreviousCallFrameOnStack.bind(this));
+        registerShortcutDelegate(WebInspector.ShortcutsScreen.SourcesPanelShortcuts.NextCallFrame, this._selectNextCallFrameOnStack.bind(this));
+        registerShortcutDelegate(WebInspector.ShortcutsScreen.SourcesPanelShortcuts.PrevCallFrame, this._selectPreviousCallFrameOnStack.bind(this));
     },
 
     /**
@@ -251,14 +258,8 @@ WebInspector.CallStackSidebarPane.prototype = {
     {
         if (event.altKey || event.shiftKey || event.metaKey || event.ctrlKey)
             return;
-
-        if (event.keyIdentifier === "Up") {
-            this._selectPreviousCallFrameOnStack();
-            event.consume();
-        } else if (event.keyIdentifier === "Down") {
-            this._selectNextCallFrameOnStack();
-            event.consume();
-        }
+        if (event.keyIdentifier === "Up" && this._selectPreviousCallFrameOnStack() || event.keyIdentifier === "Down" && this._selectNextCallFrameOnStack())
+            event.consume(true);
     },
 
     __proto__: WebInspector.SidebarPane.prototype

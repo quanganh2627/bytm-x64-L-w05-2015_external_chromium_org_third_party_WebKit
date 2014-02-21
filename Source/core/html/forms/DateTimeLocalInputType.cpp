@@ -65,11 +65,6 @@ const AtomicString& DateTimeLocalInputType::formControlType() const
     return InputTypeNames::datetime_local;
 }
 
-DateComponents::Type DateTimeLocalInputType::dateType() const
-{
-    return DateComponents::DateTimeLocal;
-}
-
 double DateTimeLocalInputType::valueAsDate() const
 {
     // valueAsDate doesn't work for the datetime-local type according to the standard.
@@ -86,11 +81,7 @@ StepRange DateTimeLocalInputType::createStepRange(AnyStepHandling anyStepHandlin
 {
     DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (dateTimeLocalDefaultStep, dateTimeLocalDefaultStepBase, dateTimeLocalStepScaleFactor, StepRange::ScaledStepValueShouldBeInteger));
 
-    const Decimal stepBase = findStepBase(0);
-    const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumDateTime()));
-    const Decimal maximum = parseToNumber(element().fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumDateTime()));
-    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
-    return StepRange(stepBase, minimum, maximum, step, stepDescription);
+    return InputType::createStepRange(anyStepHandling, dateTimeLocalDefaultStepBase, Decimal::fromDouble(DateComponents::minimumDateTime()), Decimal::fromDouble(DateComponents::maximumDateTime()), stepDescription);
 }
 
 bool DateTimeLocalInputType::parseToDateComponentsInternal(const String& string, DateComponents* out) const

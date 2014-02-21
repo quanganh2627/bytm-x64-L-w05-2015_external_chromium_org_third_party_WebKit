@@ -41,7 +41,7 @@
 #include "core/html/HTMLInputElement.h"
 #include "core/loader/EmptyClients.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "core/page/SpellCheckerClient.h"
 #include "core/rendering/RenderTextControl.h"
 #include "platform/text/TextCheckerClient.h"
@@ -104,7 +104,7 @@ void SpellChecker::toggleContinuousSpellChecking()
     if (isContinuousSpellCheckingEnabled())
         return;
     for (Frame* frame = m_frame.page()->mainFrame(); frame && frame->document(); frame = frame->tree().traverseNext()) {
-        for (Node* node = frame->document()->rootNode(); node; node = NodeTraversal::next(*node)) {
+        for (Node* node = &frame->document()->rootNode(); node; node = NodeTraversal::next(*node)) {
             node->setAlreadySpellChecked(false);
         }
     }
@@ -120,11 +120,11 @@ void SpellChecker::didBeginEditing(Element* element)
     if (isContinuousSpellCheckingEnabled() && unifiedTextCheckerEnabled()) {
         bool isTextField = false;
         HTMLTextFormControlElement* enclosingHTMLTextFormControlElement = 0;
-        if (!isHTMLTextFormControlElement(element))
+        if (!isHTMLTextFormControlElement(*element))
             enclosingHTMLTextFormControlElement = enclosingTextFormControl(firstPositionInNode(element));
         element = enclosingHTMLTextFormControlElement ? enclosingHTMLTextFormControlElement : element;
         Element* parent = element;
-        if (isHTMLTextFormControlElement(element)) {
+        if (isHTMLTextFormControlElement(*element)) {
             HTMLTextFormControlElement* textControl = toHTMLTextFormControlElement(element);
             parent = textControl;
             element = textControl->innerTextElement();
@@ -302,36 +302,6 @@ void SpellChecker::advanceToNextMisspelling(bool startBeforeSelection)
         spellCheckerClient().updateSpellingUIWithMisspelledWord(misspelledWord);
         m_frame.document()->markers()->addMarker(misspellingRange.get(), DocumentMarker::Spelling);
     }
-}
-
-String SpellChecker::misspelledWordAtCaretOrRange(Node* clickedNode) const
-{
-    if (!isContinuousSpellCheckingEnabled() || !clickedNode || !isSpellCheckingEnabledFor(clickedNode))
-        return String();
-
-    VisibleSelection selection = m_frame.selection().selection();
-    if (!selection.isContentEditable() || selection.isNone())
-        return String();
-
-    VisibleSelection wordSelection(selection.base());
-    wordSelection.expandUsingGranularity(WordGranularity);
-    RefPtr<Range> wordRange = wordSelection.toNormalizedRange();
-
-    // In compliance with GTK+ applications, additionally allow to provide suggestions when the current
-    // selection exactly match the word selection.
-    if (selection.isRange() && !areRangesEqual(wordRange.get(), selection.toNormalizedRange().get()))
-        return String();
-
-    String word = wordRange->text();
-    if (word.isEmpty())
-        return String();
-
-    int wordLength = word.length();
-    int misspellingLocation = -1;
-    int misspellingLength = 0;
-    textChecker().checkSpellingOfString(word, &misspellingLocation, &misspellingLength);
-
-    return misspellingLength == wordLength ? word : String();
 }
 
 void SpellChecker::showSpellingGuessPanel()
@@ -807,7 +777,7 @@ void SpellChecker::spellCheckOldSelection(const VisibleSelection& oldSelection, 
     if (oldAdjacentWords  != newAdjacentWords) {
         if (isContinuousSpellCheckingEnabled() && isGrammarCheckingEnabled()) {
             VisibleSelection selectedSentence = VisibleSelection(startOfSentence(oldStart), endOfSentence(oldStart));
-            markMisspellingsAndBadGrammar(oldAdjacentWords, selectedSentence != newSelectedSentence, selectedSentence);
+            markMisspellingsAndBadGrammar(oldAdjacentWords, true, selectedSentence);
         } else {
             markMisspellingsAndBadGrammar(oldAdjacentWords, false, oldAdjacentWords);
         }

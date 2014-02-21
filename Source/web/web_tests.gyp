@@ -35,6 +35,7 @@
         '../build/scripts/scripts.gypi',
         '../core/core.gypi',
         '../modules/modules.gypi',
+        '../platform/blink_platform.gypi',
         '../web/web.gypi',
         '../wtf/wtf.gypi',
     ],
@@ -85,6 +86,7 @@
             'dependencies': [
                 '../../public/blink.gyp:blink',
                 '../wtf/wtf_tests.gyp:wtf_unittest_helpers',
+                'web.gyp:webkit_test_support',
                 '<(DEPTH)/base/base.gyp:base',
                 '<(DEPTH)/base/base.gyp:base_i18n',
                 '<(DEPTH)/base/base.gyp:test_support_base',
@@ -122,6 +124,7 @@
                         '<@(bindings_unittest_files)',
                         '<@(core_unittest_files)',
                         '<@(modules_unittest_files)',
+                        '<@(platform_web_unittest_files)',
                         '<@(web_unittest_files)',
                     ],
                     'conditions': [

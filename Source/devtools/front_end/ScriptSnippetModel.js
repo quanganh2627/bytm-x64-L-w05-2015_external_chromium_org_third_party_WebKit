@@ -220,6 +220,7 @@ WebInspector.ScriptSnippetModel.prototype = {
          * @param {?string} error
          * @param {string=} scriptId
          * @param {string=} syntaxErrorMessage
+         * @this {WebInspector.ScriptSnippetModel}
          */
         function compileCallback(error, scriptId, syntaxErrorMessage)
         {
@@ -259,6 +260,7 @@ WebInspector.ScriptSnippetModel.prototype = {
          * @param {?string} error
          * @param {?RuntimeAgent.RemoteObject} result
          * @param {boolean=} wasThrown
+         * @this {WebInspector.ScriptSnippetModel}
          */
         function runCallback(error, result, wasThrown)
         {
@@ -350,7 +352,7 @@ WebInspector.ScriptSnippetModel.prototype = {
         for (var i = 0; i < breakpointLocations.length; ++i) {
             var uiLocation = breakpointLocations[i].uiLocation;
             var breakpoint = breakpointLocations[i].breakpoint;
-            WebInspector.breakpointManager.setBreakpoint(uiSourceCode, uiLocation.lineNumber, breakpoint.condition(), breakpoint.enabled());
+            WebInspector.breakpointManager.setBreakpoint(uiSourceCode, uiLocation.lineNumber, uiLocation.columnNumber, breakpoint.condition(), breakpoint.enabled());
         }
     },
 
@@ -581,6 +583,9 @@ WebInspector.SnippetContentProvider.prototype = {
      */
     searchInContent: function(query, caseSensitive, isRegex, callback)
     {
+        /**
+         * @this {WebInspector.SnippetContentProvider}
+         */
         function performSearch()
         {
             callback(WebInspector.ContentProvider.performSearchInContent(this._snippet.content, query, caseSensitive, isRegex));
@@ -588,9 +593,7 @@ WebInspector.SnippetContentProvider.prototype = {
 
         // searchInContent should call back later.
         window.setTimeout(performSearch.bind(this), 0);
-    },
-
-    __proto__: WebInspector.ContentProvider.prototype
+    }
 }
 
 /**
@@ -685,6 +688,6 @@ WebInspector.SnippetsProjectDelegate.prototype = {
 }
 
 /**
- * @type {?WebInspector.ScriptSnippetModel}
+ * @type {!WebInspector.ScriptSnippetModel}
  */
-WebInspector.scriptSnippetModel = null;
+WebInspector.scriptSnippetModel;

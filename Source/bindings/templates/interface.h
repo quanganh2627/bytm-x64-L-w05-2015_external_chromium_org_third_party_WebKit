@@ -45,30 +45,46 @@ namespace WebCore {
 {% if has_event_constructor %}
 class Dictionary;
 {% endif %}
+{% if named_constructor %}
+class {{v8_class}}Constructor {
+public:
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static const WrapperTypeInfo wrapperTypeInfo;
+};
+
+{% endif %}
 class {{v8_class}} {
 public:
-    static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*, WrapperWorldType);
-    static bool hasInstanceInAnyWorld(v8::Handle<v8::Value>, v8::Isolate*);
+    static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
     static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
     static {{cpp_class}}* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
-    static void derefObject(void*);
     static const WrapperTypeInfo wrapperTypeInfo;
+    static void derefObject(void*);
     {% if has_visit_dom_wrapper %}
     static void visitDOMWrapper(void*, const v8::Persistent<v8::Object>&, v8::Isolate*);
     {% endif %}
     {% if is_active_dom_object %}
     static ActiveDOMObject* toActiveDOMObject(v8::Handle<v8::Object>);
     {% endif %}
+    {% if is_event_target %}
+    static EventTarget* toEventTarget(v8::Handle<v8::Object>);
+    {% endif %}
+    {% if interface_name == 'Window' %}
+    static v8::Handle<v8::ObjectTemplate> getShadowObjectTemplate(v8::Isolate*, WrapperWorldType);
+    {% endif %}
     {% for method in methods if method.is_custom %}
     {% filter conditional(method.conditional_string) %}
     static void {{method.name}}MethodCustom(const v8::FunctionCallbackInfo<v8::Value>&);
     {% endfilter %}
     {% endfor %}
-    {% if has_constructor or has_event_constructor %}
+    {% if constructors or has_custom_constructor or has_event_constructor %}
     static void constructorCallback(const v8::FunctionCallbackInfo<v8::Value>&);
+    {% endif %}
+    {% if has_custom_constructor %}
+    static void constructorCustom(const v8::FunctionCallbackInfo<v8::Value>&);
     {% endif %}
     {% for attribute in attributes %}
     {% if attribute.has_custom_getter %}{# FIXME: and not attribute.implemented_by #}
@@ -82,10 +98,55 @@ public:
     {% endfilter %}
     {% endif %}
     {% endfor %}
+    {# Custom special operations #}
+    {% if indexed_property_getter and indexed_property_getter.is_custom %}
+    static void indexedPropertyGetterCustom(uint32_t, const v8::PropertyCallbackInfo<v8::Value>&);
+    {% endif %}
+    {% if indexed_property_setter and indexed_property_setter.is_custom %}
+    static void indexedPropertySetterCustom(uint32_t, v8::Local<v8::Value>, const v8::PropertyCallbackInfo<v8::Value>&);
+    {% endif %}
+    {% if indexed_property_deleter and indexed_property_deleter.is_custom %}
+    static void indexedPropertyDeleterCustom(uint32_t, const v8::PropertyCallbackInfo<v8::Boolean>&);
+    {% endif %}
+    {% if named_property_getter and named_property_getter.is_custom %}
+    static void namedPropertyGetterCustom(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>&);
+    {% endif %}
+    {% if named_property_setter and named_property_setter.is_custom %}
+    static void namedPropertySetterCustom(v8::Local<v8::String>, v8::Local<v8::Value>, const v8::PropertyCallbackInfo<v8::Value>&);
+    {% endif %}
+    {% if named_property_getter and
+          named_property_getter.is_custom_property_query %}
+    static void namedPropertyQueryCustom(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Integer>&);
+    {% endif %}
+    {% if named_property_deleter and named_property_deleter.is_custom %}
+    static void namedPropertyDeleterCustom(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Boolean>&);
+    {% endif %}
+    {% if named_property_getter and
+          named_property_getter.is_custom_property_enumerator %}
+    static void namedPropertyEnumeratorCustom(const v8::PropertyCallbackInfo<v8::Array>&);
+    {% endif %}
+    {# END custom special operations #}
     {% if has_custom_legacy_call_as_function %}
     static void legacyCallCustom(const v8::FunctionCallbackInfo<v8::Value>&);
     {% endif %}
-    static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + 0;
+    {# Custom internal fields #}
+    {% set custom_internal_field_counter = 0 %}
+    {% if is_event_target and not is_node %}
+    {# Event listeners on DOM nodes are explicitly supported in the GC controller. #}
+    static const int eventListenerCacheIndex = v8DefaultWrapperInternalFieldCount + {{custom_internal_field_counter}};
+    {% set custom_internal_field_counter = custom_internal_field_counter + 1 %}
+    {% endif %}
+    {# persistentHandleIndex must be the last field, if it is present.
+       Detailed explanation: https://codereview.chromium.org/139173012
+       FIXME: Remove this internal field, and share one field for either:
+       * a persistent handle (if the object is in oilpan) or
+       * a C++ pointer to the DOM object (if the object is not in oilpan) #}
+    {% if is_will_be_garbage_collected %}
+    static const int persistentHandleIndex = v8DefaultWrapperInternalFieldCount + {{custom_internal_field_counter}};
+    {% set custom_internal_field_counter = custom_internal_field_counter + 1 %}
+    {% endif %}
+    static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + {{custom_internal_field_counter}};
+    {# End custom internal fields #}
     static inline void* toInternalPointer({{cpp_class}}* impl)
     {
         {% if parent_interface %}
@@ -103,17 +164,31 @@ public:
         return static_cast<{{cpp_class}}*>(object);
         {% endif %}
     }
+    {% if interface_name == 'Window' %}
+    static bool namedSecurityCheckCustom(v8::Local<v8::Object> host, v8::Local<v8::Value> key, v8::AccessType, v8::Local<v8::Value> data);
+    static bool indexedSecurityCheckCustom(v8::Local<v8::Object> host, uint32_t index, v8::AccessType, v8::Local<v8::Value> data);
+    {% endif %}
     static void installPerContextEnabledProperties(v8::Handle<v8::Object>, {{cpp_class}}*, v8::Isolate*){% if has_per_context_enabled_attributes %};
     {% else %} { }
     {% endif %}
-    static void installPerContextEnabledMethods(v8::Handle<v8::Object>, v8::Isolate*){% if has_per_context_enabled_attributes %};
+    static void installPerContextEnabledMethods(v8::Handle<v8::Object>, v8::Isolate*){% if has_per_context_enabled_methods %};
     {% else %} { }
+    {% endif %}
+    {# Element wrappers #}
+    {% if interface_name == 'HTMLElement' %}
+    friend v8::Handle<v8::Object> createV8HTMLWrapper(HTMLElement*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
+    friend v8::Handle<v8::Object> createV8HTMLDirectWrapper(HTMLElement*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
+    {% elif interface_name == 'HTMLUnknownElement' %}
+    friend v8::Handle<v8::Object> createV8HTMLFallbackWrapper(HTMLUnknownElement*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
+    {% elif interface_name == 'Element' %}
+    // This is a performance optimization hack. See V8Element::wrap.
+    friend v8::Handle<v8::Object> wrap(Node*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     {% endif %}
 
 private:
     {% if not has_custom_to_v8 %}
     friend v8::Handle<v8::Object> wrap({{cpp_class}}*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-    static v8::Handle<v8::Object> createWrapper(PassRefPtr<{{cpp_class}}>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
+    static v8::Handle<v8::Object> createWrapper({{pass_ref_ptr}}<{{cpp_class}}>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     {% endif %}
 };
 
@@ -145,7 +220,7 @@ inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo, {{cpp_class}}
      v8SetReturnValue(callbackInfo, toV8(impl, callbackInfo.Holder(), callbackInfo.GetIsolate()));
 }
 {% else %}{# has_custom_to_v8 #}
-{% if has_custom_wrap or special_wrap_for %}
+{% if has_custom_wrap or special_wrap_for or is_document %}
 v8::Handle<v8::Object> wrap({{cpp_class}}* impl, v8::Handle<v8::Object> creationContext, v8::Isolate*);
 {% else %}
 inline v8::Handle<v8::Object> wrap({{cpp_class}}* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
@@ -207,31 +282,31 @@ inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo, {{cpp_class}}
 }
 {% endif %}{# has_custom_to_v8 #}
 
-inline v8::Handle<v8::Value> toV8(PassRefPtr<{{cpp_class}} > impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
+inline v8::Handle<v8::Value> toV8({{pass_ref_ptr}}<{{cpp_class}}> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
 {
     return toV8(impl.get(), creationContext, isolate);
 }
 
 template<class CallbackInfo>
-inline void v8SetReturnValue(const CallbackInfo& callbackInfo, PassRefPtr<{{cpp_class}} > impl)
+inline void v8SetReturnValue(const CallbackInfo& callbackInfo, {{pass_ref_ptr}}<{{cpp_class}}> impl)
 {
     v8SetReturnValue(callbackInfo, impl.get());
 }
 
 template<class CallbackInfo>
-inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, PassRefPtr<{{cpp_class}} > impl)
+inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, {{pass_ref_ptr}}<{{cpp_class}}> impl)
 {
     v8SetReturnValueForMainWorld(callbackInfo, impl.get());
 }
 
 template<class CallbackInfo, class Wrappable>
-inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo, PassRefPtr<{{cpp_class}} > impl, Wrappable* wrappable)
+inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo, {{pass_ref_ptr}}<{{cpp_class}}> impl, Wrappable* wrappable)
 {
     v8SetReturnValueFast(callbackInfo, impl.get(), wrappable);
 }
 
 {% if has_event_constructor %}
-bool initialize{{cpp_class}}({{cpp_class}}Init&, const Dictionary&, ExceptionState&, const String& = "");
+bool initialize{{cpp_class}}({{cpp_class}}Init&, const Dictionary&, ExceptionState&, const v8::FunctionCallbackInfo<v8::Value>& info, const String& = "");
 
 {% endif %}
 }

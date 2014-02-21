@@ -91,12 +91,11 @@ WebInspector.LiveEditSupport.logDetailedError = function(error, errorData, conte
     }
     var compileError = errorData.compileError;
     if (compileError) {
-        var message = "LiveEdit compile failed: " + compileError.message;
-        if (contextScript)
-            message += " at " + contextScript.sourceURL + ":" + compileError.lineNumber + ":" + compileError.columnNumber;
+        var location = contextScript ? WebInspector.UIString(" at %s:%d:%d", contextScript.sourceURL, compileError.lineNumber, compileError.columnNumber) : "";
+        var message = WebInspector.UIString("LiveEdit compile failed: %s%s", compileError.message, location);
         WebInspector.log(message, WebInspector.ConsoleMessage.MessageLevel.Error, false);
     } else {
-        WebInspector.log("Unknown LiveEdit error: " + JSON.stringify(errorData) + "; " + error, warningLevel, false);
+        WebInspector.log(WebInspector.UIString("Unknown LiveEdit error: %s; %s", JSON.stringify(errorData), error), warningLevel, false);
     }
 }
 
@@ -128,6 +127,7 @@ WebInspector.LiveEditScriptFile.prototype = {
         /**
          * @param {?string} error
          * @param {!DebuggerAgent.SetScriptSourceError=} errorData
+         * @this {WebInspector.LiveEditScriptFile}
          */
         function innerCallback(error, errorData)
         {
@@ -174,5 +174,5 @@ WebInspector.LiveEditScriptFile.prototype = {
     __proto__: WebInspector.Object.prototype
 }
 
-/** @type {?WebInspector.LiveEditSupport} */
-WebInspector.liveEditSupport = null;
+/** @type {!WebInspector.LiveEditSupport} */
+WebInspector.liveEditSupport;

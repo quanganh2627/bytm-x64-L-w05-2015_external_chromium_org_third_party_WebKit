@@ -33,8 +33,7 @@ var kBuildingResult = 'BUILDING';
 ui.failures.Builder = base.extends('a', {
     init: function(builderName, failures)
     {
-        var platformBuilders = config.currentBuilders();
-        var configuration = platformBuilders[builderName];
+        var configuration = config.builders[builderName];
         if (configuration) {
             if (configuration.version)
                 this._addSpan('version', configuration.version);
@@ -45,7 +44,6 @@ ui.failures.Builder = base.extends('a', {
             this._addSpan('version', builderName);
 
         this.className = 'failing-builder';
-        this.target = '_blank';
         this.href = ui.displayURLForBuilder(builderName);
         if (failures)
             this._addSpan('failures', ' ' + failures.join(', '));
@@ -109,7 +107,7 @@ ui.failures.FailureGrid = base.extends('table', {
             return;
 
         Object.keys(resultsByBuilder).forEach(function(builderName) {
-            var configuration = config.kPlatforms[config.currentPlatform].builders[builderName];
+            var configuration = config.builders[builderName];
             if (!configuration)
                 throw "Unknown builder name: " + builderName;
             var row = this._rowByResult(resultsByBuilder[builderName].actual);

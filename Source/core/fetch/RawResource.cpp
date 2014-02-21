@@ -57,15 +57,15 @@ void RawResource::didAddClient(ResourceClient* c)
     // so a protector is necessary.
     ResourcePtr<RawResource> protect(this);
     RawResourceClient* client = static_cast<RawResourceClient*>(c);
-    size_t redirectCount = m_redirectChain.size();
+    size_t redirectCount = redirectChain().size();
     for (size_t i = 0; i < redirectCount; i++) {
-        RedirectPair redirect = m_redirectChain[i];
+        RedirectPair redirect = redirectChain()[i];
         ResourceRequest request(redirect.m_request);
         client->redirectReceived(this, request, redirect.m_redirectResponse);
         if (!hasClient(c))
             return;
     }
-    ASSERT(redirectCount == m_redirectChain.size());
+    ASSERT(redirectCount == redirectChain().size());
 
     if (!m_response.isNull())
         client->responseReceived(this, m_response);
@@ -85,14 +85,21 @@ void RawResource::willSendRequest(ResourceRequest& request, const ResourceRespon
         ResourceClientWalker<RawResourceClient> w(m_clients);
         while (RawResourceClient* c = w.next())
             c->redirectReceived(this, request, response);
-        m_redirectChain.append(RedirectPair(request, response));
     }
     Resource::willSendRequest(request, response);
 }
 
-void RawResource::responseReceived(const ResourceResponse& response)
+void RawResource::updateRequest(const ResourceRequest& request)
 {
     ResourcePtr<RawResource> protect(this);
+    ResourceClientWalker<RawResourceClient> w(m_clients);
+    while (RawResourceClient* c = w.next())
+        c->updateRequest(this, request);
+}
+
+void RawResource::responseReceived(const ResourceResponse& response)
+{
+    InternalResourcePtr protect(this);
     Resource::responseReceived(response);
     ResourceClientWalker<RawResourceClient> w(m_clients);
     while (RawResourceClient* c = w.next())
@@ -117,12 +124,6 @@ void RawResource::setDefersLoading(bool defers)
 {
     if (m_loader)
         m_loader->setDefersLoading(defers);
-}
-
-void RawResource::setDataBufferingPolicy(DataBufferingPolicy dataBufferingPolicy)
-{
-    m_options.dataBufferingPolicy = dataBufferingPolicy;
-    clear();
 }
 
 static bool shouldIgnoreHeaderForCacheReuse(AtomicString headerName)
@@ -177,18 +178,7 @@ bool RawResource::canReuse(const ResourceRequest& newRequest) const
             return false;
     }
 
-    for (size_t i = 0; i < m_redirectChain.size(); i++) {
-        if (m_redirectChain[i].m_redirectResponse.cacheControlContainsNoStore())
-            return false;
-    }
-
     return true;
-}
-
-void RawResource::clear()
-{
-    m_data.clear();
-    setEncodedSize(0);
 }
 
 } // namespace WebCore

@@ -29,7 +29,7 @@
 
 /**
  * @constructor
- * @extends WebInspector.Object
+ * @extends {WebInspector.Object}
  * @implements {WebInspector.SuggestBoxDelegate}
  * @param {function(!Element, !Range, boolean, function(!Array.<string>, number=))} completions
  * @param {string=} stopCharacters
@@ -74,6 +74,7 @@ WebInspector.TextPrompt.prototype = {
      * they should use the result of this method to attach listeners for bubbling events.
      *
      * @param {!Element} element
+     * @return {!Element}
      */
     attach: function(element)
     {
@@ -88,6 +89,7 @@ WebInspector.TextPrompt.prototype = {
      *
      * @param {!Element} element
      * @param {function(!Event)} blurListener
+     * @return {!Element}
      */
     attachAndStartEditing: function(element, blurListener)
     {
@@ -98,6 +100,7 @@ WebInspector.TextPrompt.prototype = {
 
     /**
      * @param {!Element} element
+     * @return {!Element}
      */
     _attachInternal: function(element)
     {
@@ -213,6 +216,9 @@ WebInspector.TextPrompt.prototype = {
 
         this._removeSuggestionAids();
 
+        /**
+         * @this {WebInspector.TextPrompt}
+         */
         function moveBackIfOutside()
         {
             delete this._selectionTimeout;
@@ -254,6 +260,7 @@ WebInspector.TextPrompt.prototype = {
 
     /**
      * @param {?Event} event
+     * @return {boolean}
      */
     onKeyDown: function(event)
     {
@@ -505,6 +512,7 @@ WebInspector.TextPrompt.prototype = {
             finalSelectionRange.setEnd(prefixTextNode, wordPrefixLength);
             selection.removeAllRanges();
             selection.addRange(finalSelectionRange);
+            this.dispatchEventToListeners(WebInspector.TextPrompt.Events.ItemApplied);
         }
     },
 
@@ -860,6 +868,7 @@ WebInspector.TextPromptWithHistory.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     defaultKeyHandler: function(event, force)
     {

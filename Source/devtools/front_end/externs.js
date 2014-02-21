@@ -31,10 +31,7 @@
 // WebKit Web Facing API
 
 /** @type {boolean} */
-Event.prototype.isMetaOrCtrlForTest = false;
-/** @param {...*} vararg */
-Event.prototype.initWebKitWheelEvent = function(vararg) {}
-Event.prototype.stopImmediatePropagation = function() {}
+Event.prototype.isMetaOrCtrlForTest;
 
 /**
  * @constructor
@@ -44,36 +41,16 @@ Event.prototype.stopImmediatePropagation = function() {}
  */
 window.KeyboardEvent = function(eventType, properties) {}
 
-/** @param {?Element} element */
-window.getComputedStyle = function(element) {}
+/**
+ * @type {number}
+ */
+KeyboardEvent.DOM_KEY_LOCATION_NUMPAD;
+
 /** @param {*} message */
 function postMessage(message) {}
 
 /** @type {*} */
-window.testRunner = null;
-
-/**
- * @constructor
- */
-function WebKitMutation(callback)
-{
-    this.type = "";
-    /** @type {Node} */ this.target = null;
-    /** @type {!Array.<!Node>} */ this.addedNodes = [];
-    /** @type {!Array.<!Node>} */ this.removedNodes = [];
-}
-
-/**
- * @constructor
- * @param {function(!Array.<!WebKitMutation>)} callback
- */
-function WebKitMutationObserver(callback) {}
-/** 
- * @param {!Node} container
- * @param {!Object} options
- */
-WebKitMutationObserver.prototype.observe = function(container, options) {}
-WebKitMutationObserver.prototype.disconnect = function() {}
+window.testRunner ;
 
 /**
  * @param {string} eventName
@@ -196,13 +173,6 @@ Array.prototype.intersectOrdered = function(array, comparator) {}
  */
 Array.prototype.mergeOrdered = function(array, comparator) {}
 
-DOMApplicationCache.prototype.UNCACHED = 0;
-DOMApplicationCache.prototype.IDLE = 1;
-DOMApplicationCache.prototype.CHECKING = 2;
-DOMApplicationCache.prototype.DOWNLOADING = 3;
-DOMApplicationCache.prototype.UPDATEREADY = 4;
-DOMApplicationCache.prototype.OBSOLETE = 5;
-
 // File System API
 /**
  * @constructor
@@ -214,13 +184,6 @@ function DOMFileSystem() {}
  */
 DOMFileSystem.prototype.root = null;
 
-/** @type {Node} */
-Range.prototype.startContainer;
-
-// Inspector Backend
-var InspectorBackend = {}
-InspectorBackend.runAfterPendingDispatches = function(message) {}
-
 /** @interface */
 function InspectorFrontendHostAPI() {}
 /** @param {!Function=} callback callback */
@@ -229,8 +192,20 @@ InspectorFrontendHostAPI.prototype.addFileSystem = function(callback) {}
 InspectorFrontendHostAPI.prototype.append = function(url, content, callback) {}
 /** @param {!Function=} callback callback */
 InspectorFrontendHostAPI.prototype.indexPath = function(requestId, fileSystemPath, callback) {}
-/** @param {!Function=} callback callback */
-InspectorFrontendHostAPI.prototype.setWindowBounds = function(x, y, callback) {}
+/** @return {string} */
+InspectorFrontendHostAPI.prototype.getSelectionBackgroundColor = function() {}
+/** @return {string} */
+InspectorFrontendHostAPI.prototype.getSelectionForegroundColor = function() {}
+/** @return {boolean} */
+InspectorFrontendHost.isUnderTest = function() {}
+/**
+ * Requests inspected page to be placed atop of the inspector frontend
+ * with passed insets from the frontend sides, respecting minimum size passed.
+ * @param {{top: number, left: number, right: number, bottom: number}} insets
+ * @param {{width: number, height: number}} minSize
+ */
+InspectorFrontendHostAPI.prototype.setContentsResizingStrategy = function(insets, minSize) {}
+InspectorFrontendHostAPI.prototype.inspectElementCompleted = function() {}
 /** @param {!Function=} callback callback */
 InspectorFrontendHostAPI.prototype.moveWindowBy = function(x, y, callback) {}
 /** @param {!Function=} callback callback */
@@ -247,52 +222,28 @@ InspectorFrontendHostAPI.prototype.searchInPath = function(requestId, fileSystem
 InspectorFrontendHostAPI.prototype.stopIndexing = function(requestId, callback) {}
 
 InspectorFrontendHostAPI.prototype.bringToFront = function() {}
-InspectorFrontendHostAPI.prototype.close = function(url) {}
 InspectorFrontendHostAPI.prototype.closeWindow = function() {}
 InspectorFrontendHostAPI.prototype.copyText = function(text) {}
 InspectorFrontendHostAPI.prototype.inspectedURLChanged = function(url) {}
 InspectorFrontendHostAPI.prototype.isolatedFileSystem = function(fileSystemId, registeredName) {}
 InspectorFrontendHostAPI.prototype.upgradeDraggedFileSystemPermissions = function(DOMFileSystem) {}
-InspectorFrontendHostAPI.prototype.loaded = function() {}
-InspectorFrontendHostAPI.prototype.localizedStringsURL = function() {}
 InspectorFrontendHostAPI.prototype.platform = function() {}
 InspectorFrontendHostAPI.prototype.port = function() {}
 InspectorFrontendHostAPI.prototype.recordActionTaken = function(actionCode) {}
 InspectorFrontendHostAPI.prototype.recordPanelShown = function(panelCode) {}
 InspectorFrontendHostAPI.prototype.recordSettingChanged = function(settingCode) {}
-InspectorFrontendHostAPI.prototype.requestSetDockSide = function(dockSide) {}
 InspectorFrontendHostAPI.prototype.sendMessageToBackend = function(message) {}
 InspectorFrontendHostAPI.prototype.sendMessageToEmbedder = function(message) {}
 InspectorFrontendHostAPI.prototype.setInjectedScriptForOrigin = function(origin, script) {}
+InspectorFrontendHostAPI.prototype.setIsDocked = function(isDocked) {}
 InspectorFrontendHostAPI.prototype.setZoomFactor = function(zoom) {}
-InspectorFrontendHostAPI.prototype.supportsFileSystems = function() {}
+InspectorFrontendHostAPI.prototype.zoomFactor = function() {}
+InspectorFrontendHostAPI.prototype.zoomIn = function() {}
+InspectorFrontendHostAPI.prototype.zoomOut = function() {}
+InspectorFrontendHostAPI.prototype.resetZoom = function() {}
 /** @type {InspectorFrontendHostAPI} */
 var InspectorFrontendHost;
-
-/** @constructor */
-function SourceMapV3()
-{
-    /** @type {number} */ this.version;
-    /** @type {string} */ this.file;
-    /** @type {!Array.<string>} */ this.sources;
-    /** @type {!Array.<!SourceMapV3.Section>} */ this.sections;
-    /** @type {string} */ this.mappings;
-    /** @type {string} */ this.sourceRoot;
-}
-
-/** @constructor */
-SourceMapV3.Section = function()
-{
-    /** @type {SourceMapV3} */ this.map;
-    /** @type {SourceMapV3.Offset} */ this.offset;
-}
-
-/** @constructor */
-SourceMapV3.Offset = function()
-{
-    /** @type {number} */ this.line;
-    /** @type {number} */ this.column;
-}
+InspectorFrontendHost.embedderMessageAck = function(id, error) {}
 
 // FIXME: remove everything below.
 var FormatterWorker = {}
@@ -324,25 +275,9 @@ WebInspector.evaluateInConsole = function(expression, showResultOnly) {}
 
 WebInspector.queryParamsObject = {}
 
-/**
- * @param {!Element} element
- * @return {boolean}
- */
-WebInspector.showAnchorLocation = function(element) {}
-
 WebInspector.Events = {
-    InspectorLoaded: "InspectorLoaded",
-    InspectorClosing: "InspectorClosing"
+    InspectorLoaded: "InspectorLoaded"
 }
-
-/** @type {!WebInspector.SettingsController} */
-WebInspector.settingsController;
-
-
-/**
- * @return {number}
- */
-WebInspector.zoomFactor = function() {}
 
 /** Extensions API */
 
@@ -367,9 +302,6 @@ function Timeline() {}
 
 var extensionServer;
 
-/** @type {string} */
-Location.prototype.origin = "";
-
 /**
  * @constructor
  */
@@ -393,12 +325,6 @@ WebInspector.showPanel = function(panel)
 }
 
 /**
- * @param {!ExtensionDescriptor} extensionInfo
- * @return {string}
- */
-function buildPlatformExtensionAPI(extensionInfo) {}
-
-/**
  * @type {string} 
  */
 WebInspector.inspectedPageDomain;
@@ -410,6 +336,16 @@ WebInspector.SourceJavaScriptTokenizer.Keywords = {}
  * @return {boolean}
  */
 WebInspector.isInspectingDevice = function() {}
+
+/**
+ * @return {boolean}
+ */
+WebInspector.isWorkerFrontend = function() {}
+
+/**
+ * @return {boolean}
+ */
+WebInspector.isDedicatedWorkerFrontend = function() {}
 
 var InspectorTest = {}
 
@@ -578,15 +514,12 @@ CodeMirror.StringStream.prototype = {
 /** @type {Object.<string, !Object.<string, string>>} */
 CodeMirror.keyMap;
 
+/** @type {{scrollLeft: number, scrollTop: number}} */
+CodeMirror.doc;
+
 WebInspector.suggestReload = function() { }
 WebInspector.reload = function() { }
-
-WebInspector.settings.continuousPainting = /** type {WebInspector.Setting} */ { }
-WebInspector.settings.showDebugBorders = /** type {WebInspector.Setting} */ { }
-WebInspector.settings.showScrollBottleneckRects = /** type {WebInspector.Setting} */ { }
-WebInspector.settings.forceCompositingMode = /** type {WebInspector.Setting} */ { }
-WebInspector.settings.showFPSCounter = /** type {WebInspector.Setting} */ { }
-WebInspector.settings.showPaintRects = /** type {WebInspector.Setting} */ { }
+WebInspector._inspectedTabId;
 
 /** @type {boolean} */
 window.dispatchStandaloneTestRunnerMessages;

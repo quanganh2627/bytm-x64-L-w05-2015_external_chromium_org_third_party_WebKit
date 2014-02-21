@@ -95,7 +95,20 @@ class SingleTestRunner(object):
         image_hash = None
         if self._should_fetch_expected_checksum():
             image_hash = self._port.expected_checksum(self._test_name)
-        return DriverInput(self._test_name, self._timeout, image_hash, self._should_run_pixel_test)
+
+        test_base = self._port.lookup_virtual_test_base(self._test_name)
+        if test_base:
+            # If the file actually exists under the virtual dir, we want to use it (largely for virtual references),
+            # but we want to use the extra command line args either way.
+            if self._filesystem.exists(self._port.abspath_for_test(self._test_name)):
+                test_name = self._test_name
+            else:
+                test_name = test_base
+            args = self._port.lookup_virtual_test_args(self._test_name)
+        else:
+            test_name = self._test_name
+            args = []
+        return DriverInput(test_name, self._timeout, image_hash, self._should_run_pixel_test, args)
 
     def run(self):
         if self._reference_files:
@@ -223,12 +236,41 @@ class SingleTestRunner(object):
             return TestResult(self._test_name, failures, driver_output.test_time, driver_output.has_stderr(),
                               pid=driver_output.pid)
 
-        failures.extend(self._compare_text(expected_driver_output.text, driver_output.text))
-        failures.extend(self._compare_audio(expected_driver_output.audio, driver_output.audio))
-        if self._should_run_pixel_test:
-            failures.extend(self._compare_image(expected_driver_output, driver_output))
+        is_testharness_test, testharness_failures = self._compare_testharness_test(driver_output, expected_driver_output)
+        if is_testharness_test:
+            failures.extend(testharness_failures)
+        else:
+            failures.extend(self._compare_text(expected_driver_output.text, driver_output.text))
+            failures.extend(self._compare_audio(expected_driver_output.audio, driver_output.audio))
+            if self._should_run_pixel_test:
+                failures.extend(self._compare_image(expected_driver_output, driver_output))
         return TestResult(self._test_name, failures, driver_output.test_time, driver_output.has_stderr(),
                           pid=driver_output.pid)
+
+    def _compare_testharness_test(self, driver_output, expected_driver_output):
+        if expected_driver_output.image or expected_driver_output.audio or expected_driver_output.text:
+            return False, []
+
+        if driver_output.image or driver_output.audio or self._is_render_tree(driver_output.text):
+            return False, []
+
+        failures = []
+        found_a_pass = False
+        text = driver_output.text or ''
+        lines = text.strip().splitlines()
+        if not lines or lines[0] != 'This is a testharness.js-based test.':
+            return False, []
+        if lines[-1] != 'Harness: the test ran to completion.':
+            return True, [test_failures.FailureTestHarnessAssertion()]
+
+        for line in lines:
+            if line.startswith('FAIL') or line.startswith('TIMEOUT'):
+                return True, [test_failures.FailureTestHarnessAssertion()]
+
+        return True, []
+
+    def _is_render_tree(self, text):
+        return text and "layer at (0,0) size 800x600" in text
 
     def _compare_text(self, expected_text, actual_text):
         failures = []
@@ -307,7 +349,8 @@ class SingleTestRunner(object):
         for expectation, reference_filename in putAllMismatchBeforeMatch(self._reference_files):
             reference_test_name = self._port.relative_test_filename(reference_filename)
             reference_test_names.append(reference_test_name)
-            reference_output = self._driver.run_test(DriverInput(reference_test_name, self._timeout, None, should_run_pixel_test=True), self._stop_when_done)
+            driver_input = DriverInput(reference_test_name, self._timeout, image_hash=None, should_run_pixel_test=True, args=self._port.lookup_virtual_test_args(reference_test_name))
+            reference_output = self._driver.run_test(driver_input, self._stop_when_done)
             test_result = self._compare_output_with_reference(reference_output, test_output, reference_filename, expectation == '!=')
 
             if (expectation == '!=' and test_result.failures) or (expectation == '==' and not test_result.failures):

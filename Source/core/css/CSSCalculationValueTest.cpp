@@ -42,20 +42,20 @@ using namespace WebCore;
 
 namespace {
 
-void testExpression(PassRefPtr<CSSCalcExpressionNode> expression, const RenderStyle* style)
+void testExpression(PassRefPtrWillBeRawPtr<CSSCalcExpressionNode> expression, const RenderStyle* style)
 {
     EXPECT_TRUE(
         expression->equals(
             *CSSCalcValue::createExpressionNode(
-                expression->toCalcValue(CSSToLengthConversionData(style, style)).get(),
+                expression->toCalcValue(CSSToLengthConversionData(style, style, 0)).get(),
                 style->effectiveZoom()).get()));
 }
 
 TEST(CSSCalculationValue, CreateExpressionNodeFromLength)
 {
     RefPtr<RenderStyle> style = RenderStyle::create();
-    RefPtr<CSSCalcExpressionNode> expected;
-    RefPtr<CSSCalcExpressionNode> actual;
+    RefPtrWillBeRawPtr<CSSCalcExpressionNode> expected;
+    RefPtrWillBeRawPtr<CSSCalcExpressionNode> actual;
 
     expected = CSSCalcValue::createExpressionNode(CSSPrimitiveValue::create(10, CSSPrimitiveValue::CSS_PX), true);
     actual = CSSCalcValue::createExpressionNode(Length(10, WebCore::Fixed), style->effectiveZoom());
@@ -109,7 +109,7 @@ TEST(CSSCalculationValue, CreateExpressionNodeFromLength)
 
 TEST(CSSCalculationValue, CreateExpressionNodeFromLengthFromExpressionNode)
 {
-    RefPtr<CSSCalcExpressionNode> expression;
+    RefPtrWillBeRawPtr<CSSCalcExpressionNode> expression;
     RefPtr<RenderStyle> style = RenderStyle::createDefaultStyle();
     style->setEffectiveZoom(5);
 

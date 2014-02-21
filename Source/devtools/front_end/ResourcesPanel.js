@@ -39,22 +39,17 @@ importScript("FileSystemView.js");
 
 /**
  * @constructor
- * @extends {WebInspector.Panel}
+ * @extends {WebInspector.PanelWithSidebarTree}
  */
 WebInspector.ResourcesPanel = function(database)
 {
-    WebInspector.Panel.call(this, "resources");
+    WebInspector.PanelWithSidebarTree.call(this, "resources");
     this.registerRequiredCSS("resourcesPanel.css");
 
     WebInspector.settings.resourcesLastSelectedItem = WebInspector.settings.createSetting("resourcesLastSelectedItem", {});
 
-    this.createSidebarViewWithTree();
-    this.sidebarElement.classList.add("outline-disclosure");
-    this.sidebarElement.classList.add("filter-all");
-    this.sidebarElement.classList.add("children");
-    this.sidebarElement.classList.add("small");
-
-    this.sidebarTreeElement.classList.remove("sidebar-tree");
+    this.sidebarElement().classList.add("filter-all", "children", "small", "outline-disclosure");
+    this.sidebarTree.element.classList.remove("sidebar-tree");
 
     this.resourcesListTreeElement = new WebInspector.StorageCategoryTreeElement(this, WebInspector.UIString("Frames"), "Frames", ["frame-storage-tree-item"]);
     this.sidebarTree.appendChild(this.resourcesListTreeElement);
@@ -82,11 +77,11 @@ WebInspector.ResourcesPanel = function(database)
         this.sidebarTree.appendChild(this.fileSystemListTreeElement);
     }
 
-    var mainElement = this.splitView.mainElement;
-    this.storageViews = mainElement.createChild("div", "resources-main");
-    var statusBarContainer = mainElement.createChild("div", "resources-status-bar");
+    var mainView = new WebInspector.View();
+    this.storageViews = mainView.element.createChild("div", "resources-main diff-container");
+    var statusBarContainer = mainView.element.createChild("div", "resources-status-bar");
     this.storageViewStatusBarItemsContainer = statusBarContainer.createChild("div", "status-bar");
-    this.storageViews.classList.add("diff-container");
+    mainView.show(this.mainElement());
 
     /** @type {!Map.<!WebInspector.Database, !Object.<string, !WebInspector.DatabaseTableView>>} */
     this._databaseTableViews = new Map();
@@ -103,9 +98,13 @@ WebInspector.ResourcesPanel = function(database)
     /** @type {!Object.<string, boolean>} */
     this._domains = {};
 
-    this.sidebarElement.addEventListener("mousemove", this._onmousemove.bind(this), false);
-    this.sidebarElement.addEventListener("mouseout", this._onmouseout.bind(this), false);
+    this.sidebarElement().addEventListener("mousemove", this._onmousemove.bind(this), false);
+    this.sidebarElement().addEventListener("mouseout", this._onmouseout.bind(this), false);
 
+    /**
+     * @return {!WebInspector.View}
+     * @this {WebInspector.ResourcesPanel}
+     */
     function viewGetter()
     {
         return this.visibleView;
@@ -219,6 +218,10 @@ WebInspector.ResourcesPanel.prototype = {
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameDetached, this._frameDetached, this);
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.ResourceAdded, this._resourceAdded, this);
 
+        /**
+         * @param {!WebInspector.ResourceTreeFrame} frame
+         * @this {WebInspector.ResourcesPanel}
+         */
         function populateFrame(frame)
         {
             this._frameAdded({data:frame});
@@ -408,23 +411,10 @@ WebInspector.ResourcesPanel.prototype = {
     },
 
     /**
-     * @param {!Element} anchor
-     * @return {boolean}
-     */
-    showAnchorLocation: function(anchor)
-    {
-        var resource = WebInspector.resourceForURL(anchor.href);
-        if (!resource)
-            return false;
-        this.showResource(resource, anchor.lineNumber);
-        WebInspector.inspectorView.setCurrentPanel(this);
-        return true;
-    },
-
-    /**
      * @param {!WebInspector.Resource} resource
      * @param {number=} line
      * @param {number=} column
+     * @return {boolean}
      */
     showResource: function(resource, line, column)
     {
@@ -771,7 +761,27 @@ WebInspector.ResourcesPanel.prototype = {
         }
     },
 
-    __proto__: WebInspector.Panel.prototype
+    __proto__: WebInspector.PanelWithSidebarTree.prototype
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.Revealer}
+ */
+WebInspector.ResourcesPanel.ResourceRevealer = function()
+{
+}
+
+WebInspector.ResourcesPanel.ResourceRevealer.prototype = {
+    /**
+     * @param {!Object} resource
+     * @param {number=} lineNumber
+     */
+    reveal: function(resource, lineNumber)
+    {
+        if (resource instanceof WebInspector.Resource)
+            /** @type {!WebInspector.ResourcesPanel} */ (WebInspector.showPanel("resources")).showResource(resource, lineNumber);
+    }
 }
 
 /**
@@ -861,6 +871,7 @@ WebInspector.BaseStorageTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -927,6 +938,7 @@ WebInspector.StorageCategoryTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -997,6 +1009,7 @@ WebInspector.FrameTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1035,6 +1048,10 @@ WebInspector.FrameTreeElement.prototype = {
         this._treeElementForResource[resource.url] = resourceTreeElement;
     },
 
+    /**
+     * @param {string} url
+     * @return {?WebInspector.Resource}
+     */
     resourceByURL: function(url)
     {
         var treeElement = this._treeElementForResource[url];
@@ -1109,6 +1126,7 @@ WebInspector.FrameResourceTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1119,6 +1137,7 @@ WebInspector.FrameResourceTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     ondblclick: function(event)
     {
@@ -1227,6 +1246,9 @@ WebInspector.FrameResourceTreeElement.prototype = {
         this._updateErrorsAndWarningsBubbles();
     },
 
+    /**
+     * @return {!WebInspector.ResourceSourceFrame}
+     */
     sourceView: function()
     {
         if (!this._sourceView) {
@@ -1263,6 +1285,7 @@ WebInspector.DatabaseTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1283,6 +1306,10 @@ WebInspector.DatabaseTreeElement.prototype = {
     {
         this.removeChildren();
 
+        /**
+         * @param {!Array.<string>} tableNames
+         * @this {WebInspector.DatabaseTreeElement}
+         */
         function tableNamesCallback(tableNames)
         {
             var tableNamesLength = tableNames.length;
@@ -1314,6 +1341,7 @@ WebInspector.DatabaseTableTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1587,6 +1615,7 @@ WebInspector.IDBDatabaseTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1655,6 +1684,9 @@ WebInspector.IDBObjectStoreTreeElement.prototype = {
 
     _clearObjectStore: function()
     {
+        /**
+         * @this {WebInspector.IDBObjectStoreTreeElement}
+         */
         function callback() {
             this.update(this._objectStore);
         }
@@ -1713,6 +1745,7 @@ WebInspector.IDBObjectStoreTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1797,6 +1830,7 @@ WebInspector.IDBIndexTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1835,6 +1869,7 @@ WebInspector.DOMStorageTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1888,6 +1923,7 @@ WebInspector.CookieTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1924,6 +1960,7 @@ WebInspector.ApplicationCacheManifestTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -1981,6 +2018,7 @@ WebInspector.ApplicationCacheFrameTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {
@@ -2018,6 +2056,7 @@ WebInspector.FileSystemTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function(selectedByUser)
     {

@@ -66,6 +66,13 @@ public:
 
     const ScaledImageFragment* decodeAndScale(const SkISize& scaledSize, size_t index = 0);
 
+    // Decodes and scales the specified frame indicated by |index|. Dimensions
+    // and output format are specified in |info|. Decoded pixels are written
+    // into |pixels| with a stride of |rowBytes|.
+    //
+    // Returns true if decoding was successful.
+    bool decodeAndScale(const SkImageInfo&, size_t index, void* pixels, size_t rowBytes);
+
     void setData(PassRefPtr<SharedBuffer>, bool allDataReceived);
 
     // Creates a new SharedBuffer containing the data received so far.
@@ -79,18 +86,18 @@ public:
     bool hasAlpha(size_t);
 
 private:
+    class ExternalMemoryAllocator;
     friend class ImageFrameGeneratorTest;
     friend class DeferredImageDecoderTest;
     // For testing. |factory| will overwrite the default ImageDecoder creation logic if |factory->create()| returns non-zero.
     void setImageDecoderFactory(PassOwnPtr<ImageDecoderFactory> factory) { m_imageDecoderFactory = factory; }
     // For testing.
-    SkBitmap::Allocator* allocator() const { return m_allocator.get(); }
-    void setAllocator(PassOwnPtr<SkBitmap::Allocator> allocator) { m_allocator = allocator; }
+    SkBitmap::Allocator* allocator() const { return m_discardableAllocator.get(); }
+    void setAllocator(PassOwnPtr<SkBitmap::Allocator> allocator) { m_discardableAllocator = allocator; }
 
     // These methods are called while m_decodeMutex is locked.
     const ScaledImageFragment* tryToLockCompleteCache(const SkISize& scaledSize, size_t index);
-    const ScaledImageFragment* tryToScale(const ScaledImageFragment* fullSizeImage, const SkISize& scaledSize, size_t index);
-    const ScaledImageFragment* tryToResumeDecodeAndScale(const SkISize& scaledSize, size_t index);
+    const ScaledImageFragment* tryToResumeDecode(const SkISize& scaledSize, size_t index);
 
     // Use the given decoder to decode. If a decoder is not given then try to create one.
     PassOwnPtr<ScaledImageFragment> decode(size_t index, ImageDecoder**);
@@ -106,7 +113,8 @@ private:
     bool m_decodeFailedAndEmpty;
     Vector<bool> m_hasAlpha;
     size_t m_decodeCount;
-    OwnPtr<SkBitmap::Allocator> m_allocator;
+    OwnPtr<SkBitmap::Allocator> m_discardableAllocator;
+    OwnPtr<ExternalMemoryAllocator> m_externalAllocator;
 
     OwnPtr<ImageDecoderFactory> m_imageDecoderFactory;
 

@@ -42,22 +42,22 @@
 
 namespace WebCore {
 
-class Composition;
 class ExecutionContext;
 class InputMethodController;
 class Node;
 
-class InputMethodContext : public ScriptWrappable, public EventTargetWithInlineData {
+class InputMethodContext FINAL : public ScriptWrappable, public EventTargetWithInlineData {
 public:
     static PassOwnPtr<InputMethodContext> create(HTMLElement*);
-    ~InputMethodContext();
+    virtual ~InputMethodContext();
 
     void ref() { m_element->ref(); }
     void deref() { m_element->deref(); }
 
-    Composition* composition();
     String locale() const;
     HTMLElement* target() const;
+    unsigned compositionStartOffset();
+    unsigned compositionEndOffset();
     void confirmComposition();
 
     String compositionText() const;
@@ -86,7 +86,6 @@ private:
     virtual void derefEventTarget() OVERRIDE { deref(); }
 
     HTMLElement* m_element;
-    OwnPtr<Composition> m_composition;
     Vector<unsigned> m_segments;
 };
 

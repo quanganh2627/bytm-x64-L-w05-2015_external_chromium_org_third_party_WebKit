@@ -26,6 +26,7 @@
 #include <limits.h>
 #include "wtf/ASCIICType.h"
 #include "wtf/Forward.h"
+#include "wtf/HashMap.h"
 #include "wtf/StringHasher.h"
 #include "wtf/Vector.h"
 #include "wtf/WTFExport.h"
@@ -41,6 +42,7 @@ typedef const struct __CFString * CFStringRef;
 
 namespace WTF {
 
+struct AlreadyHashed;
 struct CStringTranslator;
 template<typename CharacterType> struct HashAndCharactersTranslator;
 struct HashAndUTF8CharactersTranslator;
@@ -56,6 +58,7 @@ enum StripBehavior { StripExtraWhiteSpace, DoNotStripWhiteSpace };
 
 typedef bool (*CharacterMatchFunctionPtr)(UChar);
 typedef bool (*IsWhiteSpaceFunctionPtr)(UChar);
+typedef HashMap<unsigned, StringImpl*, AlreadyHashed> StaticStringsTable;
 
 // Define STRING_STATS to turn on run time statistics of string sizes and memory usage
 #undef STRING_STATS
@@ -180,7 +183,8 @@ public:
 
     static StringImpl* createStatic(const char* string, unsigned length, unsigned hash);
     static void freezeStaticStrings();
-    static const Vector<StringImpl*>& allStaticStrings();
+    static const StaticStringsTable& allStaticStrings();
+    static unsigned highestStaticStringLength() { return m_highestStaticStringLength; }
 
     static PassRefPtr<StringImpl> create(const UChar*, unsigned length);
     static PassRefPtr<StringImpl> create(const LChar*, unsigned length);
@@ -200,8 +204,7 @@ public:
 
     // Reallocate the StringImpl. The originalString must be only owned by the PassRefPtr.
     // Just like the input pointer of realloc(), the originalString can't be used after this function.
-    static PassRefPtr<StringImpl> reallocate(PassRefPtr<StringImpl> originalString, unsigned length, LChar*& data);
-    static PassRefPtr<StringImpl> reallocate(PassRefPtr<StringImpl> originalString, unsigned length, UChar*& data);
+    static PassRefPtr<StringImpl> reallocate(PassRefPtr<StringImpl> originalString, unsigned length);
 
     // If this StringImpl has only one reference, we can truncate the string by updating
     // its m_length property without actually re-allocating its buffer.
@@ -431,6 +434,12 @@ public:
 #endif
 
 private:
+    template<typename CharType> static size_t allocationSize(unsigned length)
+    {
+        RELEASE_ASSERT(length <= ((std::numeric_limits<unsigned>::max() - sizeof(StringImpl)) / sizeof(CharType)));
+        return sizeof(StringImpl) + length * sizeof(CharType);
+    }
+
     // This number must be at least 2 to avoid sharing empty, null as well as 1 character strings from SmallStrings.
     static const unsigned s_copyCharsInlineCutOff = 20;
 
@@ -441,6 +450,8 @@ private:
 #ifdef STRING_STATS
     static StringStats m_stringStats;
 #endif
+
+    static unsigned m_highestStaticStringLength;
 
 #ifndef NDEBUG
     void assertHashIsCorrect()

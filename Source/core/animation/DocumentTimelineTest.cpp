@@ -33,7 +33,7 @@
 
 #include "core/animation/Animation.h"
 #include "core/animation/AnimationClock.h"
-#include "core/animation/KeyframeAnimationEffect.h"
+#include "core/animation/KeyframeEffectModel.h"
 #include "core/animation/TimedItem.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
@@ -132,7 +132,7 @@ TEST_F(AnimationDocumentTimelineTest, HasStarted)
 
 TEST_F(AnimationDocumentTimelineTest, EmptyKeyframeAnimation)
 {
-    RefPtr<KeyframeAnimationEffect> effect = KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector());
+    RefPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
     RefPtr<Animation> anim = Animation::create(element.get(), effect, timing);
 
     timeline->play(anim.get());
@@ -140,6 +140,25 @@ TEST_F(AnimationDocumentTimelineTest, EmptyKeyframeAnimation)
     platformTiming->expectNoMoreActions();
     updateClockAndService(0);
     EXPECT_FLOAT_EQ(0, timeline->currentTime());
+    EXPECT_FALSE(anim->isInEffect());
+
+    platformTiming->expectNoMoreActions();
+    updateClockAndService(100);
+    EXPECT_FLOAT_EQ(100, timeline->currentTime());
+}
+
+TEST_F(AnimationDocumentTimelineTest, EmptyForwardsKeyframeAnimation)
+{
+    RefPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
+    timing.fillMode = Timing::FillModeForwards;
+    RefPtr<Animation> anim = Animation::create(element.get(), effect, timing);
+
+    timeline->play(anim.get());
+
+    platformTiming->expectNoMoreActions();
+    updateClockAndService(0);
+    EXPECT_FLOAT_EQ(0, timeline->currentTime());
+    EXPECT_TRUE(anim->isInEffect());
     EXPECT_TRUE(anim->compositableValues()->isEmpty());
 
     platformTiming->expectNoMoreActions();
@@ -163,7 +182,7 @@ TEST_F(AnimationDocumentTimelineTest, EmptyPlayerDoesNotTriggerStyleRecalc)
 TEST_F(AnimationDocumentTimelineTest, EmptyTargetDoesNotTriggerStyleRecalc)
 {
     timing.iterationDuration = 200;
-    timeline->play(Animation::create(0, KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timing).get());
+    timeline->play(Animation::create(0, KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing).get());
     document->animationClock().updateTime(100);
     EXPECT_FALSE(timeline->serviceAnimations());
 }
@@ -177,7 +196,8 @@ TEST_F(AnimationDocumentTimelineTest, EmptyEffectDoesNotTriggerStyleRecalc)
 
 TEST_F(AnimationDocumentTimelineTest, TriggerStyleRecalc)
 {
-    timeline->play(Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timing).get());
+    timing.iterationDuration = 200;
+    timeline->play(Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing).get());
     document->animationClock().updateTime(100);
     EXPECT_TRUE(timeline->serviceAnimations());
 }
@@ -203,8 +223,9 @@ TEST_F(AnimationDocumentTimelineTest, ZeroTime)
 TEST_F(AnimationDocumentTimelineTest, PauseForTesting)
 {
     float seekTime = 1;
-    RefPtr<Animation> anim1 = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timing);
-    RefPtr<Animation> anim2  = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timing);
+    timing.fillMode = Timing::FillModeForwards;
+    RefPtr<Animation> anim1 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing);
+    RefPtr<Animation> anim2  = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing);
     Player* player1 = timeline->play(anim1.get());
     Player* player2 = timeline->play(anim2.get());
     timeline->pauseAnimationsForTesting(seekTime);
@@ -216,45 +237,47 @@ TEST_F(AnimationDocumentTimelineTest, PauseForTesting)
 TEST_F(AnimationDocumentTimelineTest, NumberOfActiveAnimations)
 {
     Timing timingForwardFill;
-    timingForwardFill.hasIterationDuration = true;
     timingForwardFill.iterationDuration = 2;
+    timingForwardFill.fillMode = Timing::FillModeForwards;
 
     Timing timingNoFill;
-    timingNoFill.hasIterationDuration = true;
     timingNoFill.iterationDuration = 2;
     timingNoFill.fillMode = Timing::FillModeNone;
 
     Timing timingBackwardFillDelay;
-    timingBackwardFillDelay.hasIterationDuration = true;
     timingBackwardFillDelay.iterationDuration = 1;
     timingBackwardFillDelay.fillMode = Timing::FillModeBackwards;
     timingBackwardFillDelay.startDelay = 1;
 
     Timing timingNoFillDelay;
-    timingNoFillDelay.hasIterationDuration = true;
     timingNoFillDelay.iterationDuration = 1;
     timingNoFillDelay.fillMode = Timing::FillModeNone;
     timingNoFillDelay.startDelay = 1;
 
-    RefPtr<Animation> anim1 = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timingForwardFill);
-    RefPtr<Animation> anim2 = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timingNoFill);
-    RefPtr<Animation> anim3 = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timingBackwardFillDelay);
-    RefPtr<Animation> anim4 = Animation::create(element.get(), KeyframeAnimationEffect::create(KeyframeAnimationEffect::KeyframeVector()), timingNoFillDelay);
+    Timing timingAutoFill;
+    timingAutoFill.iterationDuration = 2;
+
+    RefPtr<Animation> anim1 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timingForwardFill);
+    RefPtr<Animation> anim2 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timingNoFill);
+    RefPtr<Animation> anim3 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timingBackwardFillDelay);
+    RefPtr<Animation> anim4 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timingNoFillDelay);
+    RefPtr<Animation> anim5 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timingAutoFill);
 
     timeline->play(anim1.get());
     timeline->play(anim2.get());
     timeline->play(anim3.get());
     timeline->play(anim4.get());
+    timeline->play(anim5.get());
 
     platformTiming->expectNextFrameAction();
     updateClockAndService(0);
-    EXPECT_EQ(4U, timeline->numberOfActiveAnimationsForTesting());
+    EXPECT_EQ(5U, timeline->numberOfActiveAnimationsForTesting());
     platformTiming->expectNextFrameAction();
     updateClockAndService(0.5);
-    EXPECT_EQ(4U, timeline->numberOfActiveAnimationsForTesting());
+    EXPECT_EQ(5U, timeline->numberOfActiveAnimationsForTesting());
     platformTiming->expectNextFrameAction();
     updateClockAndService(1.5);
-    EXPECT_EQ(4U, timeline->numberOfActiveAnimationsForTesting());
+    EXPECT_EQ(5U, timeline->numberOfActiveAnimationsForTesting());
     platformTiming->expectNoMoreActions();
     updateClockAndService(3);
     EXPECT_EQ(1U, timeline->numberOfActiveAnimationsForTesting());
@@ -262,7 +285,6 @@ TEST_F(AnimationDocumentTimelineTest, NumberOfActiveAnimations)
 
 TEST_F(AnimationDocumentTimelineTest, DelayBeforeAnimationStart)
 {
-    timing.hasIterationDuration = true;
     timing.iterationDuration = 2;
     timing.startDelay = 5;
 
@@ -282,6 +304,28 @@ TEST_F(AnimationDocumentTimelineTest, DelayBeforeAnimationStart)
 
     platformTiming->expectNextFrameAction();
     updateClockAndService(4.98);
+}
+
+TEST_F(AnimationDocumentTimelineTest, PlayAfterDocumentDeref)
+{
+    timing.iterationDuration = 2;
+    timing.startDelay = 5;
+
+    timeline = document->timeline();
+    element = 0;
+    document = 0;
+
+    RefPtr<Animation> anim = Animation::create(0, 0, timing);
+    // Test passes if this does not crash.
+    timeline->play(anim.get());
+}
+
+TEST_F(AnimationDocumentTimelineTest, UsePlayerAfterTimelineDeref)
+{
+    RefPtr<Player> player = timeline->createPlayer(0);
+    timeline.clear();
+    // Test passes if this does not crash.
+    player->setStartTime(0);
 }
 
 }

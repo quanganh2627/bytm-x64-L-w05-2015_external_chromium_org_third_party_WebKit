@@ -48,7 +48,7 @@ namespace {
 
 class MockGraphicsLayerClient : public GraphicsLayerClient {
 public:
-    virtual void notifyAnimationStarted(const GraphicsLayer*, double time) OVERRIDE { }
+    virtual void notifyAnimationStarted(const GraphicsLayer*, double wallClockTime, double monotonicTime) OVERRIDE { }
     virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const IntRect& inClip) OVERRIDE { }
     virtual String debugName(const GraphicsLayer*) OVERRIDE { return String(); }
 };
@@ -65,11 +65,17 @@ class GraphicsLayerTest : public testing::Test {
 public:
     GraphicsLayerTest()
     {
+        m_clipLayer = adoptPtr(new GraphicsLayerForTesting(&m_client));
         m_graphicsLayer = adoptPtr(new GraphicsLayerForTesting(&m_client));
+        m_clipLayer->addChild(m_graphicsLayer.get());
+        m_graphicsLayer->platformLayer()->setScrollClipLayer(
+            m_clipLayer->platformLayer());
         m_platformLayer = m_graphicsLayer->platformLayer();
         m_layerTreeView = adoptPtr(Platform::current()->unitTestSupport()->createLayerTreeViewForTesting(WebUnitTestSupport::TestViewTypeUnitTest));
         ASSERT(m_layerTreeView);
-        m_layerTreeView->setRootLayer(*m_platformLayer);
+        m_layerTreeView->setRootLayer(*m_clipLayer->platformLayer());
+        m_layerTreeView->registerViewportLayers(
+            m_clipLayer->platformLayer(), m_graphicsLayer->platformLayer(), 0);
         m_layerTreeView->setViewportSize(WebSize(1, 1), WebSize(1, 1));
     }
 
@@ -82,13 +88,14 @@ public:
 protected:
     WebLayer* m_platformLayer;
     OwnPtr<GraphicsLayerForTesting> m_graphicsLayer;
+    OwnPtr<GraphicsLayerForTesting> m_clipLayer;
 
 private:
     OwnPtr<WebLayerTreeView> m_layerTreeView;
     MockGraphicsLayerClient m_client;
 };
 
-TEST_F(GraphicsLayerTest, updateLayerPreserves3DWithAnimations)
+TEST_F(GraphicsLayerTest, updateLayerShouldFlattenTransformWithAnimations)
 {
     ASSERT_FALSE(m_platformLayer->hasActiveAnimation());
 
@@ -100,7 +107,7 @@ TEST_F(GraphicsLayerTest, updateLayerPreserves3DWithAnimations)
 
     ASSERT_TRUE(m_platformLayer->hasActiveAnimation());
 
-    m_graphicsLayer->setPreserves3D(true);
+    m_graphicsLayer->setShouldFlattenTransform(false);
 
     m_platformLayer = m_graphicsLayer->platformLayer();
     ASSERT_TRUE(m_platformLayer);
@@ -109,7 +116,7 @@ TEST_F(GraphicsLayerTest, updateLayerPreserves3DWithAnimations)
     m_platformLayer->removeAnimation(animationId);
     ASSERT_FALSE(m_platformLayer->hasActiveAnimation());
 
-    m_graphicsLayer->setPreserves3D(false);
+    m_graphicsLayer->setShouldFlattenTransform(true);
 
     m_platformLayer = m_graphicsLayer->platformLayer();
     ASSERT_TRUE(m_platformLayer);

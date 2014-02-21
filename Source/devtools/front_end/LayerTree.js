@@ -89,6 +89,7 @@ WebInspector.LayerTree.prototype = {
 
         /**
          * @param {!WebInspector.Layer} layer
+         * @this {WebInspector.LayerTree}
          */
         function updateLayer(layer)
         {
@@ -201,7 +202,7 @@ WebInspector.LayerTreeElement.prototype = {
         var node = nodeId ? WebInspector.domAgent.nodeForId(nodeId) : null;
         var title = document.createDocumentFragment();
         title.createChild("div", "selection");
-        title.appendChild(document.createTextNode(node ? WebInspector.DOMPresentationUtils.appropriateSelectorFor(node, false) :  "#" + layer.id()));
+        title.appendChild(document.createTextNode(node ? WebInspector.DOMPresentationUtils.fullQualifiedSelector(node, false) :  "#" + layer.id()));
         var details = title.createChild("span", "dimmed");
         details.textContent = WebInspector.UIString(" (%d × %d)", layer.width(), layer.height());
         this.title = title;
@@ -209,6 +210,7 @@ WebInspector.LayerTreeElement.prototype = {
 
     /**
      * @override
+     * @return {boolean}
      */
     onselect: function()
     {

@@ -31,10 +31,10 @@
 #include "WebPluginContainerImpl.h"
 #include "WebPluginScrollbarClient.h"
 #include "WebViewImpl.h"
+#include "platform/KeyboardCodes.h"
 #include "platform/scroll/ScrollAnimator.h"
 #include "platform/scroll/Scrollbar.h"
 #include "platform/scroll/ScrollbarTheme.h"
-#include "core/platform/chromium/KeyboardCodes.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/scroll/ScrollTypes.h"
 #include "public/platform/WebCanvas.h"
@@ -50,7 +50,7 @@ WebPluginScrollbar* WebPluginScrollbar::createForPlugin(Orientation orientation,
                                                         WebPluginContainer* pluginContainer,
                                                         WebPluginScrollbarClient* client)
 {
-    WebPluginContainerImpl* plugin = toPluginContainerImpl(pluginContainer);
+    WebPluginContainerImpl* plugin = toWebPluginContainerImpl(pluginContainer);
     return new WebPluginScrollbarImpl(orientation, plugin->scrollbarGroup(), client);
 }
 

@@ -43,11 +43,10 @@ WebInspector.DebuggerModel = function()
     /** @type {!Object.<!string, !Array.<!WebInspector.Script>>} */
     this._scriptsBySourceURL = {};
 
-    this._canSetScriptSource = false;
     this._breakpointsActive = true;
 
-    WebInspector.settings.pauseOnExceptionStateString = WebInspector.settings.createSetting("pauseOnExceptionStateString", WebInspector.DebuggerModel.PauseOnExceptionsState.DontPauseOnExceptions);
-    WebInspector.settings.pauseOnExceptionStateString.addChangeListener(this._pauseOnExceptionStateChanged, this);
+    WebInspector.settings.pauseOnExceptionEnabled.addChangeListener(this._pauseOnExceptionStateChanged, this);
+    WebInspector.settings.pauseOnCaughtException.addChangeListener(this._pauseOnExceptionStateChanged, this);
 
     WebInspector.settings.enableAsyncStackTraces.addChangeListener(this._asyncStackTracesStateChanged, this);
 
@@ -56,7 +55,11 @@ WebInspector.DebuggerModel = function()
     WebInspector.DebuggerModel.applySkipStackFrameSettings();
 }
 
-// Keep these in sync with WebCore::ScriptDebugServer
+/**
+ * Keep these in sync with WebCore::ScriptDebugServer
+ *
+ * @enum {string}
+ */
 WebInspector.DebuggerModel.PauseOnExceptionsState = {
     DontPauseOnExceptions : "none",
     PauseOnAllExceptions : "all",
@@ -115,11 +118,6 @@ WebInspector.DebuggerModel.prototype = {
         if (this._debuggerEnabled)
             return;
 
-        function callback(error, result)
-        {
-            this._canSetScriptSource = result;
-        }
-        DebuggerAgent.canSetScriptSource(callback.bind(this));
         DebuggerAgent.enable(this._debuggerWasEnabled.bind(this));
     },
 
@@ -156,14 +154,6 @@ WebInspector.DebuggerModel.prototype = {
         this._skipAllPausesTimeout = setTimeout(this.skipAllPauses.bind(this, false), timeout);
     },
 
-    /**
-     * @return {boolean}
-     */
-    canSetScriptSource: function()
-    {
-        return this._canSetScriptSource;
-    },
-
     _debuggerWasEnabled: function()
     {
         this._debuggerEnabled = true;
@@ -174,13 +164,21 @@ WebInspector.DebuggerModel.prototype = {
 
     _pauseOnExceptionStateChanged: function()
     {
-        DebuggerAgent.setPauseOnExceptions(WebInspector.settings.pauseOnExceptionStateString.get());
+        var state;
+        if (!WebInspector.settings.pauseOnExceptionEnabled.get()) {
+            state = WebInspector.DebuggerModel.PauseOnExceptionsState.DontPauseOnExceptions;
+        } else if (WebInspector.settings.pauseOnCaughtException.get()) {
+            state = WebInspector.DebuggerModel.PauseOnExceptionsState.PauseOnAllExceptions;
+        } else {
+            state = WebInspector.DebuggerModel.PauseOnExceptionsState.PauseOnUncaughtExceptions;
+        }
+        DebuggerAgent.setPauseOnExceptions(state);
     },
 
     _asyncStackTracesStateChanged: function()
     {
         const maxAsyncStackChainDepth = 4;
-        var enabled = WebInspector.settings.enableAsyncStackTraces.get();
+        var enabled = WebInspector.settings.enableAsyncStackTraces.get() && WebInspector.experimentsSettings.asyncStackTraces.isEnabled();
         DebuggerAgent.setAsyncCallStackDepth(enabled ? maxAsyncStackChainDepth : 0);
     },
 
@@ -206,6 +204,7 @@ WebInspector.DebuggerModel.prototype = {
         /**
          * @param {!WebInspector.DebuggerModel.Location} requestedLocation
          * @param {?string} error
+         * @this {WebInspector.DebuggerModel}
          */
         function callback(requestedLocation, error)
         {
@@ -602,6 +601,7 @@ WebInspector.DebuggerModel.prototype = {
         /**
          * @param {?RuntimeAgent.RemoteObject} result
          * @param {boolean=} wasThrown
+         * @this {WebInspector.DebuggerModel}
          */
         function didEvaluate(result, wasThrown)
         {
@@ -970,6 +970,7 @@ WebInspector.DebuggerModel.CallFrame.prototype = {
         /**
          * @param {?string} error
          * @param {!Array.<!DebuggerAgent.Location>=} stepInPositions
+         * @this {WebInspector.DebuggerModel.CallFrame}
          */
         function getStepInPositionsCallback(error, stepInPositions)
         {
@@ -983,6 +984,7 @@ WebInspector.DebuggerModel.CallFrame.prototype = {
 
     /**
      * @param {function(!WebInspector.UILocation):(boolean|undefined)} updateDelegate
+     * @return {!WebInspector.LiveLocation}
      */
     createLiveLocation: function(updateDelegate)
     {
@@ -1066,6 +1068,6 @@ WebInspector.DebuggerPausedDetails.prototype = {
 }
 
 /**
- * @type {?WebInspector.DebuggerModel}
+ * @type {!WebInspector.DebuggerModel}
  */
-WebInspector.debuggerModel = null;
+WebInspector.debuggerModel;

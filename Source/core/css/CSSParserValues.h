@@ -176,7 +176,7 @@ public:
     void addValue(const CSSParserValue&);
     void insertValueAt(unsigned, const CSSParserValue&);
     void deleteValueAt(unsigned);
-    void extend(CSSParserValueList&);
+    void stealValues(CSSParserValueList&);
 
     unsigned size() const { return m_values.size(); }
     unsigned currentIndex() { return m_current; }
@@ -262,7 +262,10 @@ inline void CSSParserValue::setFromNumber(double value, int unit)
 {
     id = CSSValueInvalid;
     isInt = false;
-    fValue = value;
+    if (std::isfinite(value))
+        fValue = value;
+    else
+        fValue = 0;
     this->unit = unit;
 }
 

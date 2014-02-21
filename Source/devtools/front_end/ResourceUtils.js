@@ -148,7 +148,6 @@ WebInspector.linkifyStringAsFragment = function(string)
         var urlNode = WebInspector.linkifyURLAsNode(url, title, undefined, isExternal);
         if (typeof lineNumber !== "undefined") {
             urlNode.lineNumber = lineNumber;
-            urlNode.preferredPanel = "sources";
             if (typeof columnNumber !== "undefined")
                 urlNode.columnNumber = columnNumber;
         }
@@ -223,13 +222,12 @@ WebInspector.linkifyResourceAsNode = function(url, lineNumber, classes, tooltipT
 WebInspector.linkifyRequestAsNode = function(request)
 {
     var anchor = WebInspector.linkifyURLAsNode(request.url);
-    anchor.preferredPanel = "network";
-    anchor.requestId  = request.requestId;
+    anchor.requestId = request.requestId;
     return anchor;
 }
 
 /**
- * @param {string} content
+ * @param {?string} content
  * @param {string} mimeType
  * @param {boolean} contentEncoded
  * @return {?string}
@@ -237,7 +235,7 @@ WebInspector.linkifyRequestAsNode = function(request)
 WebInspector.contentAsDataURL = function(content, mimeType, contentEncoded)
 {
     const maxDataUrlSize = 1024 * 1024;
-    if (content == null || content.length > maxDataUrlSize)
+    if (content === null || content.length > maxDataUrlSize)
         return null;
 
     return "data:" + mimeType + (contentEncoded ? ";base64," : ",") + content;

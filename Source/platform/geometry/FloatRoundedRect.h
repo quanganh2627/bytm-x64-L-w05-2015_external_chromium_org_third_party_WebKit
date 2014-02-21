@@ -32,12 +32,13 @@
 
 #include "platform/geometry/FloatRect.h"
 #include "platform/geometry/FloatSize.h"
+#include "platform/geometry/RoundedRect.h"
 
 namespace WebCore {
 
 class PLATFORM_EXPORT FloatRoundedRect {
 public:
-    class Radii {
+    class PLATFORM_EXPORT Radii {
     public:
         Radii() { }
         Radii(const FloatSize& topLeft, const FloatSize& topRight, const FloatSize& bottomLeft, const FloatSize& bottomRight)
@@ -45,6 +46,14 @@ public:
             , m_topRight(topRight)
             , m_bottomLeft(bottomLeft)
             , m_bottomRight(bottomRight)
+        {
+        }
+
+        Radii(const RoundedRect::Radii& intRadii)
+            : m_topLeft(intRadii.topLeft())
+            , m_topRight(intRadii.topRight())
+            , m_bottomLeft(intRadii.bottomLeft())
+            , m_bottomRight(intRadii.bottomRight())
         {
         }
 

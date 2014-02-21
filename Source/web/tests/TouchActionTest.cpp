@@ -121,7 +121,7 @@ protected:
     void runShadowDOMTest(std::string file);
     void sendTouchEvent(WebView*, WebInputEvent::Type, WebCore::IntPoint clientPoint);
     WebView* setupTest(std::string file, TouchActionTrackingWebViewClient&);
-    void runTestOnTree(WebCore::Node* root, WebView*, TouchActionTrackingWebViewClient&);
+    void runTestOnTree(WebCore::ContainerNode* root, WebView*, TouchActionTrackingWebViewClient&);
 
     std::string m_baseURL;
     FrameTestHelpers::WebViewHelper m_webViewHelper;
@@ -135,6 +135,8 @@ void TouchActionTest::runTouchActionTest(std::string file)
 
     RefPtr<WebCore::Document> document = static_cast<PassRefPtr<WebCore::Document> >(webView->mainFrame()->document());
     runTestOnTree(document.get(), webView, client);
+
+    m_webViewHelper.reset(); // Explicitly reset to break dependency on locally scoped client.
 }
 
 void TouchActionTest::runShadowDOMTest(std::string file)
@@ -156,6 +158,8 @@ void TouchActionTest::runShadowDOMTest(std::string file)
 
     // Projections show up in the main document.
     runTestOnTree(document.get(), webView, client);
+
+    m_webViewHelper.reset(); // Explicitly reset to break dependency on locally scoped client.
 }
 
 WebView* TouchActionTest::setupTest(std::string file, TouchActionTrackingWebViewClient& client)
@@ -175,7 +179,7 @@ WebView* TouchActionTest::setupTest(std::string file, TouchActionTrackingWebView
     return webView;
 }
 
-void TouchActionTest::runTestOnTree(WebCore::Node* root, WebView* webView, TouchActionTrackingWebViewClient& client)
+void TouchActionTest::runTestOnTree(WebCore::ContainerNode* root, WebView* webView, TouchActionTrackingWebViewClient& client)
 {
     // Find all elements to test the touch-action of in the document.
     WebCore::TrackExceptionState es;
@@ -189,7 +193,7 @@ void TouchActionTest::runTestOnTree(WebCore::Node* root, WebView* webView, Touch
 
         std::string failureContext("Test case: ");
         if (element->hasID()) {
-            failureContext.append(element->getIdAttribute().string().ascii().data());
+            failureContext.append(element->getIdAttribute().ascii().data());
         } else if (element->firstChild()) {
             failureContext.append("\"");
             failureContext.append(element->firstChild()->textContent(false).stripWhiteSpace().ascii().data());
@@ -262,8 +266,14 @@ void TouchActionTest::runTestOnTree(WebCore::Node* root, WebView* webView, Touch
                 if (client.touchActionSetCount()) {
                     if (expectedAction == "none") {
                         EXPECT_EQ(WebTouchActionNone, client.lastTouchAction()) << failureContextPos;
+                    } else if (expectedAction == "pan-x") {
+                        EXPECT_EQ(WebTouchActionPanX, client.lastTouchAction()) << failureContextPos;
+                    } else if (expectedAction == "pan-y") {
+                        EXPECT_EQ(WebTouchActionPanY, client.lastTouchAction()) << failureContextPos;
+                    } else if (expectedAction == "pan-x-y") {
+                        EXPECT_EQ((WebTouchActionPanX | WebTouchActionPanY), client.lastTouchAction()) << failureContextPos;
                     } else {
-                        FAIL() << "Unrecognized expected-action \"" << expectedAction.string().ascii().data()
+                        FAIL() << "Unrecognized expected-action \"" << expectedAction.ascii().data()
                             << "\" " << failureContextPos;
                     }
                 }
@@ -311,6 +321,11 @@ TEST_F(TouchActionTest, Overflow)
 TEST_F(TouchActionTest, ShadowDOM)
 {
     runShadowDOMTest("touch-action-shadow-dom.html");
+}
+
+TEST_F(TouchActionTest, Pan)
+{
+    runTouchActionTest("touch-action-pan.html");
 }
 
 }

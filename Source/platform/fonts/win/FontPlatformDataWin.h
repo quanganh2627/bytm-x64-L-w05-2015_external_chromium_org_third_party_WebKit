@@ -53,7 +53,7 @@ typedef struct HFONT__ *HFONT;
 namespace WebCore {
 
 // Return a typeface associated with the hfont, and return its size and
-// lfQuality from the hfont's LOGFONT.
+// from the hfont's LOGFONT.
 PassRefPtr<SkTypeface> CreateTypefaceFromHFont(HFONT, int* size);
 
 class FontDescription;
@@ -76,7 +76,7 @@ public:
     FontPlatformData(float size, bool bold, bool oblique);
     FontPlatformData(const FontPlatformData&);
     FontPlatformData(const FontPlatformData&, float textSize);
-    FontPlatformData(PassRefPtr<SkTypeface>, const char* name, float textSize, bool fakeBold, bool fakeItalic, FontOrientation = Horizontal, bool useSubpixelPositioning = defaultUseSubpixelPositioning());
+    FontPlatformData(PassRefPtr<SkTypeface>, const char* name, float textSize, bool syntheticBold, bool syntheticItalic, FontOrientation = Horizontal, bool useSubpixelPositioning = defaultUseSubpixelPositioning());
 
     void setupPaint(SkPaint*, GraphicsContext* = 0) const;
 
@@ -95,7 +95,7 @@ public:
 #endif
     SkTypeface* typeface() const { return m_typeface.get(); }
     SkFontID uniqueID() const { return m_typeface->uniqueID(); }
-    int paintTextFlags() const;
+    int paintTextFlags() const { return m_paintTextFlags; }
 
     String fontFamilyName() const;
 
@@ -169,10 +169,11 @@ private:
 #endif // !USE(HARFBUZZ)
     float m_textSize; // Point size of the font in pixels.
     FontOrientation m_orientation;
-    bool m_fakeBold;
-    bool m_fakeItalic;
+    bool m_syntheticBold;
+    bool m_syntheticItalic;
 
     RefPtr<SkTypeface> m_typeface;
+    int m_paintTextFlags;
 
 #if USE(HARFBUZZ)
     mutable RefPtr<HarfBuzzFace> m_harfBuzzFace;

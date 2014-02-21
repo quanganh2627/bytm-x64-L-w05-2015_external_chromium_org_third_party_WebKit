@@ -124,6 +124,7 @@ double NumberInputType::valueAsDouble() const
 void NumberInputType::setValueAsDouble(double newValue, TextFieldEventBehavior eventBehavior, ExceptionState& exceptionState) const
 {
     // FIXME: We should use numeric_limits<double>::max for number input type.
+    // (NOTE: the range check will not be true for NaN.)
     const double floatMax = numeric_limits<float>::max();
     if (newValue < -floatMax || newValue > floatMax) {
         exceptionState.throwDOMException(InvalidStateError, "The value provided (" + String::number(newValue) + ") is outside the range (" + String::number(-floatMax) + ", " + String::number(floatMax) + ").");
@@ -157,13 +158,10 @@ bool NumberInputType::typeMismatch() const
 StepRange NumberInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
     DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (numberDefaultStep, numberDefaultStepBase, numberStepScaleFactor));
-    const Decimal stepBase = findStepBase(numberDefaultStepBase);
+
     // FIXME: We should use numeric_limits<double>::max for number input type.
     const Decimal floatMax = Decimal::fromDouble(numeric_limits<float>::max());
-    const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), -floatMax);
-    const Decimal maximum = parseToNumber(element().fastGetAttribute(maxAttr), floatMax);
-    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
-    return StepRange(stepBase, minimum, maximum, step, stepDescription);
+    return InputType::createStepRange(anyStepHandling, numberDefaultStepBase, -floatMax, floatMax, stepDescription);
 }
 
 bool NumberInputType::sizeShouldIncludeDecoration(int defaultSize, int& preferredSize) const
@@ -303,6 +301,11 @@ void NumberInputType::stepAttributeChanged()
 
     if (element().renderer())
         element().renderer()->setNeedsLayoutAndPrefWidthsRecalc();
+}
+
+bool NumberInputType::supportsSelectionAPI() const
+{
+    return false;
 }
 
 } // namespace WebCore

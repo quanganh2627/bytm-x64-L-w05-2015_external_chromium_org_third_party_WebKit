@@ -33,8 +33,9 @@
 
 namespace WebCore {
 
-LazyDecodingPixelRef::LazyDecodingPixelRef(PassRefPtr<ImageFrameGenerator> frameGenerator, size_t index)
-    : m_frameGenerator(frameGenerator)
+LazyDecodingPixelRef::LazyDecodingPixelRef(const SkImageInfo& info, PassRefPtr<ImageFrameGenerator> frameGenerator, size_t index)
+    : LazyPixelRef(info)
+    , m_frameGenerator(frameGenerator)
     , m_frameIndex(index)
     , m_lockedImageResource(0)
     , m_objectTracker(this)
@@ -59,9 +60,9 @@ SkData* LazyDecodingPixelRef::onRefEncodedData()
     return 0;
 }
 
-void* LazyDecodingPixelRef::onLockPixels(SkColorTable**)
+bool LazyDecodingPixelRef::onNewLockPixels(LockRec* rec)
 {
-    TRACE_EVENT_ASYNC_BEGIN0("webkit", "LazyDecodingPixelRef::lockPixels", this);
+    TRACE_EVENT_ASYNC_BEGIN0("webkit", "LazyDecodingPixelRef::onNewLockPixels", this);
 
     ASSERT(!m_lockedImageResource);
 
@@ -72,16 +73,19 @@ void* LazyDecodingPixelRef::onLockPixels(SkColorTable**)
     // Use ImageFrameGenerator to generate the image. It will lock the cache
     // entry for us.
     if (!m_lockedImageResource) {
-        PlatformInstrumentation::willDecodeLazyPixelRef(reinterpret_cast<unsigned long long>(this));
+        PlatformInstrumentation::willDecodeLazyPixelRef(getGenerationID());
         m_lockedImageResource = m_frameGenerator->decodeAndScale(size, m_frameIndex);
-        PlatformInstrumentation::didDecodeLazyPixelRef(reinterpret_cast<unsigned long long>(this));
+        PlatformInstrumentation::didDecodeLazyPixelRef(getGenerationID());
     }
     if (!m_lockedImageResource)
-        return 0;
+        return false;
 
     ASSERT(!m_lockedImageResource->bitmap().isNull());
     ASSERT(m_lockedImageResource->scaledSize() == size);
-    return m_lockedImageResource->bitmap().getAddr(0, 0);
+    rec->fPixels = m_lockedImageResource->bitmap().getAddr(0, 0);
+    rec->fColorTable = 0;
+    rec->fRowBytes = m_lockedImageResource->bitmap().rowBytes();
+    return true;
 }
 
 void LazyDecodingPixelRef::onUnlockPixels()

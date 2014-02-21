@@ -39,9 +39,7 @@ WebInspector.IsolatedFileSystemManager = function()
     /** @type {!Object.<string, !Array.<function(?DOMFileSystem)>>} */
     this._pendingFileSystemRequests = {};
     this._fileSystemMapping = new WebInspector.FileSystemMapping();
-
-    if (this.supportsFileSystems())
-        this._requestFileSystems();
+    this._requestFileSystems();
 }
 
 /** @typedef {!{fileSystemName: string, rootURL: string, fileSystemPath: string}} */
@@ -59,14 +57,6 @@ WebInspector.IsolatedFileSystemManager.prototype = {
     mapping: function()
     {
         return this._fileSystemMapping;
-    },
-
-    /**
-     * @return {boolean}
-     */
-    supportsFileSystems: function()
-    {
-        return InspectorFrontendHost.supportsFileSystems();
     },
 
     _requestFileSystems: function()
@@ -199,9 +189,9 @@ WebInspector.IsolatedFileSystemManager.prototype = {
 }
 
 /**
- * @type {?WebInspector.IsolatedFileSystemManager}
+ * @type {!WebInspector.IsolatedFileSystemManager}
  */
-WebInspector.isolatedFileSystemManager = null;
+WebInspector.isolatedFileSystemManager;
 
 /**
  * @constructor
@@ -240,6 +230,6 @@ WebInspector.IsolatedFileSystemDispatcher.prototype = {
 }
 
 /**
- * @type {?WebInspector.IsolatedFileSystemDispatcher}
+ * @type {!WebInspector.IsolatedFileSystemDispatcher}
  */
-WebInspector.isolatedFileSystemDispatcher = null;
+WebInspector.isolatedFileSystemDispatcher;

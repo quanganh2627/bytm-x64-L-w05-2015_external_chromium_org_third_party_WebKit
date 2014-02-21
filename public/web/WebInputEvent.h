@@ -93,6 +93,7 @@ public:
 
     enum Type {
         Undefined = -1,
+        TypeFirst = Undefined,
 
         // WebMouseEvent
         MouseDown,
@@ -136,6 +137,7 @@ public:
         TouchMove,
         TouchEnd,
         TouchCancel,
+        TypeLast = TouchCancel
     };
 
     enum Modifiers {
@@ -436,6 +438,13 @@ public:
             float firstFingerWidth;
             float firstFingerHeight;
         } twoFingerTap;
+
+        struct {
+            // Initial motion that triggered the scroll.
+            // May be redundant with deltaX/deltaY in the first scrollUpdate.
+            float deltaXHint;
+            float deltaYHint;
+        } scrollBegin;
 
         struct {
             float deltaX;

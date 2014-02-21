@@ -57,7 +57,7 @@
 #include "core/page/FrameTree.h"
 #include "core/frame/FrameView.h"
 #include "core/page/Page.h"
-#include "core/page/Settings.h"
+#include "core/frame/Settings.h"
 #include "core/page/SpatialNavigation.h"
 #include "core/rendering/HitTestRequest.h"
 #include "core/rendering/HitTestResult.h"
@@ -115,7 +115,7 @@ Node* FrameSelection::rootEditableElementOrTreeScopeRootNode() const
         return selectionRoot;
 
     Node* node = m_selection.base().containerNode();
-    return node ? node->treeScope().rootNode() : 0;
+    return node ? &node->treeScope().rootNode() : 0;
 }
 
 void FrameSelection::moveTo(const VisiblePosition &pos, EUserTriggered userTriggered, CursorAlignOnScroll align)
@@ -135,20 +135,6 @@ void FrameSelection::moveTo(const Position &pos, EAffinity affinity, EUserTrigge
 {
     SetSelectionOptions options = CloseTyping | ClearTypingStyle | userTriggered;
     setSelection(VisibleSelection(pos, affinity, m_selection.isDirectional()), options);
-}
-
-void FrameSelection::moveTo(const Range *r, EAffinity affinity, EUserTriggered userTriggered)
-{
-    SetSelectionOptions options = CloseTyping | ClearTypingStyle | userTriggered;
-    VisibleSelection selection = r ? VisibleSelection(r->startPosition(), r->endPosition(), affinity) : VisibleSelection(Position(), Position(), affinity);
-    setSelection(selection, options);
-}
-
-void FrameSelection::moveTo(const Position &base, const Position &extent, EAffinity affinity, EUserTriggered userTriggered)
-{
-    const bool selectionHasDirection = true;
-    SetSelectionOptions options = CloseTyping | ClearTypingStyle | userTriggered;
-    setSelection(VisibleSelection(base, extent, affinity, selectionHasDirection), options);
 }
 
 static void adjustEndpointsAtBidiBoundary(VisiblePosition& visibleBase, VisiblePosition& visibleExtent)
@@ -1208,18 +1194,6 @@ void FrameSelection::setExtent(const VisiblePosition &pos, EUserTriggered userTr
     setSelection(VisibleSelection(m_selection.base(), pos.deepEquivalent(), pos.affinity(), selectionHasDirection), CloseTyping | ClearTypingStyle | userTriggered);
 }
 
-void FrameSelection::setBase(const Position &pos, EAffinity affinity, EUserTriggered userTriggered)
-{
-    const bool selectionHasDirection = true;
-    setSelection(VisibleSelection(pos, m_selection.extent(), affinity, selectionHasDirection), CloseTyping | ClearTypingStyle | userTriggered);
-}
-
-void FrameSelection::setExtent(const Position &pos, EAffinity affinity, EUserTriggered userTriggered)
-{
-    const bool selectionHasDirection = true;
-    setSelection(VisibleSelection(m_selection.base(), pos, affinity, selectionHasDirection), CloseTyping | ClearTypingStyle | userTriggered);
-}
-
 RenderObject* FrameSelection::caretRenderer() const
 {
     return CaretBase::caretRenderer(m_selection.start().deprecatedNode());
@@ -1253,11 +1227,7 @@ bool FrameSelection::recomputeCaretRect()
     if (!shouldUpdateCaretRect())
         return false;
 
-    if (!m_frame)
-        return false;
-
-    FrameView* v = m_frame->document()->view();
-    if (!v)
+    if (!m_frame || !m_frame->document()->view())
         return false;
 
     LayoutRect oldRect = localCaretRectWithoutUpdate();
@@ -1273,9 +1243,9 @@ bool FrameSelection::recomputeCaretRect()
         return false;
 
     if (RenderView* view = m_frame->document()->renderView()) {
-        Node* node = m_selection.start().deprecatedNode();
-        if (m_previousCaretNode)
+        if (m_previousCaretNode && shouldRepaintCaret(view, m_previousCaretNode->isContentEditable()))
             repaintCaretForLocalRect(m_previousCaretNode.get(), oldRect);
+        Node* node = m_selection.start().deprecatedNode();
         m_previousCaretNode = node;
         if (shouldRepaintCaret(view, isContentEditable()))
             repaintCaretForLocalRect(node, newRect);
@@ -1691,13 +1661,6 @@ void FrameSelection::setFocusedNodeIfNeeded()
         m_frame->page()->focusController().setFocusedElement(0, m_frame);
 }
 
-PassRefPtr<MutableStylePropertySet> FrameSelection::copyTypingStyle() const
-{
-    if (!m_typingStyle || !m_typingStyle->style())
-        return 0;
-    return m_typingStyle->style()->mutableCopy();
-}
-
 static String extractSelectedText(const FrameSelection& selection, TextIteratorBehavior behavior)
 {
     // We remove '\0' characters because they are not visibly rendered to the user.
@@ -1739,8 +1702,11 @@ static HTMLFormElement* scanForForm(Node* start)
     for (; element; element = ElementTraversal::next(*element)) {
         if (element->hasTagName(formTag))
             return toHTMLFormElement(element);
-        if (element->isHTMLElement() && toHTMLElement(element)->isFormControlElement())
-            return toHTMLFormControlElement(element)->form();
+        if (element->isHTMLElement()) {
+            HTMLFormElement* owner = toHTMLElement(element)->formOwner();
+            if (owner)
+                return owner;
+        }
         if (element->hasTagName(frameTag) || element->hasTagName(iframeTag)) {
             Node* childDocument = toHTMLFrameElementBase(element)->contentDocument();
             if (HTMLFormElement* frameResult = scanForForm(childDocument))
@@ -1763,8 +1729,11 @@ HTMLFormElement* FrameSelection::currentForm() const
     for (node = start; node; node = node->parentNode()) {
         if (node->hasTagName(formTag))
             return toHTMLFormElement(node);
-        if (node->isHTMLElement() && toHTMLElement(node)->isFormControlElement())
-            return toHTMLFormControlElement(node)->form();
+        if (node->isHTMLElement()) {
+            HTMLFormElement* owner = toHTMLElement(node)->formOwner();
+            if (owner)
+                return owner;
+        }
     }
 
     // Try walking forward in the node tree to find a form element.

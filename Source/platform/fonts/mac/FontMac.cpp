@@ -32,6 +32,7 @@
 #include "platform/fonts/Font.h"
 
 #include "platform/LayoutTestSupport.h"
+#include "platform/fonts/FontPlatformFeatures.h"
 #include "platform/fonts/FontSmoothingMode.h"
 #include "platform/fonts/GlyphBuffer.h"
 #include "platform/fonts/SimpleFontData.h"
@@ -40,16 +41,15 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkPaint.h"
 #include "third_party/skia/include/core/SkTypeface.h"
-#include "third_party/skia/include/ports/SkTypeface_mac.h"
 
 namespace WebCore {
 
-bool Font::canReturnFallbackFontsForComplexText()
+bool FontPlatformFeatures::canReturnFallbackFontsForComplexText()
 {
     return true;
 }
 
-bool Font::canExpandAroundIdeographsInComplexText()
+bool FontPlatformFeatures::canExpandAroundIdeographsInComplexText()
 {
     return true;
 }
@@ -63,23 +63,16 @@ static void setupPaint(SkPaint* paint, const SimpleFontData* fontData, const Fon
     paint->setEmbeddedBitmapText(false);
     paint->setTextSize(SkFloatToScalar(textSize));
     paint->setVerticalText(platformData.orientation() == Vertical);
-    SkTypeface* typeface = SkCreateTypefaceFromCTFont(platformData.ctFont());
-    SkAutoUnref autoUnref(typeface);
-    paint->setTypeface(typeface);
+    paint->setTypeface(platformData.typeface());
     paint->setFakeBoldText(platformData.m_syntheticBold);
     paint->setTextSkewX(platformData.m_syntheticOblique ? -SK_Scalar1 / 4 : 0);
     paint->setAutohinted(false); // freetype specific
     paint->setLCDRenderText(shouldSmoothFonts);
     paint->setSubpixelText(true);
 
-#if OS(MACOSX)
     // When using CoreGraphics, disable hinting when webkit-font-smoothing:antialiased is used.
     // See crbug.com/152304
-    if (font->fontDescription().fontSmoothing() == Antialiased)
-        paint->setHinting(SkPaint::kNo_Hinting);
-#endif
-
-    if (font->fontDescription().textRenderingMode() == GeometricPrecision)
+    if (font->fontDescription().fontSmoothing() == Antialiased || font->fontDescription().textRenderingMode() == GeometricPrecision)
         paint->setHinting(SkPaint::kNo_Hinting);
 }
 
@@ -110,7 +103,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         break;
     }
 
-    if (!shouldUseSmoothing() || isRunningLayoutTest()) {
+    if (isRunningLayoutTest()) {
         shouldSmoothFonts = false;
         shouldAntialias = false;
     }

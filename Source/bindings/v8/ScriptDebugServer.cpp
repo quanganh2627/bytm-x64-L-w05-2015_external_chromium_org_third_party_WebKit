@@ -89,10 +89,10 @@ String ScriptDebugServer::setBreakpoint(const String& sourceID, const ScriptBrea
     v8::Local<v8::Context> debuggerContext = v8::Debug::GetDebugContext();
     v8::Context::Scope contextScope(debuggerContext);
 
-    v8::Local<v8::Object> info = v8::Object::New();
+    v8::Local<v8::Object> info = v8::Object::New(m_isolate);
     info->Set(v8AtomicString(m_isolate, "sourceID"), v8String(debuggerContext->GetIsolate(), sourceID));
-    info->Set(v8AtomicString(m_isolate, "lineNumber"), v8::Integer::New(scriptBreakpoint.lineNumber, debuggerContext->GetIsolate()));
-    info->Set(v8AtomicString(m_isolate, "columnNumber"), v8::Integer::New(scriptBreakpoint.columnNumber, debuggerContext->GetIsolate()));
+    info->Set(v8AtomicString(m_isolate, "lineNumber"), v8::Integer::New(debuggerContext->GetIsolate(), scriptBreakpoint.lineNumber));
+    info->Set(v8AtomicString(m_isolate, "columnNumber"), v8::Integer::New(debuggerContext->GetIsolate(), scriptBreakpoint.columnNumber));
     info->Set(v8AtomicString(m_isolate, "interstatementLocation"), v8Boolean(interstatementLocation, debuggerContext->GetIsolate()));
     info->Set(v8AtomicString(m_isolate, "condition"), v8String(debuggerContext->GetIsolate(), scriptBreakpoint.condition));
 
@@ -102,7 +102,7 @@ String ScriptDebugServer::setBreakpoint(const String& sourceID, const ScriptBrea
         return "";
     *actualLineNumber = info->Get(v8AtomicString(m_isolate, "lineNumber"))->Int32Value();
     *actualColumnNumber = info->Get(v8AtomicString(m_isolate, "columnNumber"))->Int32Value();
-    return toWebCoreString(breakpointId.As<v8::String>());
+    return toCoreString(breakpointId.As<v8::String>());
 }
 
 void ScriptDebugServer::removeBreakpoint(const String& breakpointId)
@@ -111,7 +111,7 @@ void ScriptDebugServer::removeBreakpoint(const String& breakpointId)
     v8::Local<v8::Context> debuggerContext = v8::Debug::GetDebugContext();
     v8::Context::Scope contextScope(debuggerContext);
 
-    v8::Local<v8::Object> info = v8::Object::New();
+    v8::Local<v8::Object> info = v8::Object::New(m_isolate);
     info->Set(v8AtomicString(m_isolate, "breakpointId"), v8String(debuggerContext->GetIsolate(), breakpointId));
 
     v8::Handle<v8::Function> removeBreakpointFunction = v8::Local<v8::Function>::Cast(m_debuggerScript.newLocal(m_isolate)->Get(v8AtomicString(m_isolate, "removeBreakpoint")));
@@ -136,7 +136,7 @@ void ScriptDebugServer::setBreakpointsActivated(bool activated)
     v8::Local<v8::Context> debuggerContext = v8::Debug::GetDebugContext();
     v8::Context::Scope contextScope(debuggerContext);
 
-    v8::Local<v8::Object> info = v8::Object::New();
+    v8::Local<v8::Object> info = v8::Object::New(m_isolate);
     info->Set(v8AtomicString(m_isolate, "enabled"), v8::Boolean::New(m_isolate, activated));
     v8::Handle<v8::Function> setBreakpointsActivated = v8::Local<v8::Function>::Cast(m_debuggerScript.newLocal(m_isolate)->Get(v8AtomicString(m_isolate, "setBreakpointsActivated")));
     v8::Debug::Call(setBreakpointsActivated, info);
@@ -161,7 +161,7 @@ void ScriptDebugServer::setPauseOnExceptionsState(PauseOnExceptionsState pauseOn
     v8::HandleScope scope(m_isolate);
     v8::Context::Scope contextScope(v8::Debug::GetDebugContext());
 
-    v8::Handle<v8::Value> argv[] = { v8::Int32::New(pauseOnExceptionsState, m_isolate) };
+    v8::Handle<v8::Value> argv[] = { v8::Int32::New(m_isolate, pauseOnExceptionsState) };
     callDebuggerMethod("setPauseOnExceptionsState", 1, argv);
 }
 
@@ -275,7 +275,7 @@ bool ScriptDebugServer::setScriptSource(const String& sourceID, const String& ne
         if (tryCatch.HasCaught()) {
             v8::Local<v8::Message> message = tryCatch.Message();
             if (!message.IsEmpty())
-                *error = toWebCoreStringWithUndefinedOrNullCheck(message->Get());
+                *error = toCoreStringWithUndefinedOrNullCheck(message->Get());
             else
                 *error = "Unknown error.";
             return false;
@@ -300,11 +300,11 @@ bool ScriptDebugServer::setScriptSource(const String& sourceID, const String& ne
         {
             RefPtr<TypeBuilder::Debugger::SetScriptSourceError::CompileError> compileError =
                 TypeBuilder::Debugger::SetScriptSourceError::CompileError::create()
-                    .setMessage(toWebCoreStringWithUndefinedOrNullCheck(resultTuple->Get(2)))
+                    .setMessage(toCoreStringWithUndefinedOrNullCheck(resultTuple->Get(2)))
                     .setLineNumber(resultTuple->Get(3)->ToInteger()->Value())
                     .setColumnNumber(resultTuple->Get(4)->ToInteger()->Value());
 
-            *error = toWebCoreStringWithUndefinedOrNullCheck(resultTuple->Get(1));
+            *error = toCoreStringWithUndefinedOrNullCheck(resultTuple->Get(1));
             errorData = TypeBuilder::Debugger::SetScriptSourceError::create();
             errorData->setCompileError(compileError);
             return false;
@@ -319,9 +319,9 @@ PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::wrapCallFrames(v8::Handle<v8:
     v8::Handle<v8::Value> currentCallFrameV8;
     if (executionState.IsEmpty()) {
         v8::Handle<v8::Function> currentCallFrameFunction = v8::Local<v8::Function>::Cast(m_debuggerScript.newLocal(m_isolate)->Get(v8AtomicString(m_isolate, "currentCallFrame")));
-        currentCallFrameV8 = v8::Debug::Call(currentCallFrameFunction, v8::Integer::New(maximumLimit, m_isolate));
+        currentCallFrameV8 = v8::Debug::Call(currentCallFrameFunction, v8::Integer::New(m_isolate, maximumLimit));
     } else {
-        v8::Handle<v8::Value> argv[] = { executionState, v8::Integer::New(maximumLimit, m_isolate) };
+        v8::Handle<v8::Value> argv[] = { executionState, v8::Integer::New(m_isolate, maximumLimit) };
         currentCallFrameV8 = callDebuggerMethod("currentCallFrame", 2, argv);
     }
     ASSERT(!currentCallFrameV8.IsEmpty());
@@ -332,15 +332,14 @@ PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::wrapCallFrames(v8::Handle<v8:
 
 ScriptValue ScriptDebugServer::currentCallFrames()
 {
-    v8::HandleScope handleScope(m_isolate);
-    RefPtr<JavaScriptCallFrame> currentCallFrame = wrapCallFrames(m_executionState.newLocal(m_isolate), -1);
-    if (!currentCallFrame)
-        return ScriptValue(v8::Null(m_isolate), m_isolate);
-
     v8::HandleScope scope(m_isolate);
     v8::Handle<v8::Context> pausedContext = m_pausedContext.IsEmpty() ? m_isolate->GetCurrentContext() : m_pausedContext;
     if (pausedContext.IsEmpty())
-        return ScriptValue(v8::Null(m_isolate), m_isolate);
+        return ScriptValue();
+
+    RefPtr<JavaScriptCallFrame> currentCallFrame = wrapCallFrames(m_executionState.newLocal(m_isolate), -1);
+    if (!currentCallFrame)
+        return ScriptValue();
 
     v8::Context::Scope contextScope(pausedContext);
     return ScriptValue(toV8(currentCallFrame.release(), v8::Handle<v8::Object>(), pausedContext->GetIsolate()), pausedContext->GetIsolate());
@@ -384,8 +383,11 @@ void ScriptDebugServer::handleProgramBreak(v8::Handle<v8::Object> executionState
     Vector<String> breakpointIds;
     if (!hitBreakpointNumbers.IsEmpty()) {
         breakpointIds.resize(hitBreakpointNumbers->Length());
-        for (size_t i = 0; i < hitBreakpointNumbers->Length(); i++)
-            breakpointIds[i] = toWebCoreStringWithUndefinedOrNullCheck(hitBreakpointNumbers->Get(i));
+        for (size_t i = 0; i < hitBreakpointNumbers->Length(); i++) {
+            v8::Handle<v8::Value> hitBreakpointNumber = hitBreakpointNumbers->Get(i);
+            ASSERT(!hitBreakpointNumber.IsEmpty() && hitBreakpointNumber->IsInt32());
+            breakpointIds[i] = String::number(hitBreakpointNumber->Int32Value());
+        }
     }
 
     m_executionState.set(m_isolate, executionState);
@@ -489,12 +491,14 @@ void ScriptDebugServer::handleV8DebugEvent(const v8::Debug::EventDetails& eventD
 
 void ScriptDebugServer::dispatchDidParseSource(ScriptDebugListener* listener, v8::Handle<v8::Object> object)
 {
-    String sourceID = toWebCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "id")));
+    v8::Handle<v8::Value> id = object->Get(v8AtomicString(m_isolate, "id"));
+    ASSERT(!id.IsEmpty() && id->IsInt32());
+    String sourceID = String::number(id->Int32Value());
 
     ScriptDebugListener::Script script;
-    script.url = toWebCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "name")));
-    script.source = toWebCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "source")));
-    script.sourceMappingURL = toWebCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "sourceMappingURL")));
+    script.url = toCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "name")));
+    script.source = toCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "source")));
+    script.sourceMappingURL = toCoreStringWithUndefinedOrNullCheck(object->Get(v8AtomicString(m_isolate, "sourceMappingURL")));
     script.startLine = object->Get(v8AtomicString(m_isolate, "startLine"))->ToInteger()->Value();
     script.startColumn = object->Get(v8AtomicString(m_isolate, "startColumn"))->ToInteger()->Value();
     script.endLine = object->Get(v8AtomicString(m_isolate, "endLine"))->ToInteger()->Value();
@@ -543,7 +547,7 @@ v8::Handle<v8::Value> ScriptDebugServer::setFunctionVariableValue(v8::Handle<v8:
 
     v8::Handle<v8::Value> argv[] = {
         functionValue,
-        v8::Handle<v8::Value>(v8::Integer::New(scopeNumber, debuggerContext->GetIsolate())),
+        v8::Handle<v8::Value>(v8::Integer::New(debuggerContext->GetIsolate(), scopeNumber)),
         v8String(debuggerContext->GetIsolate(), variableName),
         newValue
     };
@@ -570,7 +574,7 @@ void ScriptDebugServer::compileScript(ScriptState* state, const String& expressi
     if (tryCatch.HasCaught()) {
         v8::Local<v8::Message> message = tryCatch.Message();
         if (!message.IsEmpty())
-            *exceptionMessage = toWebCoreStringWithUndefinedOrNullCheck(message->Get());
+            *exceptionMessage = toCoreStringWithUndefinedOrNullCheck(message->Get());
         return;
     }
     if (script.IsEmpty())
@@ -608,7 +612,7 @@ void ScriptDebugServer::runScript(ScriptState* state, const String& scriptId, Sc
         *result = ScriptValue(tryCatch.Exception(), m_isolate);
         v8::Local<v8::Message> message = tryCatch.Message();
         if (!message.IsEmpty())
-            *exceptionMessage = toWebCoreStringWithUndefinedOrNullCheck(message->Get());
+            *exceptionMessage = toCoreStringWithUndefinedOrNullCheck(message->Get());
     } else {
         *result = ScriptValue(value, m_isolate);
     }
