@@ -34,6 +34,7 @@
 #include "core/dom/ContextLifecycleObserver.h"
 #include "core/dom/NodeList.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
+#include "heap/Handle.h"
 #include "wtf/ArrayBuffer.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/RefCounted.h"
@@ -50,7 +51,7 @@ class Document;
 class DocumentMarker;
 class Element;
 class ExceptionState;
-class Frame;
+class LocalFrame;
 class GCObservation;
 class InspectorFrontendChannelDummy;
 class InternalProfilers;
@@ -67,10 +68,9 @@ class SerializedScriptValue;
 class ShadowRoot;
 class TypeConversions;
 
-class Internals FINAL : public RefCounted<Internals>
-    , public ContextLifecycleObserver {
+class Internals FINAL : public RefCountedWillBeGarbageCollectedFinalized<Internals>, public ContextLifecycleObserver {
 public:
-    static PassRefPtr<Internals> create(Document*);
+    static PassRefPtrWillBeRawPtr<Internals> create(Document*);
     virtual ~Internals();
 
     static void resetToConsistentState(Page*);
@@ -79,7 +79,7 @@ public:
 
     String address(Node*);
 
-    PassRefPtr<GCObservation> observeGC(ScriptValue);
+    PassRefPtrWillBeRawPtr<GCObservation> observeGC(ScriptValue);
 
     bool isPreloaded(const String& url);
     bool isLoadingFromMemoryCache(const String& url);
@@ -136,7 +136,7 @@ public:
     Vector<String> formControlStateOfHistoryItem(ExceptionState&);
     void setFormControlStateOfHistoryItem(const Vector<String>&, ExceptionState&);
     void setEnableMockPagePopup(bool, ExceptionState&);
-    PassRefPtr<PagePopupController> pagePopupController();
+    PassRefPtrWillBeRawPtr<PagePopupController> pagePopupController();
 
     PassRefPtr<ClientRect> unscaledViewportRect(ExceptionState&);
 
@@ -182,9 +182,10 @@ public:
     Vector<AtomicString> userPreferredLanguages() const;
     void setUserPreferredLanguages(const Vector<String>&);
 
+    unsigned activeDOMObjectCount(Document*, ExceptionState&);
     unsigned wheelEventHandlerCount(Document*, ExceptionState&);
     unsigned touchEventHandlerCount(Document*, ExceptionState&);
-    PassRefPtr<LayerRectList> touchEventTargetLayerRects(Document*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<LayerRectList> touchEventTargetLayerRects(Document*, ExceptionState&);
 
     // This is used to test rect based hit testing like what's done on touch screens.
     PassRefPtr<NodeList> nodesFromRect(Document*, int x, int y, unsigned topPadding, unsigned rightPadding,
@@ -270,8 +271,8 @@ public:
     void registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme);
     void removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(const String& scheme);
 
-    PassRefPtr<MallocStatistics> mallocStatistics() const;
-    PassRefPtr<TypeConversions> typeConversions() const;
+    PassRefPtrWillBeRawPtr<MallocStatistics> mallocStatistics() const;
+    PassRefPtrWillBeRawPtr<TypeConversions> typeConversions() const;
 
     Vector<String> getReferencedFilePaths() const;
 
@@ -311,18 +312,25 @@ public:
 
     ScriptPromise addOneToPromise(ExecutionContext*, ScriptPromise);
 
+    void trace(Visitor*);
+
+    void startSpeechInput(Element*);
+    void setValueForUser(Element*, const String&);
+
+    String textSurroundingNode(Node*, int x, int y, unsigned long maxLength);
+
 private:
     explicit Internals(Document*);
     Document* contextDocument() const;
-    Frame* frame() const;
+    LocalFrame* frame() const;
     Vector<String> iconURLs(Document*, int iconTypesMask) const;
     PassRefPtr<ClientRectList> annotatedRegions(Document*, bool draggable, ExceptionState&);
 
     DocumentMarker* markerAt(Node*, const String& markerType, unsigned index, ExceptionState&);
     RefPtr<DOMWindow> m_frontendWindow;
     OwnPtr<InspectorFrontendChannelDummy> m_frontendChannel;
-    RefPtr<InternalRuntimeFlags> m_runtimeFlags;
-    RefPtr<InternalProfilers> m_profilers;
+    RefPtrWillBeMember<InternalRuntimeFlags> m_runtimeFlags;
+    RefPtrWillBeMember<InternalProfilers> m_profilers;
 };
 
 } // namespace WebCore

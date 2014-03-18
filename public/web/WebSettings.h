@@ -66,6 +66,7 @@ public:
     virtual void setAcceleratedCompositingForFiltersEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForFixedPositionEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForFixedRootBackgroundEnabled(bool) = 0;
+    virtual void setAcceleratedCompositingForGpuRasterizationHintEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForOverflowScrollEnabled(bool) = 0;
     virtual void setCompositorDrivenAcceleratedScrollingEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForTransitionEnabled(bool)  = 0;
@@ -87,6 +88,7 @@ public:
     virtual void setCompositedScrollingForFramesEnabled(bool) = 0;
     virtual void setCompositorTouchHitTesting(bool) = 0;
     virtual void setCookieEnabled(bool) = 0;
+    virtual void setNavigateOnDragDrop(bool) = 0;
     virtual void setCursiveFontFamily(const WebString&, UScriptCode = USCRIPT_COMMON) = 0;
     virtual void setDNSPrefetchingEnabled(bool) = 0;
     virtual void setDOMPasteAllowed(bool) = 0;

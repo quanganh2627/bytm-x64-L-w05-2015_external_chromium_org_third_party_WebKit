@@ -40,12 +40,12 @@
 #include "core/fetch/CSSStyleSheetResource.h"
 #include "core/fetch/FetchRequest.h"
 #include "core/fetch/ResourceFetcher.h"
-#include "core/html/LinkImport.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/LocalFrame.h"
+#include "core/frame/csp/ContentSecurityPolicy.h"
+#include "core/html/imports/LinkImport.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/FrameLoaderClient.h"
-#include "core/frame/ContentSecurityPolicy.h"
-#include "core/frame/Frame.h"
-#include "core/frame/FrameView.h"
 #include "wtf/StdLibExtras.h"
 
 namespace WebCore {
@@ -342,6 +342,11 @@ const AtomicString& HTMLLinkElement::type() const
     return getAttribute(typeAttr);
 }
 
+bool HTMLLinkElement::async() const
+{
+    return fastHasAttribute(HTMLNames::asyncAttr);
+}
+
 IconType HTMLLinkElement::iconType() const
 {
     return m_relAttribute.iconType();
@@ -395,7 +400,7 @@ void LinkStyle::setCSSStyleSheet(const String& href, const KURL& baseURL, const 
 
     CSSParserContext parserContext(m_owner->document(), 0, baseURL, charset);
 
-    if (RefPtr<StyleSheetContents> restoredSheet = const_cast<CSSStyleSheetResource*>(cachedStyleSheet)->restoreParsedStyleSheet(parserContext)) {
+    if (RefPtrWillBeRawPtr<StyleSheetContents> restoredSheet = const_cast<CSSStyleSheetResource*>(cachedStyleSheet)->restoreParsedStyleSheet(parserContext)) {
         ASSERT(restoredSheet->isCacheable());
         ASSERT(!restoredSheet->isLoading());
 
@@ -410,7 +415,7 @@ void LinkStyle::setCSSStyleSheet(const String& href, const KURL& baseURL, const 
         return;
     }
 
-    RefPtr<StyleSheetContents> styleSheet = StyleSheetContents::create(href, parserContext);
+    RefPtrWillBeRawPtr<StyleSheetContents> styleSheet = StyleSheetContents::create(href, parserContext);
 
     if (m_sheet)
         clearSheet();
@@ -458,7 +463,7 @@ void LinkStyle::clearSheet()
     ASSERT(m_sheet);
     ASSERT(m_sheet->ownerNode() == m_owner);
     m_sheet->clearOwnerNode();
-    m_sheet = 0;
+    m_sheet = nullptr;
 }
 
 bool LinkStyle::styleSheetIsLoading() const
@@ -581,10 +586,10 @@ void LinkStyle::process()
 
         bool mediaQueryMatches = true;
         if (!m_owner->media().isEmpty()) {
-            Frame* frame = loadingFrame();
+            LocalFrame* frame = loadingFrame();
             if (Document* document = loadingFrame()->document()) {
                 RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*document);
-                RefPtr<MediaQuerySet> media = MediaQuerySet::create(m_owner->media());
+                RefPtrWillBeRawPtr<MediaQuerySet> media = MediaQuerySet::create(m_owner->media());
                 MediaQueryEvaluator evaluator(frame->view()->mediaType(), frame, documentStyle.get());
                 mediaQueryMatches = evaluator.eval(media.get());
             }

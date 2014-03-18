@@ -30,7 +30,7 @@
 #include "core/dom/DocumentSupplementable.h"
 #include "core/events/Event.h"
 #include "core/frame/DOMWindowLifecycleObserver.h"
-#include "modules/device_orientation/DeviceSensorEventController.h"
+#include "core/frame/DeviceSensorEventController.h"
 
 namespace WebCore {
 
@@ -42,7 +42,7 @@ public:
     virtual ~DeviceOrientationController();
 
     static const char* supplementName();
-    static DeviceOrientationController* from(Document*);
+    static DeviceOrientationController& from(Document&);
 
     void didChangeDeviceOrientation(WebCore::DeviceOrientationData*);
 
@@ -52,7 +52,7 @@ public:
     virtual void didRemoveAllEventListeners(DOMWindow*) OVERRIDE;
 
 private:
-    explicit DeviceOrientationController(Document*);
+    explicit DeviceOrientationController(Document&);
     virtual void registerWithDispatcher() OVERRIDE;
     virtual void unregisterWithDispatcher() OVERRIDE;
 

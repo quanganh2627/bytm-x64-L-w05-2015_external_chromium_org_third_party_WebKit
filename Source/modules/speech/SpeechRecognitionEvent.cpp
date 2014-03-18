@@ -44,20 +44,20 @@ PassRefPtr<SpeechRecognitionEvent> SpeechRecognitionEvent::create(const AtomicSt
     return adoptRef(new SpeechRecognitionEvent(eventName, initializer));
 }
 
-PassRefPtr<SpeechRecognitionEvent> SpeechRecognitionEvent::createResult(unsigned long resultIndex, const Vector<RefPtr<SpeechRecognitionResult> >& results)
+PassRefPtr<SpeechRecognitionEvent> SpeechRecognitionEvent::createResult(unsigned long resultIndex, const WillBeHeapVector<RefPtrWillBeMember<SpeechRecognitionResult> >& results)
 {
     return adoptRef(new SpeechRecognitionEvent(EventTypeNames::result, resultIndex, SpeechRecognitionResultList::create(results)));
 }
 
-PassRefPtr<SpeechRecognitionEvent> SpeechRecognitionEvent::createNoMatch(PassRefPtr<SpeechRecognitionResult> result)
+PassRefPtr<SpeechRecognitionEvent> SpeechRecognitionEvent::createNoMatch(PassRefPtrWillBeRawPtr<SpeechRecognitionResult> result)
 {
     if (result) {
-        Vector<RefPtr<SpeechRecognitionResult> > results;
+        WillBeHeapVector<RefPtrWillBeMember<SpeechRecognitionResult> > results;
         results.append(result);
         return adoptRef(new SpeechRecognitionEvent(EventTypeNames::nomatch, 0, SpeechRecognitionResultList::create(results)));
     }
 
-    return adoptRef(new SpeechRecognitionEvent(EventTypeNames::nomatch, 0, 0));
+    return adoptRef(new SpeechRecognitionEvent(EventTypeNames::nomatch, 0, nullptr));
 }
 
 const AtomicString& SpeechRecognitionEvent::interfaceName() const
@@ -90,6 +90,12 @@ SpeechRecognitionEvent::SpeechRecognitionEvent(const AtomicString& eventName, un
 SpeechRecognitionEvent::~SpeechRecognitionEvent()
 {
     ScriptWrappable::init(this);
+}
+
+void SpeechRecognitionEvent::trace(Visitor* visitor)
+{
+    visitor->trace(m_results);
+    Event::trace(visitor);
 }
 
 } // namespace WebCore

@@ -67,7 +67,7 @@ Length animatableValueToLength(const AnimatableValue* value, const StyleResolver
 {
     if (value->isLength())
         return toAnimatableLength(value)->toLength(state.cssToLengthConversionData(), range);
-    RefPtr<CSSValue> cssValue = toAnimatableUnknown(value)->toCSSValue();
+    RefPtrWillBeRawPtr<CSSValue> cssValue = toAnimatableUnknown(value)->toCSSValue();
     CSSPrimitiveValue* cssPrimitiveValue = toCSSPrimitiveValue(cssValue.get());
     return cssPrimitiveValue->convertToLength<AnyConversion>(state.cssToLengthConversionData());
 }
@@ -78,7 +78,7 @@ BorderImageLength animatableValueToBorderImageLength(const AnimatableValue* valu
         return BorderImageLength(toAnimatableLength(value)->toLength(state.cssToLengthConversionData(), NonNegativeValues));
     if (value->isDouble())
         return BorderImageLength(clampTo<double>(toAnimatableDouble(value)->toDouble(), 0));
-    RefPtr<CSSValue> cssValue = toAnimatableUnknown(value)->toCSSValue();
+    RefPtrWillBeRawPtr<CSSValue> cssValue = toAnimatableUnknown(value)->toCSSValue();
     CSSPrimitiveValue* cssPrimitiveValue = toCSSPrimitiveValue(cssValue.get());
     return BorderImageLength(cssPrimitiveValue->convertToLength<AnyConversion>(state.cssToLengthConversionData()));
 }
@@ -177,7 +177,7 @@ void setOnFillLayers(FillLayer* fillLayer, const AnimatableValue* value, StyleRe
                 fillLayer->setImage(toAnimatableImage(layerValue)->toStyleImage());
             } else {
                 ASSERT(toAnimatableUnknown(layerValue)->toCSSValueID() == CSSValueNone);
-                fillLayer->setImage(0);
+                fillLayer->setImage(nullptr);
             }
             break;
         case CSSPropertyBackgroundPositionX:
@@ -223,6 +223,27 @@ void setOnFillLayers(FillLayer* fillLayer, const AnimatableValue* value, StyleRe
         }
         fillLayer = fillLayer->next();
     }
+}
+
+FontWeight animatableValueToFontWeight(const AnimatableValue* value)
+{
+    int index = round(toAnimatableDouble(value)->toDouble() / 100) - 1;
+
+    static const FontWeight weights[] = {
+        FontWeight100,
+        FontWeight200,
+        FontWeight300,
+        FontWeight400,
+        FontWeight500,
+        FontWeight600,
+        FontWeight700,
+        FontWeight800,
+        FontWeight900
+    };
+
+    index = clampTo<int>(index, 0, WTF_ARRAY_LENGTH(weights) - 1);
+
+    return weights[index];
 }
 
 } // namespace
@@ -350,6 +371,9 @@ void AnimatedStyleBuilder::applyProperty(CSSPropertyID property, StyleResolverSt
         return;
     case CSSPropertyFontSize:
         style->setFontSize(clampTo<float>(toAnimatableDouble(value)->toDouble(), 0));
+        return;
+    case CSSPropertyFontWeight:
+        style->setFontWeight(animatableValueToFontWeight(value));
         return;
     case CSSPropertyHeight:
         style->setHeight(animatableValueToLength(value, state, NonNegativeValues));

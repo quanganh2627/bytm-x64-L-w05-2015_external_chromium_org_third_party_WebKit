@@ -44,7 +44,7 @@ namespace WebCore {
             return adoptRef(new MutationEvent);
         }
 
-        static PassRefPtr<MutationEvent> create(const AtomicString& type, bool canBubble, PassRefPtr<Node> relatedNode = 0,
+        static PassRefPtr<MutationEvent> create(const AtomicString& type, bool canBubble, PassRefPtr<Node> relatedNode = nullptr,
             const String& prevValue = String(), const String& newValue = String(), const String& attrName = String(), unsigned short attrChange = 0)
         {
             return adoptRef(new MutationEvent(type, canBubble, false, relatedNode, prevValue, newValue, attrName, attrChange));
@@ -61,6 +61,8 @@ namespace WebCore {
         unsigned short attrChange() const { return m_attrChange; }
 
         virtual const AtomicString& interfaceName() const OVERRIDE;
+
+        virtual void trace(Visitor*) OVERRIDE;
 
     private:
         MutationEvent();

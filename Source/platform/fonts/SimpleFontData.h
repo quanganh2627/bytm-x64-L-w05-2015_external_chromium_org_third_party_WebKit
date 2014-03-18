@@ -57,7 +57,7 @@ enum Pitch { UnknownPitch, FixedPitch, VariablePitch };
 class PLATFORM_EXPORT SimpleFontData : public FontData {
 public:
     // Used to create platform fonts.
-    static PassRefPtr<SimpleFontData> create(const FontPlatformData& platformData, PassRefPtr<CustomFontData> customData = 0, bool isTextOrientationFallback = false)
+    static PassRefPtr<SimpleFontData> create(const FontPlatformData& platformData, PassRefPtr<CustomFontData> customData = nullptr, bool isTextOrientationFallback = false)
     {
         return adoptRef(new SimpleFontData(platformData, customData, isTextOrientationFallback));
     }
@@ -147,6 +147,7 @@ public:
     virtual bool isLoading() const OVERRIDE { return m_customFontData ? m_customFontData->isLoading() : false; }
     virtual bool isLoadingFallback() const OVERRIDE { return m_customFontData ? m_customFontData->isLoadingFallback() : false; }
     virtual bool isSegmented() const OVERRIDE;
+    virtual bool shouldSkipDrawing() const OVERRIDE { return m_customFontData && m_customFontData->shouldSkipDrawing(); }
 
     const GlyphData& missingGlyphData() const { return m_missingGlyphData; }
     void setMissingGlyphData(const GlyphData& glyphData) { m_missingGlyphData = glyphData; }

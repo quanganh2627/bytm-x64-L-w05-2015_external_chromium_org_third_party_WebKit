@@ -29,7 +29,9 @@
 #include "HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/frame/FrameView.h"
+#include "core/html/HTMLTableElement.h"
 #include "core/rendering/AutoTableLayout.h"
+#include "core/rendering/FastTextAutosizer.h"
 #include "core/rendering/FixedTableLayout.h"
 #include "core/rendering/GraphicsContextAnnotator.h"
 #include "core/rendering/HitTestResult.h"
@@ -304,12 +306,9 @@ void RenderTable::updateLogicalWidth()
     setMarginStart(0);
     setMarginEnd(0);
     if (!hasPerpendicularContainingBlock) {
-        LayoutUnit containerLogicalWidthForAutoMargins = availableLogicalWidth;
-        if (avoidsFloats() && cb->containsFloats())
-            containerLogicalWidthForAutoMargins = containingBlockAvailableLineWidth();
         ComputedMarginValues marginValues;
         bool hasInvertedDirection =  cb->style()->isLeftToRightDirection() == style()->isLeftToRightDirection();
-        computeInlineDirectionMargins(cb, containerLogicalWidthForAutoMargins, logicalWidth(),
+        computeInlineDirectionMargins(cb, availableLogicalWidth, logicalWidth(),
             hasInvertedDirection ? marginValues.m_start : marginValues.m_end,
             hasInvertedDirection ? marginValues.m_end : marginValues.m_start);
         setMarginStart(marginValues.m_start);
@@ -334,7 +333,7 @@ LayoutUnit RenderTable::convertStyleLogicalWidthToComputedWidth(const Length& st
 
     // HTML tables' width styles already include borders and paddings, but CSS tables' width styles do not.
     LayoutUnit borders = 0;
-    bool isCSSTable = !node() || !node()->hasTagName(tableTag);
+    bool isCSSTable = !isHTMLTableElement(node());
     if (isCSSTable && styleLogicalWidth.isSpecified() && styleLogicalWidth.isPositive() && style()->boxSizing() == CONTENT_BOX)
         borders = borderStart() + borderEnd() + (collapseBorders() ? LayoutUnit() : paddingStart() + paddingEnd());
 
@@ -351,7 +350,7 @@ LayoutUnit RenderTable::convertStyleLogicalHeightToComputedHeight(const Length& 
         // HTML tables size as though CSS height includes border/padding, CSS tables do not.
         LayoutUnit borders = LayoutUnit();
         // FIXME: We cannot apply box-sizing: content-box on <table> which other browsers allow.
-        if ((node() && node()->hasTagName(tableTag)) || style()->boxSizing() == BORDER_BOX) {
+        if (isHTMLTableElement(node()) || style()->boxSizing() == BORDER_BOX) {
             borders = borderAndPadding;
         }
         computedLogicalHeight = styleLogicalHeight.value() - borders;
@@ -413,6 +412,9 @@ void RenderTable::simplifiedNormalFlowLayout()
 
 void RenderTable::layout()
 {
+    // Note: RenderTable is handled differently than other RenderBlocks and the LayoutScope
+    //       must be created before the table begins laying out.
+    FastTextAutosizer::LayoutScope fastTextAutosizerLayoutScope(this);
     ASSERT(needsLayout());
 
     LayoutRectRecorder recorder(*this);
@@ -426,7 +428,7 @@ void RenderTable::layout()
     recalcBordersInRowDirection();
 
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
-    LayoutStateMaintainer statePusher(view(), this, locationOffset(), style()->isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(*this, locationOffset());
 
     setLogicalHeight(0);
 
@@ -454,6 +456,8 @@ void RenderTable::layout()
     bool collapsing = collapseBorders();
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+        if (!child->needsLayout() && child->isBox())
+            toRenderBox(child)->markForPaginationRelayoutIfNeeded(layouter);
         if (child->isTableSection()) {
             RenderTableSection* section = toRenderTableSection(child);
             if (m_columnLogicalWidthChanged)
@@ -572,7 +576,7 @@ void RenderTable::layout()
     statePusher.pop();
 
     if (view()->layoutState()->pageLogicalHeight())
-        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(this, logicalTop()));
+        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(*this, logicalTop()));
 
     bool didFullRepaint = repainter.repaintAfterLayout();
     // Repaint with our new bounds if they are different from our old bounds.

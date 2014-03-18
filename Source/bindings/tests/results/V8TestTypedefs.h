@@ -44,11 +44,13 @@ namespace WebCore {
 class V8TestTypedefs {
 public:
     static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
-    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static v8::Handle<v8::Object> findInstanceInPrototypeChain(v8::Handle<v8::Value>, v8::Isolate*);
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*);
     static TestTypedefs* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
+    static TestTypedefs* toNativeWithTypeCheck(v8::Isolate*, v8::Handle<v8::Value>);
     static const WrapperTypeInfo wrapperTypeInfo;
     static void derefObject(void*);
     static void constructorCallback(const v8::FunctionCallbackInfo<v8::Value>&);
@@ -68,12 +70,6 @@ public:
 private:
     friend v8::Handle<v8::Object> wrap(TestTypedefs*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     static v8::Handle<v8::Object> createWrapper(PassRefPtr<TestTypedefs>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-};
-
-template<>
-class WrapperTypeTraits<TestTypedefs > {
-public:
-    static const WrapperTypeInfo* wrapperTypeInfo() { return &V8TestTypedefs::wrapperTypeInfo; }
 };
 
 inline v8::Handle<v8::Object> wrap(TestTypedefs* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
@@ -109,7 +105,7 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo, TestTypedefs* imp
 template<typename CallbackInfo>
 inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, TestTypedefs* impl)
 {
-    ASSERT(worldType(callbackInfo.GetIsolate()) == MainWorld);
+    ASSERT(DOMWrapperWorld::current(callbackInfo.GetIsolate())->isMainWorld());
     if (UNLIKELY(!impl)) {
         v8SetReturnValueNull(callbackInfo);
         return;

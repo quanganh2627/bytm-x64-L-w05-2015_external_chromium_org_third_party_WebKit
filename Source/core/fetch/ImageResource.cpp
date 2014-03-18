@@ -44,7 +44,7 @@ namespace WebCore {
 ImageResource::ImageResource(const ResourceRequest& resourceRequest)
     : Resource(resourceRequest, Image)
     , m_devicePixelRatioHeaderValue(1.0)
-    , m_image(0)
+    , m_image(nullptr)
     , m_loadingMultipartContent(false)
     , m_hasDevicePixelRatioHeaderValue(false)
 {
@@ -131,13 +131,14 @@ void ImageResource::switchClientsToRevalidatedResource()
 
 bool ImageResource::isSafeToUnlock() const
 {
-    return !m_image || (m_image->hasOneRef() && m_image->isBitmapImage());
+    // Note that |m_image| holds a reference to |m_data| in addition to the one held by the Resource parent class.
+    return !m_image || (m_image->hasOneRef() && m_data->refCount() == 2);
 }
 
 void ImageResource::destroyDecodedDataIfPossible()
 {
-    if (isSafeToUnlock() && !hasClients() && !isLoading()) {
-        m_image = 0;
+    if (!hasClients() && !isLoading() && (!m_image || (m_image->hasOneRef() && m_image->isBitmapImage()))) {
+        m_image = nullptr;
         setDecodedSize(0);
     } else if (m_image && !errorOccurred()) {
         m_image->destroyDecodedData(true);
@@ -426,7 +427,7 @@ void ImageResource::didDraw(const WebCore::Image* image)
         return;
 
     double timeStamp = FrameView::currentFrameTimeStamp();
-    if (!timeStamp) // If didDraw is called outside of a Frame paint.
+    if (!timeStamp) // If didDraw is called outside of a LocalFrame paint.
         timeStamp = currentTime();
 
     Resource::didAccessDecodedData(timeStamp);

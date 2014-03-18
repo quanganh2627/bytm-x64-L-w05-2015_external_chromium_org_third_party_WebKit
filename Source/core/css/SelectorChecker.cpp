@@ -35,10 +35,12 @@
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/NodeRenderStyle.h"
+#include "core/dom/SiblingRuleHelper.h"
 #include "core/dom/Text.h"
 #include "core/dom/shadow/InsertionPoint.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/editing/FrameSelection.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLDocument.h"
 #include "core/html/HTMLFrameElementBase.h"
 #include "core/html/HTMLInputElement.h"
@@ -47,7 +49,6 @@
 #include "core/html/track/vtt/VTTElement.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/page/FocusController.h"
-#include "core/frame/Frame.h"
 #include "core/rendering/RenderObject.h"
 #include "core/rendering/RenderScrollbar.h"
 #include "core/rendering/style/RenderStyle.h"
@@ -68,10 +69,11 @@ SelectorChecker::SelectorChecker(Document& document, Mode mode)
 static bool matchesCustomPseudoElement(const Element* element, const CSSSelector& selector)
 {
     ShadowRoot* root = element->containingShadowRoot();
-    if (!root || root->type() != ShadowRoot::UserAgentShadowRoot)
+    if (!root)
         return false;
-
     if (element->shadowPseudoId() != selector.value())
+        return false;
+    if (selector.pseudoType() == CSSSelector::PseudoWebKitCustomElement && root->type() != ShadowRoot::UserAgentShadowRoot)
         return false;
 
     return true;
@@ -83,12 +85,21 @@ Element* SelectorChecker::parentElement(const SelectorCheckingContext& context, 
     if (allowToCrossBoundary)
         return context.element->parentOrShadowHostElement();
 
-    // If context.scope is not a shadow host, we cannot walk up from a shadow root to its shadow host.
-    if (!(context.behaviorAtBoundary & SelectorChecker::ScopeIsShadowHost))
+    // If context.scope is a shadow host, we should walk up from a shadow root to its shadow host.
+    if (context.behaviorAtBoundary & SelectorChecker::ScopeIsShadowHost)
+        return context.element->parentOrShadowHostElement();
+
+    if ((context.behaviorAtBoundary & SelectorChecker::BoundaryBehaviorMask) != SelectorChecker::StaysWithinTreeScope)
         return context.element->parentElement();
 
-    // If behaviorAtBoundary is StaysWithInTreeScope, we cannot walk up from a shadow root to its shadow host.
-    return (context.behaviorAtBoundary & SelectorChecker::BoundaryBehaviorMask) != SelectorChecker::StaysWithinTreeScope ? context.element->parentOrShadowHostElement() : context.element->parentElement();
+    // If context.scope is some element in some shadow tree and querySelector initialized the context,
+    // e.g. shadowRoot.querySelector(':host *'),
+    // (a) context.element has the same treescope as context.scope, need to walk up to its shadow host.
+    // (b) Otherwise, should not walk up from a shadow root to a shadow host.
+    if (context.scope && context.scope->treeScope() == context.element->treeScope())
+        return context.element->parentOrShadowHostElement();
+
+    return context.element->parentElement();
 }
 
 bool SelectorChecker::scopeContainsLastMatchedElement(const SelectorCheckingContext& context) const
@@ -115,7 +126,12 @@ bool SelectorChecker::scopeContainsLastMatchedElement(const SelectorCheckingCont
 
 static inline bool nextSelectorExceedsScope(const SelectorChecker::SelectorCheckingContext& context)
 {
-    return context.element == context.scope && (context.behaviorAtBoundary & SelectorChecker::BoundaryBehaviorMask) != SelectorChecker::StaysWithinTreeScope;
+    if ((context.behaviorAtBoundary & SelectorChecker::BoundaryBehaviorMask) != SelectorChecker::StaysWithinTreeScope)
+        return context.element == context.scope;
+
+    if (context.scope && context.scope->isInShadowTree())
+        return context.element == context.scope->containingShadowRoot()->host();
+    return false;
 }
 
 // Recursive check of selectors and combinators
@@ -135,9 +151,6 @@ SelectorChecker::Match SelectorChecker::match(const SelectorCheckingContext& con
     if (context.selector->m_match == CSSSelector::PseudoElement) {
         if (context.selector->isCustomPseudoElement()) {
             if (!matchesCustomPseudoElement(context.element, *context.selector))
-                return SelectorFailsLocally;
-        } else if (context.selector->isContentPseudoElement()) {
-            if (!context.element->isInShadowTree() || !context.element->isInsertionPoint())
                 return SelectorFailsLocally;
         } else {
             if ((!context.elementStyle && m_mode == ResolvingStyle) || m_mode == QueryingRules)
@@ -261,10 +274,14 @@ SelectorChecker::Match SelectorChecker::matchForRelation(const SelectorCheckingC
             nextContext.elementStyle = 0;
             return match(nextContext, siblingTraversalStrategy, result);
         }
+
+    case CSSSelector::ShadowContent:
+        return matchForShadowDistributed(context.element, siblingTraversalStrategy, nextContext, result);
+
     case CSSSelector::DirectAdjacent:
         if (m_mode == ResolvingStyle) {
-            if (Element* parent = parentElement(context))
-                parent->setChildrenAffectedByDirectAdjacentRules();
+            if (Node* parent = context.element->parentElementOrShadowRoot())
+                SiblingRuleHelper(parent).setChildrenAffectedByDirectAdjacentRules();
         }
         nextContext.element = ElementTraversal::previousSibling(*context.element);
         if (!nextContext.element)
@@ -275,8 +292,8 @@ SelectorChecker::Match SelectorChecker::matchForRelation(const SelectorCheckingC
 
     case CSSSelector::IndirectAdjacent:
         if (m_mode == ResolvingStyle) {
-            if (Element* parent = parentElement(context))
-                parent->setChildrenAffectedByForwardPositionalRules();
+            if (Node* parent = context.element->parentElementOrShadowRoot())
+                SiblingRuleHelper(parent).setChildrenAffectedByForwardPositionalRules();
         }
         nextContext.element = ElementTraversal::previousSibling(*context.element);
         nextContext.isSubSelector = false;
@@ -289,7 +306,7 @@ SelectorChecker::Match SelectorChecker::matchForRelation(const SelectorCheckingC
         return SelectorFailsAllSiblings;
 
     case CSSSelector::ShadowPseudo:
-    case CSSSelector::ChildTree:
+    case CSSSelector::Shadow:
         {
             // If we're in the same tree-scope as the scoping element, then following a shadow descendant combinator would escape that and thus the scope.
             if (context.scope && context.scope->treeScope() == context.element->treeScope() && (context.behaviorAtBoundary & BoundaryBehaviorMask) != StaysWithinTreeScope)
@@ -304,7 +321,7 @@ SelectorChecker::Match SelectorChecker::matchForRelation(const SelectorCheckingC
             return this->match(nextContext, siblingTraversalStrategy, result);
         }
 
-    case CSSSelector::DescendantTree:
+    case CSSSelector::ShadowDeep:
         {
             nextContext.isSubSelector = false;
             nextContext.elementStyle = 0;
@@ -362,9 +379,9 @@ static inline bool containsHTMLSpace(const AtomicString& string)
     return false;
 }
 
-static bool attributeValueMatches(const Attribute* attributeItem, CSSSelector::Match match, const AtomicString& selectorValue, bool caseSensitive)
+static bool attributeValueMatches(const Attribute& attributeItem, CSSSelector::Match match, const AtomicString& selectorValue, bool caseSensitive)
 {
-    const AtomicString& value = attributeItem->value();
+    const AtomicString& value = attributeItem.value();
     if (value.isNull())
         return false;
 
@@ -439,10 +456,11 @@ static bool anyAttributeMatches(Element& element, CSSSelector::Match match, cons
 
     const AtomicString& selectorValue =  selector.value();
 
-    for (size_t i = 0; i < element.attributeCount(); ++i) {
-        const Attribute* attributeItem = element.attributeItem(i);
+    unsigned attributeCount = element.attributeCount();
+    for (size_t i = 0; i < attributeCount; ++i) {
+        const Attribute& attributeItem = element.attributeItem(i);
 
-        if (!attributeItem->matches(selectorAttr))
+        if (!attributeItem.matches(selectorAttr))
             continue;
 
         if (attributeValueMatches(attributeItem, match, selectorValue, true))
@@ -474,7 +492,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
     bool elementIsHostInItsShadowTree = isHostInItsShadowTree(element, context.behaviorAtBoundary, context.scope);
 
     if (selector.m_match == CSSSelector::Tag)
-        return SelectorChecker::tagMatches(element, selector.tagQName(), elementIsHostInItsShadowTree ? MatchingHostInItsShadowTree : MatchingElement);
+        return SelectorChecker::tagMatches(element, selector.tagQName()) && !elementIsHostInItsShadowTree;
 
     if (selector.m_match == CSSSelector::Class)
         return element.hasClass() && element.classNames().contains(selector.value()) && !elementIsHostInItsShadowTree;
@@ -547,11 +565,11 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             }
         case CSSSelector::PseudoFirstChild:
             // first-child matches the first child that is an element
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
                 bool result = siblingTraversalStrategy.isFirstChild(element);
                 if (m_mode == ResolvingStyle) {
                     RenderStyle* childStyle = context.elementStyle ? context.elementStyle : element.renderStyle();
-                    parent->setChildrenAffectedByFirstChildRules();
+                    SiblingRuleHelper(parent).setChildrenAffectedByFirstChildRules();
                     if (result && childStyle)
                         childStyle->setFirstChildState();
                 }
@@ -560,20 +578,21 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             break;
         case CSSSelector::PseudoFirstOfType:
             // first-of-type matches the first element of its type
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
                 bool result = siblingTraversalStrategy.isFirstOfType(element, element.tagQName());
                 if (m_mode == ResolvingStyle)
-                    parent->setChildrenAffectedByForwardPositionalRules();
+                    SiblingRuleHelper(parent).setChildrenAffectedByForwardPositionalRules();
                 return result;
             }
             break;
         case CSSSelector::PseudoLastChild:
             // last-child matches the last child that is an element
-            if (Element* parent = element.parentElement()) {
-                bool result = parent->isFinishedParsingChildren() && siblingTraversalStrategy.isLastChild(element);
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
+                bool result = helper.isFinishedParsingChildren() && siblingTraversalStrategy.isLastChild(element);
                 if (m_mode == ResolvingStyle) {
                     RenderStyle* childStyle = context.elementStyle ? context.elementStyle : element.renderStyle();
-                    parent->setChildrenAffectedByLastChildRules();
+                    helper.setChildrenAffectedByLastChildRules();
                     if (result && childStyle)
                         childStyle->setLastChildState();
                 }
@@ -582,22 +601,24 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             break;
         case CSSSelector::PseudoLastOfType:
             // last-of-type matches the last element of its type
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
                 if (m_mode == ResolvingStyle)
-                    parent->setChildrenAffectedByBackwardPositionalRules();
-                if (!parent->isFinishedParsingChildren())
+                    helper.setChildrenAffectedByBackwardPositionalRules();
+                if (!helper.isFinishedParsingChildren())
                     return false;
                 return siblingTraversalStrategy.isLastOfType(element, element.tagQName());
             }
             break;
         case CSSSelector::PseudoOnlyChild:
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
                 bool firstChild = siblingTraversalStrategy.isFirstChild(element);
-                bool onlyChild = firstChild && parent->isFinishedParsingChildren() && siblingTraversalStrategy.isLastChild(element);
+                bool onlyChild = firstChild && helper.isFinishedParsingChildren() && siblingTraversalStrategy.isLastChild(element);
                 if (m_mode == ResolvingStyle) {
                     RenderStyle* childStyle = context.elementStyle ? context.elementStyle : element.renderStyle();
-                    parent->setChildrenAffectedByFirstChildRules();
-                    parent->setChildrenAffectedByLastChildRules();
+                    helper.setChildrenAffectedByFirstChildRules();
+                    helper.setChildrenAffectedByLastChildRules();
                     if (firstChild && childStyle)
                         childStyle->setFirstChildState();
                     if (onlyChild && childStyle)
@@ -608,12 +629,13 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             break;
         case CSSSelector::PseudoOnlyOfType:
             // FIXME: This selector is very slow.
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
                 if (m_mode == ResolvingStyle) {
-                    parent->setChildrenAffectedByForwardPositionalRules();
-                    parent->setChildrenAffectedByBackwardPositionalRules();
+                    helper.setChildrenAffectedByForwardPositionalRules();
+                    helper.setChildrenAffectedByBackwardPositionalRules();
                 }
-                if (!parent->isFinishedParsingChildren())
+                if (!helper.isFinishedParsingChildren())
                     return false;
                 return siblingTraversalStrategy.isFirstOfType(element, element.tagQName()) && siblingTraversalStrategy.isLastOfType(element, element.tagQName());
             }
@@ -621,14 +643,14 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoNthChild:
             if (!selector.parseNth())
                 break;
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
                 int count = 1 + siblingTraversalStrategy.countElementsBefore(element);
                 if (m_mode == ResolvingStyle) {
                     RenderStyle* childStyle = context.elementStyle ? context.elementStyle : element.renderStyle();
                     element.setChildIndex(count);
                     if (childStyle)
                         childStyle->setUnique();
-                    parent->setChildrenAffectedByForwardPositionalRules();
+                    SiblingRuleHelper(parent).setChildrenAffectedByForwardPositionalRules();
                 }
 
                 if (selector.matchNth(count))
@@ -638,10 +660,10 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoNthOfType:
             if (!selector.parseNth())
                 break;
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
                 int count = 1 + siblingTraversalStrategy.countElementsOfTypeBefore(element, element.tagQName());
                 if (m_mode == ResolvingStyle)
-                    parent->setChildrenAffectedByForwardPositionalRules();
+                    SiblingRuleHelper(parent).setChildrenAffectedByForwardPositionalRules();
 
                 if (selector.matchNth(count))
                     return true;
@@ -650,10 +672,11 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoNthLastChild:
             if (!selector.parseNth())
                 break;
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
                 if (m_mode == ResolvingStyle)
-                    parent->setChildrenAffectedByBackwardPositionalRules();
-                if (!parent->isFinishedParsingChildren())
+                    helper.setChildrenAffectedByBackwardPositionalRules();
+                if (!helper.isFinishedParsingChildren())
                     return false;
                 int count = 1 + siblingTraversalStrategy.countElementsAfter(element);
                 if (selector.matchNth(count))
@@ -663,10 +686,11 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoNthLastOfType:
             if (!selector.parseNth())
                 break;
-            if (Element* parent = element.parentElement()) {
+            if (Node* parent = element.parentElementOrShadowRoot()) {
+                SiblingRuleHelper helper(parent);
                 if (m_mode == ResolvingStyle)
-                    parent->setChildrenAffectedByBackwardPositionalRules();
-                if (!parent->isFinishedParsingChildren())
+                    helper.setChildrenAffectedByBackwardPositionalRules();
+                if (!helper.isFinishedParsingChildren())
                     return false;
 
                 int count = 1 + siblingTraversalStrategy.countElementsOfTypeAfter(element, element.tagQName());
@@ -721,7 +745,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoHover:
             // If we're in quirks mode, then hover should never match anchors with no
             // href and *:hover should not match anything. This is important for sites like wsj.com.
-            if (m_strictParsing || context.isSubSelector || (selector.m_match == CSSSelector::Tag && selector.tagQName() != anyQName() && !element.hasTagName(aTag)) || element.isLink()) {
+            if (m_strictParsing || context.isSubSelector || (selector.m_match == CSSSelector::Tag && selector.tagQName() != anyQName() && !isHTMLAnchorElement(element)) || element.isLink()) {
                 if (m_mode == ResolvingStyle) {
                     if (context.elementStyle)
                         context.elementStyle->setAffectedByHover();
@@ -735,7 +759,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoActive:
             // If we're in quirks mode, then :active should never match anchors with no
             // href and *:active should not match anything.
-            if (m_strictParsing || context.isSubSelector || (selector.m_match == CSSSelector::Tag && selector.tagQName() != anyQName() && !element.hasTagName(aTag)) || element.isLink()) {
+            if (m_strictParsing || context.isSubSelector || (selector.m_match == CSSSelector::Tag && selector.tagQName() != anyQName() && !isHTMLAnchorElement(element)) || element.isLink()) {
                 if (m_mode == ResolvingStyle) {
                     if (context.elementStyle)
                         context.elementStyle->setAffectedByActive();
@@ -747,7 +771,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             }
             break;
         case CSSSelector::PseudoEnabled:
-            if (element.isFormControlElement() || element.hasTagName(optionTag) || element.hasTagName(optgroupTag))
+            if (element.isFormControlElement() || isHTMLOptionElement(element) || isHTMLOptGroupElement(element))
                 return !element.isDisabledFormControl();
             break;
         case CSSSelector::PseudoFullPageMedia:
@@ -756,7 +780,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoDefault:
             return element.isDefaultButtonForForm();
         case CSSSelector::PseudoDisabled:
-            if (element.isFormControlElement() || element.hasTagName(optionTag) || element.hasTagName(optgroupTag))
+            if (element.isFormControlElement() || isHTMLOptionElement(element) || isHTMLOptGroupElement(element))
                 return element.isDisabledFormControl();
             break;
         case CSSSelector::PseudoReadOnly:
@@ -775,7 +799,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             return element.willValidate() && !element.isValidFormControlElement();
         case CSSSelector::PseudoChecked:
             {
-                if (element.hasTagName(inputTag)) {
+                if (isHTMLInputElement(element)) {
                     HTMLInputElement& inputElement = toHTMLInputElement(element);
                     // Even though WinIE allows checked and indeterminate to
                     // co-exist, the CSS selector spec says that you can't be
@@ -784,7 +808,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
                     // test for matching the pseudo.
                     if (inputElement.shouldAppearChecked() && !inputElement.shouldAppearIndeterminate())
                         return true;
-                } else if (element.hasTagName(optionTag) && toHTMLOptionElement(element).selected())
+                } else if (isHTMLOptionElement(element) && toHTMLOptionElement(element).selected())
                     return true;
                 break;
             }
@@ -815,7 +839,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
             // context's Document is in the fullscreen state has the 'full-screen' pseudoclass applied.
             if (element.isFrameElementBase() && element.containsFullScreenElement())
                 return true;
-            if (FullscreenElementStack* fullscreen = FullscreenElementStack::fromIfExists(&element.document())) {
+            if (FullscreenElementStack* fullscreen = FullscreenElementStack::fromIfExists(element.document())) {
                 if (!fullscreen->webkitIsFullScreen())
                     return false;
                 return element == fullscreen->webkitCurrentFullScreenElement();
@@ -826,7 +850,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoFullScreenDocument:
             // While a Document is in the fullscreen state, the 'full-screen-document' pseudoclass applies
             // to all elements of that Document.
-            if (!FullscreenElementStack::isFullScreen(&element.document()))
+            if (!FullscreenElementStack::isFullScreen(element.document()))
                 return false;
             return true;
         case CSSSelector::PseudoInRange:
@@ -857,7 +881,10 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
         case CSSSelector::PseudoAncestor:
             {
                 // :host only matches a shadow host when :host is in a shadow tree of the shadow host.
-                if (!context.scope || !(context.behaviorAtBoundary & ScopeIsShadowHost) || context.scope != element)
+                if (!context.scope)
+                    return false;
+                const ContainerNode* shadowHost = (context.behaviorAtBoundary & ScopeIsShadowHost) ? context.scope : (context.scope->isInShadowTree() ? context.scope->shadowHost() : 0);
+                if (!shadowHost || shadowHost != element)
                     return false;
                 ASSERT(element.shadow());
 
@@ -874,7 +901,7 @@ bool SelectorChecker::checkOne(const SelectorCheckingContext& context, const Sib
                 // If one of simple selectors matches an element, returns SelectorMatches. Just "OR".
                 for (subContext.selector = selector.selectorList()->first(); subContext.selector; subContext.selector = CSSSelectorList::next(*subContext.selector)) {
                     subContext.behaviorAtBoundary = ScopeIsShadowHostInPseudoHostParameter;
-                    subContext.scope = context.scope;
+                    subContext.scope = shadowHost;
                     // Use NodeRenderingTraversal to traverse a composed ancestor list of a given element.
                     Element* nextElement = &element;
                     do {

@@ -44,11 +44,13 @@ namespace WebCore {
 class V8TestInterfacePython3 {
 public:
     static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
-    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static v8::Handle<v8::Object> findInstanceInPrototypeChain(v8::Handle<v8::Value>, v8::Isolate*);
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*);
     static TestInterfacePython3* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
+    static TestInterfacePython3* toNativeWithTypeCheck(v8::Isolate*, v8::Handle<v8::Value>);
     static const WrapperTypeInfo wrapperTypeInfo;
     static void derefObject(void*);
     static void visitDOMWrapper(void*, const v8::Persistent<v8::Object>&, v8::Isolate*);
@@ -68,12 +70,6 @@ public:
 private:
     friend v8::Handle<v8::Object> wrap(TestInterfacePython3*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     static v8::Handle<v8::Object> createWrapper(PassRefPtr<TestInterfacePython3>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-};
-
-template<>
-class WrapperTypeTraits<TestInterfacePython3 > {
-public:
-    static const WrapperTypeInfo* wrapperTypeInfo() { return &V8TestInterfacePython3::wrapperTypeInfo; }
 };
 
 inline v8::Handle<v8::Object> wrap(TestInterfacePython3* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
@@ -109,7 +105,7 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo, TestInterfacePyth
 template<typename CallbackInfo>
 inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, TestInterfacePython3* impl)
 {
-    ASSERT(worldType(callbackInfo.GetIsolate()) == MainWorld);
+    ASSERT(DOMWrapperWorld::current(callbackInfo.GetIsolate())->isMainWorld());
     if (UNLIKELY(!impl)) {
         v8SetReturnValueNull(callbackInfo);
         return;

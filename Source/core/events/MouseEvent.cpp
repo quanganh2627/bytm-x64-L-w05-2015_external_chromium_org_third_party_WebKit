@@ -41,7 +41,7 @@ MouseEventInit::MouseEventInit()
     , shiftKey(false)
     , metaKey(false)
     , button(0)
-    , relatedTarget(0)
+    , relatedTarget(nullptr)
 {
 }
 
@@ -62,14 +62,14 @@ PassRefPtr<MouseEvent> MouseEvent::create(const AtomicString& eventType, PassRef
         detail, event.globalPosition().x(), event.globalPosition().y(), event.position().x(), event.position().y(),
         event.movementDelta().x(), event.movementDelta().y(),
         event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey(), event.button(),
-        relatedTarget, 0, false);
+        relatedTarget, nullptr, false);
 }
 
 PassRefPtr<MouseEvent> MouseEvent::create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView> view,
     int detail, int screenX, int screenY, int pageX, int pageY,
     int movementX, int movementY,
     bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, unsigned short button,
-    PassRefPtr<EventTarget> relatedTarget, PassRefPtr<Clipboard> clipboard, bool isSimulated)
+    PassRefPtr<EventTarget> relatedTarget, PassRefPtrWillBeRawPtr<Clipboard> clipboard, bool isSimulated)
 {
     return adoptRef(new MouseEvent(type, canBubble, cancelable, view,
         detail, screenX, screenY, pageX, pageY,
@@ -85,11 +85,11 @@ MouseEvent::MouseEvent()
 }
 
 MouseEvent::MouseEvent(const AtomicString& eventType, bool canBubble, bool cancelable, PassRefPtr<AbstractView> view,
-                       int detail, int screenX, int screenY, int pageX, int pageY,
-                       int movementX, int movementY,
-                       bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
-                       unsigned short button, PassRefPtr<EventTarget> relatedTarget,
-                       PassRefPtr<Clipboard> clipboard, bool isSimulated)
+    int detail, int screenX, int screenY, int pageX, int pageY,
+    int movementX, int movementY,
+    bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
+    unsigned short button, PassRefPtr<EventTarget> relatedTarget,
+    PassRefPtrWillBeRawPtr<Clipboard> clipboard, bool isSimulated)
     : MouseRelatedEvent(eventType, canBubble, cancelable, view, detail, IntPoint(screenX, screenY),
                         IntPoint(pageX, pageY),
                         IntPoint(movementX, movementY),
@@ -110,7 +110,7 @@ MouseEvent::MouseEvent(const AtomicString& eventType, const MouseEventInit& init
     , m_button(initializer.button == (unsigned short)-1 ? 0 : initializer.button)
     , m_buttonDown(initializer.button != (unsigned short)-1)
     , m_relatedTarget(initializer.relatedTarget)
-    , m_clipboard(0 /* clipboard */)
+    , m_clipboard(nullptr /* clipboard */)
 {
     ScriptWrappable::init(this);
     initCoordinates(IntPoint(initializer.clientX, initializer.clientY));
@@ -190,6 +190,12 @@ Node* MouseEvent::fromElement() const
     return target() ? target()->toNode() : 0;
 }
 
+void MouseEvent::trace(Visitor* visitor)
+{
+    visitor->trace(m_clipboard);
+    MouseRelatedEvent::trace(visitor);
+}
+
 PassRefPtr<SimulatedMouseEvent> SimulatedMouseEvent::create(const AtomicString& eventType, PassRefPtr<AbstractView> view, PassRefPtr<Event> underlyingEvent)
 {
     return adoptRef(new SimulatedMouseEvent(eventType, view, underlyingEvent));
@@ -202,7 +208,7 @@ SimulatedMouseEvent::~SimulatedMouseEvent()
 SimulatedMouseEvent::SimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<AbstractView> view, PassRefPtr<Event> underlyingEvent)
     : MouseEvent(eventType, true, true, view, 0, 0, 0, 0, 0,
                  0, 0,
-                 false, false, false, false, 0, 0, 0, true)
+                 false, false, false, false, 0, nullptr, nullptr, true)
 {
     if (UIEventWithKeyState* keyStateEvent = findEventWithKeyState(underlyingEvent.get())) {
         m_ctrlKey = keyStateEvent->ctrlKey();
@@ -217,6 +223,11 @@ SimulatedMouseEvent::SimulatedMouseEvent(const AtomicString& eventType, PassRefP
         m_screenLocation = mouseEvent->screenLocation();
         initCoordinates(mouseEvent->clientLocation());
     }
+}
+
+void SimulatedMouseEvent::trace(Visitor* visitor)
+{
+    MouseEvent::trace(visitor);
 }
 
 PassRefPtr<MouseEventDispatchMediator> MouseEventDispatchMediator::create(PassRefPtr<MouseEvent> mouseEvent, MouseEventType mouseEventType)

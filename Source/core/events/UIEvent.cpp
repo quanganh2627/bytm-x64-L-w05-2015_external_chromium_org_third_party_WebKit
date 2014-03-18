@@ -27,7 +27,7 @@
 namespace WebCore {
 
 UIEventInit::UIEventInit()
-    : view(0)
+    : view(nullptr)
     , detail(0)
 {
 }
@@ -112,6 +112,11 @@ int UIEvent::pageY() const
 int UIEvent::which() const
 {
     return 0;
+}
+
+void UIEvent::trace(Visitor* visitor)
+{
+    Event::trace(visitor);
 }
 
 } // namespace WebCore

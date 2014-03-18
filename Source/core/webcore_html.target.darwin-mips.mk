@@ -39,6 +39,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/HTMLButtonElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLCanvasElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLCollection.cpp \
+	third_party/WebKit/Source/core/html/HTMLContentElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLDListElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLDataListElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLDetailsElement.cpp \
@@ -66,11 +67,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/HTMLIFrameElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLImageElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLImageLoader.cpp \
-	third_party/WebKit/Source/core/html/HTMLImport.cpp \
-	third_party/WebKit/Source/core/html/HTMLImportsController.cpp \
-	third_party/WebKit/Source/core/html/HTMLImportChild.cpp \
-	third_party/WebKit/Source/core/html/HTMLImportLoader.cpp \
-	third_party/WebKit/Source/core/html/HTMLImportStateResolver.cpp \
 	third_party/WebKit/Source/core/html/HTMLInputElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLKeygenElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLLIElement.cpp \
@@ -102,6 +98,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/HTMLRubyElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLScriptElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLSelectElement.cpp \
+	third_party/WebKit/Source/core/html/HTMLShadowElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLSourceElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLSpanElement.cpp \
 	third_party/WebKit/Source/core/html/HTMLStyleElement.cpp \
@@ -127,7 +124,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/ImageDocument.cpp \
 	third_party/WebKit/Source/core/html/LabelableElement.cpp \
 	third_party/WebKit/Source/core/html/LabelsNodeList.cpp \
-	third_party/WebKit/Source/core/html/LinkImport.cpp \
 	third_party/WebKit/Source/core/html/LinkRelAttribute.cpp \
 	third_party/WebKit/Source/core/html/LinkResource.cpp \
 	third_party/WebKit/Source/core/html/MediaController.cpp \
@@ -180,6 +176,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/canvas/WebGLProgram.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLRenderbuffer.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLRenderingContext.cpp \
+	third_party/WebKit/Source/core/html/canvas/WebGLRenderingContextBase.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLShader.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLShaderPrecisionFormat.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLSharedObject.cpp \
@@ -224,6 +221,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/forms/URLInputType.cpp \
 	third_party/WebKit/Source/core/html/forms/ValidationMessage.cpp \
 	third_party/WebKit/Source/core/html/forms/WeekInputType.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImport.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImportsController.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImportChild.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImportLoader.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImportStateResolver.cpp \
+	third_party/WebKit/Source/core/html/imports/LinkImport.cpp \
 	third_party/WebKit/Source/core/html/parser/BackgroundHTMLParser.cpp \
 	third_party/WebKit/Source/core/html/parser/BackgroundHTMLInputStream.cpp \
 	third_party/WebKit/Source/core/html/parser/CSSPreloadScanner.cpp \
@@ -260,12 +263,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/shadow/DateTimeNumericFieldElement.cpp \
 	third_party/WebKit/Source/core/html/shadow/DateTimeSymbolicFieldElement.cpp \
 	third_party/WebKit/Source/core/html/shadow/DetailsMarkerControl.cpp \
-	third_party/WebKit/Source/core/html/shadow/HTMLContentElement.cpp \
-	third_party/WebKit/Source/core/html/shadow/HTMLShadowElement.cpp \
 	third_party/WebKit/Source/core/html/shadow/MediaControlElementTypes.cpp \
 	third_party/WebKit/Source/core/html/shadow/MediaControlElements.cpp \
 	third_party/WebKit/Source/core/html/shadow/MediaControls.cpp \
-	third_party/WebKit/Source/core/html/shadow/MediaControlsAndroid.cpp \
 	third_party/WebKit/Source/core/html/shadow/MeterShadowElement.cpp \
 	third_party/WebKit/Source/core/html/shadow/PasswordGeneratorButtonElement.cpp \
 	third_party/WebKit/Source/core/html/shadow/ProgressShadowElement.cpp \
@@ -328,6 +328,7 @@ MY_CFLAGS_Debug := \
 
 MY_DEFS_Debug := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -335,9 +336,9 @@ MY_DEFS_Debug := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -346,12 +347,9 @@ MY_DEFS_Debug := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -361,8 +359,13 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -371,6 +374,7 @@ MY_DEFS_Debug := \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -476,6 +480,7 @@ MY_CFLAGS_Release := \
 
 MY_DEFS_Release := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -483,9 +488,9 @@ MY_DEFS_Release := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -494,12 +499,9 @@ MY_DEFS_Release := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -509,8 +511,13 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -519,6 +526,7 @@ MY_DEFS_Release := \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -592,9 +600,11 @@ LOCAL_CPPFLAGS_Release := \
 LOCAL_CFLAGS := $(MY_CFLAGS_$(GYP_CONFIGURATION)) $(MY_DEFS_$(GYP_CONFIGURATION))
 LOCAL_C_INCLUDES := $(GYP_COPIED_SOURCE_ORIGIN_DIRS) $(LOCAL_C_INCLUDES_$(GYP_CONFIGURATION))
 LOCAL_CPPFLAGS := $(LOCAL_CPPFLAGS_$(GYP_CONFIGURATION))
+LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -604,7 +614,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--fatal-warnings \
 	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
@@ -612,6 +621,7 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -624,7 +634,6 @@ LOCAL_LDFLAGS_Release := \
 	-Wl,-O1 \
 	-Wl,--as-needed \
 	-Wl,--gc-sections \
-	-Wl,--fatal-warnings \
 	-Wl,--warn-shared-textrel
 
 

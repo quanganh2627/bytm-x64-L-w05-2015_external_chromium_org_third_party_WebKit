@@ -85,18 +85,16 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGAltGlyphElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAltGlyphItemElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAngle.cpp \
+	third_party/WebKit/Source/core/svg/SVGAngleTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedAngle.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedColor.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedEnumeration.cpp \
+	third_party/WebKit/Source/core/svg/SVGAnimatedEnumerationBase.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedInteger.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedIntegerOptionalInteger.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedLength.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedNewPropertyAnimator.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedNumberOptionalNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedPath.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedTransformList.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimatedType.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedTypeAnimator.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimateElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimateMotionElement.cpp \
@@ -105,7 +103,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGBoolean.cpp \
 	third_party/WebKit/Source/core/svg/SVGCircleElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGClipPathElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGColor.cpp \
 	third_party/WebKit/Source/core/svg/SVGComponentTransferFunctionElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGCursorElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDefsElement.cpp \
@@ -113,6 +110,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGDiscardElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocument.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocumentExtensions.cpp \
+	third_party/WebKit/Source/core/svg/SVGEnumeration.cpp \
 	third_party/WebKit/Source/core/svg/SVGElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstance.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstanceList.cpp \
@@ -151,6 +149,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGFontFaceElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFontFaceFormatElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFontFaceNameElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGFontFaceSource.cpp \
 	third_party/WebKit/Source/core/svg/SVGFontFaceSrcElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFontFaceUriElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGForeignObjectElement.cpp \
@@ -171,11 +170,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGLengthTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGLineElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGLinearGradientElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGMPathElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGMatrixTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGMarkerElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMaskElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMetadataElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMissingGlyphElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGMPathElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumberOptionalNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumberTearOff.cpp \
@@ -188,6 +188,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGPathByteStreamSource.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathParser.cpp \
+	third_party/WebKit/Source/core/svg/SVGPathSeg.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathSegList.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathSegListBuilder.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathSegListSource.cpp \
@@ -208,6 +209,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGRect.cpp \
 	third_party/WebKit/Source/core/svg/SVGRectElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGRectTearOff.cpp \
+	third_party/WebKit/Source/core/svg/SVGRemoteFontFaceSource.cpp \
 	third_party/WebKit/Source/core/svg/SVGSVGElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGScriptElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGSetElement.cpp \
@@ -227,9 +229,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGTextPositioningElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGTitleElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransform.cpp \
+	third_party/WebKit/Source/core/svg/SVGTransformTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransformDistance.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransformList.cpp \
+	third_party/WebKit/Source/core/svg/SVGTransformListTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGURIReference.cpp \
+	third_party/WebKit/Source/core/svg/SVGUnitTypes.cpp \
 	third_party/WebKit/Source/core/svg/SVGUnknownElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGUseElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGVKernElement.cpp \
@@ -248,10 +253,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilter.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilterBuilder.cpp \
 	third_party/WebKit/Source/core/svg/properties/NewSVGAnimatedProperty.cpp \
-	third_party/WebKit/Source/core/svg/properties/NewSVGPropertyTearOff.cpp \
-	third_party/WebKit/Source/core/svg/properties/SVGAnimatedProperty.cpp \
-	third_party/WebKit/Source/core/svg/properties/SVGAttributeToPropertyMap.cpp \
-	third_party/WebKit/Source/core/svg/properties/SVGPathSegListPropertyTearOff.cpp
+	third_party/WebKit/Source/core/svg/properties/NewSVGPropertyTearOff.cpp
 
 
 # Flags passed to both C and C++ files.
@@ -291,6 +293,7 @@ MY_CFLAGS_Debug := \
 
 MY_DEFS_Debug := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -298,9 +301,9 @@ MY_DEFS_Debug := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -309,12 +312,9 @@ MY_DEFS_Debug := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -324,8 +324,13 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -334,6 +339,7 @@ MY_DEFS_Debug := \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -440,6 +446,7 @@ MY_CFLAGS_Release := \
 
 MY_DEFS_Release := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -447,9 +454,9 @@ MY_DEFS_Release := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -458,12 +465,9 @@ MY_DEFS_Release := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -473,8 +477,13 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -483,6 +492,7 @@ MY_DEFS_Release := \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -556,9 +566,11 @@ LOCAL_CPPFLAGS_Release := \
 LOCAL_CFLAGS := $(MY_CFLAGS_$(GYP_CONFIGURATION)) $(MY_DEFS_$(GYP_CONFIGURATION))
 LOCAL_C_INCLUDES := $(GYP_COPIED_SOURCE_ORIGIN_DIRS) $(LOCAL_C_INCLUDES_$(GYP_CONFIGURATION))
 LOCAL_CPPFLAGS := $(LOCAL_CPPFLAGS_$(GYP_CONFIGURATION))
+LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -570,7 +582,6 @@ LOCAL_LDFLAGS_Debug := \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
 	-Wl,--icf=safe \
-	-Wl,--fatal-warnings \
 	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
@@ -578,6 +589,7 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -592,7 +604,6 @@ LOCAL_LDFLAGS_Release := \
 	-Wl,-O1 \
 	-Wl,--as-needed \
 	-Wl,--gc-sections \
-	-Wl,--fatal-warnings \
 	-Wl,--warn-shared-textrel
 
 

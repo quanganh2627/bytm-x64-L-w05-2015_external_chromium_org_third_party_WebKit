@@ -43,13 +43,13 @@ class Navigator;
 class NavigatorWebMIDI FINAL : public Supplement<Navigator>, public DOMWindowProperty {
 public:
     virtual ~NavigatorWebMIDI();
-    static NavigatorWebMIDI* from(Navigator*);
+    static NavigatorWebMIDI& from(Navigator&);
 
-    static PassRefPtr<MIDIAccessPromise> requestMIDIAccess(Navigator*, const Dictionary&);
-    PassRefPtr<MIDIAccessPromise> requestMIDIAccess(const Dictionary&);
+    static PassRefPtrWillBeRawPtr<MIDIAccessPromise> requestMIDIAccess(Navigator&, const Dictionary&);
+    PassRefPtrWillBeRawPtr<MIDIAccessPromise> requestMIDIAccess(const Dictionary&);
 
 private:
-    NavigatorWebMIDI(Frame*);
+    NavigatorWebMIDI(LocalFrame*);
     static const char* supplementName();
 };
 

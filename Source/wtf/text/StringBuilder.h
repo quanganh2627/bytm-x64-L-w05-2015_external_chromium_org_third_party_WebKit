@@ -94,7 +94,8 @@ public:
         if (!string.length())
             return;
 
-        if ((offset + length) > string.length())
+        unsigned extent = offset + length;
+        if (extent < offset || extent > string.length())
             return;
 
         if (string.is8Bit())
@@ -264,7 +265,7 @@ public:
     {
         m_length = 0;
         m_string = String();
-        m_buffer = 0;
+        m_buffer = nullptr;
         m_bufferCharacters8 = 0;
         m_is8Bit = true;
     }

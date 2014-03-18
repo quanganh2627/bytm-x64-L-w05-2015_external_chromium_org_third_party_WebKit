@@ -58,21 +58,24 @@ public:
     void addTagName(const AtomicString& tagName);
 
     // Appends the classes in this DescendantInvalidationSet to the vector.
-    void getClasses(Vector<AtomicString>& classes);
+    void getClasses(Vector<AtomicString>& classes) const;
 
-    void setWholeSubtreeInvalid() { m_allDescendantsMightBeInvalid = true; };
-    bool wholeSubtreeInvalid() { return m_allDescendantsMightBeInvalid; }
+    void setWholeSubtreeInvalid();
+    bool wholeSubtreeInvalid() const { return m_allDescendantsMightBeInvalid; }
 private:
     DescendantInvalidationSet();
 
-    bool invalidateElementSubtreeInternal(Element*);
+    HashSet<AtomicString>& ensureClassSet();
+    HashSet<AtomicString>& ensureIdSet();
+    HashSet<AtomicString>& ensureTagNameSet();
+
     // If true, all descendants might be invalidated, so a full subtree recalc is required.
     bool m_allDescendantsMightBeInvalid;
 
     // FIXME: optimize this if it becomes a memory issue.
-    HashSet<AtomicString> m_classes;
-    HashSet<AtomicString> m_ids;
-    HashSet<AtomicString> m_tagNames;
+    OwnPtr<HashSet<AtomicString> > m_classes;
+    OwnPtr<HashSet<AtomicString> > m_ids;
+    OwnPtr<HashSet<AtomicString> > m_tagNames;
 };
 
 } // namespace WebCore

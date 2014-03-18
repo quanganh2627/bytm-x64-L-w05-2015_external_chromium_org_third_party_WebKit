@@ -30,7 +30,7 @@
 namespace WebCore {
 
 MediaStreamEventInit::MediaStreamEventInit()
-    : stream(0)
+    : stream(nullptr)
 {
 }
 
@@ -86,6 +86,11 @@ MediaStream* MediaStreamEvent::stream(bool& isNull) const
 const AtomicString& MediaStreamEvent::interfaceName() const
 {
     return EventNames::MediaStreamEvent;
+}
+
+void MediaStreamEvent::trace(Visitor* visitor)
+{
+    Event::trace(visitor);
 }
 
 } // namespace WebCore

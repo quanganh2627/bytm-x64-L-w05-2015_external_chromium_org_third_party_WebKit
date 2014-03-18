@@ -36,11 +36,10 @@ namespace WebCore {
 class CSSRuleList;
 class StyleKeyframe;
 class CSSKeyframeRule;
-class ExceptionState;
 
 class StyleRuleKeyframes FINAL : public StyleRuleBase {
 public:
-    static PassRefPtr<StyleRuleKeyframes> create() { return adoptRef(new StyleRuleKeyframes()); }
+    static PassRefPtrWillBeRawPtr<StyleRuleKeyframes> create() { return adoptRefWillBeNoop(new StyleRuleKeyframes()); }
 
     ~StyleRuleKeyframes();
 
@@ -58,7 +57,9 @@ public:
 
     int findKeyframeIndex(const String& key) const;
 
-    PassRefPtr<StyleRuleKeyframes> copy() const { return adoptRef(new StyleRuleKeyframes(*this)); }
+    PassRefPtrWillBeRawPtr<StyleRuleKeyframes> copy() const { return adoptRefWillBeNoop(new StyleRuleKeyframes(*this)); }
+
+    void traceAfterDispatch(Visitor* visitor) { StyleRuleBase::traceAfterDispatch(visitor); }
 
 private:
     StyleRuleKeyframes();
@@ -73,7 +74,10 @@ DEFINE_STYLE_RULE_TYPE_CASTS(Keyframes);
 
 class CSSKeyframesRule FINAL : public CSSRule {
 public:
-    static PassRefPtr<CSSKeyframesRule> create(StyleRuleKeyframes* rule, CSSStyleSheet* sheet) { return adoptRef(new CSSKeyframesRule(rule, sheet)); }
+    static PassRefPtrWillBeRawPtr<CSSKeyframesRule> create(StyleRuleKeyframes* rule, CSSStyleSheet* sheet)
+    {
+        return adoptRefWillBeNoop(new CSSKeyframesRule(rule, sheet));
+    }
 
     virtual ~CSSKeyframesRule();
 
@@ -86,7 +90,7 @@ public:
 
     CSSRuleList* cssRules();
 
-    void insertRule(const String& rule, ExceptionState&);
+    void insertRule(const String& rule);
     void deleteRule(const String& key);
     CSSKeyframeRule* findRule(const String& key);
 
@@ -97,12 +101,14 @@ public:
     bool isVendorPrefixed() const { return m_isPrefixed; }
     void setVendorPrefixed(bool isPrefixed) { m_isPrefixed = isPrefixed; }
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 private:
     CSSKeyframesRule(StyleRuleKeyframes*, CSSStyleSheet* parent);
 
-    RefPtr<StyleRuleKeyframes> m_keyframesRule;
-    mutable Vector<RefPtr<CSSKeyframeRule> > m_childRuleCSSOMWrappers;
-    mutable OwnPtr<CSSRuleList> m_ruleListCSSOMWrapper;
+    RefPtrWillBeMember<StyleRuleKeyframes> m_keyframesRule;
+    mutable WillBeHeapVector<RefPtrWillBeMember<CSSKeyframeRule> > m_childRuleCSSOMWrappers;
+    mutable OwnPtrWillBeMember<CSSRuleList> m_ruleListCSSOMWrapper;
     bool m_isPrefixed;
 };
 

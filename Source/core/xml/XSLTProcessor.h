@@ -35,22 +35,22 @@
 
 namespace WebCore {
 
-class Frame;
+class LocalFrame;
 class Document;
 class DocumentFragment;
 
-class XSLTProcessor : public RefCounted<XSLTProcessor>, public ScriptWrappable {
+class XSLTProcessor : public RefCountedWillBeGarbageCollectedFinalized<XSLTProcessor>, public ScriptWrappable {
 public:
-    static PassRefPtr<XSLTProcessor> create()
+    static PassRefPtrWillBeRawPtr<XSLTProcessor> create()
     {
         ASSERT(RuntimeEnabledFeatures::xsltEnabled());
-        return adoptRef(new XSLTProcessor);
+        return adoptRefWillBeNoop(new XSLTProcessor);
     }
     ~XSLTProcessor();
 
     void setXSLStyleSheet(PassRefPtr<XSLStyleSheet> styleSheet) { m_stylesheet = styleSheet; }
     bool transformToString(Node* source, String& resultMIMEType, String& resultString, String& resultEncoding);
-    PassRefPtr<Document> createDocumentFromSource(const String& source, const String& sourceEncoding, const String& sourceMIMEType, Node* sourceNode, Frame* frame);
+    PassRefPtr<Document> createDocumentFromSource(const String& source, const String& sourceEncoding, const String& sourceMIMEType, Node* sourceNode, LocalFrame* frame);
 
     // DOM methods
     void importStylesheet(PassRefPtr<Node> style)
@@ -75,6 +75,8 @@ public:
     XSLStyleSheet* xslStylesheet() const { return m_stylesheet.get(); }
 
     typedef HashMap<String, String> ParameterMap;
+
+    void trace(Visitor*) { }
 
 private:
     XSLTProcessor()

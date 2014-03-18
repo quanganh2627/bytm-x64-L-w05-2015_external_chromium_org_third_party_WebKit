@@ -34,13 +34,11 @@ var Preferences = {
     minDrawerHeight: 25,
     minSidebarWidth: 100,
     minSidebarHeight: 75,
-    applicationTitle: "Developer Tools - %s",
-    experimentsEnabled: false
+    applicationTitle: "Developer Tools - %s"
 }
 
 var Capabilities = {
-    canInspectWorkers: false,
-    canScreencast: false
+    isMainFrontend: false,
 }
 
 /**
@@ -78,6 +76,9 @@ WebInspector.Settings = function()
     this.deviceFitWindow = this.createSetting("deviceFitWindow", true);
     this.emulateViewport = this.createSetting("emulateViewport", false);
     this.emulateTouchEvents = this.createSetting("emulateTouchEvents", false);
+
+    // This setting affects the display of user-agent shadow DOM only,
+    // as author shadow DOM is displayed at all times.
     this.showShadowDOM = this.createSetting("showShadowDOM", false);
     this.savedURLs = this.createSetting("savedURLs", {});
     this.javaScriptDisabled = this.createSetting("javaScriptDisabled", false);
@@ -94,6 +95,7 @@ WebInspector.Settings = function()
     this.textEditorBracketMatching = this.createSetting("textEditorBracketMatching", true);
     this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
     this.timelineCaptureStacks = this.createSetting("timelineCaptureStacks", true);
+    this.timelineLiveUpdate = this.createSetting("timelineLiveUpdate", true);
     this.showMetricsRulers = this.createSetting("showMetricsRulers", false);
     this.overrideCSSMedia = this.createSetting("overrideCSSMedia", false);
     this.emulatedCSSMedia = this.createSetting("emulatedCSSMedia", "print");
@@ -252,7 +254,7 @@ WebInspector.BackendSetting.prototype = {
         function callback(error)
         {
             if (error) {
-                WebInspector.log("Error applying setting " + this._name + ": " + error);
+                WebInspector.console.log("Error applying setting " + this._name + ": " + error);
                 this._eventSupport.dispatchEventToListeners(this._name, this._value);
                 return;
             }
@@ -266,9 +268,11 @@ WebInspector.BackendSetting.prototype = {
 
 /**
  * @constructor
+ * @param {boolean} experimentsEnabled
  */
-WebInspector.ExperimentsSettings = function()
+WebInspector.ExperimentsSettings = function(experimentsEnabled)
 {
+    this._experimentsEnabled = experimentsEnabled;
     this._setting = WebInspector.settings.createSetting("experiments", {});
     this._experiments = [];
     this._enabledForTest = {};
@@ -288,6 +292,8 @@ WebInspector.ExperimentsSettings = function()
     this.dockToLeft = this._createExperiment("dockToLeft", "Enable dock to left mode");
     this.allocationProfiler = this._createExperiment("allocationProfiler", "Enable JavaScript heap allocation profiler");
     this.timelineFlameChart = this._createExperiment("timelineFlameChart", "Enable FlameChart mode in Timeline");
+    this.heapSnapshotStatistics = this._createExperiment("heapSnapshotStatistics", "Show memory breakdown statistics in heap snapshots");
+    this.timelineNoLiveUpdate = this._createExperiment("timelineNoLiveUpdate", "Timeline w/o live update");
 
     this._cleanUpSetting();
 }
@@ -306,7 +312,7 @@ WebInspector.ExperimentsSettings.prototype = {
      */
     get experimentsEnabled()
     {
-        return Preferences.experimentsEnabled || ("experiments" in WebInspector.queryParamsObject);
+        return this._experimentsEnabled;
     },
 
     /**
@@ -428,7 +434,7 @@ WebInspector.VersionController = function()
 {
 }
 
-WebInspector.VersionController.currentVersion = 4;
+WebInspector.VersionController.currentVersion = 7;
 
 WebInspector.VersionController.prototype = {
     updateVersion: function()
@@ -479,6 +485,118 @@ WebInspector.VersionController.prototype = {
         WebInspector.settings.showAdvancedHeapSnapshotProperties.set(advancedMode);
     },
 
+    _updateVersionFrom4To5: function()
+    {
+        if (!window.localStorage)
+            return;
+        var settingNames = {
+            "FileSystemViewSidebarWidth": "fileSystemViewSplitViewState",
+            "canvasProfileViewReplaySplitLocation": "canvasProfileViewReplaySplitViewState",
+            "canvasProfileViewSplitLocation": "canvasProfileViewSplitViewState",
+            "elementsSidebarWidth": "elementsPanelSplitViewState",
+            "StylesPaneSplitRatio": "stylesPaneSplitViewState",
+            "heapSnapshotRetainersViewSize": "heapSnapshotSplitViewState",
+            "InspectorView.splitView": "InspectorView.splitViewState",
+            "InspectorView.screencastSplitView": "InspectorView.screencastSplitViewState",
+            "Inspector.drawerSplitView": "Inspector.drawerSplitViewState",
+            "layerDetailsSplitView": "layerDetailsSplitViewState",
+            "networkSidebarWidth": "networkPanelSplitViewState",
+            "sourcesSidebarWidth": "sourcesPanelSplitViewState",
+            "scriptsPanelNavigatorSidebarWidth": "sourcesPanelNavigatorSplitViewState",
+            "sourcesPanelSplitSidebarRatio": "sourcesPanelDebuggerSidebarSplitViewState",
+            "timeline-details": "timelinePanelDetailsSplitViewState",
+            "timeline-split": "timelinePanelRecorsSplitViewState",
+            "timeline-view": "timelinePanelTimelineStackSplitViewState",
+            "auditsSidebarWidth": "auditsPanelSplitViewState",
+            "layersSidebarWidth": "layersPanelSplitViewState",
+            "profilesSidebarWidth": "profilesPanelSplitViewState",
+            "resourcesSidebarWidth": "resourcesPanelSplitViewState"
+        };
+        for (var oldName in settingNames) {
+            var newName = settingNames[oldName];
+            var oldNameH = oldName + "H";
+
+            var newValue = null;
+            var oldSetting = WebInspector.settings.createSetting(oldName, undefined).get();
+            if (oldSetting) {
+                newValue = newValue || {};
+                newValue.vertical = {};
+                newValue.vertical.size = oldSetting;
+                delete window.localStorage[oldName];
+            }
+            var oldSettingH = WebInspector.settings.createSetting(oldNameH, undefined).get();
+            if (oldSettingH) {
+                newValue = newValue || {};
+                newValue.horizontal = {};
+                newValue.horizontal.size = oldSettingH;
+                delete window.localStorage[oldNameH];
+            }
+            var newSetting = WebInspector.settings.createSetting(newName, {});
+            if (newValue)
+                newSetting.set(newValue);
+        }
+    },
+
+    _updateVersionFrom5To6: function()
+    {
+        if (!window.localStorage)
+            return;
+
+        var settingNames = {
+            "debuggerSidebarHidden": "sourcesPanelSplitViewState",
+            "navigatorHidden": "sourcesPanelNavigatorSplitViewState",
+            "WebInspector.Drawer.showOnLoad": "Inspector.drawerSplitViewState"
+        };
+
+        for (var oldName in settingNames) {
+            var newName = settingNames[oldName];
+
+            var oldSetting = WebInspector.settings.createSetting(oldName, undefined).get();
+            var invert = "WebInspector.Drawer.showOnLoad" === oldName;
+            var hidden = !!oldSetting !== invert;
+            delete window.localStorage[oldName];
+            var showMode = hidden ? "OnlyMain" : "Both";
+
+            var newSetting = WebInspector.settings.createSetting(newName, null);
+            var newValue = newSetting.get() || {};
+            newValue.vertical = newValue.vertical || {};
+            newValue.vertical.showMode = showMode;
+            newValue.horizontal = newValue.horizontal || {};
+            newValue.horizontal.showMode = showMode;
+            newSetting.set(newValue);
+        }
+    },
+
+    _updateVersionFrom6To7: function()
+    {
+        if (!window.localStorage)
+            return;
+
+        var settingNames = {
+            "sourcesPanelNavigatorSplitViewState": "sourcesPanelNavigatorSplitViewState",
+            "elementsPanelSplitViewState": "elementsPanelSplitViewState",
+            "canvasProfileViewReplaySplitViewState": "canvasProfileViewReplaySplitViewState",
+            "editorInDrawerSplitViewState": "editorInDrawerSplitViewState",
+            "stylesPaneSplitViewState": "stylesPaneSplitViewState",
+            "sourcesPanelDebuggerSidebarSplitViewState": "sourcesPanelDebuggerSidebarSplitViewState"
+        };
+
+        for (var name in settingNames) {
+            if (!(name in window.localStorage))
+                continue;
+            var setting = WebInspector.settings.createSetting(name, undefined);
+            var value = setting.get();
+            if (!value)
+                continue;
+            // Zero out saved percentage sizes, and they will be restored to defaults.
+            if (value.vertical && value.vertical.size && value.vertical.size < 1)
+                value.vertical.size = 0;
+            if (value.horizontal && value.horizontal.size && value.horizontal.size < 1)
+                value.horizontal.size = 0;
+            setting.set(value);
+        }
+    },
+
     /**
      * @param {!WebInspector.Setting} breakpointsSetting
      * @param {number} maxBreakpointsCount
@@ -493,4 +611,4 @@ WebInspector.VersionController.prototype = {
 }
 
 WebInspector.settings = new WebInspector.Settings();
-WebInspector.experimentsSettings = new WebInspector.ExperimentsSettings();
+WebInspector.experimentsSettings = new WebInspector.ExperimentsSettings(WebInspector.queryParam("experiments") !== null);

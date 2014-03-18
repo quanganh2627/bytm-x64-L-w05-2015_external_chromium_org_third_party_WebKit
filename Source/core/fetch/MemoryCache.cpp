@@ -81,7 +81,7 @@ MemoryCache::MemoryCache()
 {
 #ifdef MEMORY_CACHE_STATS
     const double statsIntervalInSeconds = 15;
-    m_statsTimer.startRepeating(statsIntervalInSeconds);
+    m_statsTimer.startRepeating(statsIntervalInSeconds, FROM_HERE);
 #endif
     m_pruneTimeStamp = m_pruneFrameTimeStamp = FrameView::currentFrameTimeStamp();
 }
@@ -332,6 +332,7 @@ void MemoryCache::removeFromLRUList(Resource* resource)
         return;
 
     MemoryCacheEntry* entry = m_resources.get(resource->url());
+    ASSERT(entry->m_resource == resource);
     LRUList* list = lruListFor(entry);
 
 #if !ASSERT_DISABLED
@@ -349,26 +350,24 @@ void MemoryCache::removeFromLRUList(Resource* resource)
     MemoryCacheEntry* next = entry->m_nextInAllResourcesList;
     MemoryCacheEntry* previous = entry->m_previousInAllResourcesList;
 
-    if (!next && !previous && list->m_head != entry)
-        return;
-
     entry->m_nextInAllResourcesList = 0;
     entry->m_previousInAllResourcesList = 0;
 
     if (next)
         next->m_previousInAllResourcesList = previous;
-    else if (list->m_tail == entry)
+    else
         list->m_tail = previous;
 
     if (previous)
         previous->m_nextInAllResourcesList = next;
-    else if (list->m_head == entry)
+    else
         list->m_head = next;
 }
 
 void MemoryCache::insertInLRUList(Resource* resource)
 {
     MemoryCacheEntry* entry = m_resources.get(resource->url());
+    ASSERT(entry->m_resource == resource);
 
     // Make sure we aren't in some list already.
     ASSERT(!entry->m_nextInAllResourcesList && !entry->m_previousInAllResourcesList);
@@ -402,6 +401,7 @@ void MemoryCache::insertInLRUList(Resource* resource)
 void MemoryCache::removeFromLiveDecodedResourcesList(Resource* resource)
 {
     MemoryCacheEntry* entry = m_resources.get(resource->url());
+    ASSERT(entry->m_resource == resource);
 
     // If we've never been accessed, then we're brand new and not in any list.
     if (!entry->m_inLiveDecodedResourcesList)
@@ -425,26 +425,24 @@ void MemoryCache::removeFromLiveDecodedResourcesList(Resource* resource)
     MemoryCacheEntry* next = entry->m_nextInLiveResourcesList;
     MemoryCacheEntry* previous = entry->m_previousInLiveResourcesList;
 
-    if (!next && !previous && list->m_head != entry)
-        return;
-
     entry->m_nextInLiveResourcesList = 0;
     entry->m_previousInLiveResourcesList = 0;
 
     if (next)
         next->m_previousInLiveResourcesList = previous;
-    else if (list->m_tail == entry)
+    else
         list->m_tail = previous;
 
     if (previous)
         previous->m_nextInLiveResourcesList = next;
-    else if (list->m_head == entry)
+    else
         list->m_head = next;
 }
 
 void MemoryCache::insertInLiveDecodedResourcesList(Resource* resource)
 {
     MemoryCacheEntry* entry = m_resources.get(resource->url());
+    ASSERT(entry->m_resource == resource);
 
     // Make sure we aren't in the list already.
     ASSERT(!entry->m_nextInLiveResourcesList && !entry->m_previousInLiveResourcesList && !entry->m_inLiveDecodedResourcesList);
@@ -475,6 +473,7 @@ void MemoryCache::insertInLiveDecodedResourcesList(Resource* resource)
 bool MemoryCache::isInLiveDecodedResourcesList(Resource* resource)
 {
     MemoryCacheEntry* entry = m_resources.get(resource->url());
+    ASSERT(entry->m_resource == resource);
     return entry ? entry->m_inLiveDecodedResourcesList : false;
 }
 

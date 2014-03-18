@@ -31,6 +31,7 @@
 #ifndef DOMWindowPagePopup_h
 #define DOMWindowPagePopup_h
 
+#include "heap/Handle.h"
 #include "platform/Supplementable.h"
 
 namespace WebCore {
@@ -41,16 +42,16 @@ class PagePopupController;
 
 class DOMWindowPagePopup FINAL : public Supplement<DOMWindow> {
 public:
-    static PagePopupController* pagePopupController(DOMWindow*);
-    static void install(DOMWindow*, PagePopupClient*);
-    static void uninstall(DOMWindow*);
+    static PagePopupController* pagePopupController(DOMWindow&);
+    static void install(DOMWindow&, PagePopupClient*);
+    static void uninstall(DOMWindow&);
     virtual ~DOMWindowPagePopup();
 
 private:
     explicit DOMWindowPagePopup(PagePopupClient*);
     static const char* supplementName();
 
-    RefPtr<PagePopupController> m_controller;
+    RefPtrWillBePersistent<PagePopupController> m_controller;
 };
 
 }

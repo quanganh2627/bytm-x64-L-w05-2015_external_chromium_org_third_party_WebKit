@@ -96,38 +96,41 @@ public:
     virtual void resume() OVERRIDE;
     virtual void stop() OVERRIDE;
 
-    static PassRefPtr<FontFaceSet> from(Document*);
-    static void didLayout(Document*);
+    static PassRefPtr<FontFaceSet> from(Document&);
+    static void didLayout(Document&);
 
     void addFontFacesToFontFaceCache(FontFaceCache*, CSSFontSelector*);
 
 private:
     typedef RefCountedSupplement<Document, FontFaceSet> SupplementType;
 
-    static PassRefPtr<FontFaceSet> create(Document* document)
+    static PassRefPtr<FontFaceSet> create(Document& document)
     {
         return adoptRef<FontFaceSet>(new FontFaceSet(document));
     }
 
     class FontLoadHistogram {
     public:
-        FontLoadHistogram() : m_count(0), m_recorded(false) { }
+        enum Status { NoWebFonts, HadBlankText, DidNotHaveBlankText, Reported };
+        FontLoadHistogram() : m_status(NoWebFonts), m_count(0), m_recorded(false) { }
         void incrementCount() { m_count++; }
+        void updateStatus(FontFace*);
         void record();
 
     private:
+        Status m_status;
         int m_count;
         bool m_recorded;
     };
 
-    FontFaceSet(Document*);
+    FontFaceSet(Document&);
 
     bool hasLoadedFonts() const { return !m_loadedFonts.isEmpty() || !m_failedFonts.isEmpty(); }
 
     bool inActiveDocumentContext() const;
     void forEachInternal(PassOwnPtr<FontFaceSetForEachCallback>, ScriptValue* thisArg) const;
-    void incrementLoadingCount();
-    void decrementLoadingCount();
+    void addToLoadingFonts(PassRefPtr<FontFace>);
+    void removeFromLoadingFonts(PassRefPtr<FontFace>);
     void fireLoadingEvent();
     void fireDoneEventIfPossible();
     bool resolveFontStyle(const String&, Font&);
@@ -136,7 +139,7 @@ private:
     const ListHashSet<RefPtr<FontFace> >& cssConnectedFontFaceList() const;
     bool isCSSConnectedFontFace(FontFace*) const;
 
-    unsigned m_loadingCount;
+    HashSet<RefPtr<FontFace> > m_loadingFonts;
     bool m_shouldFireLoadingEvent;
     Vector<OwnPtr<FontsReadyPromiseResolver> > m_readyResolvers;
     FontFaceArray m_loadedFonts;

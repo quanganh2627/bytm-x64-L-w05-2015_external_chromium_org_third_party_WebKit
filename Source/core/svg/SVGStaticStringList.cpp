@@ -57,7 +57,7 @@ void SVGStaticStringList::animationStarted()
 PassRefPtr<NewSVGPropertyBase> SVGStaticStringList::createAnimatedValue()
 {
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 void SVGStaticStringList::setAnimatedValue(PassRefPtr<NewSVGPropertyBase>)
@@ -66,16 +66,6 @@ void SVGStaticStringList::setAnimatedValue(PassRefPtr<NewSVGPropertyBase>)
 }
 
 void SVGStaticStringList::animationEnded()
-{
-    ASSERT_NOT_REACHED();
-}
-
-void SVGStaticStringList::animValWillChange()
-{
-    ASSERT_NOT_REACHED();
-}
-
-void SVGStaticStringList::animValDidChange()
 {
     ASSERT_NOT_REACHED();
 }

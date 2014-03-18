@@ -132,7 +132,7 @@ TEST_F(AnimationDocumentTimelineTest, HasStarted)
 
 TEST_F(AnimationDocumentTimelineTest, EmptyKeyframeAnimation)
 {
-    RefPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
+    RefPtrWillBeRawPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
     RefPtr<Animation> anim = Animation::create(element.get(), effect, timing);
 
     timeline->play(anim.get());
@@ -149,7 +149,7 @@ TEST_F(AnimationDocumentTimelineTest, EmptyKeyframeAnimation)
 
 TEST_F(AnimationDocumentTimelineTest, EmptyForwardsKeyframeAnimation)
 {
-    RefPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
+    RefPtrWillBeRawPtr<KeyframeEffectModel> effect = KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector());
     timing.fillMode = Timing::FillModeForwards;
     RefPtr<Animation> anim = Animation::create(element.get(), effect, timing);
 
@@ -164,42 +164,6 @@ TEST_F(AnimationDocumentTimelineTest, EmptyForwardsKeyframeAnimation)
     platformTiming->expectNoMoreActions();
     updateClockAndService(100);
     EXPECT_FLOAT_EQ(100, timeline->currentTime());
-}
-
-TEST_F(AnimationDocumentTimelineTest, EmptyTimelineDoesNotTriggerStyleRecalc)
-{
-    document->animationClock().updateTime(100);
-    EXPECT_FALSE(timeline->serviceAnimations());
-}
-
-TEST_F(AnimationDocumentTimelineTest, EmptyPlayerDoesNotTriggerStyleRecalc)
-{
-    timeline->play(0);
-    document->animationClock().updateTime(100);
-    EXPECT_FALSE(timeline->serviceAnimations());
-}
-
-TEST_F(AnimationDocumentTimelineTest, EmptyTargetDoesNotTriggerStyleRecalc)
-{
-    timing.iterationDuration = 200;
-    timeline->play(Animation::create(0, KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing).get());
-    document->animationClock().updateTime(100);
-    EXPECT_FALSE(timeline->serviceAnimations());
-}
-
-TEST_F(AnimationDocumentTimelineTest, EmptyEffectDoesNotTriggerStyleRecalc)
-{
-    timeline->play(Animation::create(element.get(), 0, timing).get());
-    document->animationClock().updateTime(100);
-    EXPECT_FALSE(timeline->serviceAnimations());
-}
-
-TEST_F(AnimationDocumentTimelineTest, TriggerStyleRecalc)
-{
-    timing.iterationDuration = 200;
-    timeline->play(Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing).get());
-    document->animationClock().updateTime(100);
-    EXPECT_TRUE(timeline->serviceAnimations());
 }
 
 TEST_F(AnimationDocumentTimelineTest, ZeroTime)
@@ -226,8 +190,8 @@ TEST_F(AnimationDocumentTimelineTest, PauseForTesting)
     timing.fillMode = Timing::FillModeForwards;
     RefPtr<Animation> anim1 = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing);
     RefPtr<Animation> anim2  = Animation::create(element.get(), KeyframeEffectModel::create(KeyframeEffectModel::KeyframeVector()), timing);
-    Player* player1 = timeline->play(anim1.get());
-    Player* player2 = timeline->play(anim2.get());
+    AnimationPlayer* player1 = timeline->play(anim1.get());
+    AnimationPlayer* player2 = timeline->play(anim2.get());
     timeline->pauseAnimationsForTesting(seekTime);
 
     EXPECT_FLOAT_EQ(seekTime, player1->currentTime());
@@ -288,7 +252,7 @@ TEST_F(AnimationDocumentTimelineTest, DelayBeforeAnimationStart)
     timing.iterationDuration = 2;
     timing.startDelay = 5;
 
-    RefPtr<Animation> anim = Animation::create(element.get(), 0, timing);
+    RefPtr<Animation> anim = Animation::create(element.get(), nullptr, timing);
 
     timeline->play(anim.get());
 
@@ -311,18 +275,18 @@ TEST_F(AnimationDocumentTimelineTest, PlayAfterDocumentDeref)
     timing.iterationDuration = 2;
     timing.startDelay = 5;
 
-    timeline = document->timeline();
-    element = 0;
-    document = 0;
+    timeline = &document->timeline();
+    element = nullptr;
+    document = nullptr;
 
-    RefPtr<Animation> anim = Animation::create(0, 0, timing);
+    RefPtr<Animation> anim = Animation::create(nullptr, nullptr, timing);
     // Test passes if this does not crash.
     timeline->play(anim.get());
 }
 
-TEST_F(AnimationDocumentTimelineTest, UsePlayerAfterTimelineDeref)
+TEST_F(AnimationDocumentTimelineTest, UseAnimationPlayerAfterTimelineDeref)
 {
-    RefPtr<Player> player = timeline->createPlayer(0);
+    RefPtr<AnimationPlayer> player = timeline->createAnimationPlayer(0);
     timeline.clear();
     // Test passes if this does not crash.
     player->setStartTime(0);

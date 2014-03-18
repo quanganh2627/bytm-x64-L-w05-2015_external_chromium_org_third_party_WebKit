@@ -17,15 +17,18 @@ class ServiceWorkerContainer;
 class NavigatorServiceWorker FINAL : public Supplement<Navigator>, DOMWindowProperty {
 public:
     virtual ~NavigatorServiceWorker();
-    static NavigatorServiceWorker* from(Navigator*);
-    static NavigatorServiceWorker* toNavigatorServiceWorker(Navigator* navigator) { return static_cast<NavigatorServiceWorker*>(Supplement<Navigator>::from(navigator, supplementName())); }
+    static NavigatorServiceWorker& from(Navigator&);
+    static NavigatorServiceWorker* toNavigatorServiceWorker(Navigator& navigator) { return static_cast<NavigatorServiceWorker*>(Supplement<Navigator>::from(navigator, supplementName())); }
     static const char* supplementName();
 
-    static ServiceWorkerContainer* serviceWorker(Navigator*);
+    static ServiceWorkerContainer* serviceWorker(ExecutionContext*, Navigator&);
 
 private:
-    explicit NavigatorServiceWorker(Navigator*);
-    ServiceWorkerContainer* serviceWorker();
+    explicit NavigatorServiceWorker(Navigator&);
+    ServiceWorkerContainer* serviceWorker(ExecutionContext*);
+
+    // DOMWindowProperty override.
+    virtual void willDetachGlobalObjectFromFrame() OVERRIDE;
 
     RefPtr<ServiceWorkerContainer> m_serviceWorker;
 };

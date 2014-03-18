@@ -348,6 +348,9 @@ class Port(object):
         if self._dump_reader:
             result = self._dump_reader.check_is_functional() and result
 
+        if needs_http:
+            result = self.check_httpd() and result
+
         return test_run_results.OK_EXIT_STATUS if result else test_run_results.UNEXPECTED_ERROR_EXIT_STATUS
 
     def _check_driver(self):
@@ -1091,7 +1094,7 @@ class Port(object):
         be the case when the tests aren't run on the host platform."""
         return False
 
-    def start_http_server(self, additional_dirs=None, number_of_drivers=None):
+    def start_http_server(self, additional_dirs, number_of_drivers):
         """Start a web server. Raise an error if it can't start or is already running.
 
         Ports can stub this out if they don't need a web server to be running."""
@@ -1100,7 +1103,7 @@ class Port(object):
         if self.uses_apache():
             server = apache_http.ApacheHTTP(self, self.results_directory(), additional_dirs=additional_dirs, number_of_servers=(number_of_drivers * 4))
         else:
-            server = lighttpd.Lighttpd(self, self.results_directory(), additional_dirs=additional_dirs)
+            server = lighttpd.Lighttpd(self, self.results_directory())
 
         server.start()
         self._http_server = server
@@ -1116,9 +1119,8 @@ class Port(object):
         self._websocket_server = server
 
     def http_server_supports_ipv6(self):
-        # Cygwin is the only platform to still use Apache 1.3, which only supports IPV4.
-        # Once it moves to Apache 2, we can drop this method altogether.
-        if self.host.platform.is_cygwin():
+        # Apache < 2.4 on win32 does not support IPv6, nor does cygwin apache.
+        if self.host.platform.is_cygwin() or self.get_option('use_apache') and self.host.platform.is_win():
             return False
         return True
 
@@ -1531,7 +1533,9 @@ class Port(object):
                              ['--force-compositing-mode']),
             VirtualTestSuite('softwarecompositing',
                              'compositing',
-                             ['--enable-software-compositing', '--disable-gpu-compositing'],
+                             ['--disable-gpu',
+                              '--enable-software-compositing',
+                              '--disable-gpu-compositing'],
                              use_legacy_naming=True),
             VirtualTestSuite('deferred',
                              'fast/images',
@@ -1561,7 +1565,7 @@ class Port(object):
                              ['--stable-release-mode']),
             VirtualTestSuite('android',
                              'fullscreen',
-                             ['--force-compositing-mode', '--allow-webui-compositing', '--enable-threaded-compositing',
+                             ['--force-compositing-mode', '--enable-threaded-compositing',
                               '--enable-fixed-position-compositing', '--enable-accelerated-overflow-scroll', '--enable-accelerated-scrollable-frames',
                               '--enable-composited-scrolling-for-frames', '--enable-gesture-tap-highlight', '--enable-pinch',
                               '--enable-overlay-fullscreen-video', '--enable-overlay-scrollbars', '--enable-overscroll-notifications',

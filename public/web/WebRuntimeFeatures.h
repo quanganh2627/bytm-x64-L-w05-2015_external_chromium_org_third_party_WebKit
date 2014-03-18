@@ -61,6 +61,8 @@ public:
     BLINK_EXPORT static void enablePrefixedEncryptedMedia(bool);
     BLINK_EXPORT static bool isPrefixedEncryptedMediaEnabled();
 
+    BLINK_EXPORT static void enableBleedingEdgeFastPaths(bool);
+
     BLINK_EXPORT static void enableDirectWrite(bool);
 
     BLINK_EXPORT static void enableExperimentalCanvasFeatures(bool);
@@ -69,11 +71,7 @@ public:
 
     BLINK_EXPORT static void enableFileSystem(bool);
 
-    BLINK_EXPORT static void enableFullscreen(bool);
-
     BLINK_EXPORT static void enableGamepad(bool);
-
-    BLINK_EXPORT static void enableGeolocation(bool);
 
     BLINK_EXPORT static void enableLazyLayout(bool);
 
@@ -127,8 +125,6 @@ public:
     BLINK_EXPORT static void enableXSLT(bool);
 
     BLINK_EXPORT static void enableOverlayScrollbars(bool);
-
-    BLINK_EXPORT static void enableInputModeAttribute(bool);
 
     BLINK_EXPORT static void enableOverlayFullscreenVideo(bool);
 

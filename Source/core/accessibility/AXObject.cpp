@@ -33,7 +33,7 @@
 #include "core/dom/NodeTraversal.h"
 #include "core/editing/VisibleUnits.h"
 #include "core/editing/htmlediting.h"
-#include "core/frame/Frame.h"
+#include "core/frame/LocalFrame.h"
 #include "core/rendering/RenderListItem.h"
 #include "core/rendering/RenderTheme.h"
 #include "core/rendering/RenderView.h"
@@ -70,7 +70,7 @@ static ARIARoleMap* createARIARoleMap()
         { "contentinfo", ContentInfoRole },
         { "dialog", DialogRole },
         { "directory", DirectoryRole },
-        { "grid", TableRole },
+        { "grid", GridRole },
         { "gridcell", CellRole },
         { "columnheader", ColumnHeaderRole },
         { "combobox", ComboBoxRole },

@@ -46,11 +46,13 @@ class Dictionary;
 class V8TestInterfaceEventConstructor {
 public:
     static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
-    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static v8::Handle<v8::Object> findInstanceInPrototypeChain(v8::Handle<v8::Value>, v8::Isolate*);
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*);
     static TestInterfaceEventConstructor* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
+    static TestInterfaceEventConstructor* toNativeWithTypeCheck(v8::Isolate*, v8::Handle<v8::Value>);
     static const WrapperTypeInfo wrapperTypeInfo;
     static void derefObject(void*);
     static void constructorCallback(const v8::FunctionCallbackInfo<v8::Value>&);
@@ -70,12 +72,6 @@ public:
 private:
     friend v8::Handle<v8::Object> wrap(TestInterfaceEventConstructor*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     static v8::Handle<v8::Object> createWrapper(PassRefPtr<TestInterfaceEventConstructor>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-};
-
-template<>
-class WrapperTypeTraits<TestInterfaceEventConstructor > {
-public:
-    static const WrapperTypeInfo* wrapperTypeInfo() { return &V8TestInterfaceEventConstructor::wrapperTypeInfo; }
 };
 
 inline v8::Handle<v8::Object> wrap(TestInterfaceEventConstructor* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
@@ -111,7 +107,7 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo, TestInterfaceEven
 template<typename CallbackInfo>
 inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, TestInterfaceEventConstructor* impl)
 {
-    ASSERT(worldType(callbackInfo.GetIsolate()) == MainWorld);
+    ASSERT(DOMWrapperWorld::current(callbackInfo.GetIsolate())->isMainWorld());
     if (UNLIKELY(!impl)) {
         v8SetReturnValueNull(callbackInfo);
         return;

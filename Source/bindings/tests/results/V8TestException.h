@@ -44,11 +44,13 @@ namespace WebCore {
 class V8TestException {
 public:
     static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
-    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static v8::Handle<v8::Object> findInstanceInPrototypeChain(v8::Handle<v8::Value>, v8::Isolate*);
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*);
     static TestException* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
+    static TestException* toNativeWithTypeCheck(v8::Isolate*, v8::Handle<v8::Value>);
     static const WrapperTypeInfo wrapperTypeInfo;
     static void derefObject(void*);
     static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + 0;
@@ -67,12 +69,6 @@ public:
 private:
     friend v8::Handle<v8::Object> wrap(TestException*, v8::Handle<v8::Object> creationContext, v8::Isolate*);
     static v8::Handle<v8::Object> createWrapper(PassRefPtr<TestException>, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-};
-
-template<>
-class WrapperTypeTraits<TestException > {
-public:
-    static const WrapperTypeInfo* wrapperTypeInfo() { return &V8TestException::wrapperTypeInfo; }
 };
 
 inline v8::Handle<v8::Object> wrap(TestException* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
@@ -108,7 +104,7 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo, TestException* im
 template<typename CallbackInfo>
 inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo, TestException* impl)
 {
-    ASSERT(worldType(callbackInfo.GetIsolate()) == MainWorld);
+    ASSERT(DOMWrapperWorld::current(callbackInfo.GetIsolate())->isMainWorld());
     if (UNLIKELY(!impl)) {
         v8SetReturnValueNull(callbackInfo);
         return;

@@ -33,6 +33,7 @@
 
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ActiveDOMObject.h"
+#include "heap/Handle.h"
 #include "modules/webmidi/MIDIOptions.h"
 #include "wtf/OwnPtr.h"
 #include "wtf/PassRefPtr.h"
@@ -48,9 +49,9 @@ class ExecutionContext;
 
 struct MIDIOptions;
 
-class MIDIAccessPromise FINAL : public RefCounted<MIDIAccessPromise>, public ScriptWrappable, public ActiveDOMObject {
+class MIDIAccessPromise FINAL : public RefCountedWillBeRefCountedGarbageCollected<MIDIAccessPromise>, public ScriptWrappable, public ActiveDOMObject {
 public:
-    static PassRefPtr<MIDIAccessPromise> create(ExecutionContext*, const Dictionary&);
+    static PassRefPtrWillBeRawPtr<MIDIAccessPromise> create(ExecutionContext*, const Dictionary&);
     virtual ~MIDIAccessPromise();
 
     // ActiveDOMObject
@@ -60,9 +61,11 @@ public:
     MIDIOptions* options() { return m_options.get(); }
 
     void fulfill();
-    void reject(PassRefPtr<DOMError>);
+    void reject(PassRefPtrWillBeRawPtr<DOMError>);
 
     void then(PassOwnPtr<MIDISuccessCallback>, PassOwnPtr<MIDIErrorCallback>);
+
+    void trace(Visitor*);
 
 private:
     enum State {
@@ -80,8 +83,8 @@ private:
     OwnPtr<MIDISuccessCallback> m_successCallback;
     OwnPtr<MIDIErrorCallback> m_errorCallback;
     OwnPtr<MIDIOptions> m_options;
-    RefPtr<DOMError> m_error;
-    RefPtr<MIDIAccess> m_access;
+    RefPtrWillBeMember<DOMError> m_error;
+    RefPtrWillBeMember<MIDIAccess> m_access;
 };
 
 } // namespace WebCore

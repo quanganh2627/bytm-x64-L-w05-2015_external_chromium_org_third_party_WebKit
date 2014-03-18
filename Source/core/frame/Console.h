@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-class Frame;
+class LocalFrame;
 class MemoryInfo;
 class Page;
 class ScriptArguments;
@@ -49,17 +49,17 @@ public:
     using RefCounted<Console>::ref;
     using RefCounted<Console>::deref;
 
-    static PassRefPtr<Console> create(Frame* frame) { return adoptRef(new Console(frame)); }
+    static PassRefPtr<Console> create(LocalFrame* frame) { return adoptRef(new Console(frame)); }
     virtual ~Console();
 
-    PassRefPtr<MemoryInfo> memory() const;
+    PassRefPtrWillBeRawPtr<MemoryInfo> memory() const;
 
 protected:
     virtual ExecutionContext* context() OVERRIDE;
     virtual void reportMessageToClient(MessageLevel, const String& message, PassRefPtr<ScriptCallStack>) OVERRIDE;
 
 private:
-    explicit Console(Frame*);
+    explicit Console(LocalFrame*);
 
     virtual void refConsole() OVERRIDE { ref(); }
     virtual void derefConsole() OVERRIDE { deref(); }

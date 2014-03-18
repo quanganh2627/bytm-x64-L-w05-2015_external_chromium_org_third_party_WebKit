@@ -260,7 +260,7 @@ bool InspectorDebuggerAgent::runningNestedMessageLoop()
 void InspectorDebuggerAgent::addMessageToConsole(MessageSource source, MessageType type)
 {
     if (source == ConsoleAPIMessageSource && type == AssertMessageType && scriptDebugServer().pauseOnExceptionsState() != ScriptDebugServer::DontPauseOnExceptions)
-        breakProgram(InspectorFrontend::Debugger::Reason::Assert, 0);
+        breakProgram(InspectorFrontend::Debugger::Reason::Assert, nullptr);
 }
 
 void InspectorDebuggerAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel, const String&, PassRefPtr<ScriptCallStack>, unsigned long)
@@ -273,12 +273,12 @@ void InspectorDebuggerAgent::addMessageToConsole(MessageSource source, MessageTy
     addMessageToConsole(source, type);
 }
 
-String InspectorDebuggerAgent::preprocessEventListener(Frame* frame, const String& source, const String& url, const String& functionName)
+String InspectorDebuggerAgent::preprocessEventListener(LocalFrame* frame, const String& source, const String& url, const String& functionName)
 {
     return scriptDebugServer().preprocessEventListener(frame, source, url, functionName);
 }
 
-PassOwnPtr<ScriptSourceCode> InspectorDebuggerAgent::preprocess(Frame* frame, const ScriptSourceCode& sourceCode)
+PassOwnPtr<ScriptSourceCode> InspectorDebuggerAgent::preprocess(LocalFrame* frame, const ScriptSourceCode& sourceCode)
 {
     return scriptDebugServer().preprocess(frame, sourceCode);
 }
@@ -553,16 +553,16 @@ PassRefPtr<TypeBuilder::Debugger::Location> InspectorDebuggerAgent::resolveBreak
 {
     ScriptsMap::iterator scriptIterator = m_scripts.find(scriptId);
     if (scriptIterator == m_scripts.end())
-        return 0;
+        return nullptr;
     Script& script = scriptIterator->value;
     if (breakpoint.lineNumber < script.startLine || script.endLine < breakpoint.lineNumber)
-        return 0;
+        return nullptr;
 
     int actualLineNumber;
     int actualColumnNumber;
     String debugServerBreakpointId = scriptDebugServer().setBreakpoint(scriptId, breakpoint, &actualLineNumber, &actualColumnNumber, false);
     if (debugServerBreakpointId.isEmpty())
-        return 0;
+        return nullptr;
 
     m_serverBreakpoints.set(debugServerBreakpointId, std::make_pair(breakpointId, source));
 
@@ -582,10 +582,10 @@ PassRefPtr<TypeBuilder::Debugger::Location> InspectorDebuggerAgent::resolveBreak
 static PassRefPtr<JSONObject> scriptToInspectorObject(ScriptObject scriptObject)
 {
     if (scriptObject.hasNoValue())
-        return 0;
+        return nullptr;
     RefPtr<JSONValue> value = scriptObject.toJSONValue(scriptObject.scriptState());
     if (!value)
-        return 0;
+        return nullptr;
     return value->asObject();
 }
 
@@ -796,6 +796,29 @@ void InspectorDebuggerAgent::didPerformPromiseTask()
 {
     if (m_asyncCallStackTracker.isEnabled())
         m_asyncCallStackTracker.didFireAsyncCall();
+}
+
+bool InspectorDebuggerAgent::isPromiseTrackerEnabled()
+{
+    return m_promiseTracker.isEnabled();
+}
+
+void InspectorDebuggerAgent::didCreatePromise(const ScriptObject& promise)
+{
+    if (m_promiseTracker.isEnabled())
+        m_promiseTracker.didCreatePromise(promise);
+}
+
+void InspectorDebuggerAgent::didUpdatePromiseParent(const ScriptObject& promise, const ScriptObject& parentPromise)
+{
+    if (m_promiseTracker.isEnabled())
+        m_promiseTracker.didUpdatePromiseParent(promise, parentPromise);
+}
+
+void InspectorDebuggerAgent::didUpdatePromiseState(const ScriptObject& promise, V8PromiseCustom::PromiseState state, const ScriptValue& result)
+{
+    if (m_promiseTracker.isEnabled())
+        m_promiseTracker.didUpdatePromiseState(promise, state, result);
 }
 
 void InspectorDebuggerAgent::pause(ErrorString*)
@@ -1057,18 +1080,18 @@ PassRefPtr<Array<CallFrame> > InspectorDebuggerAgent::currentCallFrames()
 PassRefPtr<StackTrace> InspectorDebuggerAgent::currentAsyncStackTrace()
 {
     if (!m_pausedScriptState || !m_asyncCallStackTracker.isEnabled())
-        return 0;
+        return nullptr;
     InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(m_pausedScriptState);
     if (injectedScript.hasNoValue()) {
         ASSERT_NOT_REACHED();
-        return 0;
+        return nullptr;
     }
     const AsyncCallStackTracker::AsyncCallChain* chain = m_asyncCallStackTracker.currentAsyncCallChain();
     if (!chain)
-        return 0;
+        return nullptr;
     const AsyncCallStackTracker::AsyncCallStackVector& callStacks = chain->callStacks();
     if (callStacks.isEmpty())
-        return 0;
+        return nullptr;
     RefPtr<StackTrace> result;
     int asyncOrdinal = callStacks.size();
     for (AsyncCallStackTracker::AsyncCallStackVector::const_reverse_iterator it = callStacks.rbegin(); it != callStacks.rend(); ++it) {
@@ -1185,6 +1208,7 @@ void InspectorDebuggerAgent::didPause(ScriptState* scriptState, const ScriptValu
     }
 
     m_frontend->paused(currentCallFrames(), m_breakReason, m_breakAuxData, hitBreakpointIds, currentAsyncStackTrace());
+    m_frontend->flush();
     m_javaScriptPauseScheduled = false;
 
     if (!m_continueToLocationBreakpointId.isEmpty()) {
@@ -1224,6 +1248,7 @@ void InspectorDebuggerAgent::clear()
     m_scripts.clear();
     m_breakpointIdToDebugServerBreakpointIds.clear();
     m_asyncCallStackTracker.clear();
+    m_promiseTracker.clear();
     m_continueToLocationBreakpointId = String();
     clearBreakDetails();
     m_javaScriptPauseScheduled = false;
@@ -1243,7 +1268,7 @@ bool InspectorDebuggerAgent::assertPaused(ErrorString* errorString)
 void InspectorDebuggerAgent::clearBreakDetails()
 {
     m_breakReason = InspectorFrontend::Debugger::Reason::Other;
-    m_breakAuxData = 0;
+    m_breakAuxData = nullptr;
 }
 
 void InspectorDebuggerAgent::setBreakpoint(const String& scriptId, int lineNumber, int columnNumber, BreakpointSource source, const String& condition)
@@ -1263,6 +1288,7 @@ void InspectorDebuggerAgent::reset()
     m_scripts.clear();
     m_breakpointIdToDebugServerBreakpointIds.clear();
     m_asyncCallStackTracker.clear();
+    m_promiseTracker.clear();
     if (m_frontend)
         m_frontend->globalObjectCleared();
 }

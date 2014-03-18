@@ -35,8 +35,7 @@ namespace WebCore {
 class Storage;
 
 struct StorageEventInit : public EventInit {
-    // FIXME: oilpan: Replace this with STACK_ALLOCATED.
-    DISALLOW_ALLOCATION();
+    STACK_ALLOCATED();
 public:
     StorageEventInit();
 
@@ -44,7 +43,7 @@ public:
     String oldValue;
     String newValue;
     String url;
-    RefPtrWillBeRawPtr<Storage> storageArea;
+    RefPtrWillBeMember<Storage> storageArea;
 };
 
 class StorageEvent FINAL : public Event {
@@ -67,6 +66,8 @@ public:
     // void initStorageEventNS(in DOMString namespaceURI, in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in DOMString keyArg, in DOMString oldValueArg, in DOMString newValueArg, in DOMString urlArg, Storage storageAreaArg);
 
     virtual const AtomicString& interfaceName() const OVERRIDE;
+
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     StorageEvent();

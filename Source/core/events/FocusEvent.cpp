@@ -33,7 +33,7 @@
 namespace WebCore {
 
 FocusEventInit::FocusEventInit()
-    : relatedTarget(0)
+    : relatedTarget(nullptr)
 {
 }
 
@@ -64,6 +64,11 @@ FocusEvent::FocusEvent(const AtomicString& type, const FocusEventInit& initializ
     , m_relatedTarget(initializer.relatedTarget)
 {
     ScriptWrappable::init(this);
+}
+
+void FocusEvent::trace(Visitor* visitor)
+{
+    UIEvent::trace(visitor);
 }
 
 PassRefPtr<FocusEventDispatchMediator> FocusEventDispatchMediator::create(PassRefPtr<FocusEvent> focusEvent)

@@ -37,18 +37,18 @@
 #include "core/editing/htmlediting.h"
 #include "core/fetch/ResourceLoadPriorityOptimizer.h"
 #include "core/fetch/ResourceLoader.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLAnchorElement.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLHtmlElement.h"
+#include "core/html/HTMLTableCellElement.h"
 #include "core/html/HTMLTableElement.h"
 #include "core/page/AutoscrollController.h"
 #include "core/page/EventHandler.h"
-#include "core/frame/Frame.h"
-#include "core/frame/FrameView.h"
 #include "core/page/Page.h"
 #include "core/frame/Settings.h"
 #include "core/frame/UseCounter.h"
-#include "core/rendering/CompositedLayerMapping.h"
 #include "core/rendering/FlowThreadController.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/LayoutRectRecorder.h"
@@ -62,10 +62,8 @@
 #include "core/rendering/RenderImageResourceStyleImage.h"
 #include "core/rendering/RenderInline.h"
 #include "core/rendering/RenderLayer.h"
-#include "core/rendering/RenderLayerCompositor.h"
 #include "core/rendering/RenderListItem.h"
 #include "core/rendering/RenderMarquee.h"
-#include "core/rendering/RenderMultiColumnBlock.h"
 #include "core/rendering/RenderScrollbarPart.h"
 #include "core/rendering/RenderTableCaption.h"
 #include "core/rendering/RenderTableCell.h"
@@ -73,6 +71,8 @@
 #include "core/rendering/RenderTableRow.h"
 #include "core/rendering/RenderTheme.h"
 #include "core/rendering/RenderView.h"
+#include "core/rendering/compositing/CompositedLayerMapping.h"
+#include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/rendering/style/ContentData.h"
 #include "core/rendering/style/CursorList.h"
 #include "core/rendering/style/ShadowList.h"
@@ -152,7 +152,7 @@ RenderObject* RenderObject::createObject(Element* element, RenderStyle* style)
             image->setIsGeneratedContent();
         } else
             image->setImageResource(RenderImageResource::create());
-        image->setStyleInternal(0);
+        image->setStyleInternal(nullptr);
         return image;
     }
 
@@ -163,8 +163,6 @@ RenderObject* RenderObject::createObject(Element* element, RenderStyle* style)
         return new RenderInline(element);
     case BLOCK:
     case INLINE_BLOCK:
-        if ((!style->hasAutoColumnCount() || !style->hasAutoColumnWidth()) && element->document().regionBasedColumnsEnabled())
-            return new RenderMultiColumnBlock(element);
         return new RenderBlockFlow(element);
     case LIST_ITEM:
         return new RenderListItem(element);
@@ -202,7 +200,7 @@ DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, renderObjectCounter, ("Rend
 
 RenderObject::RenderObject(Node* node)
     : ImageResourceClient()
-    , m_style(0)
+    , m_style(nullptr)
     , m_node(node)
     , m_parent(0)
     , m_previous(0)
@@ -251,17 +249,17 @@ bool RenderObject::isDescendantOf(const RenderObject* obj) const
 
 bool RenderObject::isBody() const
 {
-    return node() && node()->hasTagName(bodyTag);
+    return isHTMLBodyElement(node());
 }
 
 bool RenderObject::isHR() const
 {
-    return node() && node()->hasTagName(hrTag);
+    return isHTMLHRElement(node());
 }
 
 bool RenderObject::isLegend() const
 {
-    return node() && node()->hasTagName(legendTag);
+    return isHTMLLegendElement(node());
 }
 
 void RenderObject::setFlowThreadStateIncludingDescendants(FlowThreadState state)
@@ -704,12 +702,6 @@ void RenderObject::checkBlockPositionedObjectsNeedLayout()
     if (isRenderBlock())
         toRenderBlock(this)->checkPositionedObjectsNeedLayout();
 }
-
-void RenderObject::checkNotInPartialLayout()
-{
-    // During partial layout, setNeedsLayout(true or false) should not be called.
-    ASSERT(!frameView()->partialLayout().isStopping());
-}
 #endif
 
 void RenderObject::setPreferredLogicalWidthsDirty(MarkingBehavior markParents)
@@ -816,6 +808,29 @@ RenderBlock* RenderObject::containingBlock() const
         return 0; // This can still happen in case of an orphaned tree
 
     return toRenderBlock(o);
+}
+
+RenderObject* RenderObject::clippingContainer() const
+{
+    RenderObject* container = const_cast<RenderObject*>(this);
+    while (container) {
+        if (container->style()->position() == FixedPosition) {
+            for (container = container->parent(); container && !container->canContainFixedPositionObjects(); container = container->parent()) {
+                // CSS clip applies to fixed position elements even for ancestors that are not what the
+                // fixed element is positioned with respect to.
+                if (container->hasClip())
+                    return container;
+            }
+        } else {
+            container = container->containingBlock();
+        }
+
+        if (!container)
+            return 0;
+        if (container->hasClipOrOverflowClip())
+            return container;
+    }
+    return 0;
 }
 
 static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer* layer)
@@ -1494,9 +1509,16 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
         // ASSERT(!newOutlineBoxRectPtr || *newOutlineBoxRectPtr == outlineBoundsForRepaint(repaintContainer));
         newOutlineBox = newOutlineBoxRectPtr ? *newOutlineBoxRectPtr : outlineBoundsForRepaint(repaintContainer);
-        if (newOutlineBox.location() != oldOutlineBox.location() || (mustRepaintBackgroundOrBorder() && (newBounds != oldBounds || newOutlineBox != oldOutlineBox)))
+
+        if ((hasOutline() && newOutlineBox.location() != oldOutlineBox.location())
+            || (mustRepaintBackgroundOrBorder() && (newBounds != oldBounds || (hasOutline() && newOutlineBox != oldOutlineBox))))
             fullRepaint = true;
     }
+
+    // If there is no intersection between the old and the new bounds, invalidating
+    // the difference is more expensive than just doing a full repaint.
+    if (!fullRepaint && !newBounds.intersects(oldBounds))
+        fullRepaint = true;
 
     if (!repaintContainer)
         repaintContainer = v;
@@ -1590,6 +1612,12 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
 
 void RenderObject::repaintOverflow()
 {
+}
+
+void RenderObject::repaintOverflowIfNeeded()
+{
+    if (shouldRepaintOverflow())
+        repaintOverflow();
 }
 
 bool RenderObject::checkForRepaint() const
@@ -2035,6 +2063,20 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
                 view()->frameView()->addSlowRepaintObject();
         }
     }
+
+    // Elements with non-auto touch-action will send a SetTouchAction message
+    // on touchstart in EventHandler::handleTouchEvent, and so effectively have
+    // a touchstart handler that must be reported.
+    //
+    // Since a CSS property cannot be applied directly to a text node, a
+    // handler will have already been added for its parent so ignore it.
+    TouchAction oldTouchAction = m_style ? m_style->touchAction() : TouchActionAuto;
+    if (node() && !node()->isTextNode() && (oldTouchAction == TouchActionAuto) != (newStyle->touchAction() == TouchActionAuto)) {
+        if (newStyle->touchAction() != TouchActionAuto)
+            document().didAddTouchEventHandler(node());
+        else
+            document().didRemoveTouchEventHandler(node());
+    }
 }
 
 static bool areNonIdenticalCursorListsEqual(const RenderStyle* a, const RenderStyle* b)
@@ -2081,7 +2123,7 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     // updated by subclasses before we know if we have to repaint (in setStyle()).
 
     if (oldStyle && !areCursorsEqual(oldStyle, style())) {
-        if (Frame* frame = this->frame())
+        if (LocalFrame* frame = this->frame())
             frame->eventHandler().scheduleCursorUpdate();
     }
 }
@@ -2247,7 +2289,7 @@ bool RenderObject::shouldUseTransformFromContainer(const RenderObject* container
 void RenderObject::getTransformFromContainer(const RenderObject* containerObject, const LayoutSize& offsetInContainer, TransformationMatrix& transform) const
 {
     transform.makeIdentity();
-    transform.translate(offsetInContainer.width(), offsetInContainer.height());
+    transform.translate(offsetInContainer.width().toFloat(), offsetInContainer.height().toFloat());
     RenderLayer* layer;
     if (hasLayer() && (layer = toRenderLayerModelObject(this)->layer()) && layer->transform())
         transform.multiply(layer->currentTransform());
@@ -2433,7 +2475,7 @@ bool RenderObject::isRooted(RenderView** view) const
 RenderObject* RenderObject::rendererForRootBackground()
 {
     ASSERT(isRoot());
-    if (!hasBackground() && node() && node()->hasTagName(htmlTag)) {
+    if (!hasBackground() && isHTMLHtmlElement(node())) {
         // Locate the <body> element using the DOM. This is easier than trying
         // to crawl around a render tree with potential :before/:after content and
         // anonymous blocks created by inline <body> tags etc. We can locate the <body>
@@ -2452,7 +2494,7 @@ RespectImageOrientationEnum RenderObject::shouldRespectImageOrientation() const
     // Respect the image's orientation if it's being used as a full-page image or it's
     // an <img> and the setting to respect it everywhere is set.
     return document().isImageDocument()
-        || (document().settings() && document().settings()->shouldRespectImageOrientation() && node() && node()->hasTagName(HTMLNames::imgTag)) ? RespectImageOrientation : DoNotRespectImageOrientation;
+        || (document().settings() && document().settings()->shouldRespectImageOrientation() && isHTMLImageElement(node())) ? RespectImageOrientation : DoNotRespectImageOrientation;
 }
 
 bool RenderObject::hasOutlineAnnotation() const
@@ -2538,7 +2580,7 @@ void RenderObject::willBeDestroyed()
         children->destroyLeftoverChildren();
 
     // If this renderer is being autoscrolled, stop the autoscrolling.
-    if (Frame* frame = this->frame()) {
+    if (LocalFrame* frame = this->frame()) {
         if (frame->page())
             frame->page()->autoscrollController().stopAutoscrollIfNeeded(this);
     }
@@ -2562,6 +2604,13 @@ void RenderObject::willBeDestroyed()
 
     if (hasCounterNodeMap())
         RenderCounter::destroyCounterNodes(*this);
+
+    // Remove the handler if node had touch-action set. Don't call when
+    // document is being destroyed as all handlers will have been cleared
+    // previously. Handlers are not added for text nodes so don't try removing
+    // for one too. Need to check if m_style is null in cases of partial construction.
+    if (!documentBeingDestroyed() && node() && !node()->isTextNode() && m_style && m_style->touchAction() != TouchActionAuto)
+        document().didRemoveTouchEventHandler(node());
 
     setAncestorLineBoxDirty(false);
 
@@ -2745,11 +2794,10 @@ bool RenderObject::acceleratedCompositingForOverflowScrollEnabled() const
 // overflow scroll is ready (crbug.com/254111).
 bool RenderObject::compositorDrivenAcceleratedScrollingEnabled() const
 {
-    if (!acceleratedCompositingForOverflowScrollEnabled())
-        return false;
-
     const Settings* settings = document().settings();
-    return settings && settings->compositorDrivenAcceleratedScrollingEnabled();
+    if (!settings)
+        return false;
+    return settings->acceleratedCompositingForOverflowScrollEnabled() && settings->compositorDrivenAcceleratedScrollingEnabled();
 }
 
 bool RenderObject::hitTest(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestFilter hitTestFilter)
@@ -2861,13 +2909,13 @@ static PassRefPtr<RenderStyle> firstLineStyleForCachedUncachedType(StyleCacheSta
             return rendererForFirstLineStyle->getUncachedPseudoStyle(PseudoStyleRequest(FIRST_LINE_INHERITED), parentStyle, style);
         }
     }
-    return 0;
+    return nullptr;
 }
 
 PassRefPtr<RenderStyle> RenderObject::uncachedFirstLineStyle(RenderStyle* style) const
 {
     if (!document().styleEngine()->usesFirstLineRules())
-        return 0;
+        return nullptr;
 
     ASSERT(!isText());
 
@@ -2902,7 +2950,7 @@ RenderStyle* RenderObject::getCachedPseudoStyle(PseudoId pseudo, RenderStyle* pa
 PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(const PseudoStyleRequest& pseudoStyleRequest, RenderStyle* parentStyle, RenderStyle* ownStyle) const
 {
     if (pseudoStyleRequest.pseudoId < FIRST_INTERNAL_PSEUDOID && !ownStyle && !style()->hasPseudoStyle(pseudoStyleRequest.pseudoId))
-        return 0;
+        return nullptr;
 
     if (!parentStyle) {
         ASSERT(!ownStyle);
@@ -2914,7 +2962,7 @@ PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(const PseudoStyleRe
     while (n && !n->isElementNode())
         n = n->parentNode();
     if (!n)
-        return 0;
+        return nullptr;
     Element* element = toElement(n);
 
     if (pseudoStyleRequest.pseudoId == FIRST_LINE_INHERITED) {
@@ -2948,31 +2996,35 @@ static Color decorationColor(const RenderObject* object, RenderStyle* style)
     return object->resolveColor(style, CSSPropertyWebkitTextFillColor);
 }
 
-void RenderObject::getTextDecorationColors(unsigned decorations, Color& underline, Color& overline,
-                                           Color& linethrough, bool quirksMode, bool firstlineStyle)
+void RenderObject::getTextDecorations(unsigned decorations, AppliedTextDecoration& underline, AppliedTextDecoration& overline, AppliedTextDecoration& linethrough, bool quirksMode, bool firstlineStyle)
 {
     RenderObject* curr = this;
     RenderStyle* styleToUse = 0;
     unsigned currDecs = TextDecorationNone;
     Color resultColor;
+    TextDecorationStyle resultStyle;
     do {
         styleToUse = curr->style(firstlineStyle);
         currDecs = styleToUse->textDecoration();
         currDecs &= decorations;
         resultColor = decorationColor(this, styleToUse);
+        resultStyle = styleToUse->textDecorationStyle();
         // Parameter 'decorations' is cast as an int to enable the bitwise operations below.
         if (currDecs) {
             if (currDecs & TextDecorationUnderline) {
                 decorations &= ~TextDecorationUnderline;
-                underline = resultColor;
+                underline.color = resultColor;
+                underline.style = resultStyle;
             }
             if (currDecs & TextDecorationOverline) {
                 decorations &= ~TextDecorationOverline;
-                overline = resultColor;
+                overline.color = resultColor;
+                overline.style = resultStyle;
             }
             if (currDecs & TextDecorationLineThrough) {
                 decorations &= ~TextDecorationLineThrough;
-                linethrough = resultColor;
+                linethrough.color = resultColor;
+                linethrough.style = resultStyle;
             }
         }
         if (curr->isRubyText())
@@ -2980,18 +3032,24 @@ void RenderObject::getTextDecorationColors(unsigned decorations, Color& underlin
         curr = curr->parent();
         if (curr && curr->isAnonymousBlock() && toRenderBlock(curr)->continuation())
             curr = toRenderBlock(curr)->continuation();
-    } while (curr && decorations && (!quirksMode || !curr->node() || (!curr->node()->hasTagName(aTag) && !curr->node()->hasTagName(fontTag))));
+    } while (curr && decorations && (!quirksMode || !curr->node() || (!isHTMLAnchorElement(*curr->node()) && !isHTMLFontElement(*curr->node()))));
 
     // If we bailed out, use the element we bailed out at (typically a <font> or <a> element).
     if (decorations && curr) {
         styleToUse = curr->style(firstlineStyle);
         resultColor = decorationColor(this, styleToUse);
-        if (decorations & TextDecorationUnderline)
-            underline = resultColor;
-        if (decorations & TextDecorationOverline)
-            overline = resultColor;
-        if (decorations & TextDecorationLineThrough)
-            linethrough = resultColor;
+        if (decorations & TextDecorationUnderline) {
+            underline.color = resultColor;
+            underline.style = resultStyle;
+        }
+        if (decorations & TextDecorationOverline) {
+            overline.color = resultColor;
+            overline.style = resultStyle;
+        }
+        if (decorations & TextDecorationLineThrough) {
+            linethrough.color = resultColor;
+            linethrough.style = resultStyle;
+        }
     }
 }
 
@@ -3005,7 +3063,7 @@ void RenderObject::addAnnotatedRegions(Vector<AnnotatedRegionValue>& regions)
         return;
 
     RenderBox* box = toRenderBox(this);
-    FloatRect localBounds(FloatPoint(), FloatSize(box->width(), box->height()));
+    FloatRect localBounds(FloatPoint(), FloatSize(box->width().toFloat(), box->height().toFloat()));
     FloatRect absBounds = localToAbsoluteQuad(localBounds).boundingBox();
 
     AnnotatedRegionValue region;
@@ -3056,7 +3114,7 @@ int RenderObject::caretMinOffset() const
 int RenderObject::caretMaxOffset() const
 {
     if (isReplaced())
-        return node() ? max(1U, node()->childNodeCount()) : 1;
+        return node() ? max(1U, node()->countChildren()) : 1;
     if (isHR())
         return 1;
     return 0;
@@ -3077,15 +3135,9 @@ int RenderObject::nextOffset(int current) const
     return current + 1;
 }
 
-void RenderObject::adjustRectForOutlineAndShadow(LayoutRect& rect) const
+void RenderObject::adjustRectForOutline(LayoutRect& rect) const
 {
-    int outlineSize = outlineStyleForRepaint()->outlineSize();
-    if (const ShadowList* boxShadow = style()->boxShadow()) {
-        boxShadow->adjustRectForShadow(rect, outlineSize);
-        return;
-    }
-
-    rect.inflate(outlineSize);
+    rect.inflate(outlineStyleForRepaint()->outlineSize());
 }
 
 bool RenderObject::isInert() const
@@ -3126,10 +3178,10 @@ Element* RenderObject::offsetParent() const
         if (ancestor->isPositioned())
             break;
 
-        if (node->hasTagName(bodyTag))
+        if (isHTMLBodyElement(*node))
             break;
 
-        if (!isPositioned() && (node->hasTagName(tableTag) || node->hasTagName(tdTag) || node->hasTagName(thTag)))
+        if (!isPositioned() && (isHTMLTableElement(*node) || isHTMLTableCellElement(*node)))
             break;
 
         // Webkit specific extension where offsetParent stops at zoom level changes.

@@ -31,6 +31,7 @@
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/events/EventTarget.h"
 #include "core/frame/FrameDestructionObserver.h"
+#include "heap/Handle.h"
 #include "platform/LifecycleContext.h"
 #include "platform/Supplementable.h"
 
@@ -57,7 +58,7 @@ namespace WebCore {
     class EventQueue;
     class ExceptionState;
     class FloatRect;
-    class Frame;
+    class LocalFrame;
     class History;
     class IDBFactory;
     class Location;
@@ -94,7 +95,7 @@ enum PageshowEventPersistence {
         REFCOUNTED_EVENT_TARGET(DOMWindow);
     public:
         static PassRefPtr<Document> createDocument(const String& mimeType, const DocumentInit&, bool forceXHTML);
-        static PassRefPtr<DOMWindow> create(Frame* frame) { return adoptRef(new DOMWindow(frame)); }
+        static PassRefPtr<DOMWindow> create(LocalFrame& frame) { return adoptRef(new DOMWindow(frame)); }
         virtual ~DOMWindow();
 
         PassRefPtr<Document> installNewDocument(const String& mimeType, const DocumentInit&, bool forceXHTML = false);
@@ -109,32 +110,32 @@ enum PageshowEventPersistence {
 
         void reset();
 
-        PassRefPtr<MediaQueryList> matchMedia(const String&);
+        PassRefPtrWillBeRawPtr<MediaQueryList> matchMedia(const String&);
 
         unsigned pendingUnloadEventListeners() const;
 
-        static FloatRect adjustWindowRect(Frame*, const FloatRect& pendingChanges);
+        static FloatRect adjustWindowRect(LocalFrame&, const FloatRect& pendingChanges);
 
         bool allowPopUp(); // Call on first window, not target window.
-        static bool allowPopUp(Frame* firstFrame);
-        static bool canShowModalDialog(const Frame*);
-        static bool canShowModalDialogNow(const Frame*);
+        static bool allowPopUp(LocalFrame& firstFrame);
+        static bool canShowModalDialog(const LocalFrame*);
+        static bool canShowModalDialogNow(const LocalFrame*);
 
         // DOM Level 0
 
-        Screen* screen() const;
-        History* history() const;
-        BarProp* locationbar() const;
-        BarProp* menubar() const;
-        BarProp* personalbar() const;
-        BarProp* scrollbars() const;
-        BarProp* statusbar() const;
-        BarProp* toolbar() const;
-        Navigator* navigator() const;
-        Navigator* clientInformation() const { return navigator(); }
+        Screen& screen() const;
+        History& history() const;
+        BarProp& locationbar() const;
+        BarProp& menubar() const;
+        BarProp& personalbar() const;
+        BarProp& scrollbars() const;
+        BarProp& statusbar() const;
+        BarProp& toolbar() const;
+        Navigator& navigator() const;
+        Navigator& clientInformation() const { return navigator(); }
 
-        Location* location() const;
-        void setLocation(const String& location, DOMWindow* activeWindow, DOMWindow* firstWindow,
+        Location& location() const;
+        void setLocation(const String& location, DOMWindow* callingWindow, DOMWindow* enteredWindow,
             SetLocationLocking = LockHistoryBasedOnGestureState);
 
         DOMSelection* getSelection();
@@ -148,11 +149,11 @@ enum PageshowEventPersistence {
         void stop();
 
         PassRefPtr<DOMWindow> open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
-            DOMWindow* activeWindow, DOMWindow* firstWindow);
+            DOMWindow* callingWindow, DOMWindow* enteredWindow);
 
         typedef void (*PrepareDialogFunction)(DOMWindow*, void* context);
         void showModalDialog(const String& urlString, const String& dialogFeaturesString,
-            DOMWindow* activeWindow, DOMWindow* firstWindow, PrepareDialogFunction, void* functionContext);
+            DOMWindow* callingWindow, DOMWindow* enteredWindow, PrepareDialogFunction, void* functionContext);
 
         void alert(const String& message);
         bool confirm(const String& message);
@@ -203,7 +204,7 @@ enum PageshowEventPersistence {
 
         // CSSOM View Module
 
-        PassRefPtr<StyleMedia> styleMedia() const;
+        StyleMedia& styleMedia() const;
 
         // DOM Level 2 Style Interface
 
@@ -211,18 +212,18 @@ enum PageshowEventPersistence {
 
         // WebKit extensions
 
-        PassRefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt) const;
+        PassRefPtrWillBeRawPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt) const;
         double devicePixelRatio() const;
 
         PassRefPtr<DOMPoint> webkitConvertPointFromPageToNode(Node*, const DOMPoint*) const;
         PassRefPtr<DOMPoint> webkitConvertPointFromNodeToPage(Node*, const DOMPoint*) const;
 
-        Console* console() const;
+        Console& console() const;
         PageConsole* pageConsole() const;
 
         void printErrorMessage(const String&);
-        String crossDomainAccessErrorMessage(DOMWindow* activeWindow);
-        String sanitizedCrossDomainAccessErrorMessage(DOMWindow* activeWindow);
+        String crossDomainAccessErrorMessage(DOMWindow* callingWindow);
+        String sanitizedCrossDomainAccessErrorMessage(DOMWindow* callingWindow);
 
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionState&);
         void postMessageTimerFired(PassOwnPtr<PostMessageTimer>);
@@ -243,7 +244,7 @@ enum PageshowEventPersistence {
         int webkitRequestAnimationFrame(PassOwnPtr<RequestAnimationFrameCallback>);
         void cancelAnimationFrame(int id);
 
-        DOMWindowCSS* css();
+        DOMWindowCSS& css() const;
 
         // Events
         // EventTarget API
@@ -273,9 +274,6 @@ enum PageshowEventPersistence {
 
         void finishedLoading();
 
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(devicemotion);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(deviceorientation);
-
         // HTML 5 key/value storage
         Storage* sessionStorage(ExceptionState&) const;
         Storage* localStorage(ExceptionState&) const;
@@ -296,7 +294,7 @@ enum PageshowEventPersistence {
         DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
 
-        Performance* performance() const;
+        Performance& performance() const;
 
         // FIXME: When this DOMWindow is no longer the active DOMWindow (i.e.,
         // when its document is no longer the document that is displayed in its
@@ -307,7 +305,7 @@ enum PageshowEventPersistence {
         void willDetachDocumentFromFrame();
         DOMWindow* anonymousIndexedGetter(uint32_t);
 
-        bool isInsecureScriptAccess(DOMWindow* activeWindow, const String& urlString);
+        bool isInsecureScriptAccess(DOMWindow& callingWindow, const String& urlString);
 
         PassOwnPtr<LifecycleNotifier<DOMWindow> > createLifecycleNotifier();
 
@@ -328,7 +326,7 @@ enum PageshowEventPersistence {
         DOMWindowLifecycleNotifier& lifecycleNotifier();
 
     private:
-        explicit DOMWindow(Frame*);
+        explicit DOMWindow(LocalFrame&);
 
         Page* page();
 
@@ -345,7 +343,7 @@ enum PageshowEventPersistence {
 
         HashSet<DOMWindowProperty*> m_properties;
 
-        mutable RefPtr<Screen> m_screen;
+        mutable RefPtrWillBePersistent<Screen> m_screen;
         mutable RefPtr<History> m_history;
         mutable RefPtr<BarProp> m_locationbar;
         mutable RefPtr<BarProp> m_menubar;

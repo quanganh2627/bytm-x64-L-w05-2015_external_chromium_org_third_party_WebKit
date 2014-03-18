@@ -43,43 +43,93 @@ DescendantInvalidationSet::DescendantInvalidationSet()
 
 void DescendantInvalidationSet::combine(const DescendantInvalidationSet& other)
 {
-    m_allDescendantsMightBeInvalid = m_allDescendantsMightBeInvalid || other.m_allDescendantsMightBeInvalid;
     // No longer bother combining data structures, since the whole subtree is deemed invalid.
-    if (m_allDescendantsMightBeInvalid)
+    if (wholeSubtreeInvalid())
         return;
 
-    HashSet<AtomicString>::const_iterator end = other.m_classes.end();
-    for (HashSet<AtomicString>::const_iterator it = other.m_classes.begin(); it != end; ++it)
-        addClass(*it);
+    if (other.wholeSubtreeInvalid()) {
+        setWholeSubtreeInvalid();
+        return;
+    }
 
-    end = other.m_ids.end();
-    for (HashSet<AtomicString>::const_iterator it = other.m_ids.begin(); it != end; ++it)
-        addId(*it);
+    if (other.m_classes) {
+        HashSet<AtomicString>::const_iterator end = other.m_classes->end();
+        for (HashSet<AtomicString>::const_iterator it = other.m_classes->begin(); it != end; ++it)
+            addClass(*it);
+    }
 
-    end = other.m_tagNames.end();
-    for (HashSet<AtomicString>::const_iterator it = other.m_tagNames.begin(); it != end; ++it)
-        addTagName(*it);
+    if (other.m_ids) {
+        HashSet<AtomicString>::const_iterator end = other.m_ids->end();
+        for (HashSet<AtomicString>::const_iterator it = other.m_ids->begin(); it != end; ++it)
+            addId(*it);
+    }
+
+    if (other.m_tagNames) {
+        HashSet<AtomicString>::const_iterator end = other.m_tagNames->end();
+        for (HashSet<AtomicString>::const_iterator it = other.m_tagNames->begin(); it != end; ++it)
+            addTagName(*it);
+    }
+}
+
+HashSet<AtomicString>& DescendantInvalidationSet::ensureClassSet()
+{
+    if (!m_classes)
+        m_classes = adoptPtr(new HashSet<AtomicString>);
+    return *m_classes;
+}
+
+HashSet<AtomicString>& DescendantInvalidationSet::ensureIdSet()
+{
+    if (!m_ids)
+        m_ids = adoptPtr(new HashSet<AtomicString>);
+    return *m_ids;
+}
+
+HashSet<AtomicString>& DescendantInvalidationSet::ensureTagNameSet()
+{
+    if (!m_tagNames)
+        m_tagNames = adoptPtr(new HashSet<AtomicString>);
+    return *m_tagNames;
 }
 
 void DescendantInvalidationSet::addClass(const AtomicString& className)
 {
-    m_classes.add(className);
+    if (wholeSubtreeInvalid())
+        return;
+    ensureClassSet().add(className);
 }
 
 void DescendantInvalidationSet::addId(const AtomicString& id)
 {
-    m_ids.add(id);
+    if (wholeSubtreeInvalid())
+        return;
+    ensureIdSet().add(id);
 }
 
 void DescendantInvalidationSet::addTagName(const AtomicString& tagName)
 {
-    m_tagNames.add(tagName);
+    if (wholeSubtreeInvalid())
+        return;
+    ensureTagNameSet().add(tagName);
 }
 
-void DescendantInvalidationSet::getClasses(Vector<AtomicString>& classes)
+void DescendantInvalidationSet::getClasses(Vector<AtomicString>& classes) const
 {
-    for (HashSet<AtomicString>::const_iterator it = m_classes.begin(); it != m_classes.end(); ++it)
+    if (!m_classes)
+        return;
+    for (HashSet<AtomicString>::const_iterator it = m_classes->begin(); it != m_classes->end(); ++it)
         classes.append(*it);
+}
+
+void DescendantInvalidationSet::setWholeSubtreeInvalid()
+{
+    if (m_allDescendantsMightBeInvalid)
+        return;
+
+    m_allDescendantsMightBeInvalid = true;
+    m_classes = nullptr;
+    m_ids = nullptr;
+    m_tagNames = nullptr;
 }
 
 } // namespace WebCore

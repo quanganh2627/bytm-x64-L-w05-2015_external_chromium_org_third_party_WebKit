@@ -31,9 +31,7 @@
 #include "config.h"
 #include "WebDataSourceImpl.h"
 
-#include "ApplicationCacheHostInternal.h"
 #include "core/dom/Document.h"
-#include "core/loader/FrameLoader.h"
 #include "public/platform/WebURL.h"
 #include "public/platform/WebURLError.h"
 #include "public/platform/WebVector.h"
@@ -48,7 +46,7 @@ static OwnPtr<WebPluginLoadObserver>& nextPluginLoadObserver()
     return nextPluginLoadObserver;
 }
 
-PassRefPtr<WebDataSourceImpl> WebDataSourceImpl::create(Frame* frame, const ResourceRequest& request, const SubstituteData& data)
+PassRefPtr<WebDataSourceImpl> WebDataSourceImpl::create(LocalFrame* frame, const ResourceRequest& request, const SubstituteData& data)
 {
     return adoptRef(new WebDataSourceImpl(frame, request, data));
 }
@@ -126,11 +124,6 @@ void WebDataSourceImpl::setExtraData(ExtraData* extraData)
     m_extraData = adoptPtr(extraData);
 }
 
-WebApplicationCacheHost* WebDataSourceImpl::applicationCacheHost()
-{
-    return ApplicationCacheHostInternal::toWebApplicationCacheHost(DocumentLoader::applicationCacheHost());
-}
-
 void WebDataSourceImpl::setNavigationStartTime(double navigationStart)
 {
     timing()->setNavigationStart(navigationStart);
@@ -160,7 +153,7 @@ void WebDataSourceImpl::setNextPluginLoadObserver(PassOwnPtr<WebPluginLoadObserv
     nextPluginLoadObserver() = observer;
 }
 
-WebDataSourceImpl::WebDataSourceImpl(Frame* frame, const ResourceRequest& request, const SubstituteData& data)
+WebDataSourceImpl::WebDataSourceImpl(LocalFrame* frame, const ResourceRequest& request, const SubstituteData& data)
     : DocumentLoader(frame, request, data)
 {
     if (!nextPluginLoadObserver())

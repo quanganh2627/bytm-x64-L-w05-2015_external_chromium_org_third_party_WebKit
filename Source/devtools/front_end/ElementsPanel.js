@@ -51,14 +51,9 @@ WebInspector.ElementsPanel = function()
     this.registerRequiredCSS("textPrompt.css");
     this.setHideOnDetach();
 
-    const initialSidebarWidth = 325;
-    const minimumContentWidthPercent = 0.34;
-    const initialSidebarHeight = 325;
-    const minimumContentHeightPercent = 0.34;
-
-    this._splitView = new WebInspector.SplitView(true, true, "elementsSidebarWidth", initialSidebarWidth, initialSidebarHeight);
-    this._splitView.setSidebarElementConstraints(Preferences.minSidebarWidth, Preferences.minSidebarHeight);
-    this._splitView.setMainElementConstraints(minimumContentWidthPercent, minimumContentHeightPercent);
+    this._splitView = new WebInspector.SplitView(true, true, "elementsPanelSplitViewState", 325, 325);
+    this._splitView.setSidebarElementConstraints(25, 25);
+    this._splitView.setMainElementConstraints(25, 19);
     this._splitView.addEventListener(WebInspector.SplitView.Events.SidebarSizeChanged, this._updateTreeOutlineVisibleWidth.bind(this));
     this._splitView.show(this.element);
 
@@ -119,9 +114,6 @@ WebInspector.ElementsPanel = function()
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.DocumentUpdated, this._documentUpdatedEvent, this);
     WebInspector.settings.showShadowDOM.addChangeListener(this._showShadowDOMChanged.bind(this));
 
-    if (WebInspector.domAgent.existingDocument())
-        this._documentUpdated(WebInspector.domAgent.existingDocument());
-
     WebInspector.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.ModelWasEnabled, this._updateSidebars, this);
 }
 
@@ -168,7 +160,10 @@ WebInspector.ElementsPanel.prototype = {
         this.treeOutline.setVisible(true);
 
         if (!this.treeOutline.rootDOMNode)
-            WebInspector.domAgent.requestDocument();
+            if (WebInspector.domAgent.existingDocument())
+                this._documentUpdated(WebInspector.domAgent.existingDocument());
+            else
+                WebInspector.domAgent.requestDocument();
     },
 
     willHide: function()
@@ -186,6 +181,16 @@ WebInspector.ElementsPanel.prototype = {
     onResize: function()
     {
         this._updateTreeOutlineVisibleWidth();
+    },
+
+    omitDefaultSelection: function()
+    {
+        this._omitDefaultSelection = true;
+    },
+
+    stopOmittingDefaultSelection: function()
+    {
+        delete this._omitDefaultSelection;
     },
 
     /**
@@ -311,6 +316,9 @@ WebInspector.ElementsPanel.prototype = {
             var node = nodeId ? WebInspector.domAgent.nodeForId(nodeId) : null;
             selectNode.call(this, node);
         }
+
+        if (this._omitDefaultSelection)
+            return;
 
         if (this._selectedPathOnReset)
             WebInspector.domAgent.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
@@ -1099,6 +1107,19 @@ WebInspector.ElementsPanel.prototype = {
         this.selectedDOMNode().copyNode();
     },
 
+    /**
+     * @param {!WebInspector.DOMNode} node
+     * @return {!WebInspector.DOMNode}
+     */
+    _leaveUserAgentShadowDOM: function(node)
+    {
+        var userAgentShadowRoot = node.ancestorUserAgentShadowRoot();
+        return userAgentShadowRoot ? /** @type {!WebInspector.DOMNode} */ (userAgentShadowRoot.parentNode) : node;
+    },
+
+    /**
+     * @param {!DOMAgent.NodeId} nodeId
+     */
     revealAndSelectNode: function(nodeId)
     {
         WebInspector.inspectorView.setCurrentPanel(this);
@@ -1107,9 +1128,7 @@ WebInspector.ElementsPanel.prototype = {
         if (!node)
             return;
 
-        while (!WebInspector.ElementsTreeOutline.showShadowDOM() && node && node.isInShadowTree())
-            node = node.parentNode;
-
+        node = WebInspector.settings.showShadowDOM.get() ? node : this._leaveUserAgentShadowDOM(node);
         WebInspector.domAgent.highlightDOMNodeForTwoSeconds(nodeId);
         this.selectDOMNode(node, true);
     },
@@ -1234,7 +1253,7 @@ WebInspector.ElementsPanel.prototype = {
             compositePane.element.classList.add("fill");
             var expandComposite = compositePane.expand.bind(compositePane);
 
-            var splitView = new WebInspector.SplitView(true, true, "StylesPaneSplitRatio", 0.5);
+            var splitView = new WebInspector.SplitView(true, true, "stylesPaneSplitViewState", 0.5);
             splitView.show(compositePane.bodyElement);
 
             this.sidebarPanes.styles.show(splitView.mainElement());
@@ -1304,36 +1323,8 @@ WebInspector.ElementsPanel.ContextMenuProvider.prototype = {
      */
     appendApplicableItems: function(event, contextMenu, target)
     {
-        WebInspector.panel("elements").appendApplicableItems(event, contextMenu, target);
+        /** @type {!WebInspector.ElementsPanel} */ (WebInspector.inspectorView.panel("elements")).appendApplicableItems(event, contextMenu, target);
     }
-}
-
-
-/**
- * @constructor
- * @extends {WebInspector.Drawer.SingletonViewFactory}
- */
-WebInspector.ElementsPanel.OverridesViewFactory = function()
-{
-    WebInspector.Drawer.SingletonViewFactory.call(this, WebInspector.OverridesView);
-}
-
-WebInspector.ElementsPanel.OverridesViewFactory.prototype = {
-    __proto__: WebInspector.Drawer.SingletonViewFactory.prototype
-}
-
-
-/**
- * @constructor
- * @extends {WebInspector.Drawer.SingletonViewFactory}
- */
-WebInspector.ElementsPanel.RenderingViewFactory = function()
-{
-    WebInspector.Drawer.SingletonViewFactory.call(this, WebInspector.RenderingOptionsView);
-}
-
-WebInspector.ElementsPanel.RenderingViewFactory.prototype = {
-    __proto__: WebInspector.Drawer.SingletonViewFactory.prototype
 }
 
 /**
@@ -1350,7 +1341,14 @@ WebInspector.ElementsPanel.DOMNodeRevealer.prototype = {
      */
     reveal: function(node)
     {
-        if (node instanceof WebInspector.DOMNode)
-            /** @type {!WebInspector.ElementsPanel} */ (WebInspector.showPanel("elements")).revealAndSelectNode(node.id);
+        if (!(node instanceof WebInspector.DOMNode))
+            return;
+
+        if (WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.enabled()) {
+            InspectorFrontendHost.bringToFront();
+            WebInspector.inspectElementModeController.disable();
+        }
+
+        /** @type {!WebInspector.ElementsPanel} */ (WebInspector.inspectorView.panel("elements")).revealAndSelectNode(node.id);
     }
 }

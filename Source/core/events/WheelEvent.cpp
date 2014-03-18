@@ -68,7 +68,7 @@ WheelEvent::WheelEvent(const FloatPoint& wheelTicks, const FloatPoint& rawDelta,
                  true, true, view, 0, screenLocation.x(), screenLocation.y(),
                  pageLocation.x(), pageLocation.y(),
                  0, 0,
-                 ctrlKey, altKey, shiftKey, metaKey, 0, 0, 0, false)
+                 ctrlKey, altKey, shiftKey, metaKey, 0, nullptr, nullptr, false)
     , m_wheelDelta(wheelTicks.x() * TickMultiplier, wheelTicks.y() * TickMultiplier)
     , m_deltaX(-rawDelta.x())
     , m_deltaY(-rawDelta.y())
@@ -124,6 +124,11 @@ bool WheelEvent::isMouseEvent() const
 bool WheelEvent::isWheelEvent() const
 {
     return true;
+}
+
+void WheelEvent::trace(Visitor* visitor)
+{
+    MouseEvent::trace(visitor);
 }
 
 inline static unsigned deltaMode(const PlatformWheelEvent& event)

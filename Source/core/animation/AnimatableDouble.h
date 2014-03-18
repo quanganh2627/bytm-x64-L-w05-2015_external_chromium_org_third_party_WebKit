@@ -50,7 +50,7 @@ public:
         return adoptRef(new AnimatableDouble(number, constraint));
     }
 
-    PassRefPtr<CSSValue> toCSSValue() const;
+    PassRefPtrWillBeRawPtr<CSSValue> toCSSValue() const;
     double toDouble() const { return m_number; }
 
 protected:
@@ -66,6 +66,7 @@ private:
     }
     virtual AnimatableType type() const OVERRIDE { return TypeDouble; }
     virtual bool equalTo(const AnimatableValue*) const OVERRIDE;
+    virtual double distanceTo(const AnimatableValue*) const OVERRIDE;
 
     double m_number;
     Constraint m_constraint;

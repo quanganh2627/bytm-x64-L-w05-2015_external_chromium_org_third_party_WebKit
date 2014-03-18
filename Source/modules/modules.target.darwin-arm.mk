@@ -26,11 +26,18 @@ LOCAL_GENERATED_SOURCES :=
 GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 
 LOCAL_SRC_FILES := \
-	third_party/WebKit/Source/modules/crypto/Algorithm.cpp \
+	third_party/WebKit/Source/modules/battery/BatteryManager.cpp \
+	third_party/WebKit/Source/modules/battery/BatteryStatus.cpp \
+	third_party/WebKit/Source/modules/battery/NavigatorBattery.cpp \
 	third_party/WebKit/Source/modules/crypto/Crypto.cpp \
 	third_party/WebKit/Source/modules/crypto/CryptoResultImpl.cpp \
 	third_party/WebKit/Source/modules/crypto/DOMWindowCrypto.cpp \
 	third_party/WebKit/Source/modules/crypto/Key.cpp \
+	third_party/WebKit/Source/modules/crypto/AesKeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/HmacKeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/KeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/RsaHashedKeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/RsaKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/KeyPair.cpp \
 	third_party/WebKit/Source/modules/crypto/NormalizeAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/SubtleCrypto.cpp \
@@ -47,11 +54,10 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationEvent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationInspectorAgent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceRotationRate.cpp \
-	third_party/WebKit/Source/modules/device_orientation/DeviceSensorEventController.cpp \
-	third_party/WebKit/Source/modules/device_orientation/DeviceSensorEventDispatcher.cpp \
 	third_party/WebKit/Source/modules/donottrack/NavigatorDoNotTrack.cpp \
 	third_party/WebKit/Source/modules/encoding/TextDecoder.cpp \
 	third_party/WebKit/Source/modules/encoding/TextEncoder.cpp \
+	third_party/WebKit/Source/modules/encryptedmedia/HTMLMediaElementEncryptedMedia.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyMessageEvent.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyNeededEvent.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeys.cpp \
@@ -82,16 +88,17 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/filesystem/LocalFileSystem.cpp \
 	third_party/WebKit/Source/modules/filesystem/WorkerGlobalScopeFileSystem.cpp \
 	third_party/WebKit/Source/modules/gamepad/Gamepad.cpp \
+	third_party/WebKit/Source/modules/gamepad/GamepadButton.cpp \
+	third_party/WebKit/Source/modules/gamepad/GamepadCommon.cpp \
 	third_party/WebKit/Source/modules/gamepad/GamepadList.cpp \
 	third_party/WebKit/Source/modules/gamepad/NavigatorGamepad.cpp \
+	third_party/WebKit/Source/modules/gamepad/WebKitGamepad.cpp \
+	third_party/WebKit/Source/modules/gamepad/WebKitGamepadList.cpp \
 	third_party/WebKit/Source/modules/geolocation/Coordinates.cpp \
 	third_party/WebKit/Source/modules/geolocation/Geolocation.cpp \
 	third_party/WebKit/Source/modules/geolocation/GeolocationController.cpp \
 	third_party/WebKit/Source/modules/geolocation/GeolocationInspectorAgent.cpp \
-	third_party/WebKit/Source/modules/geolocation/Geoposition.cpp \
 	third_party/WebKit/Source/modules/geolocation/NavigatorGeolocation.cpp \
-	third_party/WebKit/Source/modules/geolocation/PositionError.cpp \
-	third_party/WebKit/Source/modules/geolocation/PositionOptions.cpp \
 	third_party/WebKit/Source/modules/imagebitmap/ImageBitmapFactories.cpp \
 	third_party/WebKit/Source/modules/indexeddb/DOMWindowIndexedDatabase.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBAny.cpp \
@@ -112,7 +119,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/indexeddb/IDBTransaction.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBVersionChangeEvent.cpp \
 	third_party/WebKit/Source/modules/indexeddb/InspectorIndexedDBAgent.cpp \
-	third_party/WebKit/Source/modules/indexeddb/PageGroupIndexedDatabase.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBDatabaseCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WorkerGlobalScopeIndexedDatabase.cpp \
@@ -157,13 +163,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediastream/UserMediaRequest.cpp \
 	third_party/WebKit/Source/modules/mediastream/URLMediaStream.cpp \
 	third_party/WebKit/Source/modules/navigatorcontentutils/NavigatorContentUtils.cpp \
-	third_party/WebKit/Source/modules/notifications/DOMWindowNotifications.cpp \
 	third_party/WebKit/Source/modules/notifications/Notification.cpp \
-	third_party/WebKit/Source/modules/notifications/NotificationBase.cpp \
-	third_party/WebKit/Source/modules/notifications/NotificationCenter.cpp \
 	third_party/WebKit/Source/modules/notifications/NotificationController.cpp \
-	third_party/WebKit/Source/modules/notifications/WebKitNotification.cpp \
-	third_party/WebKit/Source/modules/notifications/WorkerGlobalScopeNotifications.cpp \
 	third_party/WebKit/Source/modules/performance/SharedWorkerPerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerGlobalScopePerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerPerformance.cpp \
@@ -179,11 +180,18 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/quota/StorageQuotaClient.cpp \
 	third_party/WebKit/Source/modules/quota/WorkerNavigatorStorageQuota.cpp \
 	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientation.cpp \
+	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientationController.cpp \
+	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientationDispatcher.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/Cache.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/FetchEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallPhaseEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/NavigatorServiceWorker.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/RespondWithObserver.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/Response.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorker.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerContainer.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerContainerClient.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerError.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerGlobalScope.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerGlobalScopeClient.cpp \
@@ -348,6 +356,7 @@ MY_CFLAGS_Debug := \
 
 MY_DEFS_Debug := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -355,9 +364,9 @@ MY_DEFS_Debug := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -366,12 +375,9 @@ MY_DEFS_Debug := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -381,11 +387,17 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -484,6 +496,7 @@ MY_CFLAGS_Release := \
 
 MY_DEFS_Release := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -491,9 +504,9 @@ MY_DEFS_Release := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -502,12 +515,9 @@ MY_DEFS_Release := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -517,11 +527,17 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -587,9 +603,11 @@ LOCAL_CPPFLAGS_Release := \
 LOCAL_CFLAGS := $(MY_CFLAGS_$(GYP_CONFIGURATION)) $(MY_DEFS_$(GYP_CONFIGURATION))
 LOCAL_C_INCLUDES := $(GYP_COPIED_SOURCE_ORIGIN_DIRS) $(LOCAL_C_INCLUDES_$(GYP_CONFIGURATION))
 LOCAL_CPPFLAGS := $(LOCAL_CPPFLAGS_$(GYP_CONFIGURATION))
+LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -601,7 +619,6 @@ LOCAL_LDFLAGS_Debug := \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
 	-Wl,--icf=safe \
-	-Wl,--fatal-warnings \
 	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
@@ -609,6 +626,7 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -623,7 +641,6 @@ LOCAL_LDFLAGS_Release := \
 	-Wl,-O1 \
 	-Wl,--as-needed \
 	-Wl,--gc-sections \
-	-Wl,--fatal-warnings \
 	-Wl,--warn-shared-textrel
 
 

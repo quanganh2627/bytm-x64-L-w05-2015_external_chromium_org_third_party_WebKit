@@ -25,6 +25,7 @@ $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: $(LOCA
 $(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/InspectorPromiseInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 $(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
 
@@ -34,6 +35,7 @@ GYP_GENERATED_OUTPUTS := \
 	$(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h \
+	$(gyp_shared_intermediate_dir)/blink/InspectorPromiseInstrumentationInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h \
 	$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp
 

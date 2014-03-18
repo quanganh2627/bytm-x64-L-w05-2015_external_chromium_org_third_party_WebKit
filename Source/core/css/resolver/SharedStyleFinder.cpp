@@ -40,6 +40,7 @@
 #include "core/dom/Node.h"
 #include "core/dom/NodeRenderStyle.h"
 #include "core/dom/QualifiedName.h"
+#include "core/dom/SiblingRuleHelper.h"
 #include "core/dom/SpaceSplitString.h"
 #include "core/dom/shadow/ElementShadow.h"
 #include "core/dom/shadow/InsertionPoint.h"
@@ -57,7 +58,7 @@ using namespace HTMLNames;
 
 bool SharedStyleFinder::canShareStyleWithControl(Element& candidate) const
 {
-    if (!candidate.hasTagName(inputTag) || !element().hasTagName(inputTag))
+    if (!isHTMLInputElement(candidate) || !isHTMLInputElement(element()))
         return false;
 
     HTMLInputElement& candidateInput = toHTMLInputElement(candidate);
@@ -150,7 +151,7 @@ bool SharedStyleFinder::sharingCandidateHasIdenticalStyleAffectingAttributes(Ele
     // FIXME: Consider removing this, it's unlikely we'll have so many progress elements
     // that sharing the style makes sense. Instead we should just not support style sharing
     // for them.
-    if (element().hasTagName(progressTag)) {
+    if (isHTMLProgressElement(element())) {
         if (element().shouldAppearIndeterminate() != candidate.shouldAppearIndeterminate())
             return false;
     }
@@ -331,7 +332,7 @@ RenderStyle* SharedStyleFinder::findSharedStyle()
     }
 
     // Tracking child index requires unique style for each node. This may get set by the sibling rule match above.
-    if (!element().parentOrShadowHostElement()->childrenSupportStyleSharing()) {
+    if (!SiblingRuleHelper(element().parentElementOrShadowRoot()).childrenSupportStyleSharing()) {
         INCREMENT_STYLE_STATS_COUNTER(m_styleResolver, sharedStyleRejectedByParent);
         return 0;
     }

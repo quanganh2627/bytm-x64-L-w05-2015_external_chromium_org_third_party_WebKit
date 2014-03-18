@@ -127,6 +127,22 @@ public:
     StyleSheetList* styleSheets();
     bool isActiveForStyling() const;
 
+    bool childrenSupportStyleSharing() const;
+    bool childrenAffectedByPositionalRules() const;
+    bool childrenAffectedByFirstChildRules() const;
+    bool childrenAffectedByLastChildRules() const;
+    bool childrenAffectedByDirectAdjacentRules() const;
+    bool childrenAffectedByForwardPositionalRules() const;
+    bool childrenAffectedByBackwardPositionalRules() const;
+
+    void setChildrenAffectedByFirstChildRules();
+    void setChildrenAffectedByLastChildRules();
+    void setChildrenAffectedByDirectAdjacentRules();
+    void setChildrenAffectedByForwardPositionalRules();
+    void setChildrenAffectedByBackwardPositionalRules();
+
+    using Node::isFinishedParsingChildren; // make public for SelectorChecker
+
 private:
     ShadowRoot(Document&, ShadowRootType);
     virtual ~ShadowRoot();
@@ -141,7 +157,7 @@ private:
     void invalidateDescendantInsertionPoints();
 
     // ShadowRoots should never be cloned.
-    virtual PassRefPtr<Node> cloneNode(bool) OVERRIDE { return 0; }
+    virtual PassRefPtr<Node> cloneNode(bool) OVERRIDE { return nullptr; }
 
     // FIXME: This shouldn't happen. https://bugs.webkit.org/show_bug.cgi?id=88834
     bool isOrphan() const { return !host(); }

@@ -83,11 +83,7 @@ PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(SVGFilter*
 
     // Add effects to the builder
     RefPtr<SVGFilterBuilder> builder = SVGFilterBuilder::create(SourceGraphic::create(filter), SourceAlpha::create(filter));
-    for (Node* node = filterElement->firstChild(); node; node = node->nextSibling()) {
-        if (!node->isSVGElement())
-            continue;
-
-        SVGElement* element = toSVGElement(node);
+    for (SVGElement* element = Traversal<SVGElement>::firstChild(*filterElement); element; element = Traversal<SVGElement>::nextSibling(*element)) {
         if (!element->isFilterEffect() || !element->renderer())
             continue;
 
@@ -95,11 +91,11 @@ PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(SVGFilter*
         RefPtr<FilterEffect> effect = effectElement->build(builder.get(), filter);
         if (!effect) {
             builder->clearEffects();
-            return 0;
+            return nullptr;
         }
         builder->appendEffectToEffectReferences(effect, effectElement->renderer());
         effectElement->setStandardAttributes(effect.get());
-        effect->setEffectBoundaries(SVGLengthContext::resolveRectangle<SVGFilterPrimitiveStandardAttributes>(effectElement, filterElement->primitiveUnitsCurrentValue(), targetBoundingBox));
+        effect->setEffectBoundaries(SVGLengthContext::resolveRectangle<SVGFilterPrimitiveStandardAttributes>(effectElement, filterElement->primitiveUnits()->currentValue()->enumValue(), targetBoundingBox));
         effect->setOperatingColorSpace(
             effectElement->renderer()->style()->svgStyle()->colorInterpolationFilters() == CI_LINEARRGB ? ColorSpaceLinearRGB : ColorSpaceDeviceRGB);
         builder->add(AtomicString(effectElement->result()->currentValue()->value()), effect);
@@ -107,19 +103,18 @@ PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(SVGFilter*
     return builder.release();
 }
 
-bool RenderSVGResourceFilter::fitsInMaximumImageSize(const FloatSize& size, FloatSize& scale)
+void RenderSVGResourceFilter::adjustScaleForMaximumImageSize(const FloatSize& size, FloatSize& filterScale)
 {
-    bool matchesFilterSize = true;
-    if (size.width() * scale.width() > kMaxFilterSize) {
-        scale.setWidth(kMaxFilterSize / size.width());
-        matchesFilterSize = false;
-    }
-    if (size.height() * scale.height() > kMaxFilterSize) {
-        scale.setHeight(kMaxFilterSize / size.height());
-        matchesFilterSize = false;
-    }
+    FloatSize scaledSize(size);
+    scaledSize.scale(filterScale.width(), filterScale.height());
+    float scaledArea = scaledSize.width() * scaledSize.height();
 
-    return matchesFilterSize;
+    if (scaledArea <= FilterEffect::maxFilterArea())
+        return;
+
+    // If area of scaled size is bigger than the upper limit, adjust the scale
+    // to fit.
+    filterScale.scale(sqrt(FilterEffect::maxFilterArea() / scaledArea));
 }
 
 static bool createImageBuffer(const Filter* filter, OwnPtr<ImageBuffer>& imageBuffer, bool accelerated)
@@ -170,7 +165,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     FloatRect targetBoundingBox = object->objectBoundingBox();
 
     SVGFilterElement* filterElement = toSVGFilterElement(element());
-    filterData->boundaries = SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement, filterElement->filterUnitsCurrentValue(), targetBoundingBox);
+    filterData->boundaries = SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement, filterElement->filterUnits()->currentValue()->enumValue(), targetBoundingBox);
     if (filterData->boundaries.isEmpty())
         return false;
 
@@ -196,7 +191,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     }
     // The size of the scaled filter boundaries shouldn't be bigger than kMaxFilterSize.
     // Intermediate filters are limited by the filter boundaries so they can't be bigger than this.
-    fitsInMaximumImageSize(filterData->boundaries.size(), filterScale);
+    adjustScaleForMaximumImageSize(filterData->boundaries.size(), filterScale);
 
     filterData->drawingRegion = object->strokeBoundingBox();
     filterData->drawingRegion.intersect(filterData->boundaries);
@@ -207,7 +202,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     IntRect intDrawingRegion = enclosingIntRect(absoluteDrawingRegion);
 
     // Create the SVGFilter object.
-    bool primitiveBoundingBoxMode = filterElement->primitiveUnitsCurrentValue() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX;
+    bool primitiveBoundingBoxMode = filterElement->primitiveUnits()->currentValue()->enumValue() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX;
     filterData->shearFreeAbsoluteTransform = AffineTransform();
     if (!deferredFiltersEnabled)
         filterData->shearFreeAbsoluteTransform.scale(filterScale.width(), filterScale.height());
@@ -226,12 +221,13 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
 
     if (deferredFiltersEnabled) {
         SkiaImageFilterBuilder builder(context);
-        FloatRect oldBounds = context->getClipBounds();
-        m_objects.set(object, oldBounds);
+        m_objects.add(object);
         RefPtr<ImageFilter> imageFilter = builder.build(lastEffect, ColorSpaceDeviceRGB);
         FloatRect boundaries = enclosingIntRect(filterData->boundaries);
+        context->save();
+        // Clip drawing of filtered image to primitive boundaries.
+        context->clipRect(boundaries);
         if (filterElement->hasAttribute(SVGNames::filterResAttr)) {
-            context->save();
             // Get boundaries in device coords.
             FloatSize size = context->getCTM().mapSize(boundaries.size());
             // Compute the scale amount required so that the resulting offscreen is exactly filterResX by filterResY pixels.
@@ -239,15 +235,9 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
                 filterElement->filterResX()->currentValue()->value() / size.width(),
                 filterElement->filterResY()->currentValue()->value() / size.height());
             // Scale the CTM so the primitive is drawn to filterRes.
-            context->translate(boundaries.x(), boundaries.y());
             context->scale(filterResScale);
-            context->translate(-boundaries.x(), -boundaries.y());
             // Create a resize filter with the inverse scale.
             imageFilter = builder.buildResize(1 / filterResScale.width(), 1 / filterResScale.height(), imageFilter.get());
-            // Clip the context so that the offscreen created in beginLayer()
-            // is clipped to filterResX by filerResY. Use Replace mode since
-            // this clip may be larger than the parent device.
-            context->clipRectReplace(boundaries);
         }
         context->beginLayer(1, CompositeSourceOver, &boundaries, ColorFilterNone, imageFilter.get());
         return true;
@@ -295,18 +285,8 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
     ASSERT_UNUSED(resourceMode, resourceMode == ApplyToDefaultMode);
 
     if (object->document().settings()->deferredFiltersEnabled()) {
-        SVGFilterElement* filterElement = toSVGFilterElement(element());
-        if (filterElement->hasAttribute(SVGNames::filterResAttr)) {
-            // Restore the clip bounds before endLayer(), so the filtered
-            // image draw is clipped to the original device bounds, not the
-            // clip we set before the beginLayer() above.
-            FloatRect oldBounds = m_objects.get(object);
-            context->clipRectReplace(oldBounds);
-            context->endLayer();
-            context->restore();
-        } else {
-            context->endLayer();
-        }
+        context->endLayer();
+        context->restore();
         m_objects.remove(object);
         return;
     }
@@ -371,7 +351,7 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
 FloatRect RenderSVGResourceFilter::resourceBoundingBox(const RenderObject* object)
 {
     if (SVGFilterElement* element = toSVGFilterElement(this->element()))
-        return SVGLengthContext::resolveRectangle<SVGFilterElement>(element, element->filterUnitsCurrentValue(), object->objectBoundingBox());
+        return SVGLengthContext::resolveRectangle<SVGFilterElement>(element, element->filterUnits()->currentValue()->enumValue(), object->objectBoundingBox());
 
     return FloatRect();
 }

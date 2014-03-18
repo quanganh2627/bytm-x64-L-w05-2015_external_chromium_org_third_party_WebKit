@@ -248,7 +248,7 @@
                     { "name": "url", "type": "string", "description": "URL to navigate the page to." }
                 ],
                 "description": "Navigates current page to the given URL.",
-                "handlers": ["browser"]
+                "handlers": ["browser", "renderer"]
             },
             {
               "name": "getNavigationHistory",
@@ -657,7 +657,7 @@
                     { "name": "type", "type": "string", "enum": ["object", "function", "undefined", "string", "number", "boolean"], "description": "Object type." },
                     { "name": "subtype", "type": "string", "optional": true, "enum": ["array", "null", "node", "regexp", "date"], "description": "Object subtype hint. Specified for <code>object</code> type values only." },
                     { "name": "className", "type": "string", "optional": true, "description": "Object class (constructor) name. Specified for <code>object</code> type values only." },
-                    { "name": "value", "type": "any", "optional": true, "description": "Remote object value (in case of primitive values or JSON values if it was requested)." },
+                    { "name": "value", "type": "any", "optional": true, "description": "Remote object value in case of primitive values or JSON values (if it was requested), or description string if the value can not be JSON-stringified (like NaN, Infinity, -Infinity, -0)." },
                     { "name": "description", "type": "string", "optional": true, "description": "String representation of the object." },
                     { "name": "objectId", "$ref": "RemoteObjectId", "optional": true, "description": "Unique object identifier (for non-primitive values)." },
                     { "name": "preview", "$ref": "ObjectPreview", "optional": true, "description": "Preview containing abbreviated property values.", "hidden": true }
@@ -718,8 +718,9 @@
                 "type": "object",
                 "description": "Represents function call argument. Either remote object id <code>objectId</code> or primitive <code>value</code> or neither of (for undefined) them should be specified.",
                 "properties": [
-                    { "name": "value", "type": "any", "optional": true, "description": "Primitive value." },
-                    { "name": "objectId", "$ref": "RemoteObjectId", "optional": true, "description": "Remote object handle." }
+                    { "name": "value", "type": "any", "optional": true, "description": "Primitive value, or description string if the value can not be JSON-stringified (like NaN, Infinity, -Infinity, -0)." },
+                    { "name": "objectId", "$ref": "RemoteObjectId", "optional": true, "description": "Remote object handle." },
+                    { "name": "type", "optional": true, "hidden": true, "type": "string", "enum": ["object", "function", "undefined", "string", "number", "boolean"], "description": "Object type." }
                 ]
             },
             {
@@ -1015,7 +1016,7 @@
                 "description": "WebSocket request data.",
                 "hidden": true,
                 "properties": [
-                    { "name": "headers", "$ref": "Headers", "description": "HTTP response headers." }
+                    { "name": "headers", "$ref": "Headers", "description": "HTTP request headers." }
                 ]
             },
             {
@@ -1026,7 +1027,10 @@
                 "properties": [
                     { "name": "status", "type": "number", "description": "HTTP response status code." },
                     { "name": "statusText", "type": "string", "description": "HTTP response status text." },
-                    { "name": "headers", "$ref": "Headers", "description": "HTTP response headers." }
+                    { "name": "headers", "$ref": "Headers", "description": "HTTP response headers." },
+                    { "name": "headersText", "type": "string", "optional": true, "description": "HTTP response headers text." },
+                    { "name": "requestHeaders", "$ref": "Headers", "optional": true, "description": "HTTP request headers." },
+                    { "name": "requestHeadersText", "type": "string", "optional": true, "description": "HTTP request headers text." }
                 ]
             },
             {
@@ -2146,14 +2150,14 @@
                 "hidden": true
             },
             {
-                "name": "pushNodeByBackendIdToFrontend",
+                "name": "pushNodesByBackendIdsToFrontend",
                 "parameters": [
-                    { "name": "backendNodeId", "$ref": "BackendNodeId", "description": "The backend node id of the node." }
+                    { "name": "backendNodeIds", "type": "array", "items": {"$ref": "BackendNodeId"}, "description": "The array of backend node ids." }
                 ],
                 "returns": [
-                    { "name": "nodeId", "$ref": "NodeId", "description": "The pushed node's id." }
+                    { "name": "nodeIds", "type": "array", "items": {"$ref": "NodeId"}, "description": "The array of ids of pushed nodes that correspond to the backend ids specified in backendNodeIds." }
                 ],
-                "description": "Requests that the node is sent to the caller given its backend node id.",
+                "description": "Requests that a batch of nodes is sent to the caller given their backend node ids.",
                 "hidden": true
             },
             {
@@ -2479,15 +2483,6 @@
                 "description": "CSS stylesheet metainformation."
             },
             {
-                "id": "CSSStyleSheetBody",
-                "type": "object",
-                "properties": [
-                    { "name": "rules", "type": "array", "items": { "$ref": "CSSRule" }, "description": "Stylesheet resource URL."},
-                    { "name": "text", "type": "string", "optional": true, "description": "Stylesheet resource contents (if available)."}
-                ],
-                "description": "CSS stylesheet contents."
-            },
-            {
                 "id": "CSSRule",
                 "type": "object",
                 "properties": [
@@ -2545,11 +2540,11 @@
                 "properties": [
                     { "name": "name", "type": "string", "description": "The property name." },
                     { "name": "value", "type": "string", "description": "The property value." },
-                    { "name": "priority", "type": "string", "optional": true, "description": "The property priority (implies \"\" if absent)." },
+                    { "name": "important", "type": "boolean", "optional": true, "description": "Whether the property has \"!important\" annotation (implies <code>false</code> if absent)." },
                     { "name": "implicit", "type": "boolean", "optional": true, "description": "Whether the property is implicit (implies <code>false</code> if absent)." },
                     { "name": "text", "type": "string", "optional": true, "description": "The full property text as specified in the style." },
                     { "name": "parsedOk", "type": "boolean", "optional": true, "description": "Whether the property is understood by the browser (implies <code>true</code> if absent)." },
-                    { "name": "status", "type": "string", "enum": ["active", "inactive", "disabled", "style"], "optional": true, "description": "The property status: \"active\" if the property is effective in the style, \"inactive\" if the property is overridden by a same-named property in this style later on, \"disabled\" if the property is disabled by the user, \"style\" (implied if absent) if the property is reported by the browser rather than by the CSS source parser." },
+                    { "name": "disabled", "type": "boolean", "optional": true, "description": "Whether the property is disabled by the user (present for source-based properties only)." },
                     { "name": "range", "$ref": "SourceRange", "optional": true, "description": "The entire property range in the enclosing style declaration (if available)." }
                 ],
                 "description": "CSS property declaration data."
@@ -2635,16 +2630,6 @@
                 "hidden": true
             },
             {
-                "name": "getStyleSheet",
-                "parameters": [
-                    { "name": "styleSheetId", "$ref": "StyleSheetId" }
-                ],
-                "returns": [
-                    { "name": "styleSheet", "$ref": "CSSStyleSheetBody", "description": "Stylesheet contents for the specified <code>styleSheetId</code>." }
-                ],
-                "description": "Returns stylesheet data for the specified <code>styleSheetId</code>."
-            },
-            {
                 "name": "getStyleSheetText",
                 "parameters": [
                     { "name": "styleSheetId", "$ref": "StyleSheetId" }
@@ -2687,15 +2672,25 @@
                 "description": "Modifies the rule selector."
             },
             {
+                "name": "createStyleSheet",
+                "parameters": [
+                    { "name": "frameId", "$ref": "Page.FrameId", "description": "Identifier of the frame where \"via-inspector\" stylesheet should be created."}
+                ],
+                "returns": [
+                    { "name": "styleSheetId", "$ref": "StyleSheetId", "description": "Identifier of the created \"via-inspector\" stylesheet." }
+                ],
+                "description": "Creates a new special \"via-inspector\" stylesheet in the frame with given <code>frameId</code>."
+            },
+            {
                 "name": "addRule",
                 "parameters": [
-                    { "name": "contextNodeId", "$ref": "DOM.NodeId" },
+                    { "name": "styleSheetId", "$ref": "StyleSheetId" },
                     { "name": "selector", "type": "string" }
                 ],
                 "returns": [
                     { "name": "rule", "$ref": "CSSRule", "description": "The newly created rule." }
                 ],
-                "description": "Creates a new empty rule with the given <code>selector</code> in a special \"inspector\" stylesheet in the owner document of the context node."
+                "description": "Creates a new empty rule with the given <code>selector</code> in a stylesheet with given <code>styleSheetId</code>."
             },
             {
                 "name": "forcePseudoState",
@@ -3524,7 +3519,7 @@
                 "parameters": [
                     { "name": "workerId", "type": "integer" }
                 ],
-                "handlers": ["browser"]
+                "handlers": ["browser", "renderer"]
             },
             {
                 "name": "setAutoconnectToWorkers",
@@ -3856,7 +3851,7 @@
                 "properties": [
                     { "name": "layerId", "$ref": "LayerId", "description": "The unique id for this layer." },
                     { "name": "parentLayerId", "$ref": "LayerId", "optional": true, "description": "The id of parent (not present for root)." },
-                    { "name": "nodeId", "$ref": "DOM.NodeId", "optional": true, "description": "The id for the node associated with this layer." },
+                    { "name": "backendNodeId", "$ref": "DOM.BackendNodeId", "optional": true, "description": "The backend id for the node associated with this layer." },
                     { "name": "offsetX", "type": "number", "description": "Offset from parent layer, X coordinate." },
                     { "name": "offsetY", "type": "number", "description": "Offset from parent layer, X coordinate." },
                     { "name": "width", "type": "number", "description": "Layer width." },
@@ -4053,6 +4048,15 @@
                 "name": "end",
                 "description": "Stop power events collection.",
                 "parameters": [],
+                "handlers": ["browser", "frontend"]
+            },
+            {
+                "name": "canProfilePower",
+                "description": "Tells whether power profiling is supported.",
+                "returns": [
+                  { "name": "result", "type": "boolean", "description": "True if power profiling is supported." }
+                ],
+                "hidden": true,
                 "handlers": ["browser", "frontend"]
             }
         ],

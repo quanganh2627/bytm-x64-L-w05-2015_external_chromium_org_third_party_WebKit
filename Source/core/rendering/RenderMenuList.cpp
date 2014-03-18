@@ -32,9 +32,9 @@
 #include "core/css/CSSFontSelector.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/NodeRenderStyle.h"
-#include "core/frame/Frame.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLOptGroupElement.h"
 #include "core/html/HTMLOptionElement.h"
 #include "core/html/HTMLSelectElement.h"
@@ -61,16 +61,14 @@ RenderMenuList::RenderMenuList(Element* element)
     , m_lastActiveIndex(-1)
     , m_popupIsVisible(false)
 {
-    ASSERT(element);
-    ASSERT(element->isHTMLElement());
-    ASSERT(element->hasTagName(HTMLNames::selectTag));
+    ASSERT(isHTMLSelectElement(element));
 }
 
 RenderMenuList::~RenderMenuList()
 {
     if (m_popup)
         m_popup->disconnectClient();
-    m_popup = 0;
+    m_popup = nullptr;
 }
 
 // FIXME: Instead of this hack we should add a ShadowRoot to <select> with no insertion point
@@ -100,9 +98,6 @@ void RenderMenuList::adjustInnerStyle()
     RenderStyle* innerStyle = m_innerBlock->style();
     innerStyle->setFlexGrow(1);
     innerStyle->setFlexShrink(1);
-    // min-width: 0; is needed for correct shrinking.
-    // FIXME: Remove this line when https://bugs.webkit.org/show_bug.cgi?id=111790 is fixed.
-    innerStyle->setMinWidth(Length(0, Fixed));
     // Use margin:auto instead of align-items:center to get safe centering, i.e.
     // when the content overflows, treat it the same as align-items: flex-start.
     // But we only do that for the cases where html.css would otherwise use center.
@@ -173,7 +168,7 @@ void RenderMenuList::updateOptionsWidth()
 
     for (int i = 0; i < size; ++i) {
         HTMLElement* element = listItems[i];
-        if (!element->hasTagName(optionTag))
+        if (!isHTMLOptionElement(*element))
             continue;
 
         String text = toHTMLOptionElement(element)->textIndentedToRespectGroupLabel();
@@ -222,7 +217,7 @@ void RenderMenuList::setTextFromOption(int optionIndex)
     String text = emptyString();
     if (i >= 0 && i < size) {
         Element* element = listItems[i];
-        if (element->hasTagName(optionTag)) {
+        if (isHTMLOptionElement(*element)) {
             text = toHTMLOptionElement(element)->textIndentedToRespectGroupLabel();
             m_optionStyle = element->renderStyle();
         }
@@ -398,10 +393,10 @@ String RenderMenuList::itemText(unsigned listIndex) const
 
     String itemString;
     Element* element = listItems[listIndex];
-    if (element->hasTagName(optgroupTag))
-        itemString = toHTMLOptGroupElement(element)->groupLabelText();
-    else if (element->hasTagName(optionTag))
-        itemString = toHTMLOptionElement(element)->textIndentedToRespectGroupLabel();
+    if (isHTMLOptGroupElement(*element))
+        itemString = toHTMLOptGroupElement(*element).groupLabelText();
+    else if (isHTMLOptionElement(*element))
+        itemString = toHTMLOptionElement(*element).textIndentedToRespectGroupLabel();
 
     applyTextTransform(style(), itemString, ' ');
     return itemString;
@@ -430,12 +425,12 @@ bool RenderMenuList::itemIsEnabled(unsigned listIndex) const
     if (listIndex >= listItems.size())
         return false;
     HTMLElement* element = listItems[listIndex];
-    if (!element->hasTagName(optionTag))
+    if (!isHTMLOptionElement(*element))
         return false;
 
     bool groupEnabled = true;
     if (Element* parentElement = element->parentElement()) {
-        if (parentElement->hasTagName(optgroupTag))
+        if (isHTMLOptGroupElement(*parentElement))
             groupEnabled = !parentElement->isDisabledFormControl();
     }
     if (!groupEnabled)
@@ -548,13 +543,13 @@ void RenderMenuList::popupDidHide()
 bool RenderMenuList::itemIsSeparator(unsigned listIndex) const
 {
     const Vector<HTMLElement*>& listItems = selectElement()->listItems();
-    return listIndex < listItems.size() && listItems[listIndex]->hasTagName(hrTag);
+    return listIndex < listItems.size() && isHTMLHRElement(*listItems[listIndex]);
 }
 
 bool RenderMenuList::itemIsLabel(unsigned listIndex) const
 {
     const Vector<HTMLElement*>& listItems = selectElement()->listItems();
-    return listIndex < listItems.size() && listItems[listIndex]->hasTagName(optgroupTag);
+    return listIndex < listItems.size() && isHTMLOptGroupElement(*listItems[listIndex]);
 }
 
 bool RenderMenuList::itemIsSelected(unsigned listIndex) const
@@ -563,7 +558,7 @@ bool RenderMenuList::itemIsSelected(unsigned listIndex) const
     if (listIndex >= listItems.size())
         return false;
     HTMLElement* element = listItems[listIndex];
-    return element->hasTagName(optionTag) && toHTMLOptionElement(element)->selected();
+    return isHTMLOptionElement(*element) && toHTMLOptionElement(*element).selected();
 }
 
 void RenderMenuList::setTextFromItem(unsigned listIndex)

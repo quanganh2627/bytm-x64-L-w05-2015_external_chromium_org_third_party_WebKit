@@ -29,14 +29,14 @@
 #include "core/dom/Document.h"
 #include "core/events/ThreadLocalEventNames.h"
 #include "core/events/WheelEvent.h"
-#include "core/frame/Frame.h"
+#include "core/frame/LocalFrame.h"
 #include "core/page/Page.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
 
 namespace WebCore {
 
-WheelController::WheelController(Document* document)
-    : DOMWindowLifecycleObserver(document->domWindow())
+WheelController::WheelController(Document& document)
+    : DOMWindowLifecycleObserver(document.domWindow())
     , m_wheelEventHandlerCount(0)
 {
 }
@@ -50,7 +50,7 @@ const char* WheelController::supplementName()
     return "WheelController";
 }
 
-WheelController* WheelController::from(Document* document)
+WheelController* WheelController::from(Document& document)
 {
     WheelController* controller = static_cast<WheelController*>(DocumentSupplement::from(document, supplementName()));
     if (!controller) {
@@ -60,9 +60,9 @@ WheelController* WheelController::from(Document* document)
     return controller;
 }
 
-static void wheelEventHandlerCountChanged(Document* document)
+static void wheelEventHandlerCountChanged(Document& document)
 {
-    Page* page = document->page();
+    Page* page = document.page();
     if (!page)
         return;
 
@@ -70,30 +70,30 @@ static void wheelEventHandlerCountChanged(Document* document)
     if (!scrollingCoordinator)
         return;
 
-    FrameView* frameView = document->view();
+    FrameView* frameView = document.view();
     if (!frameView)
         return;
 
     scrollingCoordinator->frameViewWheelEventHandlerCountChanged(frameView);
 }
 
-void WheelController::didAddWheelEventHandler(Document* document)
+void WheelController::didAddWheelEventHandler(Document& document)
 {
     ++m_wheelEventHandlerCount;
-    Page* page = document->page();
-    Frame* mainFrame = page ? page->mainFrame() : 0;
+    Page* page = document.page();
+    LocalFrame* mainFrame = page ? page->mainFrame() : 0;
     if (mainFrame)
         mainFrame->notifyChromeClientWheelEventHandlerCountChanged();
 
     wheelEventHandlerCountChanged(document);
 }
 
-void WheelController::didRemoveWheelEventHandler(Document* document)
+void WheelController::didRemoveWheelEventHandler(Document& document)
 {
     ASSERT(m_wheelEventHandlerCount > 0);
     --m_wheelEventHandlerCount;
-    Page* page = document->page();
-    Frame* mainFrame = page ? page->mainFrame() : 0;
+    Page* page = document.page();
+    LocalFrame* mainFrame = page ? page->mainFrame() : 0;
     if (mainFrame)
         mainFrame->notifyChromeClientWheelEventHandlerCountChanged();
 
@@ -106,7 +106,8 @@ void WheelController::didAddEventListener(DOMWindow* window, const AtomicString&
         return;
 
     Document* document = window->document();
-    didAddWheelEventHandler(document);
+    ASSERT(document);
+    didAddWheelEventHandler(*document);
 }
 
 void WheelController::didRemoveEventListener(DOMWindow* window, const AtomicString& eventType)
@@ -115,7 +116,8 @@ void WheelController::didRemoveEventListener(DOMWindow* window, const AtomicStri
         return;
 
     Document* document = window->document();
-    didRemoveWheelEventHandler(document);
+    ASSERT(document);
+    didRemoveWheelEventHandler(*document);
 }
 
 } // namespace WebCore

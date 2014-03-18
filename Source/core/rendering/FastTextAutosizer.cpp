@@ -32,26 +32,227 @@
 #include "core/rendering/FastTextAutosizer.h"
 
 #include "core/dom/Document.h"
-#include "core/frame/Frame.h"
 #include "core/frame/FrameView.h"
+#include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
 #include "core/page/Page.h"
 #include "core/rendering/InlineIterator.h"
 #include "core/rendering/RenderBlock.h"
 #include "core/rendering/RenderListItem.h"
 #include "core/rendering/RenderListMarker.h"
+#include "core/rendering/RenderTableCell.h"
 #include "core/rendering/RenderView.h"
-#include "core/rendering/TextAutosizer.h"
 
 using namespace std;
 
 namespace WebCore {
 
+static const RenderObject* parentElementRenderer(const RenderObject* renderer)
+{
+    // At style recalc, the renderer's parent may not be attached,
+    // so we need to obtain this from the DOM tree.
+
+    const Node* node = renderer->node();
+    if (!node)
+        return 0;
+
+    while ((node = node->parentNode())) {
+        if (node->isElementNode())
+            return node->renderer();
+    }
+    return 0;
+}
+
+static const Vector<QualifiedName>& formInputTags()
+{
+    // Returns the tags for the form input elements.
+    DEFINE_STATIC_LOCAL(Vector<QualifiedName>, formInputTags, ());
+    if (formInputTags.isEmpty()) {
+        formInputTags.append(HTMLNames::inputTag);
+        formInputTags.append(HTMLNames::buttonTag);
+        formInputTags.append(HTMLNames::selectTag);
+    }
+    return formInputTags;
+}
+
+static bool isAutosizingContainer(const RenderObject* renderer)
+{
+    // "Autosizing containers" are the smallest unit for which we can
+    // enable/disable Text Autosizing.
+    // - Must not be inline, as different multipliers on one line looks terrible.
+    //   Exceptions are inline-block and alike elements (inline-table, -webkit-inline-*),
+    //   as they often contain entire multi-line columns of text.
+    // - Must not be list items, as items in the same list should look consistent (*).
+    // - Must not be normal list items, as items in the same list should look
+    //   consistent, unless they are floating or position:absolute/fixed.
+    Node* node = renderer->generatingNode();
+    if ((node && !node->hasChildren())
+        || !renderer->isRenderBlock()
+        || (renderer->isInline() && !renderer->style()->isDisplayReplacedType()))
+        return false;
+    if (renderer->isListItem())
+        return renderer->isFloating() || renderer->isOutOfFlowPositioned();
+    // Avoid creating containers for text within text controls, buttons, or <select> buttons.
+    Node* parentNode = renderer->parent() ? renderer->parent()->generatingNode() : 0;
+    if (parentNode && parentNode->isElementNode() && formInputTags().contains(toElement(parentNode)->tagQName()))
+        return false;
+
+    return true;
+}
+
+static RenderObject* nextInPreOrderSkippingDescendantsOfContainers(const RenderObject* current, const RenderObject* stayWithin)
+{
+    if (current == stayWithin || !isAutosizingContainer(current))
+        return current->nextInPreOrder(stayWithin);
+    return current->nextInPreOrderAfterChildren(stayWithin);
+}
+
+static bool isIndependentDescendant(const RenderBlock* renderer)
+{
+    ASSERT(isAutosizingContainer(renderer));
+
+    // "Autosizing clusters" are special autosizing containers within which we
+    // want to enforce a uniform text size multiplier, in the hopes of making
+    // the major sections of the page look internally consistent.
+    // All their descendants (including other autosizing containers) must share
+    // the same multiplier, except for subtrees which are themselves clusters,
+    // and some of their descendant containers might not be autosized at all
+    // (for example if their height is constrained).
+    // Additionally, clusterShouldBeAutosized requires each cluster to contain a
+    // minimum amount of text, without which it won't be autosized.
+    //
+    // Clusters are chosen using very similar criteria to CSS flow roots, aka
+    // block formatting contexts (http://w3.org/TR/css3-box/#flow-root), since
+    // flow roots correspond to box containers that behave somewhat
+    // independently from their parent (for example they don't overlap floats).
+    // The definition of a flow root also conveniently includes most of the
+    // ways that a box and its children can have significantly different width
+    // from the box's parent (we want to avoid having significantly different
+    // width blocks within a cluster, since the narrower blocks would end up
+    // larger than would otherwise be necessary).
+    RenderBlock* containingBlock = renderer->containingBlock();
+    return renderer->isRenderView()
+        || renderer->isFloating()
+        || renderer->isOutOfFlowPositioned()
+        || renderer->isTableCell()
+        || renderer->isTableCaption()
+        || renderer->isFlexibleBoxIncludingDeprecated()
+        || renderer->hasColumns()
+        || (containingBlock && containingBlock->isHorizontalWritingMode() != renderer->isHorizontalWritingMode())
+        || renderer->style()->isDisplayReplacedType()
+        || renderer->isTextArea()
+        || renderer->style()->userModify() != READ_ONLY;
+    // FIXME: Tables need special handling to multiply all their columns by
+    // the same amount even if they're different widths; so do hasColumns()
+    // containers, and probably flexboxes...
+}
+
+static bool containerIsRowOfLinks(const RenderObject* container)
+{
+    // A "row of links" is a container for which holds:
+    //  1. it should not contain non-link text elements longer than 3 characters
+    //  2. it should contain min. 3 inline links and all links should
+    //     have the same specified font size
+    //  3. it should not contain <br> elements
+    //  4. it should contain only inline elements unless they are containers,
+    //     children of link elements or children of sub-containers.
+    int linkCount = 0;
+    RenderObject* renderer = container->nextInPreOrder(container);
+    float matchingFontSize = -1;
+
+    while (renderer) {
+        if (!isAutosizingContainer(renderer)) {
+            if (renderer->isText() && toRenderText(renderer)->text().impl()->stripWhiteSpace()->length() > 3)
+                return false;
+            if (!renderer->isInline())
+                return false;
+            if (renderer->isBR())
+                return false;
+        }
+        if (renderer->style()->isLink()) {
+            if (matchingFontSize < 0) {
+                matchingFontSize = renderer->style()->specifiedFontSize();
+            } else {
+                if (matchingFontSize != renderer->style()->specifiedFontSize())
+                    return false;
+            }
+
+            linkCount++;
+            // Skip traversing descendants of the link.
+            renderer = renderer->nextInPreOrderAfterChildren(container);
+        } else {
+            renderer = nextInPreOrderSkippingDescendantsOfContainers(renderer, container);
+        }
+    }
+
+    return (linkCount >= 3);
+}
+
+static bool contentHeightIsConstrained(const RenderBlock* container)
+{
+    // FIXME: Propagate constrainedness down the tree, to avoid inefficiently walking back up from each box.
+    // FIXME: This code needs to take into account vertical writing modes.
+    // FIXME: Consider additional heuristics, such as ignoring fixed heights if the content is already overflowing before autosizing kicks in.
+    for (; container; container = container->containingBlock()) {
+        RenderStyle* style = container->style();
+        if (style->overflowY() >= OSCROLL)
+            return false;
+        if (style->height().isSpecified() || style->maxHeight().isSpecified() || container->isOutOfFlowPositioned()) {
+            // Some sites (e.g. wikipedia) set their html and/or body elements to height:100%,
+            // without intending to constrain the height of the content within them.
+            return !container->isRoot() && !container->isBody();
+        }
+        if (container->isFloating())
+            return false;
+    }
+    return false;
+}
+
+static bool containerContainsOneOfTags(const RenderBlock* container, const Vector<QualifiedName>& tags)
+{
+    const RenderObject* renderer = container;
+    while (renderer) {
+        const Node* rendererNode = renderer->node();
+        if (rendererNode && rendererNode->isElementNode()) {
+            if (tags.contains(toElement(rendererNode)->tagQName()))
+                return true;
+        }
+        renderer = nextInPreOrderSkippingDescendantsOfContainers(renderer, container);
+    }
+
+    return false;
+}
+
+static bool containerShouldBeAutosized(const RenderBlock* container)
+{
+    if (containerContainsOneOfTags(container, formInputTags()))
+        return false;
+
+    if (containerIsRowOfLinks(container))
+        return false;
+
+    // Don't autosize block-level text that can't wrap (as it's likely to
+    // expand sideways and break the page's layout).
+    if (!container->style()->autoWrap())
+        return false;
+
+    return !contentHeightIsConstrained(container);
+}
+
 FastTextAutosizer::FastTextAutosizer(const Document* document)
     : m_document(document)
+    , m_frameWidth(0)
+    , m_layoutWidth(0)
+    , m_baseMultiplier(0)
+    , m_pageAutosizingStatus(PageAutosizingStatusUnknown)
+    , m_firstBlock(0)
 #ifndef NDEBUG
     , m_renderViewInfoPrepared(false)
+    , m_blocksThatHaveBegunLayout()
 #endif
+    , m_superclusters()
+    , m_clusterStack()
+    , m_fingerprintMapper()
 {
 }
 
@@ -65,11 +266,8 @@ void FastTextAutosizer::record(const RenderBlock* block)
     if (!isFingerprintingCandidate(block))
         return;
 
-    AtomicString fingerprint = computeFingerprint(block);
-    if (fingerprint.isNull())
-        return;
-
-    m_fingerprintMapper.add(block, fingerprint);
+    if (Fingerprint fingerprint = computeFingerprint(block))
+        m_fingerprintMapper.addTentativeClusterRoot(block, fingerprint);
 }
 
 void FastTextAutosizer::destroy(const RenderBlock* block)
@@ -81,40 +279,51 @@ void FastTextAutosizer::destroy(const RenderBlock* block)
     m_fingerprintMapper.remove(block);
 }
 
-bool FastTextAutosizer::isLayoutRoot(const RenderBlock* block) const
+void FastTextAutosizer::prepareClusterStack(const RenderObject* renderer)
 {
-    RenderObject* layoutRoot = m_document->view()->layoutRoot(true);
-    if (!layoutRoot)
-        layoutRoot = m_document->renderer();
-    return block == layoutRoot;
+    if (!renderer)
+        return;
+    prepareClusterStack(renderer->parent());
+
+    if (renderer->isRenderBlock()) {
+        const RenderBlock* block = toRenderBlock(renderer);
+#ifndef NDEBUG
+        m_blocksThatHaveBegunLayout.add(block);
+#endif
+        if (Cluster* cluster = maybeCreateCluster(block))
+            m_clusterStack.append(adoptPtr(cluster));
+    }
 }
 
 void FastTextAutosizer::beginLayout(RenderBlock* block)
 {
-    ASSERT(enabled());
+    ASSERT(enabled() && m_pageAutosizingStatus == PageNeedsAutosizing);
 #ifndef NDEBUG
     m_blocksThatHaveBegunLayout.add(block);
 #endif
-    ASSERT(m_clusterStack.isEmpty() == isLayoutRoot(block));
 
-    if (isLayoutRoot(block)) {
-        prepareRenderViewInfo();
+    if (!m_firstBlock)  {
+        m_firstBlock = block;
+        prepareClusterStack(block->parent());
     } else if (block == currentCluster()->m_root) {
         // Ignore beginLayout on the same block twice.
         // This can happen with paginated overflow.
         return;
     }
 
-    if (Cluster* cluster = maybeCreateCluster(block))
+    if (Cluster* cluster = maybeCreateCluster(block)) {
         m_clusterStack.append(adoptPtr(cluster));
+        if (block->isTable())
+            inflateTable(toRenderTable(block));
+    }
 
-    if (block->childrenInline())
+    if (block->childrenInline() && block->firstChild())
         inflate(block);
 }
 
 void FastTextAutosizer::inflateListItem(RenderListItem* listItem, RenderListMarker* listItemMarker)
 {
-    if (!enabled())
+    if (!enabled() || m_pageAutosizingStatus != PageNeedsAutosizing)
         return;
     ASSERT(listItem && listItemMarker);
 #ifndef NDEBUG
@@ -129,20 +338,67 @@ void FastTextAutosizer::inflateListItem(RenderListItem* listItem, RenderListMark
     applyMultiplier(listItemMarker, multiplier);
 }
 
+void FastTextAutosizer::inflateTable(RenderTable* table)
+{
+    ASSERT(table);
+    ASSERT(table->containingBlock());
+
+    Cluster* cluster = currentCluster();
+    ASSERT(cluster->m_root->isTable());
+
+    // Pre-inflate cells that have enough text so that their inflated preferred widths will be used
+    // for column sizing.
+    // The multiplier used for cell descendants represents the maximum we can ever inflate
+    // descendants without overflowing the cell width computed by the table layout. Therefore,
+    // descendants of cells cannot use a multiplier higher than the table's multiplier.
+    float multiplier = clusterMultiplier(cluster);
+    for (RenderObject* section = table->firstChild(); section; section = section->nextSibling()) {
+        if (!section->isTableSection())
+            continue;
+        for (RenderObject* row = section->firstChild(); row; row = row->nextSibling()) {
+            if (!row->isTableRow())
+                continue;
+            for (RenderObject* cell = row->firstChild(); cell; cell = cell->nextSibling()) {
+                if (!cell->isTableCell())
+                    continue;
+                RenderTableCell* renderTableCell = toRenderTableCell(cell);
+
+                bool shouldAutosize;
+                if (!containerShouldBeAutosized(renderTableCell))
+                    shouldAutosize = false;
+                else if (Supercluster* supercluster = getSupercluster(renderTableCell))
+                    shouldAutosize = anyClusterHasEnoughTextToAutosize(supercluster->m_roots, table);
+                else
+                    shouldAutosize = clusterWouldHaveEnoughTextToAutosize(renderTableCell, table);
+
+                if (shouldAutosize) {
+                    for (RenderObject* child = cell; child; child = child->nextInPreOrder(cell)) {
+                        if (child->isText()) {
+                            applyMultiplier(child, multiplier);
+                            applyMultiplier(child->parent(), multiplier); // Parent handles line spacing.
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void FastTextAutosizer::endLayout(RenderBlock* block)
 {
-    ASSERT(enabled());
-    if (isLayoutRoot(block)) {
+    ASSERT(enabled() && m_pageAutosizingStatus == PageNeedsAutosizing);
+
+    if (block == m_firstBlock) {
+        m_firstBlock = 0;
+        m_pageAutosizingStatus = PageAutosizingStatusUnknown;
+        m_clusterStack.clear();
         m_superclusters.clear();
 #ifndef NDEBUG
         m_blocksThatHaveBegunLayout.clear();
 #endif
-    }
-
-    if (currentCluster()->m_root == block)
+    } else if (currentCluster()->m_root == block) {
         m_clusterStack.removeLast();
-
-    ASSERT(m_clusterStack.isEmpty() == isLayoutRoot(block));
+    }
 }
 
 void FastTextAutosizer::inflate(RenderBlock* block)
@@ -169,15 +425,15 @@ bool FastTextAutosizer::enabled()
     return m_document->settings()->textAutosizingEnabled();
 }
 
-void FastTextAutosizer::prepareRenderViewInfo()
+void FastTextAutosizer::updateRenderViewInfo()
 {
     RenderView* renderView = toRenderView(m_document->renderer());
     bool horizontalWritingMode = isHorizontalWritingMode(renderView->style()->writingMode());
 
-    Frame* mainFrame = m_document->page()->mainFrame();
+    LocalFrame* mainFrame = m_document->page()->mainFrame();
     IntSize frameSize = m_document->settings()->textAutosizingWindowSizeOverride();
     if (frameSize.isEmpty())
-        frameSize = mainFrame->view()->unscaledVisibleContentSize(ScrollableArea::IncludeScrollbars);
+        frameSize = mainFrame->view()->unscaledVisibleContentSize(IncludeScrollbars);
     m_frameWidth = horizontalWritingMode ? frameSize.width() : frameSize.height();
 
     IntSize layoutSize = m_document->page()->mainFrame()->view()->layoutSize();
@@ -191,6 +447,10 @@ void FastTextAutosizer::prepareRenderViewInfo()
         float deviceScaleAdjustment = m_document->settings()->deviceScaleAdjustment();
         m_baseMultiplier *= deviceScaleAdjustment;
     }
+
+    m_pageAutosizingStatus = m_frameWidth && (m_baseMultiplier * (static_cast<float>(m_layoutWidth) / m_frameWidth) > 1.0f)
+        ? PageNeedsAutosizing : PageDoesNotNeedAutosizing;
+
 #ifndef NDEBUG
     m_renderViewInfoPrepared = true;
 #endif
@@ -200,76 +460,139 @@ bool FastTextAutosizer::isFingerprintingCandidate(const RenderBlock* block)
 {
     // FIXME: move the logic out of TextAutosizer.cpp into this class.
     return block->isRenderView()
-        || (TextAutosizer::isAutosizingContainer(block)
-            && TextAutosizer::isIndependentDescendant(block));
+        || (isAutosizingContainer(block)
+            && (isIndependentDescendant(block)
+                || mightBeWiderOrNarrowerDescendant(block)));
 }
 
-bool FastTextAutosizer::clusterWouldHaveEnoughTextToAutosize(const RenderBlock* root)
+bool FastTextAutosizer::clusterWouldHaveEnoughTextToAutosize(const RenderBlock* root, const RenderBlock* widthProvider)
 {
     Cluster hypotheticalCluster(root, true, 0);
-    return clusterHasEnoughTextToAutosize(&hypotheticalCluster);
+    return clusterHasEnoughTextToAutosize(&hypotheticalCluster, widthProvider);
 }
 
-bool FastTextAutosizer::clusterHasEnoughTextToAutosize(Cluster* cluster)
+bool FastTextAutosizer::clusterHasEnoughTextToAutosize(Cluster* cluster, const RenderBlock* widthProvider)
 {
+    if (cluster->m_hasEnoughTextToAutosize != UnknownAmountOfText)
+        return cluster->m_hasEnoughTextToAutosize == HasEnoughText;
+
     const RenderBlock* root = cluster->m_root;
+    if (!widthProvider)
+        widthProvider = clusterWidthProvider(root);
 
     // TextAreas and user-modifiable areas get a free pass to autosize regardless of text content.
-    if (root->isTextArea() || (root->style() && root->style()->userModify() != READ_ONLY))
+    if (root->isTextArea() || (root->style() && root->style()->userModify() != READ_ONLY)) {
+        cluster->m_hasEnoughTextToAutosize = HasEnoughText;
         return true;
+    }
 
-    static const float minLinesOfText = 4;
-    if (textLength(cluster) >= root->contentLogicalWidth() * minLinesOfText)
-        return true;
+    if (!containerShouldBeAutosized(root)) {
+        cluster->m_hasEnoughTextToAutosize = NotEnoughText;
+        return false;
+    }
 
-    return false;
-}
-
-float FastTextAutosizer::textLength(Cluster* cluster)
-{
-    if (cluster->m_textLength >= 0)
-        return cluster->m_textLength;
+    // 4 lines of text is considered enough to autosize.
+    float minimumTextLengthToAutosize = widthFromBlock(widthProvider) * 4;
 
     float length = 0;
-    const RenderBlock* root = cluster->m_root;
-    bool measureLocalText = TextAutosizer::containerShouldBeAutosized(root);
     RenderObject* descendant = root->nextInPreOrder(root);
     while (descendant) {
-        // FIXME: We should skip over text from descendant clusters (see:
-        //        clusters-sufficient-text-except-in-root.html). This currently includes text
-        //        from descendant clusters.
-
-        if (measureLocalText && descendant->isText()) {
+        if (descendant->isRenderBlock()) {
+            RenderBlock* block = toRenderBlock(descendant);
+            if (isAutosizingContainer(block)) {
+                // Note: Ideally we would check isWiderOrNarrowerDescendant here but we only know that
+                //       after the block has entered layout, which may not be the case.
+                bool isAutosizingClusterRoot = isIndependentDescendant(block) || block->isTable();
+                if ((isAutosizingClusterRoot && !block->isTableCell())
+                    || !containerShouldBeAutosized(block)) {
+                    descendant = descendant->nextInPreOrderAfterChildren(root);
+                    continue;
+                }
+            }
+        } else if (descendant->isText()) {
             // Note: Using text().stripWhiteSpace().length() instead of renderedTextLength() because
             // the lineboxes will not be built until layout. These values can be different.
+            // Note: This is an approximation assuming each character is 1em wide.
             length += toRenderText(descendant)->text().stripWhiteSpace().length() * descendant->style()->specifiedFontSize();
+
+            if (length >= minimumTextLengthToAutosize) {
+                cluster->m_hasEnoughTextToAutosize = HasEnoughText;
+                return true;
+            }
         }
         descendant = descendant->nextInPreOrder(root);
     }
 
-    return cluster->m_textLength = length;
+    cluster->m_hasEnoughTextToAutosize = NotEnoughText;
+    return false;
 }
 
-AtomicString FastTextAutosizer::computeFingerprint(const RenderBlock* block)
+FastTextAutosizer::Fingerprint FastTextAutosizer::getFingerprint(const RenderObject* renderer)
 {
-    // FIXME(crbug.com/322340): Implement a fingerprinting algorithm.
-    return nullAtom;
+    Fingerprint result = m_fingerprintMapper.get(renderer);
+    if (!result) {
+        result = computeFingerprint(renderer);
+        m_fingerprintMapper.add(renderer, result);
+    }
+    return result;
+}
+
+FastTextAutosizer::Fingerprint FastTextAutosizer::computeFingerprint(const RenderObject* renderer)
+{
+    Node* node = renderer->generatingNode();
+    if (!node || !node->isElementNode())
+        return 0;
+
+    FingerprintSourceData data;
+
+    // FIXME: Instead of computing and caching parent fingerprints on demand,
+    // consider maintaining a fingerprint stack during the style recalc
+    // tree walk (similar to the cluster stack used during layout).
+
+    if (const RenderObject* parent = parentElementRenderer(renderer))
+        data.m_parentHash = getFingerprint(parent);
+
+    data.m_qualifiedNameHash = QualifiedNameHash::hash(toElement(node)->tagQName());
+
+    if (RenderStyle* style = renderer->style()) {
+        data.m_packedStyleProperties = style->direction();
+        data.m_packedStyleProperties |= (style->position() << 1);
+        data.m_packedStyleProperties |= (style->floating() << 4);
+        data.m_packedStyleProperties |= (style->display() << 6);
+        data.m_packedStyleProperties |= (style->width().type() << 11);
+        // packedStyleProperties effectively using 15 bits now.
+
+        // consider for adding: writing mode, padding.
+
+        data.m_width = style->width().getFloatValue();
+    }
+
+    // Use nodeIndex as a rough approximation of column number
+    // (it's too early to call RenderTableCell::col).
+    // FIXME: account for colspan
+    if (renderer->isTableCell())
+        data.m_column = renderer->node()->nodeIndex();
+
+    return StringHasher::computeHash<UChar>(
+        static_cast<const UChar*>(static_cast<const void*>(&data)),
+        sizeof data / sizeof(UChar));
 }
 
 FastTextAutosizer::Cluster* FastTextAutosizer::maybeCreateCluster(const RenderBlock* block)
 {
-    if (!TextAutosizer::isAutosizingContainer(block))
+    if (!isAutosizingContainer(block))
         return 0;
 
     Cluster* parentCluster = m_clusterStack.isEmpty() ? 0 : currentCluster();
-    ASSERT(parentCluster || isLayoutRoot(block));
+    ASSERT(parentCluster || block->isRenderView());
 
     // Create clusters to suppress / unsuppress autosizing based on containerShouldBeAutosized.
-    bool containerCanAutosize = TextAutosizer::containerShouldBeAutosized(block);
+    bool containerCanAutosize = containerShouldBeAutosized(block);
     bool parentClusterCanAutosize = parentCluster && parentCluster->m_autosize;
-    bool createClusterThatMightAutosize = isLayoutRoot(block)
+    bool createClusterThatMightAutosize = block->isRenderView()
         || mightBeWiderOrNarrowerDescendant(block)
-        || TextAutosizer::isIndependentDescendant(block);
+        || isIndependentDescendant(block)
+        || block->isTable();
 
     // If the container would not alter the m_autosize bit, it doesn't need to be a cluster.
     if (!createClusterThatMightAutosize && containerCanAutosize == parentClusterCanAutosize)
@@ -280,12 +603,12 @@ FastTextAutosizer::Cluster* FastTextAutosizer::maybeCreateCluster(const RenderBl
 
 FastTextAutosizer::Supercluster* FastTextAutosizer::getSupercluster(const RenderBlock* block)
 {
-    AtomicString fingerprint = m_fingerprintMapper.get(block);
-    if (fingerprint.isNull())
+    Fingerprint fingerprint = m_fingerprintMapper.get(block);
+    if (!fingerprint)
         return 0;
 
-    BlockSet* roots = &m_fingerprintMapper.getBlocks(fingerprint);
-    if (roots->size() < 2)
+    BlockSet* roots = &m_fingerprintMapper.getTentativeClusterRoots(fingerprint);
+    if (!roots || roots->size() < 2 || !roots->contains(block))
         return 0;
 
     SuperclusterMap::AddResult addResult = m_superclusters.add(fingerprint, PassOwnPtr<Supercluster>());
@@ -318,16 +641,17 @@ float FastTextAutosizer::clusterMultiplier(Cluster* cluster)
 {
     ASSERT(m_renderViewInfoPrepared);
     if (!cluster->m_multiplier) {
-
-        if (isLayoutRoot(cluster->m_root)
-            || TextAutosizer::isIndependentDescendant(cluster->m_root)
-            || isWiderDescendant(cluster)
-            || isNarrowerDescendant(cluster)) {
+        if (cluster->m_root->isTable()
+            || isIndependentDescendant(cluster->m_root)
+            || isWiderOrNarrowerDescendant(cluster)) {
 
             if (cluster->m_supercluster) {
-                cluster->m_multiplier = superclusterMultiplier(cluster->m_supercluster);
+                cluster->m_multiplier = superclusterMultiplier(cluster);
             } else if (clusterHasEnoughTextToAutosize(cluster)) {
-                cluster->m_multiplier = multiplierFromBlock(deepestBlockContainingAllText(cluster));
+                cluster->m_multiplier = multiplierFromBlock(clusterWidthProvider(cluster->m_root));
+                // Do not inflate table descendants above the table's multiplier. See inflateTable(...) for details.
+                if (cluster->m_hasTableAncestor)
+                    cluster->m_multiplier = min(cluster->m_multiplier, clusterMultiplier(cluster->m_parent));
             } else {
                 cluster->m_multiplier = 1.0f;
             }
@@ -339,21 +663,56 @@ float FastTextAutosizer::clusterMultiplier(Cluster* cluster)
     return cluster->m_multiplier;
 }
 
-float FastTextAutosizer::superclusterMultiplier(Supercluster* supercluster)
+bool FastTextAutosizer::anyClusterHasEnoughTextToAutosize(const BlockSet* roots, const RenderBlock* widthProvider)
 {
+    for (BlockSet::iterator it = roots->begin(); it != roots->end(); ++it) {
+        if (clusterWouldHaveEnoughTextToAutosize(*it, widthProvider))
+            return true;
+    }
+    return false;
+}
+
+float FastTextAutosizer::superclusterMultiplier(Cluster* cluster)
+{
+    Supercluster* supercluster = cluster->m_supercluster;
     if (!supercluster->m_multiplier) {
         const BlockSet* roots = supercluster->m_roots;
-        // Set of the deepest block containing all text (DBCAT) of every cluster.
-        BlockSet dbcats;
-        for (BlockSet::iterator it = roots->begin(); it != roots->end(); ++it) {
-            dbcats.add(deepestBlockContainingAllText(*it));
-            supercluster->m_anyClusterHasEnoughText |= clusterWouldHaveEnoughTextToAutosize(*it);
+        const RenderBlock* widthProvider;
+
+        if (cluster->m_root->isTableCell()) {
+            widthProvider = clusterWidthProvider(cluster->m_root);
+        } else {
+            BlockSet widthProviders;
+            for (BlockSet::iterator it = roots->begin(); it != roots->end(); ++it)
+                widthProviders.add(clusterWidthProvider(*it));
+            widthProvider = deepestCommonAncestor(widthProviders);
         }
-        supercluster->m_multiplier = supercluster->m_anyClusterHasEnoughText
-            ? multiplierFromBlock(deepestCommonAncestor(dbcats)) : 1.0f;
+
+        supercluster->m_multiplier = anyClusterHasEnoughTextToAutosize(roots, widthProvider)
+            ? multiplierFromBlock(widthProvider) : 1.0f;
     }
     ASSERT(supercluster->m_multiplier);
     return supercluster->m_multiplier;
+}
+
+const RenderBlock* FastTextAutosizer::clusterWidthProvider(const RenderBlock* root)
+{
+    if (root->isTable() || root->isTableCell())
+        return root;
+
+    return deepestBlockContainingAllText(root);
+}
+
+float FastTextAutosizer::widthFromBlock(const RenderBlock* block)
+{
+    if (block->isTable()) {
+        RenderBlock* containingBlock = block->containingBlock();
+        ASSERT(block->containingBlock());
+        if (block->style()->logicalWidth().isSpecified())
+            return floatValueForLength(block->style()->logicalWidth(), containingBlock->contentLogicalWidth().toFloat());
+        return containingBlock->contentLogicalWidth().toFloat();
+    }
+    return block->contentLogicalWidth().toFloat();
 }
 
 float FastTextAutosizer::multiplierFromBlock(const RenderBlock* block)
@@ -364,8 +723,8 @@ float FastTextAutosizer::multiplierFromBlock(const RenderBlock* block)
     ASSERT(m_blocksThatHaveBegunLayout.contains(block) || !block->needsLayout());
 
     // Block width, in CSS pixels.
-    float textBlockWidth = block->contentLogicalWidth();
-    float multiplier = min(textBlockWidth, static_cast<float>(m_layoutWidth)) / m_frameWidth;
+    float blockWidth = widthFromBlock(block);
+    float multiplier = m_frameWidth ? min(blockWidth, static_cast<float>(m_layoutWidth)) / m_frameWidth : 1.0f;
 
     return max(m_baseMultiplier * multiplier, 1.0f);
 }
@@ -437,7 +796,7 @@ const RenderObject* FastTextAutosizer::findTextLeaf(const RenderObject* parent, 
     while (child) {
         // Note: At this point clusters may not have been created for these blocks so we cannot rely
         //       on m_clusters. Instead, we use a best-guess about whether the block will become a cluster.
-        if (!TextAutosizer::isAutosizingContainer(child) || !TextAutosizer::isIndependentDescendant(toRenderBlock(child))) {
+        if (!isAutosizingContainer(child) || !isIndependentDescendant(toRenderBlock(child))) {
             const RenderObject* leaf = findTextLeaf(child, depth, firstOrLast);
             if (leaf)
                 return leaf;
@@ -470,40 +829,30 @@ bool FastTextAutosizer::mightBeWiderOrNarrowerDescendant(const RenderBlock* bloc
     return block->style() && block->style()->width().isSpecified();
 }
 
-bool FastTextAutosizer::isWiderDescendant(Cluster* cluster)
+bool FastTextAutosizer::isWiderOrNarrowerDescendant(Cluster* cluster)
 {
     if (!cluster->m_parent || !mightBeWiderOrNarrowerDescendant(cluster->m_root))
         return true;
+
     const RenderBlock* parentDeepestBlockContainingAllText = deepestBlockContainingAllText(cluster->m_parent);
     ASSERT(m_blocksThatHaveBegunLayout.contains(cluster->m_root));
     ASSERT(m_blocksThatHaveBegunLayout.contains(parentDeepestBlockContainingAllText));
+
+    float contentWidth = cluster->m_root->contentLogicalWidth().toFloat();
+    float clusterTextWidth = parentDeepestBlockContainingAllText->contentLogicalWidth().toFloat();
 
     // Clusters with a root that is wider than the deepestBlockContainingAllText of their parent
-    // autosize independently of their parent. Otherwise, they fall back to their parent's multiplier.
-    float contentWidth = cluster->m_root->contentLogicalWidth();
-    float clusterTextWidth = parentDeepestBlockContainingAllText->contentLogicalWidth();
-    return contentWidth > clusterTextWidth;
-}
-
-bool FastTextAutosizer::isNarrowerDescendant(Cluster* cluster)
-{
-    static float narrowWidthDifference = 200;
-
-    if (!cluster->m_parent || !mightBeWiderOrNarrowerDescendant(cluster->m_root))
+    // autosize independently of their parent.
+    if (contentWidth > clusterTextWidth)
         return true;
 
-    const RenderBlock* parentDeepestBlockContainingAllText = deepestBlockContainingAllText(cluster->m_parent);
-    ASSERT(m_blocksThatHaveBegunLayout.contains(cluster->m_root));
-    ASSERT(m_blocksThatHaveBegunLayout.contains(parentDeepestBlockContainingAllText));
-
     // Clusters with a root that is significantly narrower than the deepestBlockContainingAllText of
-    // their parent autosize independently of their parent. Otherwise, they fall back to their
-    // parent's multiplier.
-    float contentWidth = cluster->m_root->contentLogicalWidth();
-    float clusterTextWidth = parentDeepestBlockContainingAllText->contentLogicalWidth();
-    float widthDifference = clusterTextWidth - contentWidth;
+    // their parent autosize independently of their parent.
+    static float narrowWidthDifference = 200;
+    if (clusterTextWidth - contentWidth > narrowWidthDifference)
+        return true;
 
-    return widthDifference > narrowWidthDifference;
+    return false;
 }
 
 FastTextAutosizer::Cluster* FastTextAutosizer::currentCluster() const
@@ -512,35 +861,71 @@ FastTextAutosizer::Cluster* FastTextAutosizer::currentCluster() const
     return m_clusterStack.last().get();
 }
 
-void FastTextAutosizer::FingerprintMapper::add(const RenderBlock* block, AtomicString fingerprint)
+#ifndef NDEBUG
+void FastTextAutosizer::FingerprintMapper::assertMapsAreConsistent()
 {
-    m_fingerprints.set(block, fingerprint);
+    // For each fingerprint -> block mapping in m_blocksForFingerprint we should have an associated
+    // map from block -> fingerprint in m_fingerprints.
+    ReverseFingerprintMap::iterator end = m_blocksForFingerprint.end();
+    for (ReverseFingerprintMap::iterator fingerprintIt = m_blocksForFingerprint.begin(); fingerprintIt != end; ++fingerprintIt) {
+        Fingerprint fingerprint = fingerprintIt->key;
+        BlockSet* blocks = fingerprintIt->value.get();
+        for (BlockSet::iterator blockIt = blocks->begin(); blockIt != blocks->end(); ++blockIt) {
+            const RenderBlock* block = (*blockIt);
+            ASSERT(m_fingerprints.get(block) == fingerprint);
+        }
+    }
+}
+#endif
+
+void FastTextAutosizer::FingerprintMapper::add(const RenderObject* renderer, Fingerprint fingerprint)
+{
+    remove(renderer);
+
+    m_fingerprints.set(renderer, fingerprint);
+#ifndef NDEBUG
+    assertMapsAreConsistent();
+#endif
+}
+
+void FastTextAutosizer::FingerprintMapper::addTentativeClusterRoot(const RenderBlock* block, Fingerprint fingerprint)
+{
+    add(block, fingerprint);
 
     ReverseFingerprintMap::AddResult addResult = m_blocksForFingerprint.add(fingerprint, PassOwnPtr<BlockSet>());
     if (addResult.isNewEntry)
         addResult.storedValue->value = adoptPtr(new BlockSet);
     addResult.storedValue->value->add(block);
+#ifndef NDEBUG
+    assertMapsAreConsistent();
+#endif
 }
 
-void FastTextAutosizer::FingerprintMapper::remove(const RenderBlock* block)
+void FastTextAutosizer::FingerprintMapper::remove(const RenderObject* renderer)
 {
-    AtomicString fingerprint = m_fingerprints.take(block);
-    if (fingerprint.isNull())
+    Fingerprint fingerprint = m_fingerprints.take(renderer);
+    if (!fingerprint || !renderer->isRenderBlock())
         return;
 
     ReverseFingerprintMap::iterator blocksIter = m_blocksForFingerprint.find(fingerprint);
+    if (blocksIter == m_blocksForFingerprint.end())
+        return;
+
     BlockSet& blocks = *blocksIter->value;
-    blocks.remove(block);
+    blocks.remove(toRenderBlock(renderer));
     if (blocks.isEmpty())
         m_blocksForFingerprint.remove(blocksIter);
+#ifndef NDEBUG
+    assertMapsAreConsistent();
+#endif
 }
 
-AtomicString FastTextAutosizer::FingerprintMapper::get(const RenderBlock* block)
+FastTextAutosizer::Fingerprint FastTextAutosizer::FingerprintMapper::get(const RenderObject* renderer)
 {
-    return m_fingerprints.get(block);
+    return m_fingerprints.get(renderer);
 }
 
-FastTextAutosizer::BlockSet& FastTextAutosizer::FingerprintMapper::getBlocks(AtomicString fingerprint)
+FastTextAutosizer::BlockSet& FastTextAutosizer::FingerprintMapper::getTentativeClusterRoots(Fingerprint fingerprint)
 {
     return *m_blocksForFingerprint.get(fingerprint);
 }
@@ -550,6 +935,33 @@ RenderObject* FastTextAutosizer::nextChildSkippingChildrenOfBlocks(const RenderO
     if (current == stayWithin || !current->isRenderBlock())
         return current->nextInPreOrder(stayWithin);
     return current->nextInPreOrderAfterChildren(stayWithin);
+}
+
+FastTextAutosizer::LayoutScope::LayoutScope(RenderBlock* block)
+    : m_textAutosizer(block->document().fastTextAutosizer())
+    , m_block(block)
+{
+    if (!m_textAutosizer)
+        return;
+
+    if (!m_textAutosizer->enabled()) {
+        m_textAutosizer = 0;
+        return;
+    }
+
+    if (m_textAutosizer->m_pageAutosizingStatus == PageAutosizingStatusUnknown)
+        m_textAutosizer->updateRenderViewInfo();
+
+    if (m_textAutosizer->m_pageAutosizingStatus == PageNeedsAutosizing)
+        m_textAutosizer->beginLayout(m_block);
+    else
+        m_textAutosizer = 0;
+}
+
+FastTextAutosizer::LayoutScope::~LayoutScope()
+{
+    if (m_textAutosizer)
+        m_textAutosizer->endLayout(m_block);
 }
 
 } // namespace WebCore

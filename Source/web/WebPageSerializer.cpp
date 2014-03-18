@@ -40,12 +40,12 @@
 #include "WebViewImpl.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLAllCollection.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLTableElement.h"
 #include "core/loader/DocumentLoader.h"
-#include "core/frame/Frame.h"
 #include "core/page/PageSerializer.h"
 #include "platform/SerializedResource.h"
 #include "platform/mhtml/MHTMLArchive.h"
@@ -104,16 +104,17 @@ KURL getSubResourceURLFromElement(Element* element)
 }
 
 void retrieveResourcesForElement(Element* element,
-                                 Vector<Frame*>* visitedFrames,
-                                 Vector<Frame*>* framesToVisit,
+                                 Vector<LocalFrame*>* visitedFrames,
+                                 Vector<LocalFrame*>* framesToVisit,
                                  Vector<KURL>* frameURLs,
                                  Vector<KURL>* resourceURLs)
 {
+    ASSERT(element);
     // If the node is a frame, we'll process it later in retrieveResourcesForFrame.
-    if ((element->hasTagName(HTMLNames::iframeTag) || element->hasTagName(HTMLNames::frameTag)
-        || element->hasTagName(HTMLNames::objectTag) || element->hasTagName(HTMLNames::embedTag))
+    if ((isHTMLIFrameElement(*element) || isHTMLFrameElement(*element)
+        || isHTMLObjectElement(*element) || isHTMLEmbedElement(*element))
             && element->isFrameOwnerElement()) {
-        if (Frame* frame = toHTMLFrameOwnerElement(element)->contentFrame()) {
+        if (LocalFrame* frame = toHTMLFrameOwnerElement(element)->contentFrame()) {
             if (!visitedFrames->contains(frame))
                 framesToVisit->append(frame);
             return;
@@ -133,10 +134,10 @@ void retrieveResourcesForElement(Element* element,
         resourceURLs->append(url);
 }
 
-void retrieveResourcesForFrame(Frame* frame,
+void retrieveResourcesForFrame(LocalFrame* frame,
                                const blink::WebVector<blink::WebCString>& supportedSchemes,
-                               Vector<Frame*>* visitedFrames,
-                               Vector<Frame*>* framesToVisit,
+                               Vector<LocalFrame*>* visitedFrames,
+                               Vector<LocalFrame*>* framesToVisit,
                                Vector<KURL>* frameURLs,
                                Vector<KURL>* resourceURLs)
 {
@@ -240,15 +241,15 @@ bool WebPageSerializer::retrieveAllResources(WebView* view,
     if (!mainFrame)
         return false;
 
-    Vector<Frame*> framesToVisit;
-    Vector<Frame*> visitedFrames;
+    Vector<LocalFrame*> framesToVisit;
+    Vector<LocalFrame*> visitedFrames;
     Vector<KURL> frameKURLs;
     Vector<KURL> resourceKURLs;
 
     // Let's retrieve the resources from every frame in this page.
     framesToVisit.append(mainFrame->frame());
     while (!framesToVisit.isEmpty()) {
-        Frame* frame = framesToVisit[0];
+        LocalFrame* frame = framesToVisit[0];
         framesToVisit.remove(0);
         retrieveResourcesForFrame(frame, supportedSchemes,
                                   &visitedFrames, &framesToVisit,

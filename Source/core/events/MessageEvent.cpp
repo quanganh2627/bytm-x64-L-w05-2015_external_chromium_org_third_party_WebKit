@@ -54,7 +54,7 @@ MessageEvent::MessageEvent(const AtomicString& type, const MessageEventInit& ini
     , m_dataType(DataTypeScriptValue)
     , m_origin(initializer.origin)
     , m_lastEventId(initializer.lastEventId)
-    , m_source(isValidSource(initializer.source.get()) ? initializer.source : 0)
+    , m_source(isValidSource(initializer.source.get()) ? initializer.source : nullptr)
     , m_ports(adoptPtr(new MessagePortArray(initializer.ports)))
 {
     ScriptWrappable::init(this);
@@ -112,7 +112,7 @@ MessageEvent::MessageEvent(const String& data, const String& origin)
     ScriptWrappable::init(this);
 }
 
-MessageEvent::MessageEvent(PassRefPtr<Blob> data, const String& origin)
+MessageEvent::MessageEvent(PassRefPtrWillBeRawPtr<Blob> data, const String& origin)
     : Event(EventTypeNames::message, false, false)
     , m_dataType(DataTypeBlob)
     , m_dataAsBlob(data)
@@ -138,7 +138,7 @@ PassRefPtr<MessageEvent> MessageEvent::create(const AtomicString& type, const Me
 {
     if (initializer.source.get() && !isValidSource(initializer.source.get())) {
         exceptionState.throwTypeError("The optional 'source' property is neither a Window nor MessagePort.");
-        return 0;
+        return nullptr;
     }
     return adoptRef(new MessageEvent(type, initializer));
 }
@@ -183,6 +183,11 @@ const AtomicString& MessageEvent::interfaceName() const
 void MessageEvent::entangleMessagePorts(ExecutionContext* context)
 {
     m_ports = MessagePort::entanglePorts(*context, m_channels.release());
+}
+
+void MessageEvent::trace(Visitor* visitor)
+{
+    Event::trace(visitor);
 }
 
 } // namespace WebCore

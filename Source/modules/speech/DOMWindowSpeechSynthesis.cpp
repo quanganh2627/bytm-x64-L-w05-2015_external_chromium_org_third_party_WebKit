@@ -32,13 +32,13 @@
 #include "modules/speech/DOMWindowSpeechSynthesis.h"
 
 #include "core/frame/DOMWindow.h"
-#include "core/frame/Frame.h"
+#include "core/frame/LocalFrame.h"
 #include "wtf/PassRefPtr.h"
 
 namespace WebCore {
 
-DOMWindowSpeechSynthesis::DOMWindowSpeechSynthesis(DOMWindow* window)
-    : DOMWindowProperty(window->frame())
+DOMWindowSpeechSynthesis::DOMWindowSpeechSynthesis(DOMWindow& window)
+    : DOMWindowProperty(window.frame())
 {
 }
 
@@ -52,20 +52,20 @@ const char* DOMWindowSpeechSynthesis::supplementName()
 }
 
 // static
-DOMWindowSpeechSynthesis* DOMWindowSpeechSynthesis::from(DOMWindow* window)
+DOMWindowSpeechSynthesis& DOMWindowSpeechSynthesis::from(DOMWindow& window)
 {
     DOMWindowSpeechSynthesis* supplement = static_cast<DOMWindowSpeechSynthesis*>(Supplement<DOMWindow>::from(window, supplementName()));
     if (!supplement) {
         supplement = new DOMWindowSpeechSynthesis(window);
         provideTo(window, supplementName(), adoptPtr(supplement));
     }
-    return supplement;
+    return *supplement;
 }
 
 // static
-SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis(DOMWindow* window)
+SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis(DOMWindow& window)
 {
-    return DOMWindowSpeechSynthesis::from(window)->speechSynthesis();
+    return DOMWindowSpeechSynthesis::from(window).speechSynthesis();
 }
 
 SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis()

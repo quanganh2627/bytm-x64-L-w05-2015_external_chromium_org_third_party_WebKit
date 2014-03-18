@@ -38,13 +38,13 @@
 #include "core/dom/Document.h"
 #include "core/dom/NodeRenderStyle.h"
 #include "core/editing/FrameSelection.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLOptGroupElement.h"
 #include "core/html/HTMLOptionElement.h"
 #include "core/html/HTMLSelectElement.h"
 #include "core/page/EventHandler.h"
 #include "core/page/FocusController.h"
-#include "core/frame/Frame.h"
-#include "core/frame/FrameView.h"
 #include "core/page/Page.h"
 #include "core/page/SpatialNavigation.h"
 #include "core/rendering/HitTestResult.h"
@@ -90,7 +90,7 @@ RenderListBox::RenderListBox(Element* element)
 {
     ASSERT(element);
     ASSERT(element->isHTMLElement());
-    ASSERT(element->hasTagName(HTMLNames::selectTag));
+    ASSERT(isHTMLSelectElement(element));
 
     if (FrameView* frameView = frame()->view())
         frameView->addScrollableArea(this);
@@ -129,10 +129,10 @@ void RenderListBox::updateFromElement()
             HTMLElement* element = listItems[i];
             String text;
             Font itemFont = style()->font();
-            if (element->hasTagName(optionTag)) {
-                text = toHTMLOptionElement(element)->textIndentedToRespectGroupLabel();
-            } else if (element->hasTagName(optgroupTag)) {
-                text = toHTMLOptGroupElement(element)->groupLabelText();
+            if (isHTMLOptionElement(*element)) {
+                text = toHTMLOptionElement(*element).textIndentedToRespectGroupLabel();
+            } else if (isHTMLOptGroupElement(*element)) {
+                text = toHTMLOptGroupElement(*element).groupLabelText();
                 FontDescription d = itemFont.fontDescription();
                 d.setWeight(d.bolderWeight());
                 itemFont = Font(d);
@@ -191,7 +191,7 @@ void RenderListBox::layout()
     }
 
     if (m_scrollToRevealSelectionAfterLayout) {
-        LayoutStateDisabler layoutStateDisabler(view());
+        LayoutStateDisabler layoutStateDisabler(*this);
         scrollToRevealSelection();
     }
 }
@@ -352,7 +352,7 @@ void RenderListBox::addFocusRingRects(Vector<IntRect>& rects, const LayoutPoint&
     const Vector<HTMLElement*>& listItems = select->listItems();
     for (int i = 0; i < size; ++i) {
         HTMLElement* element = listItems[i];
-        if (element->hasTagName(optionTag) && !element->isDisabledFormControl()) {
+        if (isHTMLOptionElement(*element) && !element->isDisabledFormControl()) {
             rects.append(pixelSnappedIntRect(itemBoundingBoxRect(additionalOffset, i)));
             return;
         }
@@ -418,15 +418,15 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
         return;
 
     String itemText;
-    bool isOptionElement = element->hasTagName(optionTag);
+    bool isOptionElement = isHTMLOptionElement(*element);
     if (isOptionElement)
-        itemText = toHTMLOptionElement(element)->textIndentedToRespectGroupLabel();
-    else if (element->hasTagName(optgroupTag))
-        itemText = toHTMLOptGroupElement(element)->groupLabelText();
+        itemText = toHTMLOptionElement(*element).textIndentedToRespectGroupLabel();
+    else if (isHTMLOptGroupElement(*element))
+        itemText = toHTMLOptGroupElement(*element).groupLabelText();
     applyTextTransform(style(), itemText, ' ');
 
     Color textColor = element->renderStyle() ? resolveColor(element->renderStyle(), CSSPropertyColor) : resolveColor(CSSPropertyColor);
-    if (isOptionElement && toHTMLOptionElement(element)->selected()) {
+    if (isOptionElement && toHTMLOptionElement(*element).selected()) {
         if (frame()->selection().isFocusedAndActive() && document().focusedElement() == node())
             textColor = RenderTheme::theme().activeListBoxSelectionForegroundColor();
         // Honor the foreground color for disabled items
@@ -441,7 +441,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     LayoutRect r = itemBoundingBoxRect(paintOffset, listIndex);
     r.move(itemOffsetForAlignment(textRun, itemStyle, itemFont, r));
 
-    if (element->hasTagName(optgroupTag)) {
+    if (isHTMLOptGroupElement(*element)) {
         FontDescription d = itemFont.fontDescription();
         d.setWeight(d.bolderWeight());
         itemFont = Font(d);
@@ -460,7 +460,7 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, const LayoutPoint&
     HTMLElement* element = listItems[listIndex];
 
     Color backColor;
-    if (element->hasTagName(optionTag) && toHTMLOptionElement(element)->selected()) {
+    if (isHTMLOptionElement(*element) && toHTMLOptionElement(*element).selected()) {
         if (frame()->selection().isFocusedAndActive() && document().focusedElement() == node())
             backColor = RenderTheme::theme().activeListBoxSelectionBackgroundColor();
         else
@@ -539,8 +539,7 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
         return;
 
     if (yDelta > 0)
-        //offsetY = view()->viewHeight();
-        absOffset.move(0, listHeight());
+        absOffset.move(0, listHeight().toFloat());
     else if (yDelta < 0)
         yDelta--;
 
@@ -908,12 +907,6 @@ float RenderListBox::pixelStep(ScrollbarOrientation) const
     return 1.0f / itemHeight();
 }
 
-ScrollableArea* RenderListBox::enclosingScrollableArea() const
-{
-    // FIXME: Return a RenderLayer that's scrollable.
-    return 0;
-}
-
 IntRect RenderListBox::scrollableAreaBoundingBox() const
 {
     return absoluteBoundingBoxRect();
@@ -942,7 +935,7 @@ void RenderListBox::destroyScrollbar()
         ScrollableArea::willRemoveScrollbar(m_vBar.get(), VerticalScrollbar);
     m_vBar->removeFromParent();
     m_vBar->disconnectFromScrollableArea();
-    m_vBar = 0;
+    m_vBar = nullptr;
 }
 
 void RenderListBox::setHasVerticalScrollbar(bool hasScrollbar)

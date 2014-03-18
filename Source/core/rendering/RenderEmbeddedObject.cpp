@@ -26,8 +26,8 @@
 
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLIFrameElement.h"
-#include "core/frame/Frame.h"
 #include "core/page/Page.h"
 #include "core/frame/Settings.h"
 #include "core/plugins/PluginView.h"
@@ -148,7 +148,7 @@ void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint
 
     GraphicsContextStateSaver stateSaver(*context);
     context->clip(contentRect);
-    context->setAlpha(replacementTextRoundedRectOpacity);
+    context->setAlphaAsFloat(replacementTextRoundedRectOpacity);
     context->setFillColor(Color::white);
     context->fillPath(path);
 
@@ -157,7 +157,7 @@ void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint
     float labelY = roundf(replacementTextRect.location().y() + (replacementTextRect.size().height() - fontMetrics.height()) / 2 + fontMetrics.ascent());
     TextRunPaintInfo runInfo(run);
     runInfo.bounds = replacementTextRect;
-    context->setAlpha(replacementTextTextOpacity);
+    context->setAlphaAsFloat(replacementTextTextOpacity);
     context->setFillColor(Color::black);
     context->drawBidiText(font, runInfo, FloatPoint(labelX, labelY));
 }
@@ -176,7 +176,7 @@ bool RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumul
         return false;
     fontDescription.setComputedSize(fontDescription.specifiedSize());
     font = Font(fontDescription);
-    font.update(0);
+    font.update(nullptr);
 
     run = TextRun(m_unavailablePluginReplacementText);
     textWidth = font.width(run);
@@ -231,10 +231,7 @@ void RenderEmbeddedObject::layout()
     if (newSize == oldSize && !childBox->needsLayout())
         return;
 
-    // When calling layout() on a child node, a parent must either push a LayoutStateMaintainter, or
-    // instantiate LayoutStateDisabler. Since using a LayoutStateMaintainer is slightly more efficient,
-    // and this method will be called many times per second during playback, use a LayoutStateMaintainer:
-    LayoutStateMaintainer statePusher(view(), this, locationOffset(), hasTransform() || hasReflection() || style()->isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(*this, locationOffset());
 
     childBox->setLocation(LayoutPoint(borderLeft(), borderTop()) + LayoutSize(paddingLeft(), paddingTop()));
     childBox->style()->setHeight(Length(newSize.height(), Fixed));

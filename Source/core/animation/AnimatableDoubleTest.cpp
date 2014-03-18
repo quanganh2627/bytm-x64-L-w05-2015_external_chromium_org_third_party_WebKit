@@ -53,8 +53,8 @@ TEST(AnimationAnimatableDoubleTest, Equal)
 
 TEST(AnimationAnimatableDoubleTest, ToCSSValue)
 {
-    RefPtr<CSSValue> cssValue5 = CSSPrimitiveValue::create(5, CSSPrimitiveValue::CSS_NUMBER);
-    RefPtr<CSSValue> cssValue10 = CSSPrimitiveValue::create(10, CSSPrimitiveValue::CSS_NUMBER);
+    RefPtrWillBeRawPtr<CSSValue> cssValue5 = CSSPrimitiveValue::create(5, CSSPrimitiveValue::CSS_NUMBER);
+    RefPtrWillBeRawPtr<CSSValue> cssValue10 = CSSPrimitiveValue::create(10, CSSPrimitiveValue::CSS_NUMBER);
     EXPECT_TRUE(AnimatableDouble::create(5)->toCSSValue()->equals(*cssValue5.get()));
     EXPECT_FALSE(AnimatableDouble::create(5)->toCSSValue()->equals(*cssValue10.get()));
 }
@@ -86,6 +86,17 @@ TEST(AnimationAnimatableDoubleTest, Add)
     EXPECT_EQ(10, toAnimatableDouble(AnimatableValue::add(AnimatableDouble::create(4).get(), AnimatableDouble::create(6).get()).get())->toDouble());
     EXPECT_EQ(20, toAnimatableDouble(AnimatableValue::add(AnimatableDouble::create(0).get(), AnimatableDouble::create(20).get()).get())->toDouble());
     EXPECT_EQ(30, toAnimatableDouble(AnimatableValue::add(AnimatableDouble::create(30).get(), AnimatableDouble::create(0).get()).get())->toDouble());
+}
+
+TEST(AnimationAnimatableDoubleTest, Distance)
+{
+    RefPtr<AnimatableDouble> first = AnimatableDouble::create(-1.5);
+    RefPtr<AnimatableDouble> second = AnimatableDouble::create(2.25);
+    RefPtr<AnimatableDouble> third = AnimatableDouble::create(3);
+
+    EXPECT_DOUBLE_EQ(3.75, AnimatableValue::distance(first.get(), second.get()));
+    EXPECT_DOUBLE_EQ(0.75, AnimatableValue::distance(second.get(), third.get()));
+    EXPECT_DOUBLE_EQ(4.5, AnimatableValue::distance(third.get(), first.get()));
 }
 
 }

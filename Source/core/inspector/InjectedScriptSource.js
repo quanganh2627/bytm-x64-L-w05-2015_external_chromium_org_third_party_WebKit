@@ -111,6 +111,30 @@ function nullifyObjectProto(obj)
 }
 
 /**
+ * FireBug's array detection.
+ * @param {*} obj
+ * @return {boolean}
+ */
+function isArrayLike(obj)
+{
+    try {
+        if (typeof obj !== "object")
+            return false;
+        if (typeof obj.splice === "function")
+            return isFinite(obj.length);
+        var str = Object.prototype.toString.call(obj);
+        if (str === "[object Array]" ||
+            str === "[object Arguments]" ||
+            str === "[object HTMLCollection]" ||
+            str === "[object NodeList]" ||
+            str === "[object DOMTokenList]")
+            return isFinite(obj.length);
+    } catch (e) {
+    }
+    return false;
+}
+
+/**
  * @constructor
  */
 var InjectedScript = function()
@@ -434,7 +458,7 @@ InjectedScript.prototype = {
 
                 try {
                     nameProcessed[name] = true;
-                    var descriptor = nullifyObjectProto(Object.getOwnPropertyDescriptor(/** @type {!Object} */ (o), name));
+                    var descriptor = nullifyObjectProto(InjectedScriptHost.suppressWarningsAndCall(Object, Object.getOwnPropertyDescriptor, o, name));
                     if (descriptor) {
                         if (accessorPropertiesOnly && !("get" in descriptor || "set" in descriptor))
                             continue;
@@ -557,7 +581,10 @@ InjectedScript.prototype = {
 
             return resolvedArg;
         } else if ("value" in callArgumentJson) {
-            return callArgumentJson.value;
+            var value = callArgumentJson.value;
+            if (callArgumentJson.type === "number" && typeof value !== "number")
+                value = Number(value);
+            return value;
         }
         return undefined;
     },
@@ -614,20 +641,21 @@ InjectedScript.prototype = {
         // Surround the expression in with statements to inject our command line API so that
         // the window object properties still take more precedent than our API functions.
 
-        var injectScopeChain = scopeChain && scopeChain.length;
+        injectCommandLineAPI = injectCommandLineAPI && !("__commandLineAPI" in inspectedWindow);
+        var injectScopeChain = scopeChain && scopeChain.length && !("__scopeChainForEval" in inspectedWindow);
 
         try {
             var prefix = "";
             var suffix = "";
-            if (injectCommandLineAPI && inspectedWindow.console) {
-                inspectedWindow.console._commandLineAPI = new CommandLineAPI(this._commandLineAPIImpl, isEvalOnCallFrame ? object : null);
-                prefix = "with ((console && console._commandLineAPI) || { __proto__: null }) {";
+            if (injectCommandLineAPI) {
+                inspectedWindow.__commandLineAPI = new CommandLineAPI(this._commandLineAPIImpl, isEvalOnCallFrame ? object : null);
+                prefix = "with (__commandLineAPI || { __proto__: null }) {";
                 suffix = "}";
             }
-            if (injectScopeChain && inspectedWindow.console) {
-                inspectedWindow.console._scopeChainForEval = scopeChain;
+            if (injectScopeChain) {
+                inspectedWindow.__scopeChainForEval = scopeChain;
                 for (var i = 0; i < scopeChain.length; ++i) {
-                    prefix = "with ((console && console._scopeChainForEval[" + i + "]) || { __proto__: null }) {" + (suffix ? " " : "") + prefix;
+                    prefix = "with (__scopeChainForEval[" + i + "] || { __proto__: null }) {" + (suffix ? " " : "") + prefix;
                     if (suffix)
                         suffix += " }";
                     else
@@ -642,10 +670,10 @@ InjectedScript.prototype = {
                 this._lastResult = result;
             return result;
         } finally {
-            if (injectCommandLineAPI && inspectedWindow.console)
-                delete inspectedWindow.console._commandLineAPI;
-            if (injectScopeChain && inspectedWindow.console)
-                delete inspectedWindow.console._scopeChainForEval;
+            if (injectCommandLineAPI)
+                delete inspectedWindow.__commandLineAPI;
+            if (injectScopeChain)
+                delete inspectedWindow.__scopeChainForEval;
         }
     },
 
@@ -892,14 +920,8 @@ InjectedScript.prototype = {
         if (preciseType)
             return preciseType;
 
-        // FireBug's array detection.
-        try {
-            if (typeof obj.splice === "function" && isFinite(obj.length))
-                return "array";
-            if (Object.prototype.toString.call(obj) === "[object Arguments]" && isFinite(obj.length)) // arguments.
-                return "array";
-        } catch (e) {
-        }
+        if (isArrayLike(obj))
+            return "array";
 
         // If owning frame has navigated to somewhere else window properties will be undefined.
         return null;
@@ -988,8 +1010,19 @@ InjectedScript.RemoteObject = function(object, objectGroupName, forceValueType, 
             this.subtype = "null";
 
         // Provide user-friendly number values.
-        if (this.type === "number")
+        if (this.type === "number") {
             this.description = toStringDescription(object);
+            // Override "value" property for values that can not be JSON-stringified.
+            switch (this.description) {
+            case "NaN":
+            case "Infinity":
+            case "-Infinity":
+            case "-0":
+                this.value = this.description;
+                break;
+            }
+        }
+
         return;
     }
 

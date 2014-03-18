@@ -91,7 +91,7 @@ public:
     unsigned childIndex() const { return m_childIndex; }
     void setChildIndex(unsigned index) { m_childIndex = index; }
 
-    CSSStyleDeclaration* ensureInlineCSSStyleDeclaration(Element* ownerElement);
+    CSSStyleDeclaration& ensureInlineCSSStyleDeclaration(Element* ownerElement);
 
     void clearShadow() { m_shadow = nullptr; }
     ElementShadow* shadow() const { return m_shadow.get(); }
@@ -107,7 +107,7 @@ public:
 
     RenderStyle* computedStyle() const { return m_computedStyle.get(); }
     void setComputedStyle(PassRefPtr<RenderStyle> computedStyle) { m_computedStyle = computedStyle; }
-    void clearComputedStyle() { m_computedStyle = 0; }
+    void clearComputedStyle() { m_computedStyle = nullptr; }
 
     ClassList* classList() const { return m_classList.get(); }
     void setClassList(PassOwnPtr<ClassList> classList) { m_classList = classList; }
@@ -137,11 +137,11 @@ public:
     void setHasPendingResources(bool has) { m_hasPendingResources = has; }
 
     bool hasInputMethodContext() const { return m_inputMethodContext; }
-    InputMethodContext* ensureInputMethodContext(HTMLElement* element)
+    InputMethodContext& ensureInputMethodContext(HTMLElement* element)
     {
         if (!m_inputMethodContext)
             m_inputMethodContext = InputMethodContext::create(element);
-        return m_inputMethodContext.get();
+        return *m_inputMethodContext;
     }
 
     bool hasPseudoElements() const;
@@ -233,9 +233,9 @@ inline bool ElementRareData::hasPseudoElements() const
 
 inline void ElementRareData::clearPseudoElements()
 {
-    setPseudoElement(BEFORE, 0);
-    setPseudoElement(AFTER, 0);
-    setPseudoElement(BACKDROP, 0);
+    setPseudoElement(BEFORE, nullptr);
+    setPseudoElement(AFTER, nullptr);
+    setPseudoElement(BACKDROP, nullptr);
 }
 
 inline void ElementRareData::setPseudoElement(PseudoId pseudoId, PassRefPtr<PseudoElement> element)

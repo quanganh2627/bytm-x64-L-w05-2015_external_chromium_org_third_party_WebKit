@@ -38,7 +38,7 @@ namespace WebCore {
 
 struct MIDIConnectionEventInit : public EventInit {
     MIDIConnectionEventInit()
-        : port(0)
+        : port(nullptr)
     {
     };
 
@@ -65,6 +65,8 @@ public:
     RefPtr<MIDIPort> port() { return m_port; }
 
     virtual const AtomicString& interfaceName() const OVERRIDE { return EventNames::MIDIConnectionEvent; }
+
+    virtual void trace(Visitor* visitor) OVERRIDE { Event::trace(visitor); }
 
 private:
     MIDIConnectionEvent()

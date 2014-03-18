@@ -76,7 +76,7 @@ void HTMLOptGroupElement::parseAttribute(const QualifiedName& name, const Atomic
 void HTMLOptGroupElement::recalcSelectOptions()
 {
     ContainerNode* select = parentNode();
-    while (select && !select->hasTagName(selectTag))
+    while (select && !isHTMLSelectElement(*select))
         select = select->parentNode();
     if (select)
         toHTMLSelectElement(select)->setRecalcListItems();
@@ -84,7 +84,10 @@ void HTMLOptGroupElement::recalcSelectOptions()
 
 void HTMLOptGroupElement::attach(const AttachContext& context)
 {
-    updateNonRenderStyle();
+    if (context.resolvedStyle) {
+        ASSERT(!m_style || m_style == context.resolvedStyle);
+        m_style = context.resolvedStyle;
+    }
     HTMLElement::attach(context);
 }
 
@@ -106,13 +109,8 @@ RenderStyle* HTMLOptGroupElement::nonRendererStyle() const
 
 PassRefPtr<RenderStyle> HTMLOptGroupElement::customStyleForRenderer()
 {
+    updateNonRenderStyle();
     return m_style;
-}
-
-void HTMLOptGroupElement::willRecalcStyle(StyleRecalcChange change)
-{
-    if (!needsAttach() && (needsStyleRecalc() || change >= Inherit))
-        updateNonRenderStyle();
 }
 
 String HTMLOptGroupElement::groupLabelText() const
@@ -130,7 +128,7 @@ String HTMLOptGroupElement::groupLabelText() const
 HTMLSelectElement* HTMLOptGroupElement::ownerSelectElement() const
 {
     ContainerNode* select = parentNode();
-    while (select && !select->hasTagName(selectTag))
+    while (select && !isHTMLSelectElement(*select))
         select = select->parentNode();
 
     if (!select)

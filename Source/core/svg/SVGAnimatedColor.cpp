@@ -24,7 +24,6 @@
 #include "core/rendering/RenderObject.h"
 #include "core/svg/ColorDistance.h"
 #include "core/svg/SVGAnimateElement.h"
-#include "core/svg/SVGColor.h"
 
 namespace WebCore {
 
@@ -37,7 +36,7 @@ PassRefPtr<NewSVGPropertyBase> SVGColorProperty::cloneForAnimation(const String&
 {
     // SVGAnimatedColor is deprecated. So No SVG DOM animation.
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 static inline Color fallbackColorForCurrentColor(SVGElement* targetElement)

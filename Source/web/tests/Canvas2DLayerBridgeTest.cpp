@@ -30,6 +30,7 @@
 #include "SkSurface.h"
 #include "platform/graphics/ImageBuffer.h"
 #include "public/platform/Platform.h"
+#include "public/platform/WebExternalBitmap.h"
 #include "public/platform/WebGraphicsContext3DProvider.h"
 #include "public/platform/WebThread.h"
 #include "third_party/skia/include/core/SkDevice.h"
@@ -90,6 +91,23 @@ private:
     RefPtr<Canvas2DLayerBridge> m_layerBridge;
 };
 
+class NullWebExternalBitmap : public WebExternalBitmap {
+public:
+    virtual WebSize size()
+    {
+        return WebSize();
+    }
+
+    virtual void setSize(WebSize)
+    {
+    }
+
+    virtual uint8* pixels()
+    {
+        return 0;
+    }
+};
+
 } // namespace
 
 class Canvas2DLayerBridgeTest : public Test {
@@ -98,7 +116,8 @@ protected:
     {
         MockCanvasContext mainMock;
         OwnPtr<MockWebGraphicsContext3DProvider> mainMockProvider = adoptPtr(new MockWebGraphicsContext3DProvider(&mainMock));
-        OwnPtr<SkDeferredCanvas> canvas = adoptPtr(SkDeferredCanvas::Create(SkSurface::NewRasterPMColor(300, 150)));
+        RefPtr<SkSurface> surface = adoptRef(SkSurface::NewRasterPMColor(300, 150));
+        OwnPtr<SkDeferredCanvas> canvas = adoptPtr(SkDeferredCanvas::Create(surface.get()));
 
         ::testing::Mock::VerifyAndClearExpectations(&mainMock);
 
@@ -116,6 +135,20 @@ protected:
 
         ::testing::Mock::VerifyAndClearExpectations(&mainMock);
     }
+
+    void prepareMailboxWithBitmapTest()
+    {
+        MockCanvasContext mainMock;
+        RefPtr<SkSurface> surface = adoptRef(SkSurface::NewRasterPMColor(300, 150));
+        OwnPtr<SkDeferredCanvas> canvas = adoptPtr(SkDeferredCanvas::Create(surface.get()));
+        OwnPtr<MockWebGraphicsContext3DProvider> mainMockProvider = adoptPtr(new MockWebGraphicsContext3DProvider(&mainMock));
+        Canvas2DLayerBridgePtr bridge(adoptRef(new Canvas2DLayerBridge(mainMockProvider.release(), canvas.release(), 0, NonOpaque)));
+        bridge->m_lastImageId = 1;
+
+        NullWebExternalBitmap bitmap;
+        bridge->prepareMailbox(0, &bitmap);
+        EXPECT_EQ(0u, bridge->m_lastImageId);
+    }
 };
 
 namespace {
@@ -123,6 +156,11 @@ namespace {
 TEST_F(Canvas2DLayerBridgeTest, testFullLifecycleSingleThreaded)
 {
     fullLifecycleTest();
+}
+
+TEST_F(Canvas2DLayerBridgeTest, prepareMailboxWithBitmapTest)
+{
+    prepareMailboxWithBitmapTest();
 }
 
 } // namespace

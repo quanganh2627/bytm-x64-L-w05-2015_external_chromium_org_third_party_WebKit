@@ -135,6 +135,19 @@ static void CycleFreeCache(size_t size)
     }
 }
 
+static void CycleGenericFreeCache(size_t size)
+{
+    for (size_t i = 0; i < WTF::kMaxFreeableSpans; ++i) {
+        void* ptr = partitionAllocGeneric(genericAllocator.root(), size);
+        WTF::PartitionPage* page = WTF::partitionPointerToPage(WTF::partitionCookieFreePointerAdjust(ptr));
+        WTF::PartitionBucket* bucket = page->bucket;
+        EXPECT_EQ(1, bucket->activePagesHead->numAllocatedSlots);
+        partitionFreeGeneric(genericAllocator.root(), ptr);
+        EXPECT_EQ(0, bucket->activePagesHead->numAllocatedSlots);
+        EXPECT_NE(-1, bucket->activePagesHead->freeCacheIndex);
+    }
+}
+
 // Check that the most basic of allocate / free pairs work.
 TEST(WTF_PartitionAlloc, Basic)
 {
@@ -574,6 +587,69 @@ TEST(WTF_PartitionAlloc, GenericAllocSizes)
     TestShutdown();
 }
 
+// Test that we can fetch the real allocated size after an allocation.
+TEST(WTF_PartitionAlloc, GenericAllocGetSize)
+{
+    TestSetup();
+
+    void* ptr;
+    size_t requestedSize, actualSize, predictedSize;
+
+    EXPECT_TRUE(partitionAllocSupportsGetSize());
+
+    // Allocate something small.
+    requestedSize = 511 - kExtraAllocSize;
+    predictedSize = partitionAllocActualSize(genericAllocator.root(), requestedSize);
+    ptr = partitionAllocGeneric(genericAllocator.root(), requestedSize);
+    EXPECT_TRUE(ptr);
+    actualSize = partitionAllocGetSize(ptr);
+    EXPECT_EQ(predictedSize, actualSize);
+    EXPECT_LT(requestedSize, actualSize);
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    // Allocate a size that should be a perfect match for a bucket, because it
+    // is an exact power of 2.
+    requestedSize = (256 * 1024) - kExtraAllocSize;
+    predictedSize = partitionAllocActualSize(genericAllocator.root(), requestedSize);
+    ptr = partitionAllocGeneric(genericAllocator.root(), requestedSize);
+    EXPECT_TRUE(ptr);
+    actualSize = partitionAllocGetSize(ptr);
+    EXPECT_EQ(predictedSize, actualSize);
+    EXPECT_EQ(requestedSize, actualSize);
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    // Allocate a size that is a system page smaller than a bucket. GetSize()
+    // should return a larger size than we asked for now.
+    requestedSize = (256 * 1024) - WTF::kSystemPageSize - kExtraAllocSize;
+    predictedSize = partitionAllocActualSize(genericAllocator.root(), requestedSize);
+    ptr = partitionAllocGeneric(genericAllocator.root(), requestedSize);
+    EXPECT_TRUE(ptr);
+    actualSize = partitionAllocGetSize(ptr);
+    EXPECT_EQ(predictedSize, actualSize);
+    EXPECT_EQ(requestedSize + WTF::kSystemPageSize, actualSize);
+    // Check that we can write at the end of the reported size too.
+    char* charPtr = reinterpret_cast<char*>(ptr);
+    *(charPtr + (actualSize - 1)) = 'A';
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    // Allocate something very large, and uneven.
+    requestedSize = 512 * 1024 * 1024 - 1;
+    predictedSize = partitionAllocActualSize(genericAllocator.root(), requestedSize);
+    ptr = partitionAllocGeneric(genericAllocator.root(), requestedSize);
+    EXPECT_TRUE(ptr);
+    actualSize = partitionAllocGetSize(ptr);
+    EXPECT_EQ(predictedSize, actualSize);
+    EXPECT_LT(requestedSize, actualSize);
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    // Too large allocation.
+    requestedSize = INT_MAX;
+    predictedSize = partitionAllocActualSize(genericAllocator.root(), requestedSize);
+    EXPECT_EQ(requestedSize, predictedSize);
+
+    TestShutdown();
+}
+
 // Test the realloc() contract.
 TEST(WTF_PartitionAlloc, Realloc)
 {
@@ -587,6 +663,51 @@ TEST(WTF_PartitionAlloc, Realloc)
     void* ptr2 = partitionReallocGeneric(genericAllocator.root(), ptr, 0);
     EXPECT_EQ(0, ptr2);
     EXPECT_EQ(WTF::partitionCookieFreePointerAdjust(ptr), page->freelistHead);
+
+    // Test that growing an allocation with realloc() copies everything from the
+    // old allocation.
+    size_t size = WTF::kSystemPageSize - kExtraAllocSize;
+    EXPECT_EQ(size, partitionAllocActualSize(genericAllocator.root(), size));
+    ptr = partitionAllocGeneric(genericAllocator.root(), size);
+    memset(ptr, 'A', size);
+    ptr2 = partitionReallocGeneric(genericAllocator.root(), ptr, size + 1);
+    EXPECT_NE(ptr, ptr2);
+    char* charPtr2 = static_cast<char*>(ptr2);
+    EXPECT_EQ('A', charPtr2[0]);
+    EXPECT_EQ('A', charPtr2[size - 1]);
+#ifndef NDEBUG
+    EXPECT_EQ(WTF::kUninitializedByte, static_cast<unsigned char>(charPtr2[size]));
+#endif
+
+    // Test that shrinking an allocation with realloc() also copies everything
+    // from the old allocation.
+    ptr = partitionReallocGeneric(genericAllocator.root(), ptr2, size - 1);
+    EXPECT_NE(ptr2, ptr);
+    char* charPtr = static_cast<char*>(ptr);
+    EXPECT_EQ('A', charPtr[0]);
+    EXPECT_EQ('A', charPtr[size - 2]);
+#ifndef NDEBUG
+    EXPECT_EQ(WTF::kUninitializedByte, static_cast<unsigned char>(charPtr[size - 1]));
+#endif
+
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    // Test that shrinking a direct mapped allocation happens in-place (even
+    // though the new size is smaller than kGenericMaxBucketed).
+    size = WTF::kGenericMaxBucketed + 16 * WTF::kSystemPageSize;
+    ptr = partitionAllocGeneric(genericAllocator.root(), size);
+    size_t actualSize = partitionAllocGetSize(ptr);
+    ptr2 = partitionReallocGeneric(genericAllocator.root(), ptr, WTF::kGenericMaxBucketed - 16 * WTF::kSystemPageSize);
+    EXPECT_EQ(ptr, ptr2);
+    EXPECT_EQ(actualSize - 32 * WTF::kSystemPageSize, partitionAllocGetSize(ptr2));
+
+    // Test that a previously in-place shrunk direct mapped allocation can be
+    // expanded up again within its original size.
+    ptr = partitionReallocGeneric(genericAllocator.root(), ptr2, size - WTF::kSystemPageSize);
+    EXPECT_EQ(ptr2, ptr);
+    EXPECT_EQ(actualSize - WTF::kSystemPageSize, partitionAllocGetSize(ptr));
+
+    partitionFreeGeneric(genericAllocator.root(), ptr);
 
     TestShutdown();
 }
@@ -898,6 +1019,70 @@ TEST(WTF_PartitionAlloc, FreeCache)
     TestShutdown();
 }
 
+// Tests for a bug we had with losing references to free pages.
+TEST(WTF_PartitionAlloc, LostFreePagesBug)
+{
+    TestSetup();
+
+    size_t size = WTF::kPartitionPageSize - kExtraAllocSize;
+
+    void* ptr = partitionAllocGeneric(genericAllocator.root(), size);
+    EXPECT_TRUE(ptr);
+    void* ptr2 = partitionAllocGeneric(genericAllocator.root(), size);
+    EXPECT_TRUE(ptr2);
+
+    WTF::PartitionPage* page = WTF::partitionPointerToPage(WTF::partitionCookieFreePointerAdjust(ptr));
+    WTF::PartitionPage* page2 = WTF::partitionPointerToPage(WTF::partitionCookieFreePointerAdjust(ptr2));
+    WTF::PartitionBucket* bucket = page->bucket;
+
+    EXPECT_EQ(0, bucket->freePagesHead);
+    EXPECT_EQ(-1, page->numAllocatedSlots);
+    EXPECT_EQ(1, page2->numAllocatedSlots);
+
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+    partitionFreeGeneric(genericAllocator.root(), ptr2);
+
+    EXPECT_EQ(0, bucket->freePagesHead);
+    EXPECT_EQ(0, page->numAllocatedSlots);
+    EXPECT_EQ(0, page2->numAllocatedSlots);
+    EXPECT_TRUE(page->freelistHead);
+    EXPECT_TRUE(page2->freelistHead);
+
+    CycleGenericFreeCache(kTestAllocSize);
+
+    EXPECT_FALSE(page->freelistHead);
+    EXPECT_FALSE(page2->freelistHead);
+
+    EXPECT_FALSE(bucket->freePagesHead);
+    EXPECT_TRUE(bucket->activePagesHead);
+    EXPECT_TRUE(bucket->activePagesHead->nextPage);
+
+    // At this moment, we have two freed pages, on the freelist.
+
+    ptr = partitionAllocGeneric(genericAllocator.root(), size);
+    EXPECT_TRUE(ptr);
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    EXPECT_TRUE(bucket->activePagesHead);
+    EXPECT_TRUE(bucket->freePagesHead);
+
+    CycleGenericFreeCache(kTestAllocSize);
+
+    // We're now set up to trigger the bug by scanning over the active pages
+    // list, where the current active page is freed, and there exists at least
+    // one freed page in the free pages list.
+    ptr = partitionAllocGeneric(genericAllocator.root(), size);
+    EXPECT_TRUE(ptr);
+    partitionFreeGeneric(genericAllocator.root(), ptr);
+
+    EXPECT_TRUE(bucket->activePagesHead);
+    EXPECT_TRUE(bucket->freePagesHead);
+
+    TestShutdown();
+}
+
+#if !OS(ANDROID)
+
 // Make sure that malloc(-1) dies.
 // In the past, we had an integer overflow that would alias malloc(-1) to
 // malloc(0), which is not good.
@@ -964,6 +1149,8 @@ TEST(WTF_PartitionAllocDeathTest, GuardPages)
 
     TestShutdown();
 }
+
+#endif // !OS(ANDROID)
 
 // Tests that the countLeadingZeros() functions work to our satisfaction.
 // It doesn't seem worth the overhead of a whole new file for these tests, so

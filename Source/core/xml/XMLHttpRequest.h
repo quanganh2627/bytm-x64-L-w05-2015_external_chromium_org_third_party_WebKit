@@ -30,6 +30,7 @@
 #include "core/loader/ThreadableLoaderClient.h"
 #include "core/xml/XMLHttpRequestEventTarget.h"
 #include "core/xml/XMLHttpRequestProgressEventThrottle.h"
+#include "heap/Handle.h"
 #include "platform/AsyncMethodRunner.h"
 #include "platform/network/FormData.h"
 #include "platform/network/ResourceResponse.h"
@@ -53,11 +54,11 @@ class ThreadableLoader;
 
 typedef int ExceptionCode;
 
-class XMLHttpRequest FINAL : public ScriptWrappable, public RefCounted<XMLHttpRequest>, public XMLHttpRequestEventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
-    WTF_MAKE_FAST_ALLOCATED;
-    REFCOUNTED_EVENT_TARGET(XMLHttpRequest);
+class XMLHttpRequest FINAL : public RefCountedWillBeRefCountedGarbageCollected<XMLHttpRequest>, public ScriptWrappable, public XMLHttpRequestEventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
+    WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED;
+    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<XMLHttpRequest>);
 public:
-    static PassRefPtr<XMLHttpRequest> create(ExecutionContext*, PassRefPtr<SecurityOrigin> = 0);
+    static PassRefPtrWillBeRawPtr<XMLHttpRequest> create(ExecutionContext*, PassRefPtr<SecurityOrigin> = nullptr);
     virtual ~XMLHttpRequest();
 
     // These exact numeric values are important because JS expects them.
@@ -143,6 +144,8 @@ public:
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(readystatechange);
 
+    void trace(Visitor*);
+
 private:
     XMLHttpRequest(ExecutionContext*, PassRefPtr<SecurityOrigin>);
 
@@ -152,9 +155,6 @@ private:
     virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) OVERRIDE;
     virtual void didReceiveResponse(unsigned long identifier, const ResourceResponse&) OVERRIDE;
     virtual void didReceiveData(const char* data, int dataLength) OVERRIDE;
-    // When "blob" is specified as the responseType attribute, didDownloadData
-    // is called instead of didReceiveData.
-    virtual void didDownloadData(int dataLength) OVERRIDE;
     virtual void didFinishLoading(unsigned long identifier, double finishTime) OVERRIDE;
     virtual void didFail(const ResourceError&) OVERRIDE;
     virtual void didFailRedirectCheck() OVERRIDE;
@@ -219,8 +219,8 @@ private:
     bool m_async;
     bool m_includeCredentials;
     unsigned long m_timeoutMilliseconds;
-    RefPtr<Blob> m_responseBlob;
-    RefPtr<Stream> m_responseStream;
+    RefPtrWillBeMember<Blob> m_responseBlob;
+    RefPtrWillBeMember<Stream> m_responseStream;
 
     RefPtr<ThreadableLoader> m_loader;
     State m_state;
@@ -237,7 +237,6 @@ private:
     RefPtr<Document> m_responseDocument;
 
     RefPtr<SharedBuffer> m_binaryResponseBuilder;
-    long long m_downloadedBlobLength;
     RefPtr<ArrayBuffer> m_responseArrayBuffer;
 
     bool m_error;

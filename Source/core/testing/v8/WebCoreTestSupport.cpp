@@ -31,7 +31,7 @@
 #include "V8Internals.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/frame/Frame.h"
+#include "core/frame/LocalFrame.h"
 
 #include <v8.h>
 
@@ -59,8 +59,9 @@ void resetInternalsObject(v8::Local<v8::Context> context)
 
     ExecutionContext* scriptContext = currentExecutionContext(context->GetIsolate());
     Page* page = toDocument(scriptContext)->frame()->page();
+    ASSERT(page);
     Internals::resetToConsistentState(page);
-    InternalSettings::from(page)->resetToConsistentState();
+    InternalSettings::from(*page)->resetToConsistentState();
 }
 
 }

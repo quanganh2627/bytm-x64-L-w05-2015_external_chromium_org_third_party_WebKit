@@ -20,7 +20,7 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     v8::Handle<v8::Object> holder = info.Holder();
     {% else %}{# perform lookup first #}
     {# FIXME: can we remove this lookup? #}
-    v8::Handle<v8::Object> holder = info.This()->FindInstanceInPrototypeChain({{v8_class}}::domTemplate(info.GetIsolate(), worldType(info.GetIsolate())));
+    v8::Handle<v8::Object> holder = {{v8_class}}::findInstanceInPrototypeChain(info.This(), info.GetIsolate());
     if (holder.IsEmpty())
         return;
     {% endif %}{# Window #}
@@ -29,7 +29,7 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     v8::Handle<v8::String> propertyName = v8AtomicString(info.GetIsolate(), "{{attribute.name}}");
     {{cpp_class}}* imp = {{v8_class}}::toNative(info.Holder());
     if (!imp->{{attribute.cached_attribute_validation_method}}()) {
-        v8::Handle<v8::Value> jsValue = getHiddenValue(info.GetIsolate(), info.Holder(), propertyName);
+        v8::Handle<v8::Value> jsValue = V8HiddenValue::getHiddenValue(info.GetIsolate(), info.Holder(), propertyName);
         if (!jsValue.IsEmpty()) {
             v8SetReturnValue(info, jsValue);
             return;
@@ -37,6 +37,9 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     }
     {% elif not (attribute.is_static or attribute.is_unforgeable) %}
     {{cpp_class}}* imp = {{v8_class}}::toNative(info.Holder());
+    {% endif %}
+    {% if attribute.is_implemented_by and not attribute.is_static %}
+    ASSERT(imp);
     {% endif %}
     {% if interface_name == 'Window' and attribute.idl_type == 'EventHandler' %}
     if (!imp->document())
@@ -86,17 +89,17 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     }
     {% endif %}
     {% if attribute.cached_attribute_validation_method %}
-    setHiddenValue(info.GetIsolate(), info.Holder(), propertyName, {{attribute.cpp_value}}.v8Value());
+    V8HiddenValue::setHiddenValue(info.GetIsolate(), info.Holder(), propertyName, {{attribute.cpp_value}}.v8Value());
     {% endif %}
     {# v8SetReturnValue #}
     {% if attribute.is_keep_alive_for_gc %}
     {# FIXME: merge local variable assignment with above #}
-    {{attribute.cpp_type}} result = {{attribute.cpp_value}};
+    {{attribute.cpp_type}} result({{attribute.cpp_value}});
     if (result && DOMDataStore::setReturnValueFromWrapper{{world_suffix}}<{{attribute.v8_type}}>(info.GetReturnValue(), result.get()))
         return;
     v8::Handle<v8::Value> wrapper = toV8(result.get(), info.Holder(), info.GetIsolate());
     if (!wrapper.IsEmpty()) {
-        setHiddenValue(info.GetIsolate(), info.Holder(), "{{attribute.name}}", wrapper);
+        V8HiddenValue::setHiddenValue(info.GetIsolate(), info.Holder(), v8AtomicString(info.GetIsolate(), "{{attribute.name}}"), wrapper);
         {{attribute.v8_set_return_value}};
     }
     {% elif world_suffix %}
@@ -155,10 +158,10 @@ v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
     {% if attribute.deprecate_as %}
-    UseCounter::countDeprecation(activeExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
     {% endif %}
     {% if attribute.measure_as %}
-    UseCounter::count(activeExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
     {% endif %}
     {% if world_suffix in attribute.activity_logging_world_list_for_getter %}
     V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
@@ -170,6 +173,25 @@ v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info
     {% else %}
     {{cpp_class}}V8Internal::{{attribute.name}}AttributeGetter{{world_suffix}}(info);
     {% endif %}
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+{% endfilter %}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro constructor_getter_callback(attribute, world_suffix) %}
+{% filter conditional(attribute.conditional_string) %}
+static void {{attribute.name}}ConstructorGetterCallback{{world_suffix}}(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
+    {% if attribute.deprecate_as %}
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+    {% endif %}
+    {% if attribute.measure_as %}
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
+    {% endif %}
+    {{cpp_class}}V8Internal::{{cpp_class}}ConstructorGetter{{world_suffix}}(property, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
 {% endfilter %}
@@ -189,8 +211,6 @@ v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info
     {% if attribute.is_reflect and attribute.idl_type == 'DOMString' and
           is_node %}
     {% set cpp_class, v8_class = 'Element', 'V8Element' %}
-    {# FIXME: Perl skips most of function, but this seems unnecessary;
-       we only need to skip the CallbackDeliveryScope #}
     {% endif %}
     {% if attribute.has_setter_exception_state %}
     ExceptionState exceptionState(ExceptionState::SetterContext, "{{attribute.name}}", "{{interface_name}}", info.Holder(), info.GetIsolate());
@@ -204,18 +224,23 @@ v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info
         return;
     }
     {% endif %}
+    {# imp #}
     {% if attribute.put_forwards %}
     {{cpp_class}}* proxyImp = {{v8_class}}::toNative(info.Holder());
-    {{attribute.idl_type}}* imp = proxyImp->{{attribute.name}}();
+    RefPtr<{{attribute.idl_type}}> imp = WTF::getPtr(proxyImp->{{attribute.name}}());
     if (!imp)
         return;
     {% elif not attribute.is_static %}
     {{cpp_class}}* imp = {{v8_class}}::toNative(info.Holder());
-    {% endif %}{# imp #}
+    {% endif %}
+    {% if attribute.is_implemented_by and not attribute.is_static %}
+    ASSERT(imp);
+    {% endif %}
     {% if attribute.idl_type == 'EventHandler' and interface_name == 'Window' %}
     if (!imp->document())
         return;
     {% endif %}
+    {# Convert JS value to C++ value #}
     {% if attribute.idl_type != 'EventHandler' %}
     {{attribute.v8_value_to_local_cpp_value}};
     {% elif not is_node %}{# EventHandler hack #}
@@ -227,6 +252,7 @@ v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info
     if (!({{attribute.enum_validation_expression}}))
         return;
     {% endif %}
+    {# Pre-set context #}
     {% if attribute.is_custom_element_callbacks or
           (attribute.is_reflect and
            not(attribute.idl_type == 'DOMString' and is_node)) %}
@@ -237,12 +263,14 @@ v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info
           attribute.is_setter_call_with_execution_context %}
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     {% endif %}
+    {# Set #}
     {{attribute.cpp_setter}};
+    {# Post-set #}
     {% if attribute.is_setter_raises_exception %}
     exceptionState.throwIfNeeded();
     {% endif %}
     {% if attribute.cached_attribute_validation_method %}
-    deleteHiddenValue(info.GetIsolate(), info.Holder(), "{{attribute.name}}"); // Invalidate the cached value.
+    V8HiddenValue::deleteHiddenValue(info.GetIsolate(), info.Holder(), v8AtomicString(info.GetIsolate(), "{{attribute.name}}")); // Invalidate the cached value.
     {% endif %}
 }
 {% endfilter %}
@@ -264,10 +292,10 @@ v8::Local<v8::String>, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackI
     {% endif %}
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
     {% if attribute.deprecate_as %}
-    UseCounter::countDeprecation(activeExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
     {% endif %}
     {% if attribute.measure_as %}
-    UseCounter::count(activeExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
     {% endif %}
     {% if world_suffix in attribute.activity_logging_world_list_for_setter %}
     V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());

@@ -37,7 +37,7 @@ namespace {
 
 class MockGraphicsLayerClient : public GraphicsLayerClient {
   public:
-    virtual void notifyAnimationStarted(const GraphicsLayer*, double wallClockTime, double monotonicTime) OVERRIDE { }
+    virtual void notifyAnimationStarted(const GraphicsLayer*, double monotonicTime) OVERRIDE { }
     virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const IntRect& inClip) OVERRIDE { }
     virtual String debugName(const GraphicsLayer*) OVERRIDE { return String(); }
 };
@@ -77,7 +77,7 @@ public:
     virtual PassRefPtr<NativeImageSkia> nativeImageForCurrentFrame() OVERRIDE
     {
         if (m_size.isZero())
-            return 0;
+            return nullptr;
 
         return m_nativeImage;
     }

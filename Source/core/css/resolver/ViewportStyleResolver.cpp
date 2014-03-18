@@ -57,16 +57,16 @@ void ViewportStyleResolver::collectViewportRules(RuleSet* rules, Origin origin)
 {
     rules->compactRulesIfNeeded();
 
-    const Vector<StyleRuleViewport*>& viewportRules = rules->viewportRules();
+    const WillBeHeapVector<RawPtrWillBeMember<StyleRuleViewport> >& viewportRules = rules->viewportRules();
     for (size_t i = 0; i < viewportRules.size(); ++i)
         addViewportRule(viewportRules[i], origin);
 }
 
 void ViewportStyleResolver::addViewportRule(StyleRuleViewport* viewportRule, Origin origin)
 {
-    StylePropertySet* propertySet = viewportRule->mutableProperties();
+    StylePropertySet& propertySet = viewportRule->mutableProperties();
 
-    unsigned propertyCount = propertySet->propertyCount();
+    unsigned propertyCount = propertySet.propertyCount();
     if (!propertyCount)
         return;
 
@@ -74,14 +74,14 @@ void ViewportStyleResolver::addViewportRule(StyleRuleViewport* viewportRule, Ori
         m_hasAuthorStyle = true;
 
     if (!m_propertySet) {
-        m_propertySet = propertySet->mutableCopy();
+        m_propertySet = propertySet.mutableCopy();
         return;
     }
 
     // We cannot use mergeAndOverrideOnConflict() here because it doesn't
     // respect the !important declaration (but addParsedProperty() does).
     for (unsigned i = 0; i < propertyCount; ++i)
-        m_propertySet->addParsedProperty(propertySet->propertyAt(i).toCSSProperty());
+        m_propertySet->addParsedProperty(propertySet.propertyAt(i).toCSSProperty());
 }
 
 void ViewportStyleResolver::clearDocument()
@@ -96,7 +96,7 @@ void ViewportStyleResolver::resolve()
 
     if (!m_propertySet || (!m_hasAuthorStyle && m_document->hasLegacyViewportTag())) {
         ASSERT(!m_hasAuthorStyle);
-        m_propertySet = 0;
+        m_propertySet = nullptr;
         m_document->setViewportDescription(ViewportDescription());
         return;
     }
@@ -115,7 +115,7 @@ void ViewportStyleResolver::resolve()
 
     m_document->setViewportDescription(description);
 
-    m_propertySet = 0;
+    m_propertySet = nullptr;
     m_hasAuthorStyle = false;
 }
 
@@ -129,7 +129,7 @@ float ViewportStyleResolver::viewportArgumentValue(CSSPropertyID id) const
     if (id == CSSPropertyUserZoom)
         defaultValue = 1;
 
-    RefPtr<CSSValue> value = m_propertySet->getPropertyCSSValue(id);
+    RefPtrWillBeRawPtr<CSSValue> value = m_propertySet->getPropertyCSSValue(id);
     if (!value || !value->isPrimitiveValue())
         return defaultValue;
 
@@ -179,7 +179,7 @@ Length ViewportStyleResolver::viewportLengthValue(CSSPropertyID id) const
         || id == CSSPropertyMaxWidth
         || id == CSSPropertyMinWidth);
 
-    RefPtr<CSSValue> value = m_propertySet->getPropertyCSSValue(id);
+    RefPtrWillBeRawPtr<CSSValue> value = m_propertySet->getPropertyCSSValue(id);
     if (!value || !value->isPrimitiveValue())
         return Length(); // auto
 

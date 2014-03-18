@@ -44,7 +44,7 @@ private:
         if (m_resolveType == Rejected)
             m_observer->reportError(value);
         m_observer->decrementPendingActivity();
-        m_observer = 0;
+        m_observer = nullptr;
         return value;
     }
 
@@ -75,7 +75,7 @@ void WaitUntilObserver::didDispatchEvent()
 void WaitUntilObserver::waitUntil(const ScriptValue& value)
 {
     incrementPendingActivity();
-    ScriptPromise(value).then(
+    ScriptPromise::cast(value).then(
         ThenFunction::create(this, ThenFunction::Fulfilled),
         ThenFunction::create(this, ThenFunction::Rejected));
 }

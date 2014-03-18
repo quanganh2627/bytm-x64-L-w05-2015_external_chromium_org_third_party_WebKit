@@ -74,12 +74,13 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/NotImplemented.cpp \
 	third_party/WebKit/Source/platform/OverscrollTheme.cpp \
 	third_party/WebKit/Source/platform/Partitions.cpp \
+	third_party/WebKit/Source/platform/PermissionCallbacks.cpp \
 	third_party/WebKit/Source/platform/PlatformInstrumentation.cpp \
 	third_party/WebKit/Source/platform/PlatformKeyboardEvent.cpp \
 	third_party/WebKit/Source/platform/PlatformScreen.cpp \
 	third_party/WebKit/Source/platform/PlatformThreadData.cpp \
 	third_party/WebKit/Source/platform/Prerender.cpp \
-	third_party/WebKit/Source/platform/PurgeableBuffer.cpp \
+	third_party/WebKit/Source/platform/PurgeableVector.cpp \
 	third_party/WebKit/Source/platform/SSLKeyGenerator.cpp \
 	third_party/WebKit/Source/platform/SecureTextInput.cpp \
 	third_party/WebKit/Source/platform/SharedBuffer.cpp \
@@ -143,8 +144,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/clipboard/ClipboardMimeTypes.cpp \
 	third_party/WebKit/Source/platform/clipboard/ClipboardUtilities.cpp \
 	third_party/WebKit/Source/platform/clipboard/ClipboardUtilitiesPosix.cpp \
-	third_party/WebKit/Source/platform/drm/ContentDecryptionModule.cpp \
-	third_party/WebKit/Source/platform/drm/ContentDecryptionModuleSession.cpp \
 	third_party/WebKit/Source/platform/exported/Platform.cpp \
 	third_party/WebKit/Source/platform/exported/WebActiveGestureAnimation.cpp \
 	third_party/WebKit/Source/platform/exported/WebArrayBuffer.cpp \
@@ -154,6 +153,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebContentDecryptionModule.cpp \
 	third_party/WebKit/Source/platform/exported/WebContentDecryptionModuleSession.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoAlgorithm.cpp \
+	third_party/WebKit/Source/platform/exported/WebCryptoKeyAlgorithm.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoKey.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoResult.cpp \
 	third_party/WebKit/Source/platform/exported/WebCursorInfo.cpp \
@@ -172,6 +172,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebMediaStreamSource.cpp \
 	third_party/WebKit/Source/platform/exported/WebMediaStreamTrack.cpp \
 	third_party/WebKit/Source/platform/exported/WebMediaStreamTrackSourcesRequest.cpp \
+	third_party/WebKit/Source/platform/exported/WebPermissionCallbacks.cpp \
 	third_party/WebKit/Source/platform/exported/WebPrerender.cpp \
 	third_party/WebKit/Source/platform/exported/WebPrerenderingSupport.cpp \
 	third_party/WebKit/Source/platform/exported/WebRTCConfiguration.cpp \
@@ -184,6 +185,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebScrollbarImpl.cpp \
 	third_party/WebKit/Source/platform/exported/WebScrollbarThemeClientImpl.cpp \
 	third_party/WebKit/Source/platform/exported/WebScrollbarThemeGeometryNative.cpp \
+	third_party/WebKit/Source/platform/exported/WebServiceWorkerResponse.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketHandshakeRequestInfo.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketHandshakeResponseInfo.cpp \
 	third_party/WebKit/Source/platform/exported/WebSocketStreamError.cpp \
@@ -290,7 +292,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/graphics/DeferredImageDecoder.cpp \
 	third_party/WebKit/Source/platform/graphics/DiscardablePixelRef.cpp \
 	third_party/WebKit/Source/platform/graphics/DisplayList.cpp \
-	third_party/WebKit/Source/platform/graphics/DrawLooper.cpp \
+	third_party/WebKit/Source/platform/graphics/DrawLooperBuilder.cpp \
 	third_party/WebKit/Source/platform/graphics/FrameData.cpp \
 	third_party/WebKit/Source/platform/graphics/GeneratedImage.cpp \
 	third_party/WebKit/Source/platform/graphics/Gradient.cpp \
@@ -298,6 +300,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/graphics/GraphicsContext.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsContextAnnotation.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsContextRecorder.cpp \
+	third_party/WebKit/Source/platform/graphics/GraphicsContextState.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsLayer.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsLayerDebugInfo.cpp \
 	third_party/WebKit/Source/platform/graphics/GraphicsTypes.cpp \
@@ -339,6 +342,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/mhtml/ArchiveResourceCollection.cpp \
 	third_party/WebKit/Source/platform/mhtml/MHTMLArchive.cpp \
 	third_party/WebKit/Source/platform/mhtml/MHTMLParser.cpp \
+	third_party/WebKit/Source/platform/network/ContentSecurityPolicyParsers.cpp \
+	third_party/WebKit/Source/platform/network/ContentSecurityPolicyResponseHeaders.cpp \
 	third_party/WebKit/Source/platform/network/DNS.cpp \
 	third_party/WebKit/Source/platform/network/HTTPHeaderMap.cpp \
 	third_party/WebKit/Source/platform/network/HTTPParsers.cpp \
@@ -423,11 +428,10 @@ MY_CFLAGS_Debug := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
-	-m32 \
-	-mmmx \
-	-march=pentium4 \
 	-msse2 \
 	-mfpmath=sse \
+	-mmmx \
+	-m32 \
 	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
@@ -450,6 +454,7 @@ MY_CFLAGS_Debug := \
 
 MY_DEFS_Debug := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -457,9 +462,9 @@ MY_DEFS_Debug := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -468,12 +473,9 @@ MY_DEFS_Debug := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -482,8 +484,13 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -492,6 +499,7 @@ MY_DEFS_Debug := \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DUSE_SYSTEM_LIBJPEG' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -567,11 +575,10 @@ MY_CFLAGS_Release := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
-	-m32 \
-	-mmmx \
-	-march=pentium4 \
 	-msse2 \
 	-mfpmath=sse \
+	-mmmx \
+	-m32 \
 	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
@@ -594,6 +601,7 @@ MY_CFLAGS_Release := \
 
 MY_DEFS_Release := \
 	'-DV8_DEPRECATION_WARNINGS' \
+	'-DBLINK_SCALE_FILTERS_AT_RECORD_TIME' \
 	'-D_FILE_OFFSET_BITS=64' \
 	'-DNO_TCMALLOC' \
 	'-DDISABLE_NACL' \
@@ -601,9 +609,9 @@ MY_DEFS_Release := \
 	'-DUSE_LIBJPEG_TURBO=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
-	'-DUSE_OPENSSL=1' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
@@ -612,12 +620,9 @@ MY_DEFS_Release := \
 	'-DINSIDE_BLINK' \
 	'-DENABLE_CUSTOM_SCHEME_HANDLER=0' \
 	'-DENABLE_SVG_FONTS=1' \
-	'-DENABLE_GDI_FONTS_ON_WINDOWS=0' \
-	'-DENABLE_HARFBUZZ_ON_WINDOWS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
 	'-DENABLE_INPUT_SPEECH=0' \
-	'-DENABLE_LEGACY_NOTIFICATIONS=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -626,8 +631,13 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
+	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
+	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
+	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
+	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -636,6 +646,7 @@ MY_DEFS_Release := \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
 	'-DUSE_SYSTEM_LIBJPEG' \
+	'-DUSE_OPENSSL=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -703,9 +714,11 @@ LOCAL_CPPFLAGS_Release := \
 LOCAL_CFLAGS := $(MY_CFLAGS_$(GYP_CONFIGURATION)) $(MY_DEFS_$(GYP_CONFIGURATION))
 LOCAL_C_INCLUDES := $(GYP_COPIED_SOURCE_ORIGIN_DIRS) $(LOCAL_C_INCLUDES_$(GYP_CONFIGURATION))
 LOCAL_CPPFLAGS := $(LOCAL_CPPFLAGS_$(GYP_CONFIGURATION))
+LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -715,7 +728,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--fatal-warnings \
 	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
@@ -723,6 +735,7 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
+	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
 	-Wl,-z,noexecstack \
@@ -735,7 +748,6 @@ LOCAL_LDFLAGS_Release := \
 	-Wl,-O1 \
 	-Wl,--as-needed \
 	-Wl,--gc-sections \
-	-Wl,--fatal-warnings \
 	-Wl,--warn-shared-textrel
 
 

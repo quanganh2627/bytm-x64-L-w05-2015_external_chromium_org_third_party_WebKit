@@ -84,10 +84,10 @@ static PassRefPtr<AnimatableValue> createFromLength(const Length& length, const 
     case DeviceWidth:
     case DeviceHeight:
         ASSERT_NOT_REACHED();
-        return 0;
+        return nullptr;
     }
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 static PassRefPtr<AnimatableValue> createFromLineHeight(const Length& length, const RenderStyle& style)
@@ -171,7 +171,7 @@ inline static PassRefPtr<AnimatableValue> createFromFillSize(const FillSize& fil
         return AnimatableUnknown::create(CSSPrimitiveValue::create(fillSize.type));
     default:
         ASSERT_NOT_REACHED();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -228,6 +228,38 @@ inline static PassRefPtr<AnimatableValue> createFromShapeValue(ShapeValue* value
     if (value)
         return AnimatableShapeValue::create(value);
     return AnimatableUnknown::create(CSSValueAuto);
+}
+
+static double fontWeightToDouble(FontWeight fontWeight)
+{
+    switch (fontWeight) {
+    case FontWeight100:
+        return 100;
+    case FontWeight200:
+        return 200;
+    case FontWeight300:
+        return 300;
+    case FontWeight400:
+        return 400;
+    case FontWeight500:
+        return 500;
+    case FontWeight600:
+        return 600;
+    case FontWeight700:
+        return 700;
+    case FontWeight800:
+        return 800;
+    case FontWeight900:
+        return 900;
+    }
+
+    ASSERT_NOT_REACHED();
+    return 400;
+}
+
+static PassRefPtr<AnimatableValue> createFromFontWeight(FontWeight fontWeight)
+{
+    return createFromDouble(fontWeightToDouble(fontWeight));
 }
 
 // FIXME: Generate this function.
@@ -311,6 +343,8 @@ PassRefPtr<AnimatableValue> CSSAnimatableValueFactory::create(CSSPropertyID prop
         // FIXME: Should we introduce an option to pass the computed font size here, allowing consumers to
         // enable text zoom rather than Text Autosizing? See http://crbug.com/227545.
         return createFromDouble(style.specifiedFontSize());
+    case CSSPropertyFontWeight:
+        return createFromFontWeight(style.fontWeight());
     case CSSPropertyHeight:
         return createFromLength(style.height(), style);
     case CSSPropertyKerning:
@@ -462,7 +496,7 @@ PassRefPtr<AnimatableValue> CSSAnimatableValueFactory::create(CSSPropertyID prop
     default:
         ASSERT_NOT_REACHED();
         // This return value is to avoid a release crash if possible.
-        return AnimatableUnknown::create(0);
+        return AnimatableUnknown::create(nullptr);
     }
 }
 

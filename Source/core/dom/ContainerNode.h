@@ -82,15 +82,16 @@ public:
 
     Node* firstChild() const { return m_firstChild; }
     Node* lastChild() const { return m_lastChild; }
-    bool hasChildNodes() const { return m_firstChild; }
+    bool hasChildren() const { return m_firstChild; }
 
     bool hasOneChild() const { return m_firstChild && !m_firstChild->nextSibling(); }
     bool hasOneTextChild() const { return hasOneChild() && m_firstChild->isTextNode(); }
+    bool hasChildCount(unsigned) const;
 
     PassRefPtr<HTMLCollection> children();
 
-    unsigned childNodeCount() const;
-    Node* childNode(unsigned index) const;
+    unsigned countChildren() const;
+    Node* traverseToChildAt(unsigned index) const;
 
     PassRefPtr<Element> querySelector(const AtomicString& selectors, ExceptionState&);
     PassRefPtr<NodeList> querySelectorAll(const AtomicString& selectors, ExceptionState&);
@@ -176,6 +177,16 @@ bool childAttachedAllowedWhenAttachingChildren(ContainerNode*);
 
 DEFINE_NODE_TYPE_CASTS(ContainerNode, isContainerNode());
 
+inline bool ContainerNode::hasChildCount(unsigned count) const
+{
+    Node* child = m_firstChild;
+    while (count && child) {
+        child = child->nextSibling();
+        --count;
+    }
+    return !count && !child;
+}
+
 inline ContainerNode::ContainerNode(TreeScope* treeScope, ConstructionType type)
     : Node(treeScope, type)
     , m_firstChild(0)
@@ -204,18 +215,18 @@ inline void ContainerNode::detachChildren(const AttachContext& context)
         child->detach(childrenContext);
 }
 
-inline unsigned Node::childNodeCount() const
+inline unsigned Node::countChildren() const
 {
     if (!isContainerNode())
         return 0;
-    return toContainerNode(this)->childNodeCount();
+    return toContainerNode(this)->countChildren();
 }
 
-inline Node* Node::childNode(unsigned index) const
+inline Node* Node::traverseToChildAt(unsigned index) const
 {
     if (!isContainerNode())
         return 0;
-    return toContainerNode(this)->childNode(index);
+    return toContainerNode(this)->traverseToChildAt(index);
 }
 
 inline Node* Node::firstChild() const
@@ -232,13 +243,19 @@ inline Node* Node::lastChild() const
     return toContainerNode(this)->lastChild();
 }
 
-inline Node* Node::highestAncestor() const
+inline Node& Node::highestAncestor() const
 {
     Node* node = const_cast<Node*>(this);
     Node* highest = node;
     for (; node; node = node->parentNode())
         highest = node;
-    return highest;
+    return *highest;
+}
+
+inline Node* Node::parentElementOrShadowRoot() const
+{
+    ContainerNode* parent = parentNode();
+    return parent && (parent->isElementNode() || parent->isShadowRoot()) ? parent : 0;
 }
 
 // This constant controls how much buffer is initially allocated
@@ -282,7 +299,7 @@ public:
         }
         Vector<RefPtr<Node> >& nodeVector = *m_childNodes;
         if (m_currentIndex >= nodeVector.size())
-            return 0;
+            return nullptr;
         return nodeVector[m_currentIndex++];
     }
 

@@ -68,7 +68,7 @@ PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document
 
     element->appendChild(text.release(), exceptionState);
     if (exceptionState.hadException())
-        return 0;
+        return nullptr;
 
     if (!value.isNull())
         element->setValue(value);
@@ -81,8 +81,15 @@ PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document
 
 void HTMLOptionElement::attach(const AttachContext& context)
 {
-    updateNonRenderStyle();
-    HTMLElement::attach(context);
+    AttachContext optionContext(context);
+    if (context.resolvedStyle) {
+        ASSERT(!m_style || m_style == context.resolvedStyle);
+        m_style = context.resolvedStyle;
+    } else {
+        updateNonRenderStyle();
+        optionContext.resolvedStyle = m_style.get();
+    }
+    HTMLElement::attach(optionContext);
 }
 
 void HTMLOptionElement::detach(const AttachContext& context)
@@ -158,7 +165,7 @@ int HTMLOptionElement::index() const
     const Vector<HTMLElement*>& items = selectElement->listItems();
     size_t length = items.size();
     for (size_t i = 0; i < length; ++i) {
-        if (!items[i]->hasTagName(optionTag))
+        if (!isHTMLOptionElement(*items[i]))
             continue;
         if (items[i] == this)
             return optionIndex;
@@ -253,7 +260,7 @@ void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange
 HTMLDataListElement* HTMLOptionElement::ownerDataListElement() const
 {
     for (ContainerNode* parent = parentNode(); parent ; parent = parent->parentNode()) {
-        if (parent->hasTagName(datalistTag))
+        if (isHTMLDataListElement(*parent))
             return toHTMLDataListElement(parent);
     }
     return 0;
@@ -262,7 +269,7 @@ HTMLDataListElement* HTMLOptionElement::ownerDataListElement() const
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     ContainerNode* select = parentNode();
-    while (select && !select->hasTagName(selectTag))
+    while (select && !isHTMLSelectElement(*select))
         select = select->parentNode();
 
     if (!select)
@@ -296,19 +303,16 @@ RenderStyle* HTMLOptionElement::nonRendererStyle() const
 
 PassRefPtr<RenderStyle> HTMLOptionElement::customStyleForRenderer()
 {
+    updateNonRenderStyle();
     return m_style;
 }
 
-void HTMLOptionElement::willRecalcStyle(StyleRecalcChange change)
+void HTMLOptionElement::didRecalcStyle(StyleRecalcChange change)
 {
-    if (!needsAttach() && (needsStyleRecalc() || change >= Inherit))
-        updateNonRenderStyle();
-}
+    if (change == NoChange)
+        return;
 
-void HTMLOptionElement::didRecalcStyle(StyleRecalcChange)
-{
-    // FIXME: This is nasty, we ask our owner select to repaint even if the new
-    // style is exactly the same.
+    // FIXME: We ask our owner select to repaint regardless of which property changed.
     if (HTMLSelectElement* select = ownerSelectElement()) {
         if (RenderObject* renderer = select->renderer())
             renderer->repaint();
@@ -318,7 +322,7 @@ void HTMLOptionElement::didRecalcStyle(StyleRecalcChange)
 String HTMLOptionElement::textIndentedToRespectGroupLabel() const
 {
     ContainerNode* parent = parentNode();
-    if (parent && parent->hasTagName(optgroupTag))
+    if (parent && isHTMLOptGroupElement(*parent))
         return "    " + text();
     return text();
 }
@@ -328,7 +332,7 @@ bool HTMLOptionElement::isDisabledFormControl() const
     if (ownElementDisabled())
         return true;
     if (Element* parent = parentElement())
-        return parent->hasTagName(optgroupTag) && parent->isDisabledFormControl();
+        return isHTMLOptGroupElement(*parent) && parent->isDisabledFormControl();
     return false;
 }
 

@@ -41,9 +41,7 @@ LayerRectList::LayerRectList()
 {
 }
 
-LayerRectList::~LayerRectList()
-{
-}
+DEFINE_EMPTY_DESTRUCTOR_WILL_BE_REMOVED(LayerRectList)
 
 unsigned LayerRectList::length() const
 {
@@ -61,6 +59,11 @@ LayerRect* LayerRectList::item(unsigned index)
 void LayerRectList::append(PassRefPtr<Node> layerRootNode, const String& layerType, PassRefPtr<ClientRect> layerRelativeRect)
 {
     m_list.append(LayerRect::create(layerRootNode, layerType, layerRelativeRect));
+}
+
+void LayerRectList::trace(Visitor* visitor)
+{
+    visitor->trace(m_list);
 }
 
 } // namespace WebCore

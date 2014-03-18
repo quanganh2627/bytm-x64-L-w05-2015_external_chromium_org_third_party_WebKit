@@ -63,7 +63,7 @@ PassRefPtr<GestureEvent> GestureEvent::create(PassRefPtr<AbstractView> view, con
     case PlatformEvent::GesturePinchUpdate:
     case PlatformEvent::GestureTapDownCancel:
     default:
-        return 0;
+        return nullptr;
     }
     return adoptRef(new GestureEvent(eventType, view, event.globalPosition().x(), event.globalPosition().y(), event.position().x(), event.position().y(), event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey(), deltaX, deltaY));
 }
@@ -92,6 +92,11 @@ GestureEvent::GestureEvent(const AtomicString& type, PassRefPtr<AbstractView> vi
     , m_deltaX(deltaX)
     , m_deltaY(deltaY)
 {
+}
+
+void GestureEvent::trace(Visitor* visitor)
+{
+    MouseRelatedEvent::trace(visitor);
 }
 
 GestureEventDispatchMediator::GestureEventDispatchMediator(PassRefPtr<GestureEvent> gestureEvent)

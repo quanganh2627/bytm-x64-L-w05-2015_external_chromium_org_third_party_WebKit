@@ -38,9 +38,9 @@
 
 namespace WebCore {
 
-PassRefPtr<MIDIAccessPromise> MIDIAccessPromise::create(ExecutionContext* context, const Dictionary& options)
+PassRefPtrWillBeRawPtr<MIDIAccessPromise> MIDIAccessPromise::create(ExecutionContext* context, const Dictionary& options)
 {
-    RefPtr<MIDIAccessPromise> midiAccessPromise(adoptRef(new MIDIAccessPromise(context, options)));
+    RefPtrWillBeRawPtr<MIDIAccessPromise> midiAccessPromise(adoptRefWillBeRefCountedGarbageCollected(new MIDIAccessPromise(context, options)));
     midiAccessPromise->suspendIfNeeded();
     return midiAccessPromise.release();
 }
@@ -85,7 +85,7 @@ void MIDIAccessPromise::fulfill()
     }
 }
 
-void MIDIAccessPromise::reject(PassRefPtr<DOMError> error)
+void MIDIAccessPromise::reject(PassRefPtrWillBeRawPtr<DOMError> error)
 {
     if (m_state == Pending) {
         if (m_errorCallback) {
@@ -135,6 +135,12 @@ void MIDIAccessPromise::clear()
     m_options.clear();
     m_successCallback.clear();
     m_errorCallback.clear();
+}
+
+void MIDIAccessPromise::trace(Visitor* visitor)
+{
+    visitor->trace(m_error);
+    visitor->trace(m_access);
 }
 
 } // namespace WebCore

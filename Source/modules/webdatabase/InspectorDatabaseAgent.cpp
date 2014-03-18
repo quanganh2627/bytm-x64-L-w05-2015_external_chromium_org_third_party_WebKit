@@ -30,7 +30,7 @@
 #include "modules/webdatabase/InspectorDatabaseAgent.h"
 
 #include "bindings/v8/ExceptionStatePlaceholder.h"
-#include "core/frame/Frame.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/VoidCallback.h"
 #include "core/inspector/InspectorState.h"
 #include "core/loader/DocumentLoader.h"
@@ -64,7 +64,7 @@ void reportTransactionFailed(ExecuteSQLCallback* requestCallback, SQLError* erro
     RefPtr<TypeBuilder::Database::Error> errorObject = TypeBuilder::Database::Error::create()
         .setMessage(error->message())
         .setCode(error->code());
-    requestCallback->sendSuccess(0, 0, errorObject.release());
+    requestCallback->sendSuccess(nullptr, nullptr, errorObject.release());
 }
 
 class StatementCallback FINAL : public SQLStatementCallback {
@@ -95,7 +95,7 @@ public:
             case SQLValue::NullValue: values->addItem(JSONValue::null()); break;
             }
         }
-        m_requestCallback->sendSuccess(columnNames.release(), values.release(), 0);
+        m_requestCallback->sendSuccess(columnNames.release(), values.release(), nullptr);
         return true;
     }
 
@@ -191,7 +191,7 @@ private:
 
 } // namespace
 
-void InspectorDatabaseAgent::didOpenDatabase(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
+void InspectorDatabaseAgent::didOpenDatabase(PassRefPtrWillBeRawPtr<Database> database, const String& domain, const String& name, const String& version)
 {
     if (InspectorDatabaseResource* resource = findByFileName(database->fileName())) {
         resource->setDatabase(database);
@@ -205,7 +205,7 @@ void InspectorDatabaseAgent::didOpenDatabase(PassRefPtr<Database> database, cons
         resource->bind(m_frontend);
 }
 
-void InspectorDatabaseAgent::didCommitLoad(Frame* frame, DocumentLoader* loader)
+void InspectorDatabaseAgent::didCommitLoad(LocalFrame* frame, DocumentLoader* loader)
 {
     // FIXME: If "frame" is always guarenteed to be in the same Page as loader->frame()
     // then all we need to check here is loader->frame()->isMainFrame()

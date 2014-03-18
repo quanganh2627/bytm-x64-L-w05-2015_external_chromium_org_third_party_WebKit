@@ -103,7 +103,7 @@ PassOwnPtr<DragImage> DragImage::create(Image* image, RespectImageOrientationEnu
     }
 
     SkBitmap skBitmap;
-    if (!bitmap->bitmap().copyTo(&skBitmap, SkBitmap::kARGB_8888_Config))
+    if (!bitmap->bitmap().copyTo(&skBitmap, kPMColor_SkColorType))
         return nullptr;
     return adoptPtr(new DragImage(skBitmap, deviceScaleFactor));
 }
@@ -115,7 +115,7 @@ static Font deriveDragLabelFont(int size, FontWeight fontWeight, const FontDescr
     description.setSpecifiedSize(size);
     description.setComputedSize(size);
     Font result(description);
-    result.update(0);
+    result.update(nullptr);
     return result;
 }
 

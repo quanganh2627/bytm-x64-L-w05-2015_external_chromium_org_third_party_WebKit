@@ -43,7 +43,6 @@ class ResourceClient;
 class ResourcePtrBase;
 class ResourceFetcher;
 class InspectorResource;
-class PurgeableBuffer;
 class ResourceLoader;
 class SecurityOrigin;
 class SharedBuffer;
@@ -183,7 +182,7 @@ public:
 
     void clearLoader();
 
-    SharedBuffer* resourceBuffer() const { ASSERT(!m_purgeableData); return m_data.get(); }
+    SharedBuffer* resourceBuffer() const { return m_data.get(); }
     void setResourceBuffer(PassRefPtr<SharedBuffer>);
 
     virtual void willSendRequest(ResourceRequest&, const ResourceResponse&);
@@ -244,6 +243,7 @@ public:
 
     virtual bool canReuse(const ResourceRequest&) const { return true; }
 
+    // Used by the MemoryCache to reduce the memory consumption of the entry.
     void prune();
 
     static const char* resourceTypeToString(Type, const FetchInitiatorInfo&);
@@ -296,6 +296,7 @@ protected:
         static ResourceCallback* callbackHandler();
         void schedule(Resource*);
         void cancel(Resource*);
+        bool isScheduled(Resource*) const;
     private:
         ResourceCallback();
         void timerFired(Timer<ResourceCallback>*);
@@ -330,7 +331,6 @@ protected:
     double m_responseTimestamp;
 
     RefPtr<SharedBuffer> m_data;
-    OwnPtr<PurgeableBuffer> m_purgeableData;
     Timer<Resource> m_cancelTimer;
 
 private:

@@ -46,11 +46,13 @@ namespace WebCore {
 class V8TestInterfacePython {
 public:
     static bool hasInstance(v8::Handle<v8::Value>, v8::Isolate*);
-    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*, WrapperWorldType);
+    static v8::Handle<v8::Object> findInstanceInPrototypeChain(v8::Handle<v8::Value>, v8::Isolate*);
+    static v8::Handle<v8::FunctionTemplate> domTemplate(v8::Isolate*);
     static TestInterfacePythonImplementation* toNative(v8::Handle<v8::Object> object)
     {
         return fromInternalPointer(object->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
+    static TestInterfacePythonImplementation* toNativeWithTypeCheck(v8::Isolate*, v8::Handle<v8::Value>);
     static const WrapperTypeInfo wrapperTypeInfo;
     static void derefObject(void*);
     static void visitDOMWrapper(void*, const v8::Persistent<v8::Object>&, v8::Isolate*);
@@ -71,12 +73,6 @@ public:
     static void installPerContextEnabledMethods(v8::Handle<v8::Object>, v8::Isolate*) { }
 
 private:
-};
-
-template<>
-class WrapperTypeTraits<TestInterfacePythonImplementation > {
-public:
-    static const WrapperTypeInfo* wrapperTypeInfo() { return &V8TestInterfacePython::wrapperTypeInfo; }
 };
 
 class TestInterfacePythonImplementation;

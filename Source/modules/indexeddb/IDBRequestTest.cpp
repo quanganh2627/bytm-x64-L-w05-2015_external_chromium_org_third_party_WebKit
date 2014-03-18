@@ -72,8 +72,7 @@ NullExecutionContext::NullExecutionContext()
 class IDBRequestTest : public testing::Test {
 public:
     IDBRequestTest()
-        : m_handleScope(v8::Isolate::GetCurrent())
-        , m_scope(v8::Context::New(v8::Isolate::GetCurrent()))
+        : m_scope(V8ExecutionScope::create(v8::Isolate::GetCurrent()))
         , m_context(adoptRef(new NullExecutionContext()))
     {
     }
@@ -84,8 +83,7 @@ public:
     }
 
 private:
-    v8::HandleScope m_handleScope;
-    v8::Context::Scope m_scope;
+    OwnPtr<V8ExecutionScope> m_scope;
     RefPtr<ExecutionContext> m_context;
 };
 
@@ -99,13 +97,13 @@ TEST_F(IDBRequestTest, EventsAfterStopping)
     // Ensure none of the following raise assertions in stopped state:
     request->onError(DOMError::create(AbortError, "Description goes here."));
     request->onSuccess(Vector<String>());
-    request->onSuccess(nullptr, IDBKey::createInvalid(), IDBKey::createInvalid(), 0);
+    request->onSuccess(nullptr, IDBKey::createInvalid(), IDBKey::createInvalid(), nullptr);
     request->onSuccess(IDBKey::createInvalid());
-    request->onSuccess(PassRefPtr<SharedBuffer>(0));
-    request->onSuccess(PassRefPtr<SharedBuffer>(0), IDBKey::createInvalid(), IDBKeyPath());
+    request->onSuccess(PassRefPtr<SharedBuffer>(nullptr));
+    request->onSuccess(PassRefPtr<SharedBuffer>(nullptr), IDBKey::createInvalid(), IDBKeyPath());
     request->onSuccess(0LL);
     request->onSuccess();
-    request->onSuccess(IDBKey::createInvalid(), IDBKey::createInvalid(), 0);
+    request->onSuccess(IDBKey::createInvalid(), IDBKey::createInvalid(), nullptr);
 }
 
 TEST_F(IDBRequestTest, AbortErrorAfterAbort)

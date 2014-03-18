@@ -250,6 +250,11 @@ class Manager(object):
         summarized_failing_results = test_run_results.summarize_results(self._port, self._expectations, initial_results, retry_results, enabled_pixel_tests_in_retry, only_include_failing=True)
 
         exit_code = summarized_failing_results['num_regressions']
+        if exit_code > test_run_results.MAX_FAILURES_EXIT_STATUS:
+            _log.warning('num regressions (%d) exceeds max exit status (%d)' %
+                         (exit_code, test_run_results.MAX_FAILURES_EXIT_STATUS))
+            exit_code = test_run_results.MAX_FAILURES_EXIT_STATUS
+
         if not self._options.dry_run:
             self._write_json_files(summarized_full_results, summarized_failing_results, initial_results)
             self._upload_json_files()
@@ -276,7 +281,7 @@ class Manager(object):
     def _start_servers(self, tests_to_run):
         if self._port.requires_http_server() or any(self._is_http_test(test) for test in tests_to_run):
             self._printer.write_update('Starting HTTP server ...')
-            self._port.start_http_server(number_of_drivers=self._options.max_locked_shards)
+            self._port.start_http_server(additional_dirs={}, number_of_drivers=self._options.max_locked_shards)
             self._http_server_started = True
 
         if any(self._is_websocket_test(test) for test in tests_to_run):
