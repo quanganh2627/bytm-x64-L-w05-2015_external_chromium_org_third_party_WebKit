@@ -426,7 +426,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     applyTextTransform(style(), itemText, ' ');
 
     Color textColor = element->renderStyle() ? resolveColor(element->renderStyle(), CSSPropertyColor) : resolveColor(CSSPropertyColor);
-    if (isOptionElement && toHTMLOptionElement(*element).selected()) {
+    if (isOptionElement && ((toHTMLOptionElement(*element).selected() && select->suggestedIndex() < 0) || listIndex == select->suggestedIndex())) {
         if (frame()->selection().isFocusedAndActive() && document().focusedElement() == node())
             textColor = RenderTheme::theme().activeListBoxSelectionForegroundColor();
         // Honor the foreground color for disabled items
@@ -460,7 +460,7 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, const LayoutPoint&
     HTMLElement* element = listItems[listIndex];
 
     Color backColor;
-    if (isHTMLOptionElement(*element) && toHTMLOptionElement(*element).selected()) {
+    if (isHTMLOptionElement(*element) && ((toHTMLOptionElement(*element).selected() && selectElement()->suggestedIndex() < 0) || listIndex == selectElement()->suggestedIndex())) {
         if (frame()->selection().isFocusedAndActive() && document().focusedElement() == node())
             backColor = RenderTheme::theme().activeListBoxSelectionBackgroundColor();
         else
@@ -629,13 +629,6 @@ bool RenderListBox::listIndexIsVisible(int index)
 bool RenderListBox::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
 {
     return ScrollableArea::scroll(direction, granularity, multiplier);
-}
-
-void RenderListBox::valueChanged(unsigned listIndex)
-{
-    HTMLSelectElement* element = selectElement();
-    element->setSelectedIndex(element->listToOptionIndex(listIndex));
-    element->dispatchFormControlChangeEvent();
 }
 
 int RenderListBox::scrollSize(ScrollbarOrientation orientation) const

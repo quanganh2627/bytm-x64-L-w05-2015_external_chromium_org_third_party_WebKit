@@ -79,7 +79,8 @@ public:
     unsigned length() const;
     CSSRule* item(unsigned index);
 
-    virtual void clearOwnerNode() OVERRIDE { didMutate(EntireStyleSheetUpdate); m_ownerNode = 0; }
+    virtual void clearOwnerNode() OVERRIDE;
+
     virtual CSSRule* ownerRule() const OVERRIDE { return m_ownerRule; }
     virtual KURL baseURL() const OVERRIDE;
     virtual bool isLoading() const OVERRIDE;
@@ -92,13 +93,14 @@ public:
 
     class RuleMutationScope {
         WTF_MAKE_NONCOPYABLE(RuleMutationScope);
+        STACK_ALLOCATED();
     public:
-        RuleMutationScope(CSSStyleSheet*);
-        RuleMutationScope(CSSRule*);
+        explicit RuleMutationScope(CSSStyleSheet*);
+        explicit RuleMutationScope(CSSRule*);
         ~RuleMutationScope();
 
     private:
-        CSSStyleSheet* m_styleSheet;
+        RawPtrWillBeMember<CSSStyleSheet> m_styleSheet;
     };
 
     void willMutateRules();

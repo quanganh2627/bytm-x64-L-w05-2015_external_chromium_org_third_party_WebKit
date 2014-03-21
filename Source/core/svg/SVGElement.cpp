@@ -270,7 +270,7 @@ PassRefPtrWillBeRawPtr<CSSValue> SVGElement::getPresentationAttribute(const Atom
     if (!attr)
         return nullptr;
 
-    RefPtr<MutableStylePropertySet> style = MutableStylePropertySet::create(SVGAttributeMode);
+    RefPtrWillBeRawPtr<MutableStylePropertySet> style = MutableStylePropertySet::create(SVGAttributeMode);
     CSSPropertyID propertyID = SVGElement::cssPropertyIdForSVGAttributeName(attr->name());
     style->setProperty(propertyID, attr->value());
     RefPtrWillBeRawPtr<CSSValue> cssValue = style->getPropertyCSSValue(propertyID);
@@ -753,11 +753,9 @@ void SVGElement::collectStyleForPresentationAttribute(const QualifiedName& name,
 
 bool SVGElement::haveLoadedRequiredResources()
 {
-    Node* child = firstChild();
-    while (child) {
-        if (child->isSVGElement() && !toSVGElement(child)->haveLoadedRequiredResources())
+    for (SVGElement* child = Traversal<SVGElement>::firstChild(*this); child; child = Traversal<SVGElement>::nextSibling(*child)) {
+        if (!child->haveLoadedRequiredResources())
             return false;
-        child = child->nextSibling();
     }
     return true;
 }

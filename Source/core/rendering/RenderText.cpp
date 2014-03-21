@@ -930,37 +930,43 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Si
     int lastWordBoundary = 0;
     float cachedWordTrailingSpaceWidth[2] = { 0, 0 }; // LTR, RTL
 
-    // If automatic hyphenation is allowed, we keep track of the width of the widest word (or word
-    // fragment) encountered so far, and only try hyphenating words that are wider.
-    float maxWordWidth = numeric_limits<float>::max();
     int firstGlyphLeftOverflow = -1;
 
     bool breakAll = (styleToUse->wordBreak() == BreakAllWordBreak || styleToUse->wordBreak() == BreakWordBreak) && styleToUse->autoWrap();
 
     TextRun textRun(text());
     BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
-    BidiStatus status(LTR, false);
-    status.last = status.lastStrong = WTF::Unicode::OtherNeutral;
-    bidiResolver.setStatus(status);
-    bidiResolver.setPositionIgnoringNestedIsolates(TextRunIterator(&textRun, 0));
-    bool hardLineBreak = false;
-    bool reorderRuns = false;
-    bidiResolver.createBidiRunsForLine(TextRunIterator(&textRun, textRun.length()), NoVisualOverride, hardLineBreak, reorderRuns);
 
-    BidiRunList<BidiCharacterRun>& bidiRuns = bidiResolver.runs();
-    BidiCharacterRun* run = bidiRuns.firstRun();
+    BidiCharacterRun* run;
+    TextDirection textDirection = styleToUse->direction();
+    if (isOverride(styleToUse->unicodeBidi())) {
+        run = 0;
+    } else {
+        BidiStatus status(LTR, false);
+        status.last = status.lastStrong = WTF::Unicode::OtherNeutral;
+        bidiResolver.setStatus(status);
+        bidiResolver.setPositionIgnoringNestedIsolates(TextRunIterator(&textRun, 0));
+        bool hardLineBreak = false;
+        bool reorderRuns = false;
+        bidiResolver.createBidiRunsForLine(TextRunIterator(&textRun, textRun.length()), NoVisualOverride, hardLineBreak, reorderRuns);
+        BidiRunList<BidiCharacterRun>& bidiRuns = bidiResolver.runs();
+        run = bidiRuns.firstRun();
+    }
+
     for (int i = 0; i < len; i++) {
         UChar c = uncheckedCharacterAt(i);
 
-        // Treat adjacent runs with the same resolved directionality
-        // (TextDirection as opposed to WTF::Unicode::Direction) as belonging
-        // to the same run to avoid breaking unnecessarily.
-        while (i > run->stop() || (run->next() && run->next()->direction() == run->direction()))
-            run = run->next();
+        if (run) {
+            // Treat adjacent runs with the same resolved directionality
+            // (TextDirection as opposed to WTF::Unicode::Direction) as belonging
+            // to the same run to avoid breaking unnecessarily.
+            while (i > run->stop() || (run->next() && run->next()->direction() == run->direction()))
+                run = run->next();
 
-        ASSERT(run);
-        ASSERT(i <= run->stop());
-        TextDirection textDirection = run->direction();
+            ASSERT(run);
+            ASSERT(i <= run->stop());
+            textDirection = run->direction();
+        }
 
         bool previousCharacterIsSpace = isSpace;
         bool isNewline = false;
@@ -1024,7 +1030,8 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Si
         }
 
         // Terminate word boundary at bidi run boundary.
-        j = min(j, run->stop() + 1);
+        if (run)
+            j = min(j, run->stop() + 1);
         int wordLen = j - i;
         if (wordLen) {
             bool isSpace = (j < len) && c == ' ';
@@ -1047,8 +1054,6 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Si
                 if (c == softHyphen)
                     currMinWidth += hyphenWidth(this, f, textDirection);
             }
-
-            maxWordWidth = max(maxWordWidth, w);
 
             if (firstGlyphLeftOverflow < 0)
                 firstGlyphLeftOverflow = glyphOverflow.left;
@@ -1122,7 +1127,8 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Si
             lastWordBoundary++;
         }
     }
-    bidiRuns.deleteRuns();
+    if (run)
+        bidiResolver.runs().deleteRuns();
 
     if (firstGlyphLeftOverflow > 0)
         glyphOverflow.left = firstGlyphLeftOverflow;

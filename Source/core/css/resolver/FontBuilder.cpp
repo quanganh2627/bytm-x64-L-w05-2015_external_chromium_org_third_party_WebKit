@@ -63,6 +63,7 @@ FontBuilder::FontBuilder()
     : m_document(0)
     , m_useSVGZoomRules(false)
     , m_fontSizehasViewportUnits(false)
+    , m_style(0)
     , m_fontDirty(false)
 {
 }
@@ -79,6 +80,21 @@ void FontBuilder::initForStyleResolve(const Document& document, RenderStyle* sty
     m_fontDirty = false;
 }
 
+inline static void setFontFamilyToStandard(FontDescription& fontDescription, const Document* document)
+{
+    if (!document || !document->settings())
+        return;
+
+    fontDescription.setGenericFamily(FontDescription::StandardFamily);
+    const AtomicString& standardFontFamily = document->settings()->genericFontFamilySettings().standard();
+    if (standardFontFamily.isEmpty())
+        return;
+
+    fontDescription.firstFamily().setFamily(standardFontFamily);
+    // FIXME: Why is this needed here?
+    fontDescription.firstFamily().appendFamily(nullptr);
+}
+
 void FontBuilder::setInitial(float effectiveZoom)
 {
     ASSERT(m_document && m_document->settings());
@@ -88,13 +104,8 @@ void FontBuilder::setInitial(float effectiveZoom)
     FontDescriptionChangeScope scope(this);
 
     scope.reset();
-    scope.fontDescription().setGenericFamily(FontDescription::StandardFamily);
     scope.fontDescription().setUsePrinterFont(m_document->printing());
-    const AtomicString& standardFontFamily = m_document->settings()->genericFontFamilySettings().standard();
-    if (!standardFontFamily.isEmpty()) {
-        scope.fontDescription().firstFamily().setFamily(standardFontFamily);
-        scope.fontDescription().firstFamily().appendFamily(nullptr);
-    }
+    setFontFamilyToStandard(scope.fontDescription(), m_document);
     scope.fontDescription().setKeywordSize(CSSValueMedium - CSSValueXxSmall + 1);
     setSize(scope.fontDescription(), effectiveZoom, FontSize::fontSizeForKeyword(m_document, CSSValueMedium, false));
 }
@@ -138,14 +149,7 @@ void FontBuilder::setFontFamilyInitial()
 {
     FontDescriptionChangeScope scope(this);
 
-    FontDescription initialDesc = FontDescription();
-
-    // We need to adjust the size to account for the generic family change from monospace to non-monospace.
-    if (scope.fontDescription().keywordSize() && scope.fontDescription().useFixedDefaultSize())
-        scope.fontDescription().setSpecifiedSize(FontSize::fontSizeForKeyword(m_document, CSSValueXxSmall + scope.fontDescription().keywordSize() - 1, false));
-    scope.fontDescription().setGenericFamily(initialDesc.genericFamily());
-    if (!initialDesc.firstFamily().familyIsEmpty())
-        scope.fontDescription().setFamily(initialDesc.firstFamily());
+    setFontFamilyToStandard(scope.fontDescription(), m_document);
 }
 
 void FontBuilder::setFontFamilyInherit(const FontDescription& parentFontDescription)
@@ -154,7 +158,6 @@ void FontBuilder::setFontFamilyInherit(const FontDescription& parentFontDescript
 
     scope.fontDescription().setGenericFamily(parentFontDescription.genericFamily());
     scope.fontDescription().setFamily(parentFontDescription.family());
-    scope.fontDescription().setIsSpecifiedFont(parentFontDescription.isSpecifiedFont());
 }
 
 // FIXME: I am not convinced FontBuilder needs to know anything about CSSValues.
@@ -221,7 +224,6 @@ void FontBuilder::setFontFamilyValue(CSSValue* value)
                 firstFamily.setFamily(face);
                 firstFamily.appendFamily(nullptr); // Remove any inherited family-fallback list.
                 currFamily = &firstFamily;
-                scope.fontDescription().setIsSpecifiedFont(scope.fontDescription().genericFamily() == FontDescription::NoFamily);
             } else {
                 RefPtr<SharedFontFamily> newFamily = SharedFontFamily::create();
                 newFamily->setFamily(face);
@@ -656,21 +658,13 @@ void FontBuilder::createFontForDocument(PassRefPtr<FontSelector> fontSelector, R
 {
     FontDescription fontDescription = FontDescription();
     fontDescription.setScript(localeToScriptCodeForFontSelection(documentStyle->locale()));
-    if (Settings* settings = m_document->settings()) {
-        fontDescription.setUsePrinterFont(m_document->printing());
-        const AtomicString& standardFont = settings->genericFontFamilySettings().standard(fontDescription.script());
-        if (!standardFont.isEmpty()) {
-            fontDescription.setGenericFamily(FontDescription::StandardFamily);
-            fontDescription.firstFamily().setFamily(standardFont);
-            fontDescription.firstFamily().appendFamily(nullptr);
-        }
-        fontDescription.setKeywordSize(CSSValueMedium - CSSValueXxSmall + 1);
-        int size = FontSize::fontSizeForKeyword(m_document, CSSValueMedium, false);
-        fontDescription.setSpecifiedSize(size);
-        fontDescription.setComputedSize(getComputedSizeFromSpecifiedSize(fontDescription, documentStyle->effectiveZoom(), size));
-    } else {
-        fontDescription.setUsePrinterFont(m_document->printing());
-    }
+    fontDescription.setUsePrinterFont(m_document->printing());
+
+    setFontFamilyToStandard(fontDescription, m_document);
+    fontDescription.setKeywordSize(CSSValueMedium - CSSValueXxSmall + 1);
+    int size = FontSize::fontSizeForKeyword(m_document, CSSValueMedium, false);
+    fontDescription.setSpecifiedSize(size);
+    fontDescription.setComputedSize(getComputedSizeFromSpecifiedSize(fontDescription, documentStyle->effectiveZoom(), size));
 
     FontOrientation fontOrientation;
     NonCJKGlyphOrientation glyphOrientation;

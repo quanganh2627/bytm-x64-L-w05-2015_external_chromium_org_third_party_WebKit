@@ -128,6 +128,16 @@ bool HTMLTableCellElement::isURLAttribute(const Attribute& attribute) const
     return attribute.name() == backgroundAttr || HTMLTablePartElement::isURLAttribute(attribute);
 }
 
+bool HTMLTableCellElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return (hasLocalName(tdTag) && name == backgroundAttr) || HTMLTablePartElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLTableCellElement::subResourceAttributeName() const
+{
+    return hasLocalName(tdTag) ? backgroundAttr : HTMLTablePartElement::subResourceAttributeName();
+}
+
 const AtomicString& HTMLTableCellElement::abbr() const
 {
     return fastGetAttribute(abbrAttr);

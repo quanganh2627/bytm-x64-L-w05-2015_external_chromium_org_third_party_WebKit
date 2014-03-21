@@ -779,12 +779,11 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& pt, float widt
         // Match the artwork used by the Mac.
         const int rowPixels = 4 * deviceScaleFactor;
         const int colPixels = 3 * deviceScaleFactor;
-        misspellBitmap[index] = new SkBitmap;
-        misspellBitmap[index]->setConfig(SkBitmap::kARGB_8888_Config,
-                                         rowPixels, colPixels);
-        misspellBitmap[index]->allocPixels();
+        SkBitmap bitmap;
+        if (!bitmap.allocN32Pixels(rowPixels, colPixels))
+            return;
 
-        misspellBitmap[index]->eraseARGB(0, 0, 0, 0);
+        bitmap.eraseARGB(0, 0, 0, 0);
         const uint32_t transparentColor = 0x00000000;
 
         if (deviceScaleFactor == 1) {
@@ -797,7 +796,7 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& pt, float widt
             //          c d c   c d c
             //          e f e   e f e
             for (int x = 0; x < colPixels; ++x) {
-                uint32_t* row = misspellBitmap[index]->getAddr32(0, x);
+                uint32_t* row = bitmap.getAddr32(0, x);
                 row[0] = colors[index][x * 2];
                 row[1] = colors[index][x * 2 + 1];
                 row[2] = colors[index][x * 2];
@@ -818,7 +817,7 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& pt, float widt
             //          n o p p o n
             //          q r s s r q
             for (int x = 0; x < colPixels; ++x) {
-                uint32_t* row = misspellBitmap[index]->getAddr32(0, x);
+                uint32_t* row = bitmap.getAddr32(0, x);
                 row[0] = colors[index][x * 3];
                 row[1] = colors[index][x * 3 + 1];
                 row[2] = colors[index][x * 3 + 2];
@@ -830,23 +829,27 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& pt, float widt
             }
         } else
             ASSERT_NOT_REACHED();
+
+        misspellBitmap[index] = new SkBitmap(bitmap);
 #else
         // We use a 2-pixel-high misspelling indicator because that seems to be
         // what WebKit is designed for, and how much room there is in a typical
         // page for it.
         const int rowPixels = 32 * deviceScaleFactor; // Must be multiple of 4 for pattern below.
         const int colPixels = 2 * deviceScaleFactor;
-        misspellBitmap[index] = new SkBitmap;
-        misspellBitmap[index]->setConfig(SkBitmap::kARGB_8888_Config, rowPixels, colPixels);
-        misspellBitmap[index]->allocPixels();
+        SkBitmap bitmap;
+        if (!bitmap.allocN32Pixels(rowPixels, colPixels))
+            return;
 
-        misspellBitmap[index]->eraseARGB(0, 0, 0, 0);
+        bitmap.eraseARGB(0, 0, 0, 0);
         if (deviceScaleFactor == 1)
-            draw1xMarker(misspellBitmap[index], index);
+            draw1xMarker(&bitmap, index);
         else if (deviceScaleFactor == 2)
-            draw2xMarker(misspellBitmap[index], index);
+            draw2xMarker(&bitmap, index);
         else
             ASSERT_NOT_REACHED();
+
+        misspellBitmap[index] = new SkBitmap(bitmap);
 #endif
     }
 
@@ -1027,16 +1030,16 @@ void GraphicsContext::drawImage(Image* image, const IntPoint& p, CompositeOperat
     drawImage(image, FloatRect(IntRect(p, image->size())), FloatRect(FloatPoint(), FloatSize(image->size())), op, shouldRespectImageOrientation);
 }
 
-void GraphicsContext::drawImage(Image* image, const IntRect& r, CompositeOperator op, RespectImageOrientationEnum shouldRespectImageOrientation, bool useLowQualityScale)
+void GraphicsContext::drawImage(Image* image, const IntRect& r, CompositeOperator op, RespectImageOrientationEnum shouldRespectImageOrientation)
 {
     if (!image)
         return;
-    drawImage(image, FloatRect(r), FloatRect(FloatPoint(), FloatSize(image->size())), op, shouldRespectImageOrientation, useLowQualityScale);
+    drawImage(image, FloatRect(r), FloatRect(FloatPoint(), FloatSize(image->size())), op, shouldRespectImageOrientation);
 }
 
-void GraphicsContext::drawImage(Image* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, RespectImageOrientationEnum shouldRespectImageOrientation, bool useLowQualityScale)
+void GraphicsContext::drawImage(Image* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, RespectImageOrientationEnum shouldRespectImageOrientation)
 {
-    drawImage(image, dest, src, op, blink::WebBlendModeNormal, shouldRespectImageOrientation, useLowQualityScale);
+    drawImage(image, dest, src, op, blink::WebBlendModeNormal, shouldRespectImageOrientation);
 }
 
 void GraphicsContext::drawImage(Image* image, const FloatRect& dest)
@@ -1046,40 +1049,22 @@ void GraphicsContext::drawImage(Image* image, const FloatRect& dest)
     drawImage(image, dest, FloatRect(IntRect(IntPoint(), image->size())));
 }
 
-void GraphicsContext::drawImage(Image* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, WebBlendMode blendMode, RespectImageOrientationEnum shouldRespectImageOrientation, bool useLowQualityScale)
-{    if (paintingDisabled() || !image)
-        return;
-
-    InterpolationQuality previousInterpolationQuality = InterpolationDefault;
-
-    if (useLowQualityScale) {
-        previousInterpolationQuality = imageInterpolationQuality();
-        setImageInterpolationQuality(InterpolationLow);
-    }
-
-    image->draw(this, dest, src, op, blendMode, shouldRespectImageOrientation);
-
-    if (useLowQualityScale)
-        setImageInterpolationQuality(previousInterpolationQuality);
-}
-
-void GraphicsContext::drawTiledImage(Image* image, const IntRect& destRect, const IntPoint& srcPoint, const IntSize& tileSize, CompositeOperator op, bool useLowQualityScale, WebBlendMode blendMode, const IntSize& repeatSpacing)
+void GraphicsContext::drawImage(Image* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, WebBlendMode blendMode, RespectImageOrientationEnum shouldRespectImageOrientation)
 {
     if (paintingDisabled() || !image)
         return;
+    image->draw(this, dest, src, op, blendMode, shouldRespectImageOrientation);
+}
 
-    if (useLowQualityScale) {
-        InterpolationQuality previousInterpolationQuality = imageInterpolationQuality();
-        setImageInterpolationQuality(InterpolationLow);
-        image->drawTiled(this, destRect, srcPoint, tileSize, op, blendMode, repeatSpacing);
-        setImageInterpolationQuality(previousInterpolationQuality);
-    } else {
-        image->drawTiled(this, destRect, srcPoint, tileSize, op, blendMode, repeatSpacing);
-    }
+void GraphicsContext::drawTiledImage(Image* image, const IntRect& destRect, const IntPoint& srcPoint, const IntSize& tileSize, CompositeOperator op, WebBlendMode blendMode, const IntSize& repeatSpacing)
+{
+    if (paintingDisabled() || !image)
+        return;
+    image->drawTiled(this, destRect, srcPoint, tileSize, op, blendMode, repeatSpacing);
 }
 
 void GraphicsContext::drawTiledImage(Image* image, const IntRect& dest, const IntRect& srcRect,
-    const FloatSize& tileScaleFactor, Image::TileRule hRule, Image::TileRule vRule, CompositeOperator op, bool useLowQualityScale)
+    const FloatSize& tileScaleFactor, Image::TileRule hRule, Image::TileRule vRule, CompositeOperator op)
 {
     if (paintingDisabled() || !image)
         return;
@@ -1090,14 +1075,7 @@ void GraphicsContext::drawTiledImage(Image* image, const IntRect& dest, const In
         return;
     }
 
-    if (useLowQualityScale) {
-        InterpolationQuality previousInterpolationQuality = imageInterpolationQuality();
-        setImageInterpolationQuality(InterpolationLow);
-        image->drawTiled(this, dest, srcRect, tileScaleFactor, hRule, vRule, op);
-        setImageInterpolationQuality(previousInterpolationQuality);
-    } else {
-        image->drawTiled(this, dest, srcRect, tileScaleFactor, hRule, vRule, op);
-    }
+    image->drawTiled(this, dest, srcRect, tileScaleFactor, hRule, vRule, op);
 }
 
 void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntPoint& p, CompositeOperator op, WebBlendMode blendMode)
@@ -1107,11 +1085,11 @@ void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntPoint& p, Com
     drawImageBuffer(image, FloatRect(IntRect(p, image->size())), FloatRect(FloatPoint(), FloatSize(image->size())), op, blendMode);
 }
 
-void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntRect& r, CompositeOperator op, WebBlendMode blendMode, bool useLowQualityScale)
+void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntRect& r, CompositeOperator op, WebBlendMode blendMode)
 {
     if (!image)
         return;
-    drawImageBuffer(image, FloatRect(r), FloatRect(FloatPoint(), FloatSize(image->size())), op, blendMode, useLowQualityScale);
+    drawImageBuffer(image, FloatRect(r), FloatRect(FloatPoint(), FloatSize(image->size())), op, blendMode);
 }
 
 void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntPoint& dest, const IntRect& srcRect, CompositeOperator op, WebBlendMode blendMode)
@@ -1119,9 +1097,9 @@ void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntPoint& dest, 
     drawImageBuffer(image, FloatRect(IntRect(dest, srcRect.size())), FloatRect(srcRect), op, blendMode);
 }
 
-void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntRect& dest, const IntRect& srcRect, CompositeOperator op, WebBlendMode blendMode, bool useLowQualityScale)
+void GraphicsContext::drawImageBuffer(ImageBuffer* image, const IntRect& dest, const IntRect& srcRect, CompositeOperator op, WebBlendMode blendMode)
 {
-    drawImageBuffer(image, FloatRect(dest), FloatRect(srcRect), op, blendMode, useLowQualityScale);
+    drawImageBuffer(image, FloatRect(dest), FloatRect(srcRect), op, blendMode);
 }
 
 void GraphicsContext::drawImageBuffer(ImageBuffer* image, const FloatRect& dest)
@@ -1131,19 +1109,11 @@ void GraphicsContext::drawImageBuffer(ImageBuffer* image, const FloatRect& dest)
     drawImageBuffer(image, dest, FloatRect(IntRect(IntPoint(), image->size())));
 }
 
-void GraphicsContext::drawImageBuffer(ImageBuffer* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, WebBlendMode blendMode, bool useLowQualityScale)
+void GraphicsContext::drawImageBuffer(ImageBuffer* image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, WebBlendMode blendMode)
 {
     if (paintingDisabled() || !image)
         return;
-
-    if (useLowQualityScale) {
-        InterpolationQuality previousInterpolationQuality = imageInterpolationQuality();
-        setImageInterpolationQuality(InterpolationLow);
-        image->draw(this, dest, src, op, blendMode, useLowQualityScale);
-        setImageInterpolationQuality(previousInterpolationQuality);
-    } else {
-        image->draw(this, dest, src, op, blendMode, useLowQualityScale);
-    }
+    image->draw(this, dest, src, op, blendMode);
 }
 
 void GraphicsContext::writePixels(const SkImageInfo& info, const void* pixels, size_t rowBytes, int x, int y)

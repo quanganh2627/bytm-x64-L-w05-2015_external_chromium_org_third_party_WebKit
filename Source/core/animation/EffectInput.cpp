@@ -55,12 +55,14 @@ PassRefPtrWillBeRawPtr<AnimationEffect> EffectInput::convert(Element* element, c
     if (!unsafe && !checkDocumentAndRenderer(element))
         return nullptr;
 
+    StyleSheetContents* styleSheetContents = element->document().elementSheet().contents();
+
     // FIXME: Move this code into KeyframeEffectModel, it will be used by the IDL constructor for that class.
     KeyframeEffectModel::KeyframeVector keyframes;
-    Vector<RefPtr<MutableStylePropertySet> > propertySetVector;
+    WillBeHeapVector<RefPtrWillBeMember<MutableStylePropertySet> > propertySetVector;
 
     for (size_t i = 0; i < keyframeDictionaryVector.size(); ++i) {
-        RefPtr<MutableStylePropertySet> propertySet = MutableStylePropertySet::create();
+        RefPtrWillBeRawPtr<MutableStylePropertySet> propertySet = MutableStylePropertySet::create();
         propertySetVector.append(propertySet);
 
         RefPtrWillBeRawPtr<Keyframe> keyframe = Keyframe::create();
@@ -99,7 +101,7 @@ PassRefPtrWillBeRawPtr<AnimationEffect> EffectInput::convert(Element* element, c
 
             String value;
             keyframeDictionaryVector[i].get(property, value);
-            propertySet->setProperty(id, value);
+            propertySet->setProperty(id, value, false, styleSheetContents);
         }
     }
 

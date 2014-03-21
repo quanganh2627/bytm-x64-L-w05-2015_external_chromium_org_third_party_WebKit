@@ -66,6 +66,7 @@ StyleSheetContents::StyleSheetContents(StyleRuleImport* ownerRule, const String&
     , m_isInMemoryCache(false)
     , m_hasFontFaceRule(false)
     , m_hasMediaQueries(false)
+    , m_hasSingleOwnerDocument(true)
     , m_parserContext(context)
 {
 }
@@ -84,6 +85,7 @@ StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
     , m_isInMemoryCache(false)
     , m_hasFontFaceRule(o.m_hasFontFaceRule)
     , m_hasMediaQueries(o.m_hasMediaQueries)
+    , m_hasSingleOwnerDocument(true)
     , m_parserContext(o.m_parserContext)
 {
     ASSERT(o.isCacheable());
@@ -98,20 +100,24 @@ StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
 StyleSheetContents::~StyleSheetContents()
 {
 #if !ENABLE(OILPAN)
-    StyleEngine::removeSheet(this);
     clearRules();
 #endif
 }
 
 void StyleSheetContents::setHasSyntacticallyValidCSSHeader(bool isValidCss)
 {
-    if (maybeCacheable() && !isValidCss)
-        StyleEngine::removeSheet(this);
+    if (!isValidCss) {
+        if (Document* document = clientSingleOwnerDocument())
+            removeSheetFromCache(document);
+    }
     m_hasSyntacticallyValidCSSHeader = isValidCss;
 }
 
-bool StyleSheetContents::maybeCacheable() const
+bool StyleSheetContents::isCacheable() const
 {
+    // This would require dealing with multiple clients for load callbacks.
+    if (!loadCompleted())
+        return false;
     // FIXME: StyleSheets with media queries can't be cached because their RuleSet
     // is processed differently based off the media queries, which might resolve
     // differently depending on the context of the parent CSSStyleSheet (e.g.
@@ -135,14 +141,6 @@ bool StyleSheetContents::maybeCacheable() const
     if (!m_hasSyntacticallyValidCSSHeader)
         return false;
     return true;
-}
-
-bool StyleSheetContents::isCacheable() const
-{
-    // This would require dealing with multiple clients for load callbacks.
-    if (!loadCompleted())
-        return false;
-    return maybeCacheable();
 }
 
 void StyleSheetContents::parserAppendRule(PassRefPtrWillBeRawPtr<StyleRuleBase> rule)
@@ -471,8 +469,8 @@ Node* StyleSheetContents::singleOwnerNode() const
 
 Document* StyleSheetContents::singleOwnerDocument() const
 {
-    Node* ownerNode = singleOwnerNode();
-    return ownerNode ? &ownerNode->document() : 0;
+    StyleSheetContents* root = rootStyleSheet();
+    return root->clientSingleOwnerDocument();
 }
 
 KURL StyleSheetContents::completeURL(const String& url) const
@@ -520,6 +518,16 @@ bool StyleSheetContents::hasFailedOrCanceledSubresources() const
     return childRulesHaveFailedOrCanceledSubresources(m_childRules);
 }
 
+Document* StyleSheetContents::clientSingleOwnerDocument() const
+{
+    if (!m_hasSingleOwnerDocument || clientSize() <= 0)
+        return 0;
+
+    if (m_loadingClients.size())
+        return (*m_loadingClients.begin())->ownerDocument();
+    return (*m_completedClients.begin())->ownerDocument();
+}
+
 StyleSheetContents* StyleSheetContents::parentStyleSheet() const
 {
     return m_ownerRule ? m_ownerRule->parentStyleSheet() : 0;
@@ -528,20 +536,41 @@ StyleSheetContents* StyleSheetContents::parentStyleSheet() const
 void StyleSheetContents::registerClient(CSSStyleSheet* sheet)
 {
     ASSERT(!m_loadingClients.contains(sheet) && !m_completedClients.contains(sheet));
+
+    // InspectorCSSAgent::buildObjectForRule and document.implementation.createCSSStyleSheet
+    // creates CSSStyleSheet without any owner node.
+    if (!sheet->ownerDocument())
+        return;
+
+    if (Document* document = clientSingleOwnerDocument()) {
+        if (sheet->ownerDocument() != document)
+            m_hasSingleOwnerDocument = false;
+    }
     m_loadingClients.add(sheet);
 }
 
 void StyleSheetContents::unregisterClient(CSSStyleSheet* sheet)
 {
-    ASSERT(m_loadingClients.contains(sheet) || m_completedClients.contains(sheet));
     m_loadingClients.remove(sheet);
     m_completedClients.remove(sheet);
+
+    if (!sheet->ownerDocument() || !m_loadingClients.isEmpty() || !m_completedClients.isEmpty())
+        return;
+
+    if (m_hasSingleOwnerDocument)
+        removeSheetFromCache(sheet->ownerDocument());
+    m_hasSingleOwnerDocument = true;
 }
 
 void StyleSheetContents::clientLoadCompleted(CSSStyleSheet* sheet)
 {
-    ASSERT(m_loadingClients.contains(sheet));
+    ASSERT(m_loadingClients.contains(sheet) || !sheet->ownerDocument());
     m_loadingClients.remove(sheet);
+    // In m_ownerNode->sheetLoaded, the CSSStyleSheet might be detached.
+    // (i.e. clearOwnerNode was invoked.)
+    // In this case, we don't need to add the stylesheet to completed clients.
+    if (!sheet->ownerDocument())
+        return;
     m_completedClients.add(sheet);
 }
 
@@ -550,6 +579,12 @@ void StyleSheetContents::clientLoadStarted(CSSStyleSheet* sheet)
     ASSERT(m_completedClients.contains(sheet));
     m_completedClients.remove(sheet);
     m_loadingClients.add(sheet);
+}
+
+void StyleSheetContents::removeSheetFromCache(Document* document)
+{
+    ASSERT(document);
+    document->styleEngine()->removeSheet(this);
 }
 
 void StyleSheetContents::addedToMemoryCache()

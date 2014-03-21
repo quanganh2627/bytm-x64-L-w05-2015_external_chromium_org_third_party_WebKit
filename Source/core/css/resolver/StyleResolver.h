@@ -122,7 +122,7 @@ public:
         RuleMatchingBehavior = MatchAllRules);
 
     PassRefPtr<RenderStyle> styleForKeyframe(Element*, const RenderStyle&, RenderStyle* parentStyle, const StyleKeyframe*, const AtomicString& animationName);
-    static PassRefPtrWillBeRawPtr<KeyframeEffectModel> createKeyframeEffectModel(Element&, const Vector<RefPtr<MutableStylePropertySet> >&, KeyframeEffectModel::KeyframeVector&);
+    static PassRefPtrWillBeRawPtr<KeyframeEffectModel> createKeyframeEffectModel(Element&, const WillBeHeapVector<RefPtrWillBeMember<MutableStylePropertySet> >&, KeyframeEffectModel::KeyframeVector&);
 
     PassRefPtr<RenderStyle> pseudoStyleForElement(Element*, const PseudoStyleRequest&, RenderStyle* parentStyle);
 
@@ -242,6 +242,8 @@ private:
     // FIXME: This should probably go away, folded into FontBuilder.
     void updateFont(StyleResolverState&);
 
+    void loadPendingResources(StyleResolverState&);
+
     void appendCSSStyleSheet(CSSStyleSheet*);
 
     void collectPseudoRulesForElement(Element*, ElementRuleCollector&, PseudoId, unsigned rulesToInclude);
@@ -273,7 +275,7 @@ private:
     template <StyleApplicationPass pass>
     void applyProperties(StyleResolverState&, const StylePropertySet* properties, StyleRule*, bool isImportant, bool inheritedOnly, PropertyWhitelistType = PropertyWhitelistNone);
     template <StyleApplicationPass pass>
-    void applyAnimatedProperties(StyleResolverState&, const AnimationEffect::CompositableValueMap&);
+    void applyAnimatedProperties(StyleResolverState&, const HashMap<CSSPropertyID, RefPtr<Interpolation> >&);
     void matchPageRules(MatchResult&, RuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
     void matchPageRulesForList(WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >& matchedRules, const WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >&, bool isLeftPage, bool isFirstPage, const String& pageName);
     void collectViewportRules();
@@ -304,8 +306,11 @@ private:
     Document& m_document;
     SelectorFilter m_selectorFilter;
 
-    RefPtr<ViewportStyleResolver> m_viewportStyleResolver;
+    RefPtrWillBePersistent<ViewportStyleResolver> m_viewportStyleResolver;
 
+    // FIXME: Oilpan: This should be a WillBePersistentHeapListHashSet.
+    // This is safe for now, but should be updated when we support
+    // heap allocated ListHashSets.
     ListHashSet<CSSStyleSheet*, 16> m_pendingStyleSheets;
 
     ScopedStyleTree m_styleTree;

@@ -79,6 +79,7 @@ WebInspector.HeapSnapshotView = function(profile)
     if (WebInspector.experimentsSettings.allocationProfiler.isEnabled() && profile.profileType() === WebInspector.ProfileTypeRegistry.instance.trackingHeapSnapshotProfileType) {
         this._allocationView = new WebInspector.VBox();
         this._allocationDataGrid = new WebInspector.AllocationDataGrid();
+        this._allocationDataGrid.addEventListener(WebInspector.DataGrid.Events.SelectedNode, this._onSelectAllocationNode, this);
         this._allocationDataGrid.show(this._allocationView.element);
     }
 
@@ -224,6 +225,7 @@ WebInspector.HeapSnapshotView.SummaryPerspective.prototype = {
         if (heapSnapshotView._trackingOverviewGrid) {
             heapSnapshotView._trackingOverviewGrid.show(heapSnapshotView.element, heapSnapshotView._splitView.element);
             heapSnapshotView._trackingOverviewGrid.update();
+            heapSnapshotView._trackingOverviewGrid._updateGrid();
         }
     },
 
@@ -368,6 +370,9 @@ WebInspector.HeapSnapshotView.DominatorPerspective.prototype = {
 WebInspector.HeapSnapshotView.AllocationPerspective = function()
 {
     WebInspector.HeapSnapshotView.Perspective.call(this,  WebInspector.UIString("Allocation"));
+    this._allocationSplitView = new WebInspector.SplitView(false, true, "heapSnapshotAllocationSplitViewState", 200, 200);
+    this._allocationSplitView.setMainElementConstraints(50, 100);
+    this._allocationSplitView.setSidebarElementConstraints(50, 100);
 }
 
 WebInspector.HeapSnapshotView.AllocationPerspective.prototype = {
@@ -377,7 +382,26 @@ WebInspector.HeapSnapshotView.AllocationPerspective.prototype = {
      */
     activate: function(heapSnapshotView)
     {
-        heapSnapshotView._allocationView.show(heapSnapshotView.element);
+        heapSnapshotView._allocationView.show(this._allocationSplitView.mainElement());
+        heapSnapshotView._constructorsView.show(heapSnapshotView._splitView.mainElement());
+        heapSnapshotView._retainmentView.show(heapSnapshotView._splitView.sidebarElement());
+        heapSnapshotView._splitView.show(this._allocationSplitView.sidebarElement());
+        this._allocationSplitView.show(heapSnapshotView.element);
+
+        heapSnapshotView._constructorsDataGrid.clear();
+        var selectedNode = heapSnapshotView._allocationDataGrid.selectedNode;
+        if (selectedNode)
+            heapSnapshotView._constructorsDataGrid.setAllocationNodeId(selectedNode.allocationNodeId());
+    },
+
+    /**
+     * @override
+     * @param {!WebInspector.HeapSnapshotView} heapSnapshotView
+     */
+    deactivate: function(heapSnapshotView)
+    {
+        this._allocationSplitView.detach();
+        WebInspector.HeapSnapshotView.Perspective.prototype.deactivate.call(this, heapSnapshotView);
     },
 
     /**
@@ -741,6 +765,12 @@ WebInspector.HeapSnapshotView.prototype = {
         this._inspectedObjectChanged(event);
     },
 
+    _onSelectAllocationNode: function(event)
+    {
+        var selectedNode = event.target.selectedNode;
+        this._constructorsDataGrid.setAllocationNodeId(selectedNode.allocationNodeId());
+    },
+
     _inspectedObjectChanged: function(event)
     {
         var selectedNode = event.target.selectedNode;
@@ -869,19 +899,21 @@ WebInspector.HeapSnapshotView.prototype = {
      */
     highlightLiveObject: function(perspectiveName, snapshotObjectId)
     {
+        this._changePerspectiveAndWait(perspectiveName, didChangePerspective.bind(this));
+
         /**
          * @this {WebInspector.HeapSnapshotView}
          */
         function didChangePerspective()
         {
-            function didHighlightObject(found)
-            {
-                if (!found)
-                    WebInspector.console.log("Cannot find corresponding heap snapshot node", WebInspector.ConsoleMessage.MessageLevel.Error, true);
-            }
-            this._dataGrid.highlightObjectByHeapSnapshotId(snapshotObjectId, didHighlightObject.bind(this));
+            this._dataGrid.highlightObjectByHeapSnapshotId(snapshotObjectId, didHighlightObject);
         }
-        this._changePerspectiveAndWait(perspectiveName, didChangePerspective.bind(this));
+
+        function didHighlightObject(found)
+        {
+            if (!found)
+                WebInspector.console.log("Cannot find corresponding heap snapshot node", WebInspector.ConsoleMessage.MessageLevel.Error, true);
+        }
     },
 
     _getHoverAnchor: function(target)

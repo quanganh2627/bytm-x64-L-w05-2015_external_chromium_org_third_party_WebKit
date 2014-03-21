@@ -44,6 +44,16 @@ HTMLTableRowElement::HTMLTableRowElement(Document& document)
     ScriptWrappable::init(this);
 }
 
+bool HTMLTableRowElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return name == backgroundAttr || HTMLTablePartElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLTableRowElement::subResourceAttributeName() const
+{
+    return backgroundAttr;
+}
+
 PassRefPtr<HTMLTableRowElement> HTMLTableRowElement::create(Document& document)
 {
     return adoptRef(new HTMLTableRowElement(document));

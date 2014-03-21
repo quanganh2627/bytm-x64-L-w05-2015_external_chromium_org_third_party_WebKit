@@ -629,6 +629,7 @@
 ../core/dom/ParentNode.idl
 ../core/dom/URLUtils.idl
 ../core/dom/URLUtilsReadOnly.idl
+../core/events/EventListener.idl
 ../core/events/NavigatorEvents.idl
 ../core/frame/NavigatorID.idl
 ../core/frame/NavigatorOnLine.idl

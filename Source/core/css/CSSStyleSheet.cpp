@@ -87,25 +87,25 @@ static bool isAcceptableCSSStyleSheetParent(Node* parentNode)
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> CSSStyleSheet::create(PassRefPtrWillBeRawPtr<StyleSheetContents> sheet, CSSImportRule* ownerRule)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new CSSStyleSheet(sheet, ownerRule));
+    return adoptRefWillBeNoop(new CSSStyleSheet(sheet, ownerRule));
 }
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> CSSStyleSheet::create(PassRefPtrWillBeRawPtr<StyleSheetContents> sheet, Node* ownerNode)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new CSSStyleSheet(sheet, ownerNode, false, TextPosition::minimumPosition()));
+    return adoptRefWillBeNoop(new CSSStyleSheet(sheet, ownerNode, false, TextPosition::minimumPosition()));
 }
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> CSSStyleSheet::createInline(PassRefPtrWillBeRawPtr<StyleSheetContents> sheet, Node* ownerNode, const TextPosition& startPosition)
 {
     ASSERT(sheet);
-    return adoptRefWillBeRefCountedGarbageCollected(new CSSStyleSheet(sheet, ownerNode, true, startPosition));
+    return adoptRefWillBeNoop(new CSSStyleSheet(sheet, ownerNode, true, startPosition));
 }
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> CSSStyleSheet::createInline(Node* ownerNode, const KURL& baseURL, const TextPosition& startPosition, const String& encoding)
 {
     CSSParserContext parserContext(ownerNode->document(), 0, baseURL, encoding);
     RefPtrWillBeRawPtr<StyleSheetContents> sheet = StyleSheetContents::create(baseURL.string(), parserContext);
-    return adoptRefWillBeRefCountedGarbageCollected(new CSSStyleSheet(sheet.release(), ownerNode, true, startPosition));
+    return adoptRefWillBeNoop(new CSSStyleSheet(sheet.release(), ownerNode, true, startPosition));
 }
 
 CSSStyleSheet::CSSStyleSheet(PassRefPtrWillBeRawPtr<StyleSheetContents> contents, CSSImportRule* ownerRule)
@@ -158,11 +158,12 @@ CSSStyleSheet::~CSSStyleSheet()
 void CSSStyleSheet::willMutateRules()
 {
     InspectorInstrumentation::willMutateRules(this);
+
     // If we are the only client it is safe to mutate.
-    if (m_contents->hasOneClient() && !m_contents->isInMemoryCache()) {
+    if (m_contents->clientSize() <= 1 && !m_contents->isInMemoryCache()) {
         m_contents->clearRuleSet();
-        if (m_contents->maybeCacheable())
-            StyleEngine::removeSheet(m_contents.get());
+        if (Document* document = ownerDocument())
+            m_contents->removeSheetFromCache(document);
         m_contents->setMutable();
         return;
     }
@@ -183,7 +184,7 @@ void CSSStyleSheet::willMutateRules()
 void CSSStyleSheet::didMutateRules()
 {
     ASSERT(m_contents->isMutable());
-    ASSERT(m_contents->hasOneClient());
+    ASSERT(m_contents->clientSize() <= 1);
 
     InspectorInstrumentation::didMutateRules(this);
     didMutate(PartialRuleUpdate);
@@ -253,6 +254,14 @@ CSSRule* CSSStyleSheet::item(unsigned index)
             cssRule = m_contents->ruleAt(index)->createCSSOMWrapper(this);
     }
     return cssRule.get();
+}
+
+void CSSStyleSheet::clearOwnerNode()
+{
+    didMutate(EntireStyleSheetUpdate);
+    if (m_ownerNode)
+        m_contents->unregisterClient(this);
+    m_ownerNode = 0;
 }
 
 bool CSSStyleSheet::canAccessRules() const

@@ -370,6 +370,16 @@ bool HTMLObjectElement::isURLAttribute(const Attribute& attribute) const
         || HTMLPlugInElement::isURLAttribute(attribute);
 }
 
+bool HTMLObjectElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return name == classidAttr || name == dataAttr || name == codebaseAttr || HTMLPlugInElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLObjectElement::subResourceAttributeName() const
+{
+    return dataAttr;
+}
+
 const AtomicString HTMLObjectElement::imageSourceURL() const
 {
     return getAttribute(dataAttr);
@@ -430,7 +440,7 @@ bool HTMLObjectElement::containsJavaApplet() const
     if (MIMETypeRegistry::isJavaAppletMIMEType(getAttribute(typeAttr)))
         return true;
 
-    for (HTMLElement* child = Traversal<HTMLElement>::firstWithin(*this); child; child = Traversal<HTMLElement>::nextSkippingChildren(*child, this)) {
+    for (HTMLElement* child = Traversal<HTMLElement>::firstChild(*this); child; child = Traversal<HTMLElement>::nextSibling(*child)) {
         if (isHTMLParamElement(*child)
                 && equalIgnoringCase(child->getNameAttribute(), "type")
                 && MIMETypeRegistry::isJavaAppletMIMEType(child->getAttribute(valueAttr).string()))

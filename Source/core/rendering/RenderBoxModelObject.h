@@ -24,6 +24,7 @@
 #ifndef RenderBoxModelObject_h
 #define RenderBoxModelObject_h
 
+#include "core/animation/ActiveAnimations.h"
 #include "core/rendering/RenderLayerModelObject.h"
 #include "core/rendering/style/ShadowData.h"
 #include "platform/geometry/LayoutRect.h"
@@ -89,7 +90,7 @@ public:
 
     virtual LayerType layerTypeRequired() const OVERRIDE
     {
-        if (isRoot() || isPositioned() || createsGroup() || hasClipPath() || hasTransform() || hasHiddenBackface() || hasReflection() || style()->specifiesColumns() || style()->hasWillChangeCompositingHint() || style()->hasWillChangeGpuRasterizationHint())
+        if (isRoot() || isPositioned() || createsGroup() || hasClipPath() || hasTransform() || hasHiddenBackface() || hasReflection() || style()->specifiesColumns() || style()->hasWillChangeCompositingHint() || style()->hasWillChangeGpuRasterizationHint() || shouldCompositeForActiveAnimations(*this))
             return NormalLayer;
 
         return NoLayer;
@@ -259,7 +260,7 @@ protected:
     RoundedRect backgroundRoundedRectAdjustedForBleedAvoidance(GraphicsContext*, const LayoutRect&, BackgroundBleedAvoidance, InlineFlowBox*, const LayoutSize&, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const;
     LayoutRect borderInnerRectAdjustedForBleedAvoidance(GraphicsContext*, const LayoutRect&, BackgroundBleedAvoidance) const;
 
-    bool shouldPaintAtLowQuality(GraphicsContext*, Image*, const void*, const LayoutSize&);
+    InterpolationQuality chooseInterpolationQuality(GraphicsContext*, Image*, const void*, const LayoutSize&);
 
     RenderBoxModelObject* continuation() const;
     void setContinuation(RenderBoxModelObject*);

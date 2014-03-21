@@ -74,7 +74,6 @@
 
 #include <algorithm>
 #include "AssociatedURLLoader.h"
-#include "DOMUtilitiesPrivate.h"
 #include "EventListenerWrapper.h"
 #include "FindInPageCoordinates.h"
 #include "HTMLNames.h"
@@ -132,6 +131,7 @@
 #include "core/frame/FrameView.h"
 #include "core/html/HTMLCollection.h"
 #include "core/html/HTMLFormElement.h"
+#include "core/html/HTMLFrameElementBase.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/HTMLHeadElement.h"
 #include "core/html/HTMLInputElement.h"
@@ -1935,6 +1935,17 @@ int WebFrameImpl::selectNearestFindMatch(const WebFloatPoint& point, WebRect* se
     return -1;
 }
 
+void WebFrameImpl::setTickmarks(const WebVector<WebRect>& tickmarks)
+{
+    if (frameView()) {
+        Vector<IntRect> tickmarksConverted(tickmarks.size());
+        for (size_t i = 0; i < tickmarks.size(); ++i)
+            tickmarksConverted[i] = tickmarks[i];
+        frameView()->setTickmarks(tickmarksConverted);
+        invalidateArea(InvalidateScrollbar);
+    }
+}
+
 int WebFrameImpl::nearestFindMatch(const FloatPoint& point, float& distanceSquared)
 {
     updateFindMatchRects();
@@ -2226,9 +2237,9 @@ WebFrameImpl* WebFrameImpl::fromFrame(LocalFrame* frame)
 WebFrameImpl* WebFrameImpl::fromFrameOwnerElement(Element* element)
 {
     // FIXME: Why do we check specifically for <iframe> and <frame> here? Why can't we get the WebFrameImpl from an <object> element, for example.
-    if (!element || !element->isFrameOwnerElement() || (!isHTMLIFrameElement(*element) && !isHTMLFrameElement(*element)))
+    if (!isHTMLFrameElementBase(element))
         return 0;
-    return fromFrame(toHTMLFrameOwnerElement(element)->contentFrame());
+    return fromFrame(toHTMLFrameElementBase(element)->contentFrame());
 }
 
 WebViewImpl* WebFrameImpl::viewImpl() const

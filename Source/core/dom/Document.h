@@ -993,6 +993,7 @@ public:
 
     ElementDataCache* elementDataCache() { return m_elementDataCache.get(); }
 
+    void didLoadAllScriptBlockingResources();
     void didRemoveAllPendingStylesheet();
     void setNeedsNotifyRemoveAllPendingStylesheet() { m_needsNotifyRemoveAllPendingStylesheet = true; }
     void clearStyleResolver();
@@ -1182,7 +1183,7 @@ private:
     RefPtr<DocumentType> m_docType;
     OwnPtr<DOMImplementation> m_implementation;
 
-    RefPtr<CSSStyleSheet> m_elemSheet;
+    RefPtrWillBePersistent<CSSStyleSheet> m_elemSheet;
 
     bool m_printing;
     bool m_paginatedForScreen;

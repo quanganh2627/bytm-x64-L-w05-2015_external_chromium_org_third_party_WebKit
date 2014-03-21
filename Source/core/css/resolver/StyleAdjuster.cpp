@@ -197,55 +197,8 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
     style->setOriginalDisplay(style->display());
 
     if (style->display() != NONE) {
-        // If we have a <td> that specifies a float property, in quirks mode we just drop the float
-        // property.
-        // Sites also commonly use display:inline/block on <td>s and <table>s. In quirks mode we force
-        // these tags to retain their display types.
-        if (m_useQuirksModeStyles && e) {
-            if (e->hasTagName(tdTag)) {
-                style->setDisplay(TABLE_CELL);
-                style->setFloating(NoFloat);
-            } else if (isHTMLTableElement(*e)) {
-                style->setDisplay(style->isDisplayInlineType() ? INLINE_TABLE : TABLE);
-            }
-        }
-
-        if (e && isHTMLTableCellElement(*e)) {
-            if (style->whiteSpace() == KHTML_NOWRAP) {
-                // Figure out if we are really nowrapping or if we should just
-                // use normal instead. If the width of the cell is fixed, then
-                // we don't actually use NOWRAP.
-                if (style->width().isFixed())
-                    style->setWhiteSpace(NORMAL);
-                else
-                    style->setWhiteSpace(NOWRAP);
-            }
-        }
-
-        // Tables never support the -webkit-* values for text-align and will reset back to the default.
-        if (isHTMLTableElement(e) && (style->textAlign() == WEBKIT_LEFT || style->textAlign() == WEBKIT_CENTER || style->textAlign() == WEBKIT_RIGHT))
-            style->setTextAlign(TASTART);
-
-        // Frames and framesets never honor position:relative or position:absolute. This is necessary to
-        // fix a crash where a site tries to position these objects. They also never honor display.
-        if (e && (isHTMLFrameElement(*e) || isHTMLFrameSetElement(*e))) {
-            style->setPosition(StaticPosition);
-            style->setDisplay(BLOCK);
-        }
-
-        // Ruby text does not support float or position. This might change with evolution of the specification.
-        if (isHTMLRTElement(e)) {
-            style->setPosition(StaticPosition);
-            style->setFloating(NoFloat);
-        }
-
-        // FIXME: We shouldn't be overriding start/-webkit-auto like this. Do it in html.css instead.
-        // Table headers with a text-align of -webkit-auto will change the text-align to center.
-        if (e && e->hasTagName(thTag) && style->textAlign() == TASTART)
-            style->setTextAlign(CENTER);
-
-        if (isHTMLLegendElement(e))
-            style->setDisplay(BLOCK);
+        if (e)
+            adjustStyleForTagName(style, parentStyle, *e);
 
         // Per the spec, position 'static' and 'relative' in the top layer compute to 'absolute'.
         if (isInTopLayer(e, style) && (style->position() == StaticPosition || style->position() == RelativePosition))
@@ -255,42 +208,7 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
         if (style->hasOutOfFlowPosition() || style->isFloating() || (e && e->document().documentElement() == e))
             style->setDisplay(equivalentBlockDisplay(style->display(), style->isFloating(), !m_useQuirksModeStyles));
 
-        // FIXME: Don't support this mutation for pseudo styles like first-letter or first-line, since it's not completely
-        // clear how that should work.
-        if (style->display() == INLINE && style->styleType() == NOPSEUDO && style->writingMode() != parentStyle->writingMode())
-            style->setDisplay(INLINE_BLOCK);
-
-        // After performing the display mutation, check table rows. We do not honor position: relative table rows or cells.
-        // This has been established for position: relative in CSS2.1 (and caused a crash in containingBlock()
-        // on some sites).
-        if ((style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW_GROUP
-            || style->display() == TABLE_FOOTER_GROUP || style->display() == TABLE_ROW)
-            && style->position() == RelativePosition)
-            style->setPosition(StaticPosition);
-
-        // Cannot support position: sticky for table columns and column groups because current code is only doing
-        // background painting through columns / column groups
-        if ((style->display() == TABLE_COLUMN_GROUP || style->display() == TABLE_COLUMN)
-            && style->position() == StickyPosition)
-            style->setPosition(StaticPosition);
-
-        // writing-mode does not apply to table row groups, table column groups, table rows, and table columns.
-        // FIXME: Table cells should be allowed to be perpendicular or flipped with respect to the table, though.
-        if (style->display() == TABLE_COLUMN || style->display() == TABLE_COLUMN_GROUP || style->display() == TABLE_FOOTER_GROUP
-            || style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW || style->display() == TABLE_ROW_GROUP
-            || style->display() == TABLE_CELL)
-            style->setWritingMode(parentStyle->writingMode());
-
-        // FIXME: Since we don't support block-flow on flexible boxes yet, disallow setting
-        // of block-flow to anything other than TopToBottomWritingMode.
-        // https://bugs.webkit.org/show_bug.cgi?id=46418 - Flexible box support.
-        if (style->writingMode() != TopToBottomWritingMode && (style->display() == BOX || style->display() == INLINE_BOX))
-            style->setWritingMode(TopToBottomWritingMode);
-
-        if (isDisplayFlexibleBox(parentStyle->display()) || isDisplayGridBox(parentStyle->display())) {
-            style->setFloating(NoFloat);
-            style->setDisplay(equivalentBlockDisplay(style->display(), style->isFloating(), !m_useQuirksModeStyles));
-        }
+        adjustStyleForDisplay(style, parentStyle);
     }
 
     // Make sure our z-index value is only applied if the object is positioned.
@@ -321,18 +239,6 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
     if (!style->hasTransform() && style->willChangeProperties().contains(CSSPropertyWebkitTransform)) {
         bool makeIdentity = true;
         style->setTransform(TransformOperations(makeIdentity));
-    }
-
-    // Textarea considers overflow visible as auto.
-    if (isHTMLTextAreaElement(e)) {
-        style->setOverflowX(style->overflowX() == OVISIBLE ? OAUTO : style->overflowX());
-        style->setOverflowY(style->overflowY() == OVISIBLE ? OAUTO : style->overflowY());
-    }
-
-    // For now, <marquee> requires an overflow clip to work properly.
-    if (isHTMLMarqueeElement(e)) {
-        style->setOverflowX(OHIDDEN);
-        style->setOverflowY(OHIDDEN);
     }
 
     if (doesNotInheritTextDecoration(style, e))
@@ -370,21 +276,12 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
     style->adjustBackgroundLayers();
     style->adjustMaskLayers();
 
-    // Important: Intrinsic margins get added to controls before the theme has adjusted the style, since the theme will
-    // alter fonts and heights/widths.
-    if (e && e->isFormControlElement() && style->fontSize() >= 11) {
-        // Don't apply intrinsic margins to image buttons. The designer knows how big the images are,
-        // so we have to treat all image buttons as though they were explicitly sized.
-        if (!isHTMLInputElement(*e) || !toHTMLInputElement(e)->isImageButton())
-            addIntrinsicMargins(style);
-    }
-
     // Let the theme also have a crack at adjusting the style.
     if (style->hasAppearance())
         RenderTheme::theme().adjustStyle(style, e, m_cachedUAStyle);
 
-    // If we have first-letter pseudo style, do not share this style.
-    if (style->hasPseudoStyle(FIRST_LETTER))
+    // If we have first-letter pseudo style, transitions, or animations, do not share this style.
+    if (style->hasPseudoStyle(FIRST_LETTER) || style->transitions() || style->animations())
         style->setUnique();
 
     // FIXME: when dropping the -webkit prefix on transform-style, we should also have opacity < 1 cause flattening.
@@ -417,6 +314,134 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
         // SVG text layout code expects us to be a block-level style element.
         if ((isSVGForeignObjectElement(*e) || isSVGTextElement(*e)) && style->isDisplayInlineType())
             style->setDisplay(BLOCK);
+    }
+}
+
+void StyleAdjuster::adjustStyleForTagName(RenderStyle* style, RenderStyle* parentStyle, Element& element)
+{
+    // <div> and <span> are the most common elements on the web, we skip all the work for them.
+    if (isHTMLDivElement(element) || isHTMLSpanElement(element))
+        return;
+
+    if (isHTMLTableCellElement(element)) {
+        // If we have a <td> that specifies a float property, in quirks mode we just drop the float property.
+        // FIXME: Why is this only <td> and not <th>?
+        if (element.hasTagName(tdTag) && m_useQuirksModeStyles) {
+            style->setDisplay(TABLE_CELL);
+            style->setFloating(NoFloat);
+        }
+        // FIXME: We shouldn't be overriding start/-webkit-auto like this. Do it in html.css instead.
+        // Table headers with a text-align of -webkit-auto will change the text-align to center.
+        if (element.hasTagName(thTag) && style->textAlign() == TASTART)
+            style->setTextAlign(CENTER);
+        if (style->whiteSpace() == KHTML_NOWRAP) {
+            // Figure out if we are really nowrapping or if we should just
+            // use normal instead. If the width of the cell is fixed, then
+            // we don't actually use NOWRAP.
+            if (style->width().isFixed())
+                style->setWhiteSpace(NORMAL);
+            else
+                style->setWhiteSpace(NOWRAP);
+        }
+        return;
+    }
+
+    if (isHTMLTableElement(element)) {
+        // Sites commonly use display:inline/block on <td>s and <table>s. In quirks mode we force
+        // these tags to retain their display types.
+        if (m_useQuirksModeStyles)
+            style->setDisplay(style->isDisplayInlineType() ? INLINE_TABLE : TABLE);
+        // Tables never support the -webkit-* values for text-align and will reset back to the default.
+        if (style->textAlign() == WEBKIT_LEFT || style->textAlign() == WEBKIT_CENTER || style->textAlign() == WEBKIT_RIGHT)
+            style->setTextAlign(TASTART);
+        return;
+    }
+
+    if (isHTMLFrameElement(element) || isHTMLFrameSetElement(element)) {
+        // Frames and framesets never honor position:relative or position:absolute. This is necessary to
+        // fix a crash where a site tries to position these objects. They also never honor display.
+        style->setPosition(StaticPosition);
+        style->setDisplay(BLOCK);
+        return;
+    }
+
+    if (isHTMLRTElement(element)) {
+        // Ruby text does not support float or position. This might change with evolution of the specification.
+        style->setPosition(StaticPosition);
+        style->setFloating(NoFloat);
+        return;
+    }
+
+    if (isHTMLLegendElement(element)) {
+        style->setDisplay(BLOCK);
+        return;
+    }
+
+    if (isHTMLMarqueeElement(element)) {
+        // For now, <marquee> requires an overflow clip to work properly.
+        style->setOverflowX(OHIDDEN);
+        style->setOverflowY(OHIDDEN);
+        return;
+    }
+
+    if (element.isFormControlElement()) {
+        if (isHTMLTextAreaElement(element)) {
+            // Textarea considers overflow visible as auto.
+            style->setOverflowX(style->overflowX() == OVISIBLE ? OAUTO : style->overflowX());
+            style->setOverflowY(style->overflowY() == OVISIBLE ? OAUTO : style->overflowY());
+        }
+
+        // Important: Intrinsic margins get added to controls before the theme has adjusted the style,
+        // since the theme will alter fonts and heights/widths.
+        //
+        // Don't apply intrinsic margins to image buttons. The designer knows how big the images are,
+        // so we have to treat all image buttons as though they were explicitly sized.
+        if (style->fontSize() >= 11 && (!isHTMLInputElement(element) || !toHTMLInputElement(element).isImageButton()))
+            addIntrinsicMargins(style);
+        return;
+    }
+}
+
+void StyleAdjuster::adjustStyleForDisplay(RenderStyle* style, RenderStyle* parentStyle)
+{
+    if (style->display() == BLOCK && !style->isFloating())
+        return;
+
+    // FIXME: Don't support this mutation for pseudo styles like first-letter or first-line, since it's not completely
+    // clear how that should work.
+    if (style->display() == INLINE && style->styleType() == NOPSEUDO && style->writingMode() != parentStyle->writingMode())
+        style->setDisplay(INLINE_BLOCK);
+
+    // After performing the display mutation, check table rows. We do not honor position: relative table rows or cells.
+    // This has been established for position: relative in CSS2.1 (and caused a crash in containingBlock()
+    // on some sites).
+    if ((style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW_GROUP
+        || style->display() == TABLE_FOOTER_GROUP || style->display() == TABLE_ROW)
+        && style->position() == RelativePosition)
+        style->setPosition(StaticPosition);
+
+    // Cannot support position: sticky for table columns and column groups because current code is only doing
+    // background painting through columns / column groups
+    if ((style->display() == TABLE_COLUMN_GROUP || style->display() == TABLE_COLUMN)
+        && style->position() == StickyPosition)
+        style->setPosition(StaticPosition);
+
+    // writing-mode does not apply to table row groups, table column groups, table rows, and table columns.
+    // FIXME: Table cells should be allowed to be perpendicular or flipped with respect to the table, though.
+    if (style->display() == TABLE_COLUMN || style->display() == TABLE_COLUMN_GROUP || style->display() == TABLE_FOOTER_GROUP
+        || style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW || style->display() == TABLE_ROW_GROUP
+        || style->display() == TABLE_CELL)
+        style->setWritingMode(parentStyle->writingMode());
+
+    // FIXME: Since we don't support block-flow on flexible boxes yet, disallow setting
+    // of block-flow to anything other than TopToBottomWritingMode.
+    // https://bugs.webkit.org/show_bug.cgi?id=46418 - Flexible box support.
+    if (style->writingMode() != TopToBottomWritingMode && (style->display() == BOX || style->display() == INLINE_BOX))
+        style->setWritingMode(TopToBottomWritingMode);
+
+    if (isDisplayFlexibleBox(parentStyle->display()) || isDisplayGridBox(parentStyle->display())) {
+        style->setFloating(NoFloat);
+        style->setDisplay(equivalentBlockDisplay(style->display(), style->isFloating(), !m_useQuirksModeStyles));
     }
 }
 

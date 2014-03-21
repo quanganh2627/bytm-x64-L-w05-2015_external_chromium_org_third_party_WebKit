@@ -71,7 +71,6 @@ public:
     bool parseStringAtPosition(const String&, const TextPosition&, bool);
 
     bool isCacheable() const;
-    bool maybeCacheable() const;
 
     bool isLoading() const;
 
@@ -139,19 +138,24 @@ public:
 
     void registerClient(CSSStyleSheet*);
     void unregisterClient(CSSStyleSheet*);
-    bool hasOneClient() { return (m_loadingClients.size() + m_completedClients.size()) == 1; }
+    size_t clientSize() const { return m_loadingClients.size() + m_completedClients.size(); }
+    bool hasOneClient() { return clientSize() == 1; }
     void clientLoadCompleted(CSSStyleSheet*);
     void clientLoadStarted(CSSStyleSheet*);
 
     bool isMutable() const { return m_isMutable; }
     void setMutable() { m_isMutable = true; }
 
+    void removeSheetFromCache(Document*);
+
     bool isInMemoryCache() const { return m_isInMemoryCache; }
     void addedToMemoryCache();
     void removedFromMemoryCache();
 
     void setHasMediaQueries();
-    bool hasMediaQueries() { return m_hasMediaQueries; }
+    bool hasMediaQueries() const { return m_hasMediaQueries; }
+
+    bool didLoadErrorOccur() const { return m_didLoadErrorOccur; }
 
     void shrinkToFit();
     RuleSet& ruleSet() { ASSERT(m_ruleSet); return *m_ruleSet.get(); }
@@ -165,6 +169,7 @@ private:
     StyleSheetContents(const StyleSheetContents&);
     void notifyRemoveFontFaceRule(const StyleRuleFontFace*);
 
+    Document* clientSingleOwnerDocument() const;
     void clearCharsetRule();
 
     RawPtrWillBeMember<StyleRuleImport> m_ownerRule;
@@ -184,6 +189,7 @@ private:
     bool m_isInMemoryCache : 1;
     bool m_hasFontFaceRule : 1;
     bool m_hasMediaQueries : 1;
+    bool m_hasSingleOwnerDocument : 1;
 
     CSSParserContext m_parserContext;
 

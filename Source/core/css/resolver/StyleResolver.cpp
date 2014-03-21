@@ -629,6 +629,13 @@ static void addContentAttrValuesToFeatures(const Vector<AtomicString>& contentAt
         features.addAttributeInASelector(contentAttrValues[i]);
 }
 
+// Start loading resources referenced by this style.
+void StyleResolver::loadPendingResources(StyleResolverState& state)
+{
+    m_styleResourceLoader.loadPendingResources(state.style(), state.elementStyleResources());
+    document().styleEngine()->fontSelector()->loadPendingFonts();
+}
+
 PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderStyle* defaultParent, StyleSharingBehavior sharingBehavior,
     RuleMatchingBehavior matchingBehavior)
 {
@@ -783,9 +790,7 @@ PassRefPtr<RenderStyle> StyleResolver::styleForKeyframe(Element* element, const 
     // go ahead and update it a second time.
     updateFont(state);
 
-    // Start loading resources referenced by this style.
-    m_styleResourceLoader.loadPendingResources(state.style(), state.elementStyleResources());
-    document().styleEngine()->fontSelector()->loadPendingFonts();
+    loadPendingResources(state);
 
     didAccess();
 
@@ -794,12 +799,13 @@ PassRefPtr<RenderStyle> StyleResolver::styleForKeyframe(Element* element, const 
 
 // This function is used by the WebAnimations JavaScript API method animate().
 // FIXME: Remove this when animate() switches away from resolution-dependent parsing.
-PassRefPtrWillBeRawPtr<KeyframeEffectModel> StyleResolver::createKeyframeEffectModel(Element& element, const Vector<RefPtr<MutableStylePropertySet> >& propertySetVector, KeyframeEffectModel::KeyframeVector& keyframes)
+PassRefPtrWillBeRawPtr<KeyframeEffectModel> StyleResolver::createKeyframeEffectModel(Element& element, const WillBeHeapVector<RefPtrWillBeMember<MutableStylePropertySet> >& propertySetVector, KeyframeEffectModel::KeyframeVector& keyframes)
 {
     ASSERT(propertySetVector.size() == keyframes.size());
 
     StyleResolverState state(element.document(), &element);
     state.setStyle(RenderStyle::create());
+    state.fontBuilder().initForStyleResolve(state.document(), state.style(), state.useSVGZoomRules());
 
     for (unsigned i = 0; i < propertySetVector.size(); ++i) {
         for (unsigned j = 0; j < propertySetVector[i]->propertyCount(); ++j) {
@@ -808,6 +814,7 @@ PassRefPtrWillBeRawPtr<KeyframeEffectModel> StyleResolver::createKeyframeEffectM
             keyframes[i]->setPropertyValue(id, CSSAnimatableValueFactory::create(id, *state.style()).get());
         }
     }
+
     return KeyframeEffectModel::create(keyframes);
 }
 
@@ -827,16 +834,22 @@ PassRefPtr<PseudoElement> StyleResolver::createPseudoElementIfNeeded(Element& pa
         return nullptr;
 
     RenderStyle* parentStyle = parentRenderer->style();
+    if (RenderStyle* cachedStyle = parentStyle->getCachedPseudoStyle(pseudoId)) {
+        if (!pseudoElementRendererIsNeeded(cachedStyle))
+            return nullptr;
+        return PseudoElement::create(&parent, pseudoId);
+    }
+
     StyleResolverState state(document(), &parent, parentStyle);
     if (!pseudoStyleForElementInternal(parent, pseudoId, parentStyle, state))
         return nullptr;
     RefPtr<RenderStyle> style = state.takeStyle();
     ASSERT(style);
+    parentStyle->addCachedPseudoStyle(style);
 
     if (!pseudoElementRendererIsNeeded(style.get()))
         return nullptr;
 
-    parentStyle->addCachedPseudoStyle(style.release());
     RefPtr<PseudoElement> pseudo = PseudoElement::create(&parent, pseudoId);
 
     setAnimationUpdateIfNeeded(state, *pseudo);
@@ -955,9 +968,7 @@ PassRefPtr<RenderStyle> StyleResolver::styleForPage(int pageIndex)
 
     addContentAttrValuesToFeatures(state.contentAttrValues(), m_features);
 
-    // Start loading resources referenced by this style.
-    m_styleResourceLoader.loadPendingResources(state.style(), state.elementStyleResources());
-    document().styleEngine()->fontSelector()->loadPendingFonts();
+    loadPendingResources(state);
 
     didAccess();
 
@@ -1000,7 +1011,7 @@ PassRefPtr<RenderStyle> StyleResolver::styleForText(Text* textNode)
 
     NodeRenderingTraversal::ParentDetails parentDetails;
     Node* parentNode = NodeRenderingTraversal::parent(textNode, &parentDetails);
-    if (!parentNode || !parentNode->renderStyle() || parentDetails.resetStyleInheritance())
+    if (!parentNode || !parentNode->renderStyle())
         return defaultStyleForElement();
     return parentNode->renderStyle();
 }
@@ -1072,12 +1083,12 @@ void StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* 
     if (!state.animationUpdate())
         return;
 
-    const AnimationEffect::CompositableValueMap& compositableValuesForAnimations = state.animationUpdate()->compositableValuesForAnimations();
-    const AnimationEffect::CompositableValueMap& compositableValuesForTransitions = state.animationUpdate()->compositableValuesForTransitions();
-    applyAnimatedProperties<HighPriorityProperties>(state, compositableValuesForAnimations);
-    applyAnimatedProperties<HighPriorityProperties>(state, compositableValuesForTransitions);
-    applyAnimatedProperties<LowPriorityProperties>(state, compositableValuesForAnimations);
-    applyAnimatedProperties<LowPriorityProperties>(state, compositableValuesForTransitions);
+    const HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolationsForAnimations = state.animationUpdate()->activeInterpolationsForAnimations();
+    const HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolationsForTransitions = state.animationUpdate()->activeInterpolationsForTransitions();
+    applyAnimatedProperties<HighPriorityProperties>(state, activeInterpolationsForAnimations);
+    applyAnimatedProperties<HighPriorityProperties>(state, activeInterpolationsForTransitions);
+    applyAnimatedProperties<LowPriorityProperties>(state, activeInterpolationsForAnimations);
+    applyAnimatedProperties<LowPriorityProperties>(state, activeInterpolationsForTransitions);
 
     // If the animations/transitions change opacity or transform, we need to update
     // the style to impose the stacking rules. Note that this is also
@@ -1085,20 +1096,22 @@ void StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* 
     RenderStyle* style = state.style();
     if (style->hasAutoZIndex() && (style->opacity() < 1.0f || style->hasTransform()))
         style->setZIndex(0);
+
+    // Start loading resources used by animations.
+    loadPendingResources(state);
 }
 
 template <StyleResolver::StyleApplicationPass pass>
-void StyleResolver::applyAnimatedProperties(StyleResolverState& state, const AnimationEffect::CompositableValueMap& compositableValues)
+void StyleResolver::applyAnimatedProperties(StyleResolverState& state, const HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolations)
 {
     ASSERT(pass != AnimationProperties);
 
-    for (AnimationEffect::CompositableValueMap::const_iterator iter = compositableValues.begin(); iter != compositableValues.end(); ++iter) {
+    for (HashMap<CSSPropertyID, RefPtr<Interpolation> >::const_iterator iter = activeInterpolations.begin(); iter != activeInterpolations.end(); ++iter) {
         CSSPropertyID property = iter->key;
         if (!isPropertyForPass<pass>(property))
             continue;
-        ASSERT_WITH_MESSAGE(!iter->value->dependsOnUnderlyingValue(), "Web Animations not yet implemented: An interface for compositing onto the underlying value.");
-        RefPtr<AnimatableValue> animatableValue = iter->value->compositeOnto(0);
-        AnimatedStyleBuilder::applyProperty(property, state, animatableValue.get());
+        const StyleInterpolation *interpolation = toStyleInterpolation(iter->value.get());
+        interpolation->apply(state);
     }
 }
 
@@ -1329,9 +1342,7 @@ void StyleResolver::applyMatchedProperties(StyleResolverState& state, const Matc
     applyMatchedProperties<LowPriorityProperties>(state, matchResult, true, matchResult.ranges.firstUserRule, matchResult.ranges.lastUserRule, applyInheritedOnly);
     applyMatchedProperties<LowPriorityProperties>(state, matchResult, true, matchResult.ranges.firstUARule, matchResult.ranges.lastUARule, applyInheritedOnly);
 
-    // Start loading resources referenced by this style.
-    m_styleResourceLoader.loadPendingResources(state.style(), state.elementStyleResources());
-    document().styleEngine()->fontSelector()->loadPendingFonts();
+    loadPendingResources(state);
 
     if (!cachedMatchedProperties && cacheHash && MatchedPropertiesCache::isCacheable(element, state.style(), state.parentStyle())) {
         INCREMENT_STYLE_STATS_COUNTER(*this, matchedPropertyCacheAdded);

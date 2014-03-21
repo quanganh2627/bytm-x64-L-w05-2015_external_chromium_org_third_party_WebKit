@@ -84,6 +84,7 @@
 #include "core/html/HTMLDocument.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLFormControlsCollection.h"
+#include "core/html/HTMLFrameElementBase.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/HTMLLabelElement.h"
 #include "core/html/HTMLOptionsCollection.h"
@@ -227,6 +228,26 @@ inline ElementRareData& Element::ensureElementRareData()
     return static_cast<ElementRareData&>(ensureRareData());
 }
 
+bool Element::hasElementFlagInternal(ElementFlags mask) const
+{
+    ASSERT(hasRareData());
+    return elementRareData()->hasFlag(mask);
+}
+
+void Element::setElementFlag(ElementFlags mask, bool value)
+{
+    if (!hasRareData() && !value)
+        return;
+    ensureElementRareData().setFlag(mask, value);
+}
+
+void Element::clearElementFlag(ElementFlags mask)
+{
+    if (!hasRareData())
+        return;
+    elementRareData()->clearFlag(mask);
+}
+
 void Element::clearTabIndexExplicitlyIfNeeded()
 {
     if (hasRareData())
@@ -236,11 +257,6 @@ void Element::clearTabIndexExplicitlyIfNeeded()
 void Element::setTabIndexExplicitly(short tabIndex)
 {
     ensureElementRareData().setTabIndexExplicitly(tabIndex);
-}
-
-bool Element::supportsFocus() const
-{
-    return hasRareData() && elementRareData()->tabIndexSetExplicitly();
 }
 
 short Element::tabIndex() const
@@ -1050,6 +1066,16 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ne
         cache->handleAttributeChanged(name, this);
 }
 
+bool Element::hasLegalLinkAttribute(const QualifiedName&) const
+{
+    return false;
+}
+
+const QualifiedName& Element::subResourceAttributeName() const
+{
+    return nullQName();
+}
+
 inline void Element::attributeChangedFromParserOrByCloning(const QualifiedName& name, const AtomicString& newValue, AttributeModificationReason reason)
 {
     if (name == isAttr)
@@ -1383,8 +1409,7 @@ void Element::removedFrom(ContainerNode* insertionPoint)
 
     document().removeFromTopLayer(this);
 
-    if (hasRareData())
-        elementRareData()->setIsInCanvasSubtree(false);
+    clearElementFlag(IsInCanvasSubtree);
 }
 
 void Element::attach(const AttachContext& context)
@@ -1425,10 +1450,10 @@ void Element::attach(const AttachContext& context)
 
     if (hasRareData()) {
         ElementRareData* data = elementRareData();
-        if (data->needsFocusAppearanceUpdateSoonAfterAttach()) {
+        if (data->hasFlag(NeedsFocusAppearanceUpdateSoonAfterAttach)) {
             if (isFocusable() && document().focusedElement() == this)
                 document().updateFocusAppearanceSoon(false /* don't restore selection */);
-            data->setNeedsFocusAppearanceUpdateSoonAfterAttach(false);
+            data->clearFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
         }
         if (!renderer()) {
             if (ActiveAnimations* activeAnimations = data->activeAnimations()) {
@@ -1740,6 +1765,21 @@ void Element::setNeedsAnimationStyleRecalc()
     setAnimationStyleChange(true);
 }
 
+void Element::setCustomElementDefinition(PassRefPtr<CustomElementDefinition> definition)
+{
+    if (!hasRareData() && !definition)
+        return;
+    ASSERT(!customElementDefinition());
+    ensureElementRareData().setCustomElementDefinition(definition);
+}
+
+CustomElementDefinition* Element::customElementDefinition() const
+{
+    if (hasRareData())
+        return elementRareData()->customElementDefinition();
+    return 0;
+}
+
 PassRefPtr<ShadowRoot> Element::createShadowRoot(ExceptionState& exceptionState)
 {
     if (alwaysCreateUserAgentShadowRoot())
@@ -1829,14 +1869,16 @@ void Element::checkForSiblingStyleChanges(bool finishedParsingCallback, Node* be
     if (!style || (needsStyleRecalc() && childrenAffectedByPositionalRules()))
         return;
 
-    // Forward positional selectors include the ~ selector, nth-child, nth-of-type, first-of-type and only-of-type.
+    // Forward positional selectors include nth-child, nth-of-type, first-of-type and only-of-type.
+    // The indirect adjacent selector is the ~ selector.
     // Backward positional selectors include nth-last-child, nth-last-of-type, last-of-type and only-of-type.
-    // We have to invalidate everything following the insertion point in the forward case, and everything before the insertion point in the
-    // backward case.
+    // We have to invalidate everything following the insertion point in the forward and indirect adjacent case,
+    // and everything before the insertion point in the backward case.
     // |afterChange| is 0 in the parser callback case, so we won't do any work for the forward case if we don't have to.
     // For performance reasons we just mark the parent node as changed, since we don't want to make childrenChanged O(n^2) by crawling all our kids
     // here. recalcStyle will then force a walk of the children when it sees that this has happened.
-    if ((childrenAffectedByForwardPositionalRules() && afterChange) || (childrenAffectedByBackwardPositionalRules() && beforeChange)) {
+    if (((childrenAffectedByForwardPositionalRules() || childrenAffectedByIndirectAdjacentRules()) && afterChange)
+        || (childrenAffectedByBackwardPositionalRules() && beforeChange)) {
         setNeedsStyleRecalc(SubtreeStyleChange);
         return;
     }
@@ -2167,7 +2209,7 @@ void Element::focus(bool restorePreviousSelection, FocusType type)
     doc.updateLayoutIgnorePendingStylesheets();
 
     if (!isFocusable()) {
-        ensureElementRareData().setNeedsFocusAppearanceUpdateSoonAfterAttach(true);
+        setElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
         return;
     }
 
@@ -2502,56 +2544,6 @@ RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     return pseudoElementSpecifier ? rareData.computedStyle()->getCachedPseudoStyle(pseudoElementSpecifier) : rareData.computedStyle();
 }
 
-void Element::setStyleAffectedByEmpty()
-{
-    ensureElementRareData().setStyleAffectedByEmpty(true);
-}
-
-void Element::setChildrenAffectedByFocus()
-{
-    ensureElementRareData().setChildrenAffectedByFocus(true);
-}
-
-void Element::setChildrenAffectedByHover()
-{
-    ensureElementRareData().setChildrenAffectedByHover(true);
-}
-
-void Element::setChildrenAffectedByActive()
-{
-    ensureElementRareData().setChildrenAffectedByActive(true);
-}
-
-void Element::setChildrenAffectedByDrag()
-{
-    ensureElementRareData().setChildrenAffectedByDrag(true);
-}
-
-void Element::setChildrenAffectedByFirstChildRules()
-{
-    ensureElementRareData().setChildrenAffectedByFirstChildRules(true);
-}
-
-void Element::setChildrenAffectedByLastChildRules()
-{
-    ensureElementRareData().setChildrenAffectedByLastChildRules(true);
-}
-
-void Element::setChildrenAffectedByDirectAdjacentRules()
-{
-    ensureElementRareData().setChildrenAffectedByDirectAdjacentRules(true);
-}
-
-void Element::setChildrenAffectedByForwardPositionalRules()
-{
-    ensureElementRareData().setChildrenAffectedByForwardPositionalRules(true);
-}
-
-void Element::setChildrenAffectedByBackwardPositionalRules()
-{
-    ensureElementRareData().setChildrenAffectedByBackwardPositionalRules(true);
-}
-
 void Element::setChildIndex(unsigned index)
 {
     ElementRareData& rareData = ensureElementRareData();
@@ -2560,95 +2552,10 @@ void Element::setChildIndex(unsigned index)
     rareData.setChildIndex(index);
 }
 
-bool Element::childrenSupportStyleSharing() const
-{
-    if (!hasRareData())
-        return true;
-    return !rareDataChildrenAffectedByFocus()
-        && !rareDataChildrenAffectedByHover()
-        && !rareDataChildrenAffectedByActive()
-        && !rareDataChildrenAffectedByDrag()
-        && !rareDataChildrenAffectedByFirstChildRules()
-        && !rareDataChildrenAffectedByLastChildRules()
-        && !rareDataChildrenAffectedByDirectAdjacentRules()
-        && !rareDataChildrenAffectedByForwardPositionalRules()
-        && !rareDataChildrenAffectedByBackwardPositionalRules();
-}
-
-bool Element::rareDataStyleAffectedByEmpty() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->styleAffectedByEmpty();
-}
-
-bool Element::rareDataChildrenAffectedByFocus() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByFocus();
-}
-
-bool Element::rareDataChildrenAffectedByHover() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByHover();
-}
-
-bool Element::rareDataChildrenAffectedByActive() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByActive();
-}
-
-bool Element::rareDataChildrenAffectedByDrag() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByDrag();
-}
-
-bool Element::rareDataChildrenAffectedByFirstChildRules() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByFirstChildRules();
-}
-
-bool Element::rareDataChildrenAffectedByLastChildRules() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByLastChildRules();
-}
-
-bool Element::rareDataChildrenAffectedByDirectAdjacentRules() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByDirectAdjacentRules();
-}
-
-bool Element::rareDataChildrenAffectedByForwardPositionalRules() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByForwardPositionalRules();
-}
-
-bool Element::rareDataChildrenAffectedByBackwardPositionalRules() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childrenAffectedByBackwardPositionalRules();
-}
-
 unsigned Element::rareDataChildIndex() const
 {
     ASSERT(hasRareData());
     return elementRareData()->childIndex();
-}
-
-void Element::setIsInCanvasSubtree(bool isInCanvasSubtree)
-{
-    ensureElementRareData().setIsInCanvasSubtree(isInCanvasSubtree);
-}
-
-bool Element::isInCanvasSubtree() const
-{
-    return hasRareData() && elementRareData()->isInCanvasSubtree();
 }
 
 AtomicString Element::computeInheritedLanguage() const
@@ -2684,7 +2591,7 @@ Locale& Element::locale() const
 void Element::cancelFocusAppearanceUpdate()
 {
     if (hasRareData())
-        elementRareData()->setNeedsFocusAppearanceUpdateSoonAfterAttach(false);
+        clearElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
     if (document().focusedElement() == this)
         document().cancelFocusAppearanceUpdate();
 }
@@ -2853,14 +2760,9 @@ void Element::webkitRequestFullScreen(unsigned short flags)
     FullscreenElementStack::from(document()).requestFullScreenForElement(this, (flags | LEGACY_MOZILLA_REQUEST), FullscreenElementStack::EnforceIFrameAllowFullScreenRequirement);
 }
 
-bool Element::containsFullScreenElement() const
-{
-    return hasRareData() && elementRareData()->containsFullScreenElement();
-}
-
 void Element::setContainsFullScreenElement(bool flag)
 {
-    ensureElementRareData().setContainsFullScreenElement(flag);
+    setElementFlag(ContainsFullScreenElement, flag);
     setNeedsStyleRecalc(SubtreeStyleChange);
 }
 
@@ -2877,16 +2779,11 @@ void Element::setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(boo
         element->setContainsFullScreenElement(flag);
 }
 
-bool Element::isInTopLayer() const
-{
-    return hasRareData() && elementRareData()->isInTopLayer();
-}
-
 void Element::setIsInTopLayer(bool inTopLayer)
 {
     if (isInTopLayer() == inTopLayer)
         return;
-    ensureElementRareData().setIsInTopLayer(inTopLayer);
+    setElementFlag(IsInTopLayer, inTopLayer);
 
     // We must ensure a reattach occurs so the renderer is inserted in the correct sibling order under RenderView according to its
     // top layer position, or in its usual place if not in the top layer.
@@ -3314,21 +3211,6 @@ bool Element::hasInputMethodContext() const
     return hasRareData() && elementRareData()->hasInputMethodContext();
 }
 
-bool Element::hasPendingResources() const
-{
-    return hasRareData() && elementRareData()->hasPendingResources();
-}
-
-void Element::setHasPendingResources()
-{
-    ensureElementRareData().setHasPendingResources(true);
-}
-
-void Element::clearHasPendingResources()
-{
-    ensureElementRareData().setHasPendingResources(false);
-}
-
 void Element::synchronizeStyleAttributeInternal() const
 {
     ASSERT(isStyledElement());
@@ -3529,8 +3411,7 @@ bool Element::supportsStyleSharing() const
     // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
     // See comments in RenderObject::setStyle().
     // FIXME: Why does gaining a layer from outside the style system require disabling sharing?
-    if (isHTMLIFrameElement(*this)
-        || isHTMLFrameElement(*this)
+    if (isHTMLFrameElementBase(*this)
         || isHTMLEmbedElement(*this)
         || isHTMLObjectElement(*this)
         || isHTMLAppletElement(*this)

@@ -76,7 +76,7 @@ void StyleElement::removedFromDocument(Document& document, Element* element, Con
     ASSERT(element);
     document.styleEngine()->removeStyleSheetCandidateNode(element, scopingNode, treeScope);
 
-    RefPtr<StyleSheet> removedSheet = m_sheet;
+    RefPtrWillBeRawPtr<StyleSheet> removedSheet = m_sheet.get();
 
     if (m_sheet)
         clearSheet(element);
@@ -148,7 +148,7 @@ void StyleElement::createSheet(Element* e, const String& text)
         if (screenEval.eval(mediaQueries.get()) || printEval.eval(mediaQueries.get())) {
             m_loading = true;
             TextPosition startPosition = m_startPosition == TextPosition::belowRangePosition() ? TextPosition::minimumPosition() : m_startPosition;
-            m_sheet = StyleEngine::createSheet(e, text, startPosition, m_createdByParser);
+            m_sheet = document.styleEngine()->createSheet(e, text, startPosition, m_createdByParser);
             m_sheet->setMediaQueries(mediaQueries.release());
             m_loading = false;
         }

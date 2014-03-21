@@ -245,7 +245,6 @@ public:
     virtual bool isAttributeNode() const { return false; }
     virtual bool isCharacterDataNode() const { return false; }
     virtual bool isFrameOwnerElement() const { return false; }
-    virtual bool isPluginElement() const { return false; }
 
     // StyledElements allow inline style (style="border: 1px"), presentational attributes (ex. color),
     // class names (ex. class="foo bar") and other non-basic styling features. They and also control
@@ -613,8 +612,8 @@ public:
     virtual const AtomicString& interfaceName() const OVERRIDE;
     virtual ExecutionContext* executionContext() const OVERRIDE;
 
-    virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture) OVERRIDE;
-    virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture) OVERRIDE;
+    virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture = false) OVERRIDE;
+    virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture = false) OVERRIDE;
     virtual void removeAllEventListeners() OVERRIDE;
 
     // Handlers to do/undo actions on the target node before an event is dispatched to it and after the event

@@ -43,6 +43,7 @@ class Attr;
 class Attribute;
 class ClientRect;
 class ClientRectList;
+class CustomElementDefinition;
 class DOMStringMap;
 class DOMTokenList;
 class ElementRareData;
@@ -73,6 +74,39 @@ enum SpellcheckAttributeState {
     SpellcheckAttributeTrue,
     SpellcheckAttributeFalse,
     SpellcheckAttributeDefault
+};
+
+enum ElementFlags {
+    TabIndexWasSetExplicitly = 1 << 0,
+    NeedsFocusAppearanceUpdateSoonAfterAttach = 1 << 1,
+    StyleAffectedByEmpty = 1 << 2,
+    IsInCanvasSubtree = 1 << 3,
+    ContainsFullScreenElement = 1 << 4,
+    IsInTopLayer = 1 << 5,
+    HasPendingResources = 1 << 6,
+    ChildrenAffectedByFocus = 1 << 7,
+    ChildrenAffectedByHover = 1 << 8,
+    ChildrenAffectedByActive = 1 << 9,
+    ChildrenAffectedByDrag = 1 << 10,
+    ChildrenAffectedByFirstChildRules = 1 << 11,
+    ChildrenAffectedByLastChildRules = 1 << 12,
+    ChildrenAffectedByDirectAdjacentRules = 1 << 13,
+    ChildrenAffectedByIndirectAdjacentRules = 1 << 14,
+    ChildrenAffectedByForwardPositionalRules = 1 << 15,
+    ChildrenAffectedByBackwardPositionalRules = 1 << 16,
+
+    // If any of these flags are set we cannot share style.
+    ElementFlagsPreventingStyleSharing =
+        ChildrenAffectedByFocus
+        | ChildrenAffectedByHover
+        | ChildrenAffectedByActive
+        | ChildrenAffectedByDrag
+        | ChildrenAffectedByFirstChildRules
+        | ChildrenAffectedByLastChildRules
+        | ChildrenAffectedByDirectAdjacentRules
+        | ChildrenAffectedByIndirectAdjacentRules
+        | ChildrenAffectedByForwardPositionalRules
+        | ChildrenAffectedByBackwardPositionalRules,
 };
 
 class Element : public ContainerNode {
@@ -278,6 +312,9 @@ public:
     virtual void attributeChanged(const QualifiedName&, const AtomicString&, AttributeModificationReason = ModifiedDirectly);
     virtual void parseAttribute(const QualifiedName&, const AtomicString&) { }
 
+    virtual bool hasLegalLinkAttribute(const QualifiedName&) const;
+    virtual const QualifiedName& subResourceAttributeName() const;
+
     // Only called by the parser immediately after element construction.
     void parserSetAttributes(const Vector<Attribute>&);
 
@@ -325,35 +362,48 @@ public:
     RenderStyle* computedStyle(PseudoId = NOPSEUDO);
 
     // Methods for indicating the style is affected by dynamic updates (e.g., children changing, our position changing in our sibling list, etc.)
-    bool styleAffectedByEmpty() const { return hasRareData() && rareDataStyleAffectedByEmpty(); }
-    bool childrenAffectedByFocus() const { return hasRareData() && rareDataChildrenAffectedByFocus(); }
-    bool childrenAffectedByHover() const { return hasRareData() && rareDataChildrenAffectedByHover(); }
-    bool childrenAffectedByActive() const { return hasRareData() && rareDataChildrenAffectedByActive(); }
-    bool childrenAffectedByDrag() const { return hasRareData() && rareDataChildrenAffectedByDrag(); }
-    bool childrenAffectedByPositionalRules() const { return hasRareData() && (rareDataChildrenAffectedByForwardPositionalRules() || rareDataChildrenAffectedByBackwardPositionalRules()); }
-    bool childrenAffectedByFirstChildRules() const { return hasRareData() && rareDataChildrenAffectedByFirstChildRules(); }
-    bool childrenAffectedByLastChildRules() const { return hasRareData() && rareDataChildrenAffectedByLastChildRules(); }
-    bool childrenAffectedByDirectAdjacentRules() const { return hasRareData() && rareDataChildrenAffectedByDirectAdjacentRules(); }
-    bool childrenAffectedByForwardPositionalRules() const { return hasRareData() && rareDataChildrenAffectedByForwardPositionalRules(); }
-    bool childrenAffectedByBackwardPositionalRules() const { return hasRareData() && rareDataChildrenAffectedByBackwardPositionalRules(); }
+    bool styleAffectedByEmpty() const { return hasElementFlag(StyleAffectedByEmpty); }
+    void setStyleAffectedByEmpty() { setElementFlag(StyleAffectedByEmpty); }
+
+    bool childrenAffectedByFocus() const { return hasElementFlag(ChildrenAffectedByFocus); }
+    void setChildrenAffectedByFocus() { setElementFlag(ChildrenAffectedByFocus); }
+
+    bool childrenAffectedByHover() const { return hasElementFlag(ChildrenAffectedByHover); }
+    void setChildrenAffectedByHover() { setElementFlag(ChildrenAffectedByHover); }
+
+    bool childrenAffectedByActive() const { return hasElementFlag(ChildrenAffectedByActive); }
+    void setChildrenAffectedByActive() { setElementFlag(ChildrenAffectedByActive); }
+
+    bool childrenAffectedByDrag() const { return hasElementFlag(ChildrenAffectedByDrag); }
+    void setChildrenAffectedByDrag() { setElementFlag(ChildrenAffectedByDrag); }
+
+    bool childrenAffectedByPositionalRules() const { return hasElementFlag(ChildrenAffectedByForwardPositionalRules) || hasElementFlag(ChildrenAffectedByBackwardPositionalRules); }
+
+    bool childrenAffectedByFirstChildRules() const { return hasElementFlag(ChildrenAffectedByFirstChildRules); }
+    void setChildrenAffectedByFirstChildRules() { setElementFlag(ChildrenAffectedByFirstChildRules); }
+
+    bool childrenAffectedByLastChildRules() const { return hasElementFlag(ChildrenAffectedByLastChildRules); }
+    void setChildrenAffectedByLastChildRules() { setElementFlag(ChildrenAffectedByLastChildRules); }
+
+    bool childrenAffectedByDirectAdjacentRules() const { return hasElementFlag(ChildrenAffectedByDirectAdjacentRules); }
+    void setChildrenAffectedByDirectAdjacentRules() { setElementFlag(ChildrenAffectedByDirectAdjacentRules); }
+
+    bool childrenAffectedByIndirectAdjacentRules() const { return hasElementFlag(ChildrenAffectedByIndirectAdjacentRules); }
+    void setChildrenAffectedByIndirectAdjacentRules() { setElementFlag(ChildrenAffectedByIndirectAdjacentRules); }
+
+    bool childrenAffectedByForwardPositionalRules() const { return hasElementFlag(ChildrenAffectedByForwardPositionalRules); }
+    void setChildrenAffectedByForwardPositionalRules() { setElementFlag(ChildrenAffectedByForwardPositionalRules); }
+
+    bool childrenAffectedByBackwardPositionalRules() const { return hasElementFlag(ChildrenAffectedByBackwardPositionalRules); }
+    void setChildrenAffectedByBackwardPositionalRules() { setElementFlag(ChildrenAffectedByBackwardPositionalRules); }
+
+    void setIsInCanvasSubtree(bool value) { setElementFlag(IsInCanvasSubtree, value); }
+    bool isInCanvasSubtree() const { return hasElementFlag(IsInCanvasSubtree); }
+
     unsigned childIndex() const { return hasRareData() ? rareDataChildIndex() : 0; }
-
-    bool childrenSupportStyleSharing() const;
-
-    void setStyleAffectedByEmpty();
-    void setChildrenAffectedByFocus();
-    void setChildrenAffectedByHover();
-    void setChildrenAffectedByActive();
-    void setChildrenAffectedByDrag();
-    void setChildrenAffectedByFirstChildRules();
-    void setChildrenAffectedByLastChildRules();
-    void setChildrenAffectedByDirectAdjacentRules();
-    void setChildrenAffectedByForwardPositionalRules();
-    void setChildrenAffectedByBackwardPositionalRules();
     void setChildIndex(unsigned);
 
-    void setIsInCanvasSubtree(bool);
-    bool isInCanvasSubtree() const;
+    bool childrenSupportStyleSharing() const { return !hasElementFlag(ElementFlagsPreventingStyleSharing); }
 
     bool isUpgradedCustomElement() { return customElementState() == Upgraded; }
     bool isUnresolvedCustomElement() { return customElementState() == WaitingForUpgrade; }
@@ -379,7 +429,7 @@ public:
     // focusable but some elements, such as form controls and links, are. Unlike
     // rendererIsFocusable(), this method may be called when layout is not up to
     // date, so it must not use the renderer to determine focusability.
-    virtual bool supportsFocus() const;
+    virtual bool supportsFocus() const { return hasElementFlag(TabIndexWasSetExplicitly); }
     // Whether the node can actually be focused.
     bool isFocusable() const;
     virtual bool isKeyboardFocusable() const;
@@ -458,7 +508,6 @@ public:
     virtual bool isValidFormControlElement() { return false; }
     virtual bool isInRange() const { return false; }
     virtual bool isOutOfRange() const { return false; }
-    virtual bool isFrameElementBase() const { return false; }
     virtual bool isPasswordGeneratorButtonElement() const { return false; }
     virtual bool isClearButtonElement() const { return false; }
 
@@ -468,10 +517,13 @@ public:
     // to event listeners, and prevents DOMActivate events from being sent at all.
     virtual bool isDisabledFormControl() const { return false; }
 
-    bool hasPendingResources() const;
-    void setHasPendingResources();
-    void clearHasPendingResources();
+    bool hasPendingResources() const { return hasElementFlag(HasPendingResources); }
+    void setHasPendingResources() { setElementFlag(HasPendingResources); }
+    void clearHasPendingResources() { clearElementFlag(HasPendingResources); }
     virtual void buildPendingResource() { };
+
+    void setCustomElementDefinition(PassRefPtr<CustomElementDefinition>);
+    CustomElementDefinition* customElementDefinition() const;
 
     enum {
         ALLOW_KEYBOARD_INPUT = 1 << 0,
@@ -479,14 +531,14 @@ public:
     };
 
     void webkitRequestFullScreen(unsigned short flags);
-    bool containsFullScreenElement() const;
+    bool containsFullScreenElement() const { return hasElementFlag(ContainsFullScreenElement); }
     void setContainsFullScreenElement(bool);
     void setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(bool);
 
     // W3C API
     void webkitRequestFullscreen();
 
-    bool isInTopLayer() const;
+    bool isInTopLayer() const { return hasElementFlag(IsInTopLayer); }
     void setIsInTopLayer(bool);
 
     void webkitRequestPointerLock();
@@ -563,6 +615,11 @@ protected:
     Node* insertAdjacent(const String& where, Node* newChild, ExceptionState&);
 
 private:
+    bool hasElementFlag(ElementFlags mask) const { return hasRareData() && hasElementFlagInternal(mask); }
+    void setElementFlag(ElementFlags, bool value = true);
+    void clearElementFlag(ElementFlags);
+    bool hasElementFlagInternal(ElementFlags) const;
+
     void styleAttributeChanged(const AtomicString& newStyleString, AttributeModificationReason);
 
     void updatePresentationAttributeStyle();
@@ -635,16 +692,7 @@ private:
     virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren();
 
     QualifiedName m_tagName;
-    bool rareDataStyleAffectedByEmpty() const;
-    bool rareDataChildrenAffectedByFocus() const;
-    bool rareDataChildrenAffectedByHover() const;
-    bool rareDataChildrenAffectedByActive() const;
-    bool rareDataChildrenAffectedByDrag() const;
-    bool rareDataChildrenAffectedByFirstChildRules() const;
-    bool rareDataChildrenAffectedByLastChildRules() const;
-    bool rareDataChildrenAffectedByDirectAdjacentRules() const;
-    bool rareDataChildrenAffectedByForwardPositionalRules() const;
-    bool rareDataChildrenAffectedByBackwardPositionalRules() const;
+
     unsigned rareDataChildIndex() const;
 
     SpellcheckAttributeState spellcheckAttributeState() const;

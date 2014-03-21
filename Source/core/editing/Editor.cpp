@@ -525,7 +525,7 @@ bool Editor::shouldDeleteRange(Range* range) const
 
 void Editor::notifyComponentsOnChangedSelection(const VisibleSelection& oldSelection, FrameSelection::SetSelectionOptions options)
 {
-    client().respondToChangedSelection(m_frame.selection().selectionType());
+    client().respondToChangedSelection(&m_frame, m_frame.selection().selectionType());
     setStartNewKillRingSequence(true);
 }
 
@@ -954,17 +954,17 @@ void Editor::redo()
 
 void Editor::setBaseWritingDirection(WritingDirection direction)
 {
-    Node* focusedElement = frame().document()->focusedElement();
-    if (focusedElement && isHTMLTextFormControlElement(*focusedElement)) {
+    Element* focusedElement = frame().document()->focusedElement();
+    if (isHTMLTextFormControlElement(focusedElement)) {
         if (direction == NaturalWritingDirection)
             return;
-        toHTMLElement(focusedElement)->setAttribute(dirAttr, direction == LeftToRightWritingDirection ? "ltr" : "rtl");
+        focusedElement->setAttribute(dirAttr, direction == LeftToRightWritingDirection ? "ltr" : "rtl");
         focusedElement->dispatchInputEvent();
         frame().document()->updateStyleIfNeeded();
         return;
     }
 
-    RefPtr<MutableStylePropertySet> style = MutableStylePropertySet::create();
+    RefPtrWillBeRawPtr<MutableStylePropertySet> style = MutableStylePropertySet::create();
     style->setProperty(CSSPropertyDirection, direction == LeftToRightWritingDirection ? "ltr" : direction == RightToLeftWritingDirection ? "rtl" : "inherit", false);
     applyParagraphStyleToSelection(style.get(), EditActionSetWritingDirection);
 }
@@ -1045,7 +1045,7 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection,  
     // does not call EditorClient::respondToChangedSelection(), which, on the Mac, sends selection change notifications and
     // starts a new kill ring sequence, but we want to do these things (matches AppKit).
     if (selectionDidNotChangeDOMPosition)
-        client().respondToChangedSelection(m_frame.selection().selectionType());
+        client().respondToChangedSelection(&m_frame, m_frame.selection().selectionType());
 }
 
 IntRect Editor::firstRectForRange(Range* range) const

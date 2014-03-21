@@ -90,6 +90,7 @@ public:
     // FIXME: This is only used by an ASSERT in StyleResolver. Remove?
     bool fontDirty() const { return m_fontDirty; }
 
+    static FontDescription::GenericFamilyType initialGenericFamily() { return FontDescription::NoFamily; }
     static TextRenderingMode initialTextRendering() { return AutoTextRendering; }
     static FontVariant initialVariant() { return FontVariantNormal; }
     static FontStyle initialStyle() { return FontStyleNormal; }
@@ -125,6 +126,8 @@ private:
     // is changed, FontBuilder tracks the need to update
     // style->font() with this bool.
     bool m_fontDirty;
+
+    friend class FontBuilderTest;
 };
 
 }

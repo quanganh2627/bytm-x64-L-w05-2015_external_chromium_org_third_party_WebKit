@@ -63,7 +63,7 @@ class InspectorCSSAgent FINAL
     : public InspectorBaseAgent<InspectorCSSAgent>
     , public InspectorDOMAgent::DOMListener
     , public InspectorBackendDispatcher::CSSCommandHandler
-    , public InspectorStyleSheet::Listener {
+    , public InspectorStyleSheetBase::Listener {
     WTF_MAKE_NONCOPYABLE(InspectorCSSAgent);
 public:
     enum MediaListSource {
@@ -107,20 +107,20 @@ public:
     virtual void setFrontend(InspectorFrontend*) OVERRIDE;
     virtual void clearFrontend() OVERRIDE;
     virtual void discardAgent() OVERRIDE;
+    virtual void didCommitLoadForMainFrame() OVERRIDE;
     virtual void restore() OVERRIDE;
+    virtual void flushPendingFrontendMessages() OVERRIDE;
     virtual void enable(ErrorString*, PassRefPtr<EnableCallback>) OVERRIDE;
     virtual void disable(ErrorString*) OVERRIDE;
     void reset();
-    void didCommitLoad(LocalFrame*, DocumentLoader*);
     void mediaQueryResultChanged();
     void willMutateRules();
     void didMutateRules(CSSStyleSheet*);
     void willMutateStyle();
     void didMutateStyle(CSSStyleDeclaration*, bool);
 
-public:
     void activeStyleSheetsUpdated(Document*);
-    void frameDetachedFromParent(LocalFrame*);
+    void documentDetached(Document*);
 
     virtual void getComputedStyleForNode(ErrorString*, int nodeId, RefPtr<TypeBuilder::Array<TypeBuilder::CSS::CSSComputedStyleProperty> >&) OVERRIDE;
     virtual void getPlatformFontsForNode(ErrorString*, int nodeId, String* cssFamilyName, RefPtr<TypeBuilder::Array<TypeBuilder::CSS::PlatformFontUsage> >&) OVERRIDE;
@@ -148,6 +148,7 @@ private:
     InspectorCSSAgent(InspectorDOMAgent*, InspectorPageAgent*, InspectorResourceAgent*);
 
     typedef HashMap<String, RefPtr<InspectorStyleSheet> > IdToInspectorStyleSheet;
+    typedef HashMap<String, RefPtr<InspectorStyleSheetForInlineStyle> > IdToInspectorStyleSheetForInlineStyle;
     typedef HashMap<Node*, RefPtr<InspectorStyleSheetForInlineStyle> > NodeToInspectorStyleSheet; // bogus "stylesheets" with elements' inline styles
     typedef HashMap<int, unsigned> NodeIdToForcedPseudoState;
 
@@ -159,15 +160,16 @@ private:
     void collectAllDocumentStyleSheets(Document*, Vector<CSSStyleSheet*>&);
     void collectStyleSheets(CSSStyleSheet*, Vector<CSSStyleSheet*>&);
 
-    void updateActiveStyleSheetsForDocument(Document*, StyleSheetsUpdateType);
-    void updateActiveStyleSheets(LocalFrame*, const Vector<CSSStyleSheet*>&, StyleSheetsUpdateType);
+    void updateActiveStyleSheets(Document*, StyleSheetsUpdateType);
+    void setActiveStyleSheets(Document*, const Vector<CSSStyleSheet*>&, StyleSheetsUpdateType);
 
     void collectPlatformFontsForRenderer(RenderText*, HashCountedSet<String>*);
 
     InspectorStyleSheet* bindStyleSheet(CSSStyleSheet*);
     String unbindStyleSheet(InspectorStyleSheet*);
     InspectorStyleSheet* viaInspectorStyleSheet(Document*, bool createIfAbsent);
-    InspectorStyleSheet* assertStyleSheetForId(ErrorString*, const String&);
+    InspectorStyleSheet* assertInspectorStyleSheetForId(ErrorString*, const String&);
+    InspectorStyleSheetBase* assertStyleSheetForId(ErrorString*, const String&);
     TypeBuilder::CSS::StyleSheetOrigin::Enum detectOrigin(CSSStyleSheet* pageStyleSheet, Document* ownerDocument);
     bool styleSheetEditInProgress() const { return m_styleSheetsPendingMutation || m_styleDeclarationPendingMutation || m_isSettingStyleSheetText; }
 
@@ -181,7 +183,7 @@ private:
     virtual void didModifyDOMAttr(Element*) OVERRIDE;
 
     // InspectorStyleSheet::Listener implementation
-    virtual void styleSheetChanged(InspectorStyleSheet*) OVERRIDE;
+    virtual void styleSheetChanged(InspectorStyleSheetBase*) OVERRIDE;
     virtual void willReparseStyleSheet() OVERRIDE;
     virtual void didReparseStyleSheet() OVERRIDE;
 
@@ -193,14 +195,17 @@ private:
     InspectorResourceAgent* m_resourceAgent;
 
     IdToInspectorStyleSheet m_idToInspectorStyleSheet;
+    IdToInspectorStyleSheetForInlineStyle m_idToInspectorStyleSheetForInlineStyle;
     HashMap<CSSStyleSheet*, RefPtr<InspectorStyleSheet> > m_cssStyleSheetToInspectorStyleSheet;
-    HashMap<LocalFrame*, OwnPtr<HashSet<CSSStyleSheet*> > > m_frameToCSSStyleSheets;
+    typedef HashMap<Document*, OwnPtr<HashSet<CSSStyleSheet*> > > DocumentStyleSheets;
+    DocumentStyleSheets m_documentToCSSStyleSheets;
+    HashSet<Document*> m_invalidatedDocuments;
 
     NodeToInspectorStyleSheet m_nodeToInspectorStyleSheet;
     HashMap<RefPtr<Document>, RefPtr<InspectorStyleSheet> > m_documentToViaInspectorStyleSheet; // "via inspector" stylesheets
     NodeIdToForcedPseudoState m_nodeIdToForcedPseudoState;
 
-    RefPtr<CSSStyleSheet> m_inspectorUserAgentStyleSheet;
+    RefPtrWillBePersistent<CSSStyleSheet> m_inspectorUserAgentStyleSheet;
 
     int m_lastStyleSheetId;
     int m_styleSheetsPendingMutation;

@@ -248,8 +248,8 @@ enum PageshowEventPersistence {
 
         // Events
         // EventTarget API
-        virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture) OVERRIDE;
-        virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture) OVERRIDE;
+        virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture = false) OVERRIDE;
+        virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture = false) OVERRIDE;
         virtual void removeAllEventListeners() OVERRIDE;
 
         using EventTarget::dispatchEvent;
@@ -344,7 +344,7 @@ enum PageshowEventPersistence {
         HashSet<DOMWindowProperty*> m_properties;
 
         mutable RefPtrWillBePersistent<Screen> m_screen;
-        mutable RefPtr<History> m_history;
+        mutable RefPtrWillBePersistent<History> m_history;
         mutable RefPtr<BarProp> m_locationbar;
         mutable RefPtr<BarProp> m_menubar;
         mutable RefPtr<BarProp> m_personalbar;
@@ -352,8 +352,8 @@ enum PageshowEventPersistence {
         mutable RefPtr<BarProp> m_statusbar;
         mutable RefPtr<BarProp> m_toolbar;
         mutable RefPtr<Console> m_console;
-        mutable RefPtr<Navigator> m_navigator;
-        mutable RefPtr<Location> m_location;
+        mutable RefPtrWillBePersistent<Navigator> m_navigator;
+        mutable RefPtrWillBePersistent<Location> m_location;
         mutable RefPtr<StyleMedia> m_media;
 
         String m_status;
@@ -363,7 +363,7 @@ enum PageshowEventPersistence {
         mutable RefPtrWillBePersistent<Storage> m_localStorage;
         mutable RefPtr<ApplicationCache> m_applicationCache;
 
-        mutable RefPtr<Performance> m_performance;
+        mutable RefPtrWillBePersistent<Performance> m_performance;
 
         mutable RefPtr<DOMWindowCSS> m_css;
 

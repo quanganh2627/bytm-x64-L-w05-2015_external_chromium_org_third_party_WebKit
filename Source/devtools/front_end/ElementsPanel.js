@@ -112,7 +112,7 @@ WebInspector.ElementsPanel = function()
     this._popoverHelper.setTimeout(0);
 
     WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.DocumentUpdated, this._documentUpdatedEvent, this);
-    WebInspector.settings.showShadowDOM.addChangeListener(this._showShadowDOMChanged.bind(this));
+    WebInspector.settings.showUAShadowDOM.addChangeListener(this._showUAShadowDOMChanged.bind(this));
 
     WebInspector.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.ModelWasEnabled, this._updateSidebars, this);
 }
@@ -383,7 +383,7 @@ WebInspector.ElementsPanel.prototype = {
         this.treeOutline.populateContextMenu(contextMenu, event);
 
         contextMenu.appendSeparator();
-        contextMenu.appendCheckboxItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Word wrap" : "Word Wrap"), toggleWordWrap.bind(this), WebInspector.settings.domWordWrap.get());
+        contextMenu.appendCheckboxItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Word wrap" : "Word Wrap"), toggleWordWrap, WebInspector.settings.domWordWrap.get());
 
         contextMenu.show();
     },
@@ -465,6 +465,7 @@ WebInspector.ElementsPanel.prototype = {
 
             /**
              * @return {!{offsetWidth: number, offsetHeight: number, naturalWidth: number, naturalHeight: number}}
+             * @suppressReceiverCheck
              * @this {!Element}
              */
             function dimensions()
@@ -1128,7 +1129,7 @@ WebInspector.ElementsPanel.prototype = {
         if (!node)
             return;
 
-        node = WebInspector.settings.showShadowDOM.get() ? node : this._leaveUserAgentShadowDOM(node);
+        node = WebInspector.settings.showUAShadowDOM.get() ? node : this._leaveUserAgentShadowDOM(node);
         WebInspector.domAgent.highlightDOMNodeForTwoSeconds(nodeId);
         this.selectDOMNode(node, true);
     },
@@ -1160,7 +1161,7 @@ WebInspector.ElementsPanel.prototype = {
         if (target instanceof WebInspector.RemoteObject) {
             var remoteObject = /** @type {!WebInspector.RemoteObject} */ (target);
             if (remoteObject.subtype === "node")
-                commandCallback = revealElement.bind(this, remoteObject);
+                commandCallback = revealElement.bind(null, remoteObject);
         } else if (target instanceof WebInspector.DOMNode) {
             var domNode = /** @type {!WebInspector.DOMNode} */ (target);
             if (domNode.id)
@@ -1186,7 +1187,7 @@ WebInspector.ElementsPanel.prototype = {
         this._splitVertically(vertically);
     },
 
-    _showShadowDOMChanged: function()
+    _showUAShadowDOMChanged: function()
     {
         this.treeOutline.update();
     },

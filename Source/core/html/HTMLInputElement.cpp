@@ -1206,6 +1206,16 @@ bool HTMLInputElement::isURLAttribute(const Attribute& attribute) const
     return attribute.name() == srcAttr || attribute.name() == formactionAttr || HTMLTextFormControlElement::isURLAttribute(attribute);
 }
 
+bool HTMLInputElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return m_inputType->hasLegalLinkAttribute(name) || HTMLTextFormControlElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLInputElement::subResourceAttributeName() const
+{
+    return m_inputType->subResourceAttributeName();
+}
+
 const AtomicString& HTMLInputElement::defaultValue() const
 {
     return fastGetAttribute(valueAttr);

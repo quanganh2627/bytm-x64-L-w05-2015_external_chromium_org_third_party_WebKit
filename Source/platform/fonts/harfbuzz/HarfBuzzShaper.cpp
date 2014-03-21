@@ -382,6 +382,10 @@ HarfBuzzShaper::HarfBuzzShaper(const Font* font, const TextRun& run, ForTextEmph
     , m_fromIndex(0)
     , m_toIndex(m_run.length())
     , m_forTextEmphasis(forTextEmphasis)
+    , m_minGlyphBoundingBoxX(std::numeric_limits<float>::max())
+    , m_maxGlyphBoundingBoxX(std::numeric_limits<float>::min())
+    , m_minGlyphBoundingBoxY(std::numeric_limits<float>::max())
+    , m_maxGlyphBoundingBoxY(std::numeric_limits<float>::min())
 {
     m_normalizedBuffer = adoptArrayPtr(new UChar[m_run.length() + 1]);
     normalizeCharacters(m_run, m_run.length(), m_normalizedBuffer.get(), &m_normalizedBufferLength);
@@ -778,7 +782,6 @@ bool HarfBuzzShaper::shapeHarfBuzzRuns()
 {
     HarfBuzzScopedPtr<hb_buffer_t> harfBuzzBuffer(hb_buffer_create(), hb_buffer_destroy);
 
-    hb_buffer_set_unicode_funcs(harfBuzzBuffer.get(), hb_icu_get_unicode_funcs());
     HarfBuzzRunCache& runCache = harfBuzzRunCache();
 
     for (unsigned i = 0; i < m_harfBuzzRuns.size(); ++i) {
@@ -808,7 +811,7 @@ bool HarfBuzzShaper::shapeHarfBuzzRuns()
                 currentRun->applyShapeResult(cachedResults->buffer);
                 setGlyphPositionsForHarfBuzzRun(currentRun, cachedResults->buffer);
 
-                hb_buffer_reset(harfBuzzBuffer.get());
+                hb_buffer_clear_contents(harfBuzzBuffer.get());
 
                 runCache.moveToBack(cachedResults);
 
@@ -844,7 +847,6 @@ bool HarfBuzzShaper::shapeHarfBuzzRuns()
         runCache.insert(key, new CachedShapingResults(harfBuzzBuffer.get(), m_font, props.direction));
 
         harfBuzzBuffer.set(hb_buffer_create());
-        hb_buffer_set_unicode_funcs(harfBuzzBuffer.get(), hb_icu_get_unicode_funcs());
     }
 
     return true;
@@ -865,6 +867,7 @@ void HarfBuzzShaper::setGlyphPositionsForHarfBuzzRun(HarfBuzzRun* currentRun, hb
     unsigned numGlyphs = currentRun->numGlyphs();
     uint16_t* glyphToCharacterIndexes = currentRun->glyphToCharacterIndexes();
     float totalAdvance = 0;
+    FloatPoint glyphOrigin;
 
     // HarfBuzz returns the shaping result in visual order. We need not to flip for RTL.
     for (size_t i = 0; i < numGlyphs; ++i) {
@@ -900,6 +903,14 @@ void HarfBuzzShaper::setGlyphPositionsForHarfBuzzRun(HarfBuzzRun* currentRun, hb
         }
 
         currentRun->setGlyphAndPositions(i, glyph, advance, offsetX, offsetY);
+
+        FloatRect glyphBounds = currentFontData->boundsForGlyph(glyph);
+        glyphBounds.move(glyphOrigin.x(), glyphOrigin.y());
+        m_minGlyphBoundingBoxX = std::min(m_minGlyphBoundingBoxX, glyphBounds.x());
+        m_maxGlyphBoundingBoxX = std::max(m_maxGlyphBoundingBoxX, glyphBounds.maxX());
+        m_minGlyphBoundingBoxY = std::min(m_minGlyphBoundingBoxY, glyphBounds.y());
+        m_maxGlyphBoundingBoxY = std::max(m_maxGlyphBoundingBoxY, glyphBounds.maxY());
+        glyphOrigin += FloatSize(advance + offsetX, offsetY);
 
         totalAdvance += advance;
     }

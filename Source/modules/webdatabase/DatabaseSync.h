@@ -62,6 +62,7 @@ public:
     void readTransaction(PassOwnPtr<SQLTransactionSyncCallback>, ExceptionState&);
 
     virtual void closeImmediately() OVERRIDE;
+    void observeTransaction(SQLTransactionSync&);
 
     const String& lastErrorMessage() const { return m_lastErrorMessage; }
     void setLastErrorMessage(const String& message) { m_lastErrorMessage = message; }
@@ -76,7 +77,25 @@ private:
     static PassRefPtrWillBeRawPtr<DatabaseSync> create(ExecutionContext*, PassRefPtrWillBeRawPtr<DatabaseBackendBase>);
 
     void runTransaction(PassOwnPtr<SQLTransactionSyncCallback>, bool readOnly, ExceptionState&);
-    void rollbackTransaction(PassRefPtr<SQLTransactionSync>);
+    void rollbackTransaction(SQLTransactionSync&);
+#if ENABLE(OILPAN)
+    class TransactionObserver {
+    public:
+        explicit TransactionObserver(SQLTransactionSync& transaction) : m_transaction(transaction) { }
+        ~TransactionObserver();
+
+    private:
+        SQLTransactionSync& m_transaction;
+    };
+
+    // Need a Persistent field because a HeapHashMap entry should be removed
+    // just after a SQLTransactionSync becomes untraceable. If this field was a
+    // Member<>, we could not assume the destruction order of DatabaseSync,
+    // SQLTransactionSync, and the field. We can not make the field static
+    // because multiple worker threads create SQLTransactionSync.
+    GC_PLUGIN_IGNORE("http://crbug.com/353083")
+    PersistentHeapHashMap<WeakMember<SQLTransactionSync>, OwnPtr<TransactionObserver> > m_observers;
+#endif
 
     String m_lastErrorMessage;
 

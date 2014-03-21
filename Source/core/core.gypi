@@ -446,7 +446,8 @@
             'xml/XPathResult.idl',
             'xml/XSLTProcessor.idl',
         ],
-        # 'partial interface' or target (right side of) 'implements'
+        # 'partial interface', target (right side of) 'implements', and
+        # static bindings (in bindings/v8/)
         'core_dependency_idl_files': [
             'animation/DocumentAnimation.idl',
             'animation/ElementAnimation.idl',
@@ -457,6 +458,7 @@
             'dom/ParentNode.idl',
             'dom/URLUtils.idl',
             'dom/URLUtilsReadOnly.idl',
+            'events/EventListener.idl',
             'events/NavigatorEvents.idl',
             'frame/NavigatorID.idl',
             'frame/NavigatorOnLine.idl',
@@ -3300,6 +3302,7 @@
             'css/RuleSetTest.cpp',
             'css/MediaQuerySetTest.cpp',
             'css/analyzer/DescendantInvalidationSetTest.cpp',
+            'css/resolver/FontBuilderTest.cpp',
             'dom/ActiveDOMObjectTest.cpp',
             'dom/DOMImplementationTest.cpp',
             'css/parser/BisonCSSParserTest.cpp',
@@ -3315,6 +3318,7 @@
             'fetch/ResourceFetcherTest.cpp',
             'frame/ImageBitmapTest.cpp',
             'html/HTMLDimensionTest.cpp',
+            'html/HTMLLinkElementSizesAttributeTest.cpp',
             'html/LinkRelAttributeTest.cpp',
             'html/TimeRangesTest.cpp',
             'html/parser/HTMLParserThreadTest.cpp',

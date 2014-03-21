@@ -5,6 +5,9 @@
 #include "config.h"
 #include "core/animation/Interpolation.h"
 
+#include "core/css/resolver/AnimatedStyleBuilder.h"
+#include "core/css/resolver/StyleResolverState.h"
+
 namespace WebCore {
 
 namespace {
@@ -15,6 +18,8 @@ bool typesMatch(const InterpolableValue* start, const InterpolableValue* end)
         return end->isNumber();
     if (start->isBool())
         return end->isBool();
+    if (start->isAnimatableValue())
+        return end->isAnimatableValue();
     if (!(start->isList() && end->isList()))
         return false;
     const InterpolableList* startList = toInterpolableList(start);
@@ -47,6 +52,12 @@ void Interpolation::interpolate(int iteration, double fraction) const
         m_cachedIteration = iteration;
         m_cachedFraction = fraction;
     }
+}
+
+void LegacyStyleInterpolation::apply(StyleResolverState& state) const
+{
+    AnimatableValue* value = currentValue();
+    AnimatedStyleBuilder::applyProperty(m_id, state, value);
 }
 
 }

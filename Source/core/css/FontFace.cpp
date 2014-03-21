@@ -101,7 +101,7 @@ static PassRefPtrWillBeRawPtr<CSSValue> parseCSSValue(const Document* document, 
 {
     if (s.isEmpty())
         return nullptr;
-    RefPtr<MutableStylePropertySet> parsedStyle = MutableStylePropertySet::create();
+    RefPtrWillBeRawPtr<MutableStylePropertySet> parsedStyle = MutableStylePropertySet::create();
     BisonCSSParser::parseValue(parsedStyle.get(), propertyID, s, true, *document);
     return parsedStyle->getPropertyCSSValue(propertyID);
 }
@@ -378,11 +378,45 @@ void FontFace::setLoadStatus(LoadStatus status)
     m_status = status;
     if (m_status == Error)
         m_error = DOMError::create(NetworkError);
-    if (m_status == Loaded || m_status == Error)
+    if (m_status == Loaded || m_status == Error) {
         resolveReadyPromises();
+
+        Vector<RefPtr<LoadFontCallback> > callbacks;
+        m_callbacks.swap(callbacks);
+        for (size_t i = 0; i < callbacks.size(); ++i) {
+            if (m_status == Loaded)
+                callbacks[i]->notifyLoaded(this);
+            else
+                callbacks[i]->notifyError(this);
+        }
+    }
 }
 
-void FontFace::load(ExecutionContext* context)
+ScriptPromise FontFace::load(ExecutionContext* context)
+{
+    OwnPtr<FontFaceReadyPromiseResolver> resolver = FontFaceReadyPromiseResolver::create(context);
+    ScriptPromise promise = resolver->promise();
+    if (m_status == Loaded || m_status == Error)
+        resolver->resolve(this);
+    else
+        m_readyResolvers.append(resolver.release());
+
+    loadInternal(context);
+    return promise;
+}
+
+void FontFace::loadWithCallback(PassRefPtr<LoadFontCallback> callback, ExecutionContext* context)
+{
+    loadInternal(context);
+    if (m_status == Loaded)
+        callback->notifyLoaded(this);
+    else if (m_status == Error)
+        callback->notifyError(this);
+    else
+        m_callbacks.append(callback);
+}
+
+void FontFace::loadInternal(ExecutionContext* context)
 {
     if (m_status != Unloaded)
         return;
@@ -396,17 +430,6 @@ void FontFace::load(ExecutionContext* context)
     CSSFontSelector* fontSelector = toDocument(context)->styleEngine()->fontSelector();
     m_cssFontFace->load(fontDescription, fontSelector);
     fontSelector->loadPendingFonts();
-}
-
-ScriptPromise FontFace::ready(ExecutionContext* context)
-{
-    OwnPtr<FontFaceReadyPromiseResolver> resolver = FontFaceReadyPromiseResolver::create(context);
-    ScriptPromise promise = resolver->promise();
-    if (m_status == Loaded || m_status == Error)
-        resolver->resolve(this);
-    else
-        m_readyResolvers.append(resolver.release());
-    return promise;
 }
 
 void FontFace::resolveReadyPromises()

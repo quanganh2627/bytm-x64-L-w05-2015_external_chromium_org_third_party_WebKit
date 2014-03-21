@@ -815,11 +815,6 @@ void Document::setImport(HTMLImport* import)
     m_import = import;
 }
 
-void Document::didLoadAllImports()
-{
-    executeScriptsWaitingForResourcesIfNeeded();
-}
-
 bool Document::haveImportsLoaded() const
 {
     return !m_import || !m_import->state().shouldBlockScriptExecution();
@@ -2057,6 +2052,7 @@ void Document::detach(const AttachContext& context)
 
     if (page())
         page()->documentDetached(this);
+    InspectorInstrumentation::documentDetached(this);
 
     if (m_frame->loader().client()->sharedWorkerRepositoryClient())
         m_frame->loader().client()->sharedWorkerRepositoryClient()->documentDetached(this);
@@ -2843,19 +2839,36 @@ LocalFrame* Document::findUnsafeParentScrollPropagationBoundary()
     return 0;
 }
 
+void Document::didLoadAllImports()
+{
+    if (!haveStylesheetsLoaded())
+        return;
+
+    didLoadAllScriptBlockingResources();
+}
+
 void Document::didRemoveAllPendingStylesheet()
 {
     m_needsNotifyRemoveAllPendingStylesheet = false;
 
     styleResolverChanged(RecalcStyleDeferred, hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
+
+    if (m_import)
+        m_import->didRemoveAllPendingStylesheet();
+    if (!haveImportsLoaded())
+        return;
+
+    didLoadAllScriptBlockingResources();
+}
+
+void Document::didLoadAllScriptBlockingResources()
+{
     executeScriptsWaitingForResourcesIfNeeded();
 
     if (m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_url);
-
-    if (m_import)
-        m_import->didRemoveAllPendingStylesheet();
 }
+
 
 void Document::executeScriptsWaitingForResourcesIfNeeded()
 {
@@ -4391,6 +4404,14 @@ void Document::finishedParsing()
     if (!m_documentTiming.domContentLoadedEventEnd)
         m_documentTiming.domContentLoadedEventEnd = monotonicallyIncreasingTime();
 
+    if (frame() && frame()->isMainFrame()) {
+        // Reset the text autosizing multipliers on main frame when DOM is loaded.
+        // This is to allow for a fresh text autosizing pass when the page layout
+        // changes significantly in the end.
+        if (TextAutosizer* textAutosizer = this->textAutosizer())
+            textAutosizer->recalculateMultipliers();
+    }
+
     // The loader's finishedParsing() method may invoke script that causes this object to
     // be dereferenced (when this document is in an iframe and the onload causes the iframe's src to change).
     // Keep it alive until we are done.
@@ -5066,7 +5087,7 @@ void Document::adjustFloatQuadsForScrollAndAbsoluteZoom(Vector<FloatQuad>& quads
 
     LayoutRect visibleContentRect = view()->visibleContentRect();
     for (size_t i = 0; i < quads.size(); ++i) {
-        quads[i].move(-FloatSize(visibleContentRect.x(), visibleContentRect.y()));
+        quads[i].move(-FloatSize(visibleContentRect.x().toFloat(), visibleContentRect.y().toFloat()));
         adjustFloatQuadForAbsoluteZoom(quads[i], renderer);
     }
 }
@@ -5077,7 +5098,7 @@ void Document::adjustFloatRectForScrollAndAbsoluteZoom(FloatRect& rect, RenderOb
         return;
 
     LayoutRect visibleContentRect = view()->visibleContentRect();
-    rect.move(-FloatSize(visibleContentRect.x(), visibleContentRect.y()));
+    rect.move(-FloatSize(visibleContentRect.x().toFloat(), visibleContentRect.y().toFloat()));
     adjustFloatRectForAbsoluteZoom(rect, renderer);
 }
 

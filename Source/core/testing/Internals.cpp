@@ -42,6 +42,7 @@
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptFunction.h"
 #include "bindings/v8/ScriptPromise.h"
+#include "bindings/v8/ScriptPromiseResolver.h"
 #include "bindings/v8/SerializedScriptValue.h"
 #include "bindings/v8/V8ThrowException.h"
 #include "core/animation/DocumentTimeline.h"
@@ -85,7 +86,6 @@
 #include "core/html/HTMLContentElement.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
-#include "core/html/HTMLMediaElement.h"
 #include "core/html/HTMLSelectElement.h"
 #include "core/html/HTMLTextAreaElement.h"
 #include "core/html/forms/FormController.h"
@@ -1014,6 +1014,10 @@ String Internals::suggestedValue(Element* element, ExceptionState& exceptionStat
 
     if (isHTMLTextAreaElement(*element))
         suggestedValue = toHTMLTextAreaElement(*element).suggestedValue();
+
+    if (isHTMLSelectElement(*element))
+        suggestedValue = toHTMLSelectElement(*element).suggestedValue();
+
     return suggestedValue;
 }
 
@@ -1034,6 +1038,9 @@ void Internals::setSuggestedValue(Element* element, const String& value, Excepti
 
     if (isHTMLTextAreaElement(*element))
         toHTMLTextAreaElement(*element).setSuggestedValue(value);
+
+    if (isHTMLSelectElement(*element))
+        toHTMLSelectElement(*element).setSuggestedValue(value);
 }
 
 void Internals::setEditingValue(Element* element, const String& value, ExceptionState& exceptionState)
@@ -1647,7 +1654,9 @@ String Internals::layerTreeAsText(Document* document, ExceptionState& exceptionS
 
 String Internals::elementLayerTreeAsText(Element* element, ExceptionState& exceptionState) const
 {
-    DisableCompositingQueryAsserts disabler;
+    FrameView* frameView = element->document().view();
+    frameView->updateLayoutAndStyleForPainting();
+
     return elementLayerTreeAsText(element, 0, exceptionState);
 }
 
@@ -1771,6 +1780,8 @@ String Internals::layerTreeAsText(Document* document, unsigned flags, ExceptionS
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's frame cannot be retrieved." : "The document provided is invalid.");
         return String();
     }
+
+    document->view()->updateLayoutAndStyleForPainting();
 
     return document->frame()->layerTreeAsText(flags);
 }
@@ -2380,6 +2391,27 @@ private:
 };
 
 } // namespace
+
+ScriptPromise Internals::createPromise(ExecutionContext* context)
+{
+    return ScriptPromiseResolver::create(context)->promise();
+}
+
+ScriptPromise Internals::createResolvedPromise(ExecutionContext* context, ScriptValue value)
+{
+    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(context);
+    ScriptPromise promise = resolver->promise();
+    resolver->resolve(value);
+    return promise;
+}
+
+ScriptPromise Internals::createRejectedPromise(ExecutionContext* context, ScriptValue value)
+{
+    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(context);
+    ScriptPromise promise = resolver->promise();
+    resolver->reject(value);
+    return promise;
+}
 
 ScriptPromise Internals::addOneToPromise(ExecutionContext* context, ScriptPromise promise)
 {

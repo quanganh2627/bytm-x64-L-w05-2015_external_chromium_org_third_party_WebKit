@@ -76,10 +76,7 @@ WebInspector.Settings = function()
     this.deviceFitWindow = this.createSetting("deviceFitWindow", true);
     this.emulateViewport = this.createSetting("emulateViewport", false);
     this.emulateTouchEvents = this.createSetting("emulateTouchEvents", false);
-
-    // This setting affects the display of user-agent shadow DOM only,
-    // as author shadow DOM is displayed at all times.
-    this.showShadowDOM = this.createSetting("showShadowDOM", false);
+    this.showUAShadowDOM = this.createSetting("showUAShadowDOM", false);
     this.savedURLs = this.createSetting("savedURLs", {});
     this.javaScriptDisabled = this.createSetting("javaScriptDisabled", false);
     this.overrideGeolocation = this.createSetting("overrideGeolocation", false);
@@ -283,7 +280,6 @@ WebInspector.ExperimentsSettings = function(experimentsEnabled)
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.frameworksDebuggingSupport = this._createExperiment("frameworksDebuggingSupport", "Enable frameworks debugging support");
     this.layersPanel = this._createExperiment("layersPanel", "Show Layers panel");
-    this.stepIntoSelection = this._createExperiment("stepIntoSelection", "Show step-in candidates while debugging.");
     this.doNotOpenDrawerOnEsc = this._createExperiment("doNotOpenDrawerWithEsc", "Do not open drawer on Esc");
     this.showEditorInDrawer = this._createExperiment("showEditorInDrawer", "Show editor in drawer");
     this.gpuTimeline = this._createExperiment("gpuTimeline", "Show GPU data on timeline");

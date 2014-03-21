@@ -196,7 +196,7 @@ CodeMirror.commands.autocomplete = WebInspector.CodeMirrorTextEditor.autocomplet
 
 CodeMirror.commands.smartNewlineAndIndent = function(codeMirror)
 {
-    codeMirror.operation(innerSmartNewlineAndIndent.bind(this, codeMirror));
+    codeMirror.operation(innerSmartNewlineAndIndent.bind(null, codeMirror));
 
     function countIndent(line)
     {
@@ -339,7 +339,7 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         function innerHighlightRegex()
         {
             if (range) {
-                this.revealLine(range.startLine);
+                this._revealLine(range.startLine);
                 if (range.endColumn > WebInspector.CodeMirrorTextEditor.maxHighlightLength)
                     this.setSelection(range);
                 else
@@ -685,7 +685,7 @@ WebInspector.CodeMirrorTextEditor.prototype = {
     /**
      * @param {number} lineNumber
      */
-    revealLine: function(lineNumber)
+    _revealLine: function(lineNumber)
     {
         this._innerRevealLine(lineNumber, this._codeMirror.getScrollInfo());
     },
@@ -759,12 +759,16 @@ WebInspector.CodeMirrorTextEditor.prototype = {
      */
     setExecutionLine: function(lineNumber)
     {
+        this.clearPositionHighlight();
         this._executionLine = this._codeMirror.getLineHandle(lineNumber);
+        if (!this._executionLine)
+            return;
         this._codeMirror.addLineClass(this._executionLine, "wrap", "cm-execution-line");
     },
 
     clearExecutionLine: function()
     {
+        this.clearPositionHighlight();
         if (this._executionLine)
             this._codeMirror.removeLineClass(this._executionLine, "wrap", "cm-execution-line");
         delete this._executionLine;
@@ -794,8 +798,9 @@ WebInspector.CodeMirrorTextEditor.prototype = {
     /**
      * @param {number} lineNumber
      * @param {number=} columnNumber
+     * @param {boolean=} shouldHighlight
      */
-    highlightPosition: function(lineNumber, columnNumber)
+    revealPosition: function(lineNumber, columnNumber, shouldHighlight)
     {
         lineNumber = Number.constrain(lineNumber, 0, this._codeMirror.lineCount() - 1);
         if (typeof columnNumber !== "number")
@@ -806,9 +811,11 @@ WebInspector.CodeMirrorTextEditor.prototype = {
         this._highlightedLine = this._codeMirror.getLineHandle(lineNumber);
         if (!this._highlightedLine)
           return;
-        this.revealLine(lineNumber);
-        this._codeMirror.addLineClass(this._highlightedLine, null, "cm-highlight");
-        this._clearHighlightTimeout = setTimeout(this.clearPositionHighlight.bind(this), 2000);
+        this._revealLine(lineNumber);
+        if (shouldHighlight) {
+            this._codeMirror.addLineClass(this._highlightedLine, null, "cm-highlight");
+            this._clearHighlightTimeout = setTimeout(this.clearPositionHighlight.bind(this), 2000);
+        }
         this.setSelection(WebInspector.TextRange.createFromLocation(lineNumber, columnNumber));
     },
 
@@ -818,7 +825,7 @@ WebInspector.CodeMirrorTextEditor.prototype = {
             clearTimeout(this._clearHighlightTimeout);
         delete this._clearHighlightTimeout;
 
-         if (this._highlightedLine)
+        if (this._highlightedLine)
             this._codeMirror.removeLineClass(this._highlightedLine, null, "cm-highlight");
         delete this._highlightedLine;
     },
@@ -1526,11 +1533,11 @@ WebInspector.CodeMirrorTextEditor.FixWordMovement = function(codeMirror)
     var leftKey = modifierKey + "-Left";
     var rightKey = modifierKey + "-Right";
     var keyMap = {};
-    keyMap[leftKey] = moveLeft.bind(this, false);
-    keyMap[rightKey] = moveRight.bind(this, false);
-    keyMap["Shift-" + leftKey] = moveLeft.bind(this, true);
-    keyMap["Shift-" + rightKey] = moveRight.bind(this, true);
-    keyMap[modifierKey + "-Backspace"] = delWordBack.bind(this);
+    keyMap[leftKey] = moveLeft.bind(null, false);
+    keyMap[rightKey] = moveRight.bind(null, false);
+    keyMap["Shift-" + leftKey] = moveLeft.bind(null, true);
+    keyMap["Shift-" + rightKey] = moveRight.bind(null, true);
+    keyMap[modifierKey + "-Backspace"] = delWordBack;
     codeMirror.addKeyMap(keyMap);
 }
 

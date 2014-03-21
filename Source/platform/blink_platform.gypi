@@ -295,6 +295,7 @@
       'exported/WebScrollbarThemeClientImpl.h',
       'exported/WebScrollbarThemeGeometryNative.cpp',
       'exported/WebScrollbarThemeGeometryNative.h',
+      'exported/WebSerializedOrigin.cpp',
       'exported/WebServiceWorkerResponse.cpp',
       'exported/WebSocketHandshakeRequestInfo.cpp',
       'exported/WebSocketHandshakeResponseInfo.cpp',
@@ -913,10 +914,17 @@
     # NOTE: these are legacy unit tests, do not add more!
     'platform_web_unittest_files': [
       'animation/TimingFunctionTest.cpp',
+      'graphics/BitmapImageTest.cpp',
+      'graphics/Canvas2DLayerBridgeTest.cpp',
+      'graphics/Canvas2DLayerManagerTest.cpp',
       'graphics/DeferredImageDecoderTest.cpp',
       'graphics/ImageDecodingStoreTest.cpp',
       'graphics/ImageFrameGeneratorTest.cpp',
+      'graphics/gpu/DrawingBufferTest.cpp',
       'graphics/test/MockImageDecoder.h',
+      'graphics/test/MockWebGraphicsContext3D.h',
+      'image-decoders/gif/GIFImageDecoderTest.cpp',
+      'image-decoders/jpeg/JPEGImageDecoderTest.cpp',
     ],
   },
 }

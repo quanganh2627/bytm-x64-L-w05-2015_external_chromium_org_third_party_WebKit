@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,35 +28,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "DOMUtilitiesPrivate.h"
-
-#include "HTMLNames.h"
-#include "core/dom/Element.h"
-#include "core/html/HTMLInputElement.h"
-
-using namespace WebCore;
-using namespace WebCore::HTMLNames;
+#ifndef WebServiceWorkerNetworkProvider_h
+#define WebServiceWorkerNetworkProvider_h
 
 namespace blink {
 
-bool elementHasLegalLinkAttribute(const Element* element, const QualifiedName& attrName)
-{
-    if (attrName == srcAttr)
-        return element->hasTagName(imgTag) || element->hasTagName(scriptTag) || element->hasTagName(iframeTag) || element->hasTagName(frameTag) || (element->hasTagName(inputTag) && toHTMLInputElement(element)->isImageButton());
-    if (attrName == hrefAttr)
-        return element->hasTagName(linkTag) || element->hasTagName(aTag) || element->hasTagName(areaTag);
-    if (attrName == actionAttr)
-        return element->hasTagName(formTag);
-    if (attrName == backgroundAttr)
-        return element->hasTagName(bodyTag) || element->hasTagName(tableTag) || element->hasTagName(trTag) || element->hasTagName(tdTag);
-    if (attrName == citeAttr)
-        return element->hasTagName(blockquoteTag) || element->hasTagName(qTag) || element->hasTagName(delTag) || element->hasTagName(insTag);
-    if (attrName == classidAttr || attrName == dataAttr)
-        return element->hasTagName(objectTag);
-    if (attrName == codebaseAttr)
-        return element->hasTagName(objectTag) || element->hasTagName(appletTag);
-    return false;
-}
+class WebDataSource;
+class WebURLRequest;
+
+// This interface is implemented by the client and is only called on the main thread.
+class WebServiceWorkerNetworkProvider {
+public:
+    virtual ~WebServiceWorkerNetworkProvider() { }
+
+    // A request is about to be sent out, and the client may modify it. Request
+    // is writable, and changes to the URL, for example, will change the request
+    // made.
+    virtual void willSendRequest(blink::WebDataSource*, blink::WebURLRequest&) { }
+};
 
 } // namespace blink
+
+#endif // WebServiceWorkerNetworkProvider_h

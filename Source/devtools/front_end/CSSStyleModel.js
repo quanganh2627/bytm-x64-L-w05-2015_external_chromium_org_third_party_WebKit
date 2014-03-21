@@ -169,7 +169,23 @@ WebInspector.CSSStyleModel.prototype = {
      */
     allStyleSheets: function()
     {
-        return Object.values(this._styleSheetIdToHeader);
+        var values = Object.values(this._styleSheetIdToHeader);
+        /**
+         * @param {!WebInspector.CSSStyleSheetHeader} a
+         * @param {!WebInspector.CSSStyleSheetHeader} b
+         * @return {number}
+         */
+        function styleSheetComparator(a, b)
+        {
+            if (a.sourceURL < b.sourceURL)
+                return -1;
+            else if (a.sourceURL > b.sourceURL)
+                return 1;
+            return a.startLine - b.startLine || a.startColumn - b.startColumn;
+        }
+        values.sort(styleSheetComparator);
+
+        return values;
     },
 
     /**
@@ -257,7 +273,7 @@ WebInspector.CSSStyleModel.prototype = {
         var allSelectorsBarrier = new CallbackBarrier();
         for (var i = 0; i < rule.selectors.length; ++i) {
             var selector = rule.selectors[i];
-            var boundCallback = allSelectorsBarrier.createCallback(selectorQueried.bind(this, i, nodeId, matchingSelectors));
+            var boundCallback = allSelectorsBarrier.createCallback(selectorQueried.bind(null, i, nodeId, matchingSelectors));
             WebInspector.domAgent.querySelectorAll(ownerDocumentId, selector.value, boundCallback);
         }
         allSelectorsBarrier.callWhenDone(function() {
@@ -345,7 +361,6 @@ WebInspector.CSSStyleModel.prototype = {
 
     mediaQueryResultChanged: function()
     {
-        this._styleLoader.reset();
         this.dispatchEventToListeners(WebInspector.CSSStyleModel.Events.MediaQueryResultChanged);
     },
 
@@ -383,7 +398,6 @@ WebInspector.CSSStyleModel.prototype = {
      */
     _fireStyleSheetChanged: function(styleSheetId)
     {
-        this._styleLoader.reset();
         if (!this._pendingCommandsMajorState.length)
             return;
 
@@ -413,7 +427,6 @@ WebInspector.CSSStyleModel.prototype = {
             frameIdToStyleSheetIds[styleSheetHeader.frameId] = styleSheetIds;
         }
         styleSheetIds.push(styleSheetHeader.id);
-        this._styleLoader.reset();
         this.dispatchEventToListeners(WebInspector.CSSStyleModel.Events.StyleSheetAdded, styleSheetHeader);
     },
 
@@ -433,7 +446,6 @@ WebInspector.CSSStyleModel.prototype = {
             if (!Object.keys(this._styleSheetIdsForURL[url]).length)
                 delete this._styleSheetIdsForURL[url];
         }
-        this._styleLoader.reset();
         this.dispatchEventToListeners(WebInspector.CSSStyleModel.Events.StyleSheetRemoved, header);
     },
 
@@ -878,7 +890,7 @@ WebInspector.CSSStyleDeclaration.prototype = {
             throw "No style id";
 
         WebInspector.cssModel._pendingCommandsMajorState.push(true);
-        CSSAgent.setPropertyText(this.id, index, name + ": " + value + ";", false, callback.bind(this));
+        CSSAgent.setPropertyText(this.id, index, name + ": " + value + ";", false, callback);
     },
 
     /**
@@ -1523,16 +1535,6 @@ WebInspector.CSSStyleModel.ComputedStyleLoader = function(cssModel)
 }
 
 WebInspector.CSSStyleModel.ComputedStyleLoader.prototype = {
-    reset: function()
-    {
-        for (var nodeId in this._nodeIdToCallbackData) {
-            var callbacks = this._nodeIdToCallbackData[nodeId];
-            for (var i = 0; i < callbacks.length; ++i)
-                callbacks[i](null);
-        }
-        this._nodeIdToCallbackData = {};
-    },
-
     /**
      * @param {!DOMAgent.NodeId} nodeId
      * @param {function(?WebInspector.CSSStyleDeclaration)} userCallback

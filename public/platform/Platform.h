@@ -156,10 +156,6 @@ public:
     // Pass in (numberOfInputChannels > 0) if live/local audio input is desired.
     virtual WebAudioDevice* createAudioDevice(size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfChannels, double sampleRate, WebAudioDevice::RenderCallback*, const WebString& deviceId) { return 0; }
 
-    // FIXME: remove deprecated APIs once chromium switches over to new method.
-    virtual WebAudioDevice* createAudioDevice(size_t bufferSize, unsigned numberOfChannels, double sampleRate, WebAudioDevice::RenderCallback*) { return 0; }
-    virtual WebAudioDevice* createAudioDevice(size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfChannels, double sampleRate, WebAudioDevice::RenderCallback*) { return 0; }
-
 
     // MIDI ----------------------------------------------------------------
 
@@ -558,6 +554,8 @@ public:
     //
     // May return null if GPU is not supported.
     // Returns newly allocated and initialized offscreen WebGraphicsContext3D instance.
+    // Passing an existing context to shareContext will create the new context in the same share group as the passed context.
+    virtual WebGraphicsContext3D* createOffscreenGraphicsContext3D(const WebGraphicsContext3D::Attributes&, WebGraphicsContext3D* shareContext) { return 0; }
     virtual WebGraphicsContext3D* createOffscreenGraphicsContext3D(const WebGraphicsContext3D::Attributes&) { return 0; }
 
     // Returns a newly allocated and initialized offscreen context provider. The provider may return a null

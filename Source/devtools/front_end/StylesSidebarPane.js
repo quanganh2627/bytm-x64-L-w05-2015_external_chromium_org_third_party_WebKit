@@ -351,8 +351,8 @@ WebInspector.StylesSidebarPane.prototype = {
         }
 
         if (this._computedStylePane.isShowing())
-            WebInspector.cssModel.getComputedStyleAsync(node.id, computedCallback.bind(this));
-        WebInspector.cssModel.getInlineStylesAsync(node.id, inlineCallback.bind(this));
+            WebInspector.cssModel.getComputedStyleAsync(node.id, computedCallback);
+        WebInspector.cssModel.getInlineStylesAsync(node.id, inlineCallback);
         WebInspector.cssModel.getMatchedStylesAsync(node.id, true, true, stylesCallback.bind(this));
     },
 
@@ -1931,7 +1931,7 @@ WebInspector.StylePropertyTreeElementBase.prototype = {
         }
 
         if (value) {
-            var colorProcessor = processValue.bind(this, WebInspector.StylesSidebarPane._colorRegex, this._processColor.bind(this, nameElement, valueElement), null);
+            var colorProcessor = processValue.bind(null, WebInspector.StylesSidebarPane._colorRegex, this._processColor.bind(this, nameElement, valueElement), null);
             valueElement.appendChild(processValue(/url\(\s*([^)]+)\s*\)/g, linkifyURL.bind(this), WebInspector.CSSMetadata.isColorAwareProperty(this.name) && this.parsedOk ? colorProcessor : null, value));
         }
 
@@ -2266,6 +2266,8 @@ WebInspector.StylePropertyTreeElement.prototype = {
          */
         function callback(newStyle)
         {
+            delete this._parentPane._userOperation;
+
             if (!newStyle)
                 return;
 
@@ -2278,8 +2280,6 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 section.pane.dispatchEventToListeners("style property toggled");
 
             this._updatePane();
-
-            delete this._parentPane._userOperation;
         }
 
         this._parentPane._userOperation = true;

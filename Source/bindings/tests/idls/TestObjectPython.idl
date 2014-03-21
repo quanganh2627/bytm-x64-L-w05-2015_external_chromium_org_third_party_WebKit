@@ -181,6 +181,7 @@ interface TestObjectPython {
     [PutForwards=hrefThrows] readonly attribute TestNode locationWithException;
     [PutForwards=hrefCallWith] readonly attribute TestNode locationWithCallWith;
     [PerWorldBindings, PutForwards=href] readonly attribute TestNode locationWithPerWorldBindings;
+    [PutForwards=attr1] readonly attribute TestInterfaceWillBeGarbageCollected locationWillBeGarbageCollected;
     [RaisesException] attribute long raisesExceptionLongAttribute;
     [RaisesException=Getter] attribute long raisesExceptionGetterLongAttribute;
     [RaisesException=Setter] attribute long setterRaisesExceptionLongAttribute;
@@ -333,6 +334,7 @@ interface TestObjectPython {
     SerializedScriptValue serializedScriptValueMethod();
     XPathNSResolver xPathNSResolverMethod();
     void voidMethodDictionaryArg(Dictionary dictionaryArg);
+    void voidMethodEventListenerArg(EventListener eventListenerArg);
     void voidMethodNodeFilterArg(NodeFilter nodeFilterArg);
     void voidMethodPromiseArg(Promise promiseArg);
     void voidMethodSerializedScriptValueArg(SerializedScriptValue serializedScriptValueArg);
@@ -386,15 +388,6 @@ interface TestObjectPython {
 
     static void overloadedStaticMethod(long longArg);
     static void overloadedStaticMethod(long longArg1, long longArg2);
-
-    // Exceptional methods for EventListener
-    void addEventListener(DOMString type,
-                          EventListener listener,
-                          optional boolean useCapture);
-    void removeEventListener(DOMString type,
-                             EventListener listener,
-                             optional boolean useCapture);
-    [RaisesException] boolean dispatchEvent(Event event);
 
     // Extended attributes for arguments
     // [Clamp]

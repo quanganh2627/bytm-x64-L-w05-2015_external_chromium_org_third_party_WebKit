@@ -648,12 +648,12 @@ bool RenderLayerCompositor::allocateOrClearCompositedLayerMapping(RenderLayer* l
     return compositedLayerMappingChanged || nonCompositedReasonChanged;
 }
 
-static IntPoint computeOffsetFromAbsolute(RenderLayer* layer)
+static LayoutPoint computeOffsetFromAbsolute(RenderLayer* layer)
 {
     TransformState transformState(TransformState::ApplyTransformDirection, FloatPoint());
     layer->renderer()->mapLocalToContainer(0, transformState, ApplyContainerFlip);
     transformState.flatten();
-    return roundedIntPoint(transformState.lastPlanarPoint());
+    return LayoutPoint(transformState.lastPlanarPoint());
 }
 
 bool RenderLayerCompositor::updateSquashingAssignment(RenderLayer* layer, SquashingState& squashingState, const CompositingStateTransitionType compositedLayerUpdate)
@@ -668,9 +668,9 @@ bool RenderLayerCompositor::updateSquashingAssignment(RenderLayer* layer, Squash
         ASSERT(!layer->hasCompositedLayerMapping());
         ASSERT(squashingState.hasMostRecentMapping);
 
-        IntPoint offsetFromAbsoluteForSquashedLayer = computeOffsetFromAbsolute(layer);
+        LayoutPoint offsetFromAbsoluteForSquashedLayer = computeOffsetFromAbsolute(layer);
 
-        IntSize offsetFromSquashingCLM(offsetFromAbsoluteForSquashedLayer.x() - squashingState.offsetFromAbsoluteForSquashingCLM.x(),
+        LayoutSize offsetFromSquashingCLM(offsetFromAbsoluteForSquashedLayer.x() - squashingState.offsetFromAbsoluteForSquashingCLM.x(),
             offsetFromAbsoluteForSquashedLayer.y() - squashingState.offsetFromAbsoluteForSquashingCLM.y());
 
         bool changedSquashingLayer =
@@ -727,7 +727,14 @@ bool RenderLayerCompositor::updateLayerIfViewportConstrained(RenderLayer* layer)
 bool RenderLayerCompositor::canSquashIntoCurrentSquashingOwner(const RenderLayer* layer, const RenderLayerCompositor::SquashingState& squashingState, const RenderLayer* clippingAncestor)
 {
     ASSERT(clippingAncestor);
-    return clippingAncestor == squashingState.clippingAncestorForMostRecentMapping;
+    if (clippingAncestor != squashingState.clippingAncestorForMostRecentMapping)
+        return false;
+
+    ASSERT(squashingState.hasMostRecentMapping);
+    if (layer->scrollsWithRespectTo(&squashingState.mostRecentMapping->owningLayer()))
+        return false;
+
+    return true;
 }
 
 RenderLayerCompositor::CompositingStateTransitionType RenderLayerCompositor::computeCompositedLayerUpdate(RenderLayer* layer)
@@ -947,15 +954,6 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
 
     reasonsToComposite |= overlapCompositingReason;
 
-    // If the layer is squashable, but would scroll differently than the
-    // most recent backing that it would squash onto, then don't squash it.
-    // Note that this happens before we know all possible compositing reasons
-    // for this layer, but it's OK because we're just forcing the layer conservatively
-    // to be separately composited rather than squashed, anyway.
-    if (currentRecursionData.m_mostRecentCompositedLayer && requiresSquashing(reasonsToComposite)
-        && layer->scrollsWithRespectTo(currentRecursionData.m_mostRecentCompositedLayer))
-        reasonsToComposite |= CompositingReasonOverlapsWithoutSquashingTarget;
-
     // The children of this layer don't need to composite, unless there is
     // a compositing layer among them, so start by inheriting the compositing
     // ancestor with m_subtreeIsCompositing set to false.
@@ -1140,7 +1138,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* ancestor
         overlapMap->geometryMap().popMappingsToAncestor(ancestorLayer);
 }
 
-void RenderLayerCompositor::SquashingState::updateSquashingStateForNewMapping(CompositedLayerMappingPtr newCompositedLayerMapping, bool hasNewCompositedLayerMapping, IntPoint newOffsetFromAbsoluteForSquashingCLM, RenderLayer* newClippingAncestorForMostRecentMapping)
+void RenderLayerCompositor::SquashingState::updateSquashingStateForNewMapping(CompositedLayerMappingPtr newCompositedLayerMapping, bool hasNewCompositedLayerMapping, LayoutPoint newOffsetFromAbsoluteForSquashingCLM, RenderLayer* newClippingAncestorForMostRecentMapping)
 {
     // The most recent backing is done accumulating any more squashing layers.
     if (hasMostRecentMapping)
@@ -1179,7 +1177,7 @@ void RenderLayerCompositor::assignLayersToBackingsInternal(RenderLayer* layer, S
         clippingAncestor = layer;
 
     if (layerSquashingEnabled() && requiresSquashing(layer->compositingReasons()) && !canSquashIntoCurrentSquashingOwner(layer, squashingState, clippingAncestor))
-        layer->setCompositingReasons(layer->compositingReasons() | CompositingReasonOverlapsWithoutSquashingTarget);
+        layer->setCompositingReasons(layer->compositingReasons() | CompositingReasonNoSquashingTargetFound);
 
     CompositingStateTransitionType compositedLayerUpdate = computeCompositedLayerUpdate(layer);
 
@@ -1207,7 +1205,7 @@ void RenderLayerCompositor::assignLayersToBackingsInternal(RenderLayer* layer, S
         // At this point, if the layer is to be "separately" composited, then its backing becomes the most recent in paint-order.
         if (layer->compositingState() == PaintsIntoOwnBacking || layer->compositingState() == HasOwnBackingButPaintsIntoAncestor) {
             ASSERT(!requiresSquashing(layer->compositingReasons()));
-            IntPoint offsetFromAbsoluteForSquashingCLM = computeOffsetFromAbsolute(layer);
+            LayoutPoint offsetFromAbsoluteForSquashingCLM = computeOffsetFromAbsolute(layer);
             squashingState.updateSquashingStateForNewMapping(layer->compositedLayerMapping(), layer->hasCompositedLayerMapping(), offsetFromAbsoluteForSquashingCLM, clippingAncestor);
         }
     }
@@ -1340,8 +1338,7 @@ bool RenderLayerCompositor::scrollingLayerDidChange(RenderLayer* layer)
 
 String RenderLayerCompositor::layerTreeAsText(LayerTreeFlags flags)
 {
-    // Before dumping the layer tree, finish any pending compositing update.
-    updateCompositingLayers();
+    ASSERT(m_renderView.document().lifecycle().state() >= DocumentLifecycle::CompositingClean);
 
     if (!m_rootContentLayer)
         return String();

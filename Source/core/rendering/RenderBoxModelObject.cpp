@@ -100,9 +100,9 @@ bool RenderBoxModelObject::hasAcceleratedCompositing() const
     return view()->compositor()->hasAcceleratedCompositing();
 }
 
-bool RenderBoxModelObject::shouldPaintAtLowQuality(GraphicsContext* context, Image* image, const void* layer, const LayoutSize& size)
+InterpolationQuality RenderBoxModelObject::chooseInterpolationQuality(GraphicsContext* context, Image* image, const void* layer, const LayoutSize& size)
 {
-    return ImageQualityController::imageQualityController()->shouldPaintAtLowQuality(context, this, image, layer, size);
+    return ImageQualityController::imageQualityController()->chooseInterpolationQuality(context, this, image, layer, size);
 }
 
 RenderBoxModelObject::RenderBoxModelObject(ContainerNode* node)
@@ -702,11 +702,14 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
             CompositeOperator compositeOp = op == CompositeSourceOver ? bgLayer->composite() : op;
             RenderObject* clientForBackgroundImage = backgroundObject ? backgroundObject : this;
             RefPtr<Image> image = bgImage->image(clientForBackgroundImage, geometry.tileSize());
-            bool useLowQualityScaling = shouldPaintAtLowQuality(context, image.get(), bgLayer, geometry.tileSize());
+            InterpolationQuality interpolationQuality = chooseInterpolationQuality(context, image.get(), bgLayer, geometry.tileSize());
             if (bgLayer->maskSourceType() == MaskLuminance)
                 context->setColorFilter(ColorFilterLuminanceToAlpha);
+            InterpolationQuality previousInterpolationQuality = context->imageInterpolationQuality();
+            context->setImageInterpolationQuality(interpolationQuality);
             context->drawTiledImage(image.get(), geometry.destRect(), geometry.relativePhase(), geometry.tileSize(),
-                compositeOp, useLowQualityScaling, bgLayer->blendMode(), geometry.spaceSize());
+                compositeOp, bgLayer->blendMode(), geometry.spaceSize());
+            context->setImageInterpolationQuality(previousInterpolationQuality);
         }
     }
 
@@ -2031,7 +2034,7 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext* graphicsContex
     const LayoutRect& outerRect = outerBorder.rect();
     const LayoutRect& innerRect = innerBorder.rect();
 
-    FloatPoint centerPoint(innerRect.location().x() + static_cast<float>(innerRect.width()) / 2, innerRect.location().y() + static_cast<float>(innerRect.height()) / 2);
+    FloatPoint centerPoint(innerRect.location().x().toFloat() + innerRect.width().toFloat() / 2, innerRect.location().y().toFloat() + innerRect.height().toFloat() / 2);
 
     // For each side, create a quad that encompasses all parts of that side that may draw,
     // including areas inside the innerBorder.

@@ -161,12 +161,12 @@ Node::InsertionNotificationRequest HTMLBodyElement::insertedInto(ContainerNode* 
         // and marginheight attribute can magically appear on the <body> of all documents
         // embedded through <iframe> or <frame>.
         Element* ownerElement = document().ownerElement();
-        if (ownerElement && ownerElement->isFrameElementBase()) {
-            HTMLFrameElementBase* ownerFrameElement = toHTMLFrameElementBase(ownerElement);
-            int marginWidth = ownerFrameElement->marginWidth();
+        if (isHTMLFrameElementBase(ownerElement)) {
+            HTMLFrameElementBase& ownerFrameElement = toHTMLFrameElementBase(*ownerElement);
+            int marginWidth = ownerFrameElement.marginWidth();
             if (marginWidth != -1)
                 setIntegralAttribute(marginwidthAttr, marginWidth);
-            int marginHeight = ownerFrameElement->marginHeight();
+            int marginHeight = ownerFrameElement.marginHeight();
             if (marginHeight != -1)
                 setIntegralAttribute(marginheightAttr, marginHeight);
         }
@@ -177,6 +177,16 @@ Node::InsertionNotificationRequest HTMLBodyElement::insertedInto(ContainerNode* 
 bool HTMLBodyElement::isURLAttribute(const Attribute& attribute) const
 {
     return attribute.name() == backgroundAttr || HTMLElement::isURLAttribute(attribute);
+}
+
+bool HTMLBodyElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return name == backgroundAttr || HTMLElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLBodyElement::subResourceAttributeName() const
+{
+    return backgroundAttr;
 }
 
 bool HTMLBodyElement::supportsFocus() const

@@ -52,10 +52,82 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+template <typename CharacterType>
+static void parseSizes(const CharacterType* value, unsigned length, Vector<IntSize>& iconSizes)
+{
+    enum State {
+        ParseStart,
+        ParseWidth,
+        ParseHeight
+    };
+    int width = 0;
+    unsigned start = 0;
+    unsigned i = 0;
+    State state = ParseStart;
+    bool invalid = false;
+    for (; i < length; ++i) {
+        if (state == ParseWidth) {
+            if (value[i] == 'x' || value[i] == 'X') {
+                if (i == start) {
+                    invalid = true;
+                    break;
+                }
+                width = charactersToInt(value + start, i - start);
+                start = i + 1;
+                state = ParseHeight;
+            } else if (value[i] < '0' || value[i] > '9') {
+                invalid = true;
+                break;
+            }
+        } else if (state == ParseHeight) {
+            if (value[i] == ' ') {
+                if (i == start) {
+                    invalid = true;
+                    break;
+                }
+                int height = charactersToInt(value + start, i - start);
+                iconSizes.append(IntSize(width, height));
+                start = i + 1;
+                state = ParseStart;
+            } else if (value[i] < '0' || value[i] > '9') {
+                invalid = true;
+                break;
+            }
+        } else if (state == ParseStart) {
+            if (value[i] >= '0' && value[i] <= '9') {
+                start = i;
+                state = ParseWidth;
+            } else if (value[i] != ' ') {
+                invalid = true;
+                break;
+            }
+        }
+    }
+    if (invalid || state == ParseWidth || (state == ParseHeight && start == i)) {
+        iconSizes.clear();
+        return;
+    }
+    if (state == ParseHeight && i > start) {
+        int height = charactersToInt(value + start, i - start);
+        iconSizes.append(IntSize(width, height));
+    }
+}
+
 static LinkEventSender& linkLoadEventSender()
 {
     DEFINE_STATIC_LOCAL(LinkEventSender, sharedLoadEventSender, (EventTypeNames::load));
     return sharedLoadEventSender;
+}
+
+void HTMLLinkElement::parseSizesAttribute(const AtomicString& value, Vector<IntSize>& iconSizes)
+{
+    ASSERT(iconSizes.isEmpty());
+    if (value.isEmpty())
+        return;
+    if (value.is8Bit())
+        parseSizes(value.characters8(), value.length(), iconSizes);
+    else
+        parseSizes(value.characters16(), value.length(), iconSizes);
 }
 
 inline HTMLLinkElement::HTMLLinkElement(Document& document, bool createdByParser)
@@ -96,6 +168,7 @@ void HTMLLinkElement::parseAttribute(const QualifiedName& name, const AtomicStri
         process();
     } else if (name == sizesAttr) {
         m_sizes->setValue(value);
+        parseSizesAttribute(value, m_iconSizes);
         process();
     } else if (name == mediaAttr) {
         m_media = value.string().lower();
@@ -230,7 +303,7 @@ void HTMLLinkElement::removedFrom(ContainerNode* insertionPoint)
     }
     document().styleEngine()->removeStyleSheetCandidateNode(this);
 
-    RefPtr<StyleSheet> removedSheet = sheet();
+    RefPtrWillBeRawPtr<StyleSheet> removedSheet = sheet();
 
     if (m_link)
         m_link->ownerRemoved();
@@ -327,6 +400,22 @@ bool HTMLLinkElement::isURLAttribute(const Attribute& attribute) const
     return attribute.name().localName() == hrefAttr || HTMLElement::isURLAttribute(attribute);
 }
 
+bool HTMLLinkElement::hasLegalLinkAttribute(const QualifiedName& name) const
+{
+    return name == hrefAttr || HTMLElement::hasLegalLinkAttribute(name);
+}
+
+const QualifiedName& HTMLLinkElement::subResourceAttributeName() const
+{
+    // If the link element is not css, ignore it.
+    if (equalIgnoringCase(getAttribute(typeAttr), "text/css")) {
+        // FIXME: Add support for extracting links of sub-resources which
+        // are inside style-sheet such as @import, @font-face, url(), etc.
+        return hrefAttr;
+    }
+    return HTMLElement::subResourceAttributeName();
+}
+
 KURL HTMLLinkElement::href() const
 {
     return document().completeURL(getAttribute(hrefAttr));
@@ -352,9 +441,9 @@ IconType HTMLLinkElement::iconType() const
     return m_relAttribute.iconType();
 }
 
-const AtomicString& HTMLLinkElement::iconSizes() const
+const Vector<IntSize>& HTMLLinkElement::iconSizes() const
 {
-    return m_sizes->toString();
+    return m_iconSizes;
 }
 
 DOMSettableTokenList* HTMLLinkElement::sizes() const
@@ -616,7 +705,7 @@ void LinkStyle::process()
         }
     } else if (m_sheet) {
         // we no longer contain a stylesheet, e.g. perhaps rel or type was changed
-        RefPtr<StyleSheet> removedSheet = m_sheet;
+        RefPtrWillBeRawPtr<StyleSheet> removedSheet = m_sheet.get();
         clearSheet();
         document().removedStyleSheet(removedSheet.get());
     }

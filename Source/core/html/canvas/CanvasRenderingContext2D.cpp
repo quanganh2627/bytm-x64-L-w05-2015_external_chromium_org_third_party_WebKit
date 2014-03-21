@@ -1869,7 +1869,7 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
         return;
 
     MutableStylePropertyMap::iterator i = m_fetchedFonts.find(newFont);
-    RefPtr<MutableStylePropertySet> parsedStyle = i != m_fetchedFonts.end() ? i->value : nullptr;
+    RefPtrWillBeRawPtr<MutableStylePropertySet> parsedStyle = i != m_fetchedFonts.end() ? i->value : nullptr;
 
     if (!parsedStyle) {
         parsedStyle = MutableStylePropertySet::create();
@@ -2197,7 +2197,7 @@ void CanvasRenderingContext2D::setImageSmoothingEnabled(bool enabled)
     modifiableState().m_imageSmoothingEnabled = enabled;
     GraphicsContext* c = drawingContext();
     if (c)
-        c->setImageInterpolationQuality(enabled ? DefaultInterpolationQuality : InterpolationNone);
+        c->setImageInterpolationQuality(enabled ? CanvasDefaultInterpolationQuality : InterpolationNone);
 }
 
 PassRefPtr<Canvas2DContextAttributes> CanvasRenderingContext2D::getContextAttributes() const
@@ -2238,7 +2238,7 @@ bool CanvasRenderingContext2D::focusRingCallIsValid(const Path& path, Element* e
         return false;
     if (path.isEmpty())
         return false;
-    if (!element->isDescendantOf(canvas()))
+    if (!element || !element->isDescendantOf(canvas()))
         return false;
 
     return true;

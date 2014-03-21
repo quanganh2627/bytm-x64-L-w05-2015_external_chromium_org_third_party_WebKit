@@ -6,14 +6,9 @@ static void {{method.name}}{{method.overload_index}}Method{{world_suffix}}(const
     {% if method.has_exception_state %}
     ExceptionState exceptionState(ExceptionState::ExecutionContext, "{{method.name}}", "{{interface_name}}", info.Holder(), info.GetIsolate());
     {% endif %}
-    {% if method.name in ['addEventListener', 'removeEventListener',
-                          'dispatchEvent'] %}
-    {{add_event_listener_remove_event_listener_dispatch_event() | indent}}
-    {% endif %}
-    {% if method.name in ['addEventListener', 'removeEventListener'] %}
-    {{add_event_listener_remove_event_listener_method(method.name) | indent}}
-    {% else %}
-    {% if method.number_of_required_arguments %}
+    {# FIXME: remove these special cases: http://crbug.com/353484 #}
+    {% if method.number_of_required_arguments and not
+          method.name in ['addEventListener', 'removeEventListener' ] %}
     if (UNLIKELY(info.Length() < {{method.number_of_required_arguments}})) {
         {{throw_type_error(method,
               'ExceptionMessages::notEnoughArguments(%s, info.Length())' %
@@ -22,43 +17,56 @@ static void {{method.name}}{{method.overload_index}}Method{{world_suffix}}(const
     }
     {% endif %}
     {% if not method.is_static %}
-    {{cpp_class}}* imp = {{v8_class}}::toNative(info.Holder());
+    {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
     {% endif %}
     {% if method.is_custom_element_callbacks %}
     CustomElementCallbackDispatcher::CallbackDeliveryScope deliveryScope;
     {% endif %}
-    {% if method.is_check_security_for_frame %}
-    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), imp->frame(), exceptionState)) {
+    {# Security checks #}
+    {% if interface_name == 'EventTarget' %}
+    {{event_target_check_security_for_frame() | indent }}
+    {% elif method.is_check_security_for_frame %}
+    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), impl->frame(), exceptionState)) {
         exceptionState.throwIfNeeded();
         return;
     }
     {% endif %}
     {% if method.is_check_security_for_node %}
-    if (!BindingSecurity::shouldAllowAccessToNode(info.GetIsolate(), imp->{{method.name}}(exceptionState), exceptionState)) {
+    if (!BindingSecurity::shouldAllowAccessToNode(info.GetIsolate(), impl->{{method.name}}(exceptionState), exceptionState)) {
         v8SetReturnValueNull(info);
         exceptionState.throwIfNeeded();
         return;
     }
     {% endif %}
+    {# Call method #}
     {% for argument in method.arguments %}
     {{generate_argument(method, argument, world_suffix) | indent}}
     {% endfor %}
+    {% if interface_name == 'EventTarget' and
+          method.name in ['addEventListener', 'removeEventListener'] %}
+    {# FIXME: can we move this |listener| check into Blink and
+       hidden_dependency_action? I.e., "if (!listener) return;" in Blink
+       and "if (listener && !impl->toNode())" in hidden_dependency_action} #}
+    if (!listener)
+        return;
+    {% endif %}
     {% if world_suffix %}
     {{cpp_method_call(method, method.v8_set_return_value_for_main_world, method.cpp_value) | indent}}
     {% else %}
     {{cpp_method_call(method, method.v8_set_return_value, method.cpp_value) | indent}}
     {% endif %}
-    {% endif %}{# addEventListener, removeEventListener #}
+    {% if interface_name == 'EventTarget' and
+          method.name in ['addEventListener', 'removeEventListener'] %}
+    {{hidden_dependency_action(method.name) | indent}}
+    {% endif %}
 }
 {% endfilter %}
 {% endmacro %}
 
 
 {######################################}
-{% macro add_event_listener_remove_event_listener_dispatch_event() %}
-{# FIXME: Clean up: use the normal |imp| above,
-          use the existing shouldAllowAccessToFrame check if possible. #}
-EventTarget* impl = {{v8_class}}::toNative(info.Holder());
+{% macro event_target_check_security_for_frame() %}
+{# FIXME: use the existing shouldAllowAccessToFrame check if possible. #}
 if (DOMWindow* window = impl->toDOMWindow()) {
     if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), window->frame(), exceptionState)) {
         exceptionState.throwIfNeeded();
@@ -71,20 +79,13 @@ if (DOMWindow* window = impl->toDOMWindow()) {
 
 
 {######################################}
-{% macro add_event_listener_remove_event_listener_method(method_name) %}
-{# Set template values for addEventListener vs. removeEventListener #}
-{% set listener_lookup_type, listener, hidden_dependency_action =
-    ('ListenerFindOrCreate', 'listener', 'addHiddenValueToArray')
-    if method_name == 'addEventListener' else
-    ('ListenerFindOnly', 'listener.get()', 'removeHiddenValueFromArray')
-%}
-RefPtr<EventListener> listener = V8EventListenerList::getEventListener(info[1], false, {{listener_lookup_type}});
-if (listener) {
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<WithNullCheck>, eventName, info[0]);
-    impl->{{method_name}}(eventName, {{listener}}, info[2]->BooleanValue());
-    if (!impl->toNode())
-        {{hidden_dependency_action}}(info.Holder(), info[1], {{v8_class}}::eventListenerCacheIndex, info.GetIsolate());
-}
+{% macro hidden_dependency_action(method_name) %}
+if (!impl->toNode())
+    {% if method_name == 'addEventListener' %}
+    addHiddenValueToArray(info.Holder(), info[1], {{v8_class}}::eventListenerCacheIndex, info.GetIsolate());
+    {% else %}{# method_name == 'removeEventListener' #}
+    removeHiddenValueFromArray(info.Holder(), info[1], {{v8_class}}::eventListenerCacheIndex, info.GetIsolate());
+    {% endif %}
 {% endmacro %}
 
 
@@ -97,10 +98,18 @@ if (listener) {
    fewer arguments if they are omitted.
    Optional Dictionary arguments default to empty dictionary. #}
 if (UNLIKELY(info.Length() <= {{argument.index}})) {
+    {% if interface_name == 'EventTarget' %}
+    {# FIXME: can we move this |listener| check into Blink? (see above) #}
+    if (!listener)
+        return;
+    {% endif %}
     {% if world_suffix %}
     {{cpp_method_call(method, argument.v8_set_return_value_for_main_world, argument.cpp_value) | indent}}
     {% else %}
     {{cpp_method_call(method, argument.v8_set_return_value, argument.cpp_value) | indent}}
+    {% endif %}
+    {% if interface_name == 'EventTarget' %}
+    {{hidden_dependency_action(method.name) | indent}}
     {% endif %}
     return;
 }
@@ -115,6 +124,14 @@ if (info.Length() > {{argument.index}} && {% if argument.is_nullable %}!isUndefi
 }
 {% endif %}
 {% if argument.is_callback_interface %}
+{# FIXME: remove EventListener special case #}
+{% if argument.idl_type == 'EventListener' %}
+{% if method.name == 'removeEventListener' %}
+RefPtr<{{argument.idl_type}}> {{argument.name}} = V8EventListenerList::getEventListener(info[1], false, ListenerFindOnly);
+{% else %}{# method.name == 'addEventListener' #}
+RefPtr<{{argument.idl_type}}> {{argument.name}} = V8EventListenerList::getEventListener(info[1], false, ListenerFindOrCreate);
+{% endif %}{# method.name #}
+{% else %}
 {% if argument.is_optional %}
 OwnPtr<{{argument.idl_type}}> {{argument.name}};
 if (info.Length() > {{argument.index}} && !isUndefinedOrNull(info[{{argument.index}}])) {
@@ -135,6 +152,7 @@ if (info.Length() <= {{argument.index}} || !{% if argument.is_nullable %}(info[{
 }
 OwnPtr<{{argument.idl_type}}> {{argument.name}} = {% if argument.is_nullable %}info[{{argument.index}}]->IsNull() ? nullptr : {% endif %}V8{{argument.idl_type}}::create(v8::Handle<v8::Function>::Cast(info[{{argument.index}}]), currentExecutionContext(info.GetIsolate()));
 {% endif %}{# argument.is_optional #}
+{% endif %}{# argument.idl_type == 'EventListener' #}
 {% elif argument.is_clamp %}{# argument.is_callback_interface #}
 {# NaN is treated as 0: http://www.w3.org/TR/WebIDL/#es-type-mapping #}
 {{argument.cpp_type}} {{argument.name}} = 0;
@@ -183,7 +201,7 @@ if (!{{argument.name}}.isUndefinedOrNull() && !{{argument.name}}.isObject()) {
 {######################################}
 {% macro cpp_method_call(method, v8_set_return_value, cpp_value) %}
 {% if method.is_implemented_by and not method.is_static %}
-ASSERT(imp);
+ASSERT(impl);
 {% endif %}
 {% if method.is_call_with_script_state %}
 ScriptState* currentState = ScriptState::current();
@@ -331,8 +349,8 @@ static void {{method.name}}OriginSafeMethodGetter{{world_suffix}}(const v8::Prop
         v8SetReturnValue(info, privateTemplate->GetFunction());
         return;
     }
-    {{cpp_class}}* imp = {{v8_class}}::toNative(holder);
-    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), imp->frame(), DoNotReportSecurityError)) {
+    {{cpp_class}}* impl = {{v8_class}}::toNative(holder);
+    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), impl->frame(), DoNotReportSecurityError)) {
         static int sharedTemplateKey; // This address is used for a key to look up the dom template.
         v8::Handle<v8::FunctionTemplate> sharedTemplate = data->domTemplate(&sharedTemplateKey, {{cpp_class}}V8Internal::{{method.name}}MethodCallback{{world_suffix}}, v8Undefined(), {{signature}}, {{method.number_of_required_or_variadic_arguments}});
         v8SetReturnValue(info, sharedTemplate->GetFunction());

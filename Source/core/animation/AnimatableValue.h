@@ -31,13 +31,12 @@
 #ifndef AnimatableValue_h
 #define AnimatableValue_h
 
-#include "core/animation/AnimationEffect.h"
 #include "core/css/CSSValue.h"
 #include "wtf/RefCounted.h"
 
 namespace WebCore {
 
-class AnimatableValue : public AnimationEffect::CompositableValue {
+class AnimatableValue : public RefCounted<AnimatableValue> {
 public:
     virtual ~AnimatableValue() { }
 
@@ -60,9 +59,6 @@ public:
     {
         return equals(&value);
     }
-
-    virtual bool dependsOnUnderlyingValue() const OVERRIDE FINAL { return false; }
-    virtual PassRefPtr<AnimatableValue> compositeOnto(const AnimatableValue*) const OVERRIDE FINAL { return takeConstRef(this); }
 
     bool isClipPathOperation() const { return type() == TypeClipPathOperation; }
     bool isColor() const { return type() == TypeColor; }

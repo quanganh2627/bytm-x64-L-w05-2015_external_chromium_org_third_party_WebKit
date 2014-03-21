@@ -84,8 +84,7 @@ public:
     MediaPlayer* player() const { return m_player.get(); }
     blink::WebMediaPlayer* webMediaPlayer() const { return m_player ? m_player->webMediaPlayer() : 0; }
 
-    virtual bool isVideo() const = 0;
-    virtual bool hasVideo() const OVERRIDE { return false; }
+    virtual bool hasVideo() const { return false; }
     virtual bool hasAudio() const OVERRIDE FINAL;
 
     bool supportsSave() const;
@@ -234,11 +233,11 @@ public:
     bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }
 
     bool isFullscreen() const;
-    virtual void enterFullscreen() OVERRIDE FINAL;
+    void enterFullscreen();
 
-    virtual bool hasClosedCaptions() const OVERRIDE FINAL;
-    virtual bool closedCaptionsVisible() const OVERRIDE FINAL;
-    virtual void setClosedCaptionsVisible(bool) OVERRIDE FINAL;
+    bool hasClosedCaptions() const;
+    bool closedCaptionsVisible() const;
+    void setClosedCaptionsVisible(bool);
 
     MediaControls* mediaControls() const;
 
@@ -541,17 +540,17 @@ struct ValueToString<TextTrackCue*> {
 };
 #endif
 
-inline bool isHTMLMediaElement(const Node& node)
+inline bool isHTMLMediaElement(const Element& element)
 {
-    return isHTMLAudioElement(node) || isHTMLVideoElement(node);
+    return isHTMLAudioElement(element) || isHTMLVideoElement(element);
 }
 
-inline bool isHTMLMediaElement(const Node* node)
+inline bool isHTMLMediaElement(const HTMLElement& element)
 {
-    return node && isHTMLMediaElement(*node);
+    return isHTMLAudioElement(element) || isHTMLVideoElement(element);
 }
 
-DEFINE_ELEMENT_TYPE_CASTS_WITH_FUNCTION(HTMLMediaElement);
+DEFINE_HTMLELEMENT_TYPE_CASTS_WITH_FUNCTION(HTMLMediaElement);
 
 } //namespace
 
