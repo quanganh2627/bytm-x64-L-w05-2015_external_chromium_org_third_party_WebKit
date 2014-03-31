@@ -29,7 +29,6 @@
 #include "bindings/v8/npruntime_impl.h"
 #include "core/dom/Document.h"
 #include "core/dom/Node.h"
-#include "core/dom/PostAttachCallbacks.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/events/Event.h"
 #include "core/frame/LocalFrame.h"
@@ -60,7 +59,6 @@ HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document& doc
     , m_isDelayingLoadEvent(false)
     , m_NPObject(0)
     , m_isCapturingMouseEvents(false)
-    , m_inBeforeLoadEventHandler(false)
     // m_needsWidgetUpdate(!createdByParser) allows HTMLObjectElement to delay
     // widget updates until after all children are parsed. For HTMLEmbedElement
     // this delay is unnecessary, but it is simpler to make both classes share
@@ -226,28 +224,8 @@ SharedPersistent<v8::Object>* HTMLPlugInElement::pluginWrapper()
     return m_pluginWrapper.get();
 }
 
-bool HTMLPlugInElement::dispatchBeforeLoadEvent(const String& sourceURL)
-{
-    // FIXME: Our current plug-in loading design can't guarantee the following
-    // assertion is true, since plug-in loading can be initiated during layout,
-    // and synchronous layout can be initiated in a beforeload event handler!
-    // See <http://webkit.org/b/71264>.
-    // ASSERT(!m_inBeforeLoadEventHandler);
-    m_inBeforeLoadEventHandler = true;
-    bool beforeLoadAllowedLoad = HTMLFrameOwnerElement::dispatchBeforeLoadEvent(sourceURL);
-    m_inBeforeLoadEventHandler = false;
-    return beforeLoadAllowedLoad;
-}
-
 Widget* HTMLPlugInElement::pluginWidget() const
 {
-    if (m_inBeforeLoadEventHandler) {
-        // The plug-in hasn't loaded yet, and it makes no sense to try to load
-        // if beforeload handler happened to touch the plug-in element. That
-        // would recursively call beforeload for the same element.
-        return 0;
-    }
-
     if (RenderWidget* renderWidget = renderWidgetForJSBindings())
         return renderWidget->widget();
     return 0;
@@ -279,16 +257,18 @@ void HTMLPlugInElement::collectStyleForPresentationAttribute(const QualifiedName
     }
 }
 
-void HTMLPlugInElement::handleLocalEvents(Event* event)
+void HTMLPlugInElement::defaultEventHandler(Event* event)
 {
-    HTMLFrameOwnerElement::handleLocalEvents(event);
-
     // Firefox seems to use a fake event listener to dispatch events to plug-in
     // (tested with mouse events only). This is observable via different order
     // of events - in Firefox, event listeners specified in HTML attributes
     // fires first, then an event gets dispatched to plug-in, and only then
     // other event listeners fire. Hopefully, this difference does not matter in
     // practice.
+
+    // FIXME: Mouse down and scroll events are passed down to plug-in via custom
+    // code in EventHandler; these code paths should be united.
+
     RenderObject* r = renderer();
     if (!r || !r->isWidget())
         return;
@@ -302,6 +282,9 @@ void HTMLPlugInElement::handleLocalEvents(Event* event)
     if (!widget)
         return;
     widget->handleEvent(event);
+    if (event->defaultHandled())
+        return;
+    HTMLFrameOwnerElement::defaultEventHandler(event);
 }
 
 RenderWidget* HTMLPlugInElement::renderWidgetForJSBindings() const
@@ -453,7 +436,7 @@ bool HTMLPlugInElement::loadPlugin(const KURL& url, const String& mimeType, cons
 
     renderer->setWidget(widget);
     document().setContainsPlugins();
-    setNeedsStyleRecalc(LocalStyleChange, StyleChangeFromRenderer);
+    scheduleLayerUpdate();
     return true;
 }
 

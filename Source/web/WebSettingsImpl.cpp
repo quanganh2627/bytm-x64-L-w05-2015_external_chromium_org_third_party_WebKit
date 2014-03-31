@@ -507,11 +507,6 @@ void WebSettingsImpl::setAcceleratedCompositingForScrollableFramesEnabled(bool e
     m_settings->setAcceleratedCompositingForScrollableFramesEnabled(enabled);
 }
 
-void WebSettingsImpl::setAcceleratedFiltersEnabled(bool enabled)
-{
-    m_settings->setAcceleratedFiltersEnabled(enabled);
-}
-
 void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
 {
     m_settings->setAccelerated2dCanvasEnabled(enabled);
@@ -525,6 +520,11 @@ void WebSettingsImpl::setAccelerated2dCanvasMSAASampleCount(int count)
 void WebSettingsImpl::setAntialiased2dCanvasEnabled(bool enabled)
 {
     m_settings->setAntialiased2dCanvasEnabled(enabled);
+}
+
+void WebSettingsImpl::setContainerCullingEnabled(bool enabled)
+{
+    m_settings->setContainerCullingEnabled(enabled);
 }
 
 void WebSettingsImpl::setDeferredImageDecodingEnabled(bool enabled)
@@ -541,11 +541,6 @@ void WebSettingsImpl::setDeferredFiltersEnabled(bool enabled)
 void WebSettingsImpl::setAcceleratedCompositingForFixedPositionEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingForFixedPositionEnabled(enabled);
-}
-
-void WebSettingsImpl::setAcceleratedCompositingForTransitionEnabled(bool enabled)
-{
-    m_settings->setAcceleratedCompositingForTransitionEnabled(enabled);
 }
 
 void WebSettingsImpl::setMinimumAccelerated2dCanvasSize(int numPixels)
@@ -586,11 +581,6 @@ void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)
 void WebSettingsImpl::setValidationMessageTimerMagnification(int newValue)
 {
     m_settings->setValidationMessageTimerMagnification(newValue);
-}
-
-void WebSettingsImpl::setFullScreenEnabled(bool enabled)
-{
-    m_settings->setFullScreenEnabled(enabled);
 }
 
 void WebSettingsImpl::setAllowDisplayOfInsecureContent(bool enabled)
@@ -671,16 +661,6 @@ void WebSettingsImpl::setShouldRespectImageOrientation(bool enabled)
 void WebSettingsImpl::setMediaPlaybackRequiresUserGesture(bool required)
 {
     m_settings->setMediaPlaybackRequiresUserGesture(required);
-}
-
-void WebSettingsImpl::setMediaFullscreenRequiresUserGesture(bool required)
-{
-    m_settings->setMediaFullscreenRequiresUserGesture(required);
-}
-
-void WebSettingsImpl::setFixedPositionCreatesStackingContext(bool creates)
-{
-    m_settings->setFixedPositionCreatesStackingContext(creates);
 }
 
 void WebSettingsImpl::setViewportEnabled(bool enabled)

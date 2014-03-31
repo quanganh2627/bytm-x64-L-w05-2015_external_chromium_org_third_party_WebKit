@@ -87,9 +87,10 @@ needsSiteSpecificQuirks initial=false
 offlineWebApplicationCacheEnabled initial=false
 usesEncodingDetector initial=false
 allowScriptsToCloseWindows initial=false
-acceleratedFiltersEnabled initial=false
 deferredFiltersEnabled initial=false
 regionBasedColumnsEnabled initial=false
+
+containerCullingEnabled initial=false
 
 # FIXME: This should really be disabled by default as it makes platforms that
 # don't support the feature download files they can't use by.
@@ -108,7 +109,6 @@ acceleratedCompositingForAnimationEnabled initial=true
 acceleratedCompositingForFiltersEnabled initial=false
 acceleratedCompositingForFixedPositionEnabled initial=false
 acceleratedCompositingForOverflowScrollEnabled initial=false
-acceleratedCompositingForTransitionEnabled initial=false
 acceleratedCompositingForFixedRootBackgroundEnabled initial=false
 acceleratedCompositingForGpuRasterizationHintEnabled initial=false
 
@@ -131,7 +131,6 @@ accelerated2dCanvasMSAASampleCount type=int, initial=0
 # WebAudio support.
 webAudioEnabled initial=false
 
-fullScreenEnabled initial=false
 asynchronousSpellCheckingEnabled initial=false
 preciseMemoryInfoEnabled initial=false
 
@@ -139,7 +138,6 @@ hyperlinkAuditingEnabled initial=false
 allowDisplayOfInsecureContent initial=true
 allowRunningOfInsecureContent initial=true
 mediaPlaybackRequiresUserGesture initial=false
-mediaFullscreenRequiresUserGesture initial=true
 visualWordMovementEnabled initial=false
 shouldDisplaySubtitles initial=false
 shouldDisplayCaptions initial=false
@@ -174,7 +172,6 @@ touchAdjustmentEnabled initial=true
 # A mostly-stable performance optimization. crbug.com/304518 tracks removal.
 compositorTouchHitTesting initial=true
 
-fixedPositionCreatesStackingContext initial=false
 syncXHRInDocumentsEnabled initial=true
 cookieEnabled initial=true
 navigateOnDragDrop initial=true

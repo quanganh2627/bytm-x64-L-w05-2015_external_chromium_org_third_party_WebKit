@@ -72,7 +72,6 @@
 #include "wtf/StdLibExtras.h"
 
 using blink::WebLocalizedString;
-using namespace std;
 
 namespace WebCore {
 
@@ -798,7 +797,8 @@ String AXRenderObject::text() const
 
 int AXRenderObject::textLength() const
 {
-    ASSERT(isTextControl());
+    if (!isTextControl())
+        return -1;
 
     if (isPasswordField())
         return -1; // need to return something distinct from 0
@@ -1494,8 +1494,8 @@ double AXRenderObject::estimatedLoadingProgress() const
     if (isLoaded())
         return 1.0;
 
-    if (Page* page = m_renderer->document().page())
-        return page->progress().estimatedProgress();
+    if (LocalFrame* frame = m_renderer->document().frame())
+        return frame->loader().progress().estimatedProgress();
     return 0;
 }
 
@@ -1569,7 +1569,8 @@ Widget* AXRenderObject::widgetForAttachmentView() const
 
 AXObject::PlainTextRange AXRenderObject::selectedTextRange() const
 {
-    ASSERT(isTextControl());
+    if (!isTextControl())
+        return PlainTextRange();
 
     if (isPasswordField())
         return PlainTextRange();

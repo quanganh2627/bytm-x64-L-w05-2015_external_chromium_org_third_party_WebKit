@@ -32,21 +32,20 @@
 #include "InstallEvent.h"
 
 #include "bindings/v8/ScriptPromiseResolver.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "modules/serviceworkers/WaitUntilObserver.h"
 #include "platform/NotImplemented.h"
 #include "wtf/RefPtr.h"
 
 namespace WebCore {
 
-PassRefPtr<InstallEvent> InstallEvent::create()
+PassRefPtrWillBeRawPtr<InstallEvent> InstallEvent::create()
 {
-    return adoptRef(new InstallEvent());
+    return adoptRefWillBeRefCountedGarbageCollected(new InstallEvent());
 }
 
-PassRefPtr<InstallEvent> InstallEvent::create(const AtomicString& type, const EventInit& initializer, PassRefPtr<WaitUntilObserver> observer)
+PassRefPtrWillBeRawPtr<InstallEvent> InstallEvent::create(const AtomicString& type, const EventInit& initializer, PassRefPtr<WaitUntilObserver> observer)
 {
-    return adoptRef(new InstallEvent(type, initializer, observer));
+    return adoptRefWillBeRefCountedGarbageCollected(new InstallEvent(type, initializer, observer));
 }
 
 void InstallEvent::replace()

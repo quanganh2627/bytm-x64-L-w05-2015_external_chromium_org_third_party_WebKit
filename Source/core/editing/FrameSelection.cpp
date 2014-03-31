@@ -1454,7 +1454,7 @@ void FrameSelection::focusedOrActiveStateChanged()
     bool activeAndFocused = isFocusedAndActive();
 
     RefPtr<Document> document = m_frame->document();
-    document->updateStyleIfNeeded();
+    document->updateRenderTreeIfNeeded();
 
     // Because RenderObject::selectionBackgroundColor() and
     // RenderObject::selectionForegroundColor() check if the frame is active,
@@ -1637,7 +1637,7 @@ void FrameSelection::caretBlinkTimerFired(Timer<FrameSelection>*)
 
 void FrameSelection::notifyRendererOfSelectionChange(EUserTriggered userTriggered)
 {
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     if (HTMLTextFormControlElement* textControl = enclosingTextFormControl(start()))
         textControl->selectionChanged(userTriggered == UserTriggered);
@@ -1708,7 +1708,7 @@ String FrameSelection::selectedTextForClipboard() const
 
 FloatRect FrameSelection::bounds(bool clipToVisibleContent) const
 {
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     FrameView* view = m_frame->view();
     RenderView* renderView = m_frame->contentRenderer();
@@ -1720,18 +1720,23 @@ FloatRect FrameSelection::bounds(bool clipToVisibleContent) const
     return clipToVisibleContent ? intersection(selectionRect, view->visibleContentRect()) : selectionRect;
 }
 
+static inline HTMLFormElement* associatedFormElement(HTMLElement& element)
+{
+    if (isHTMLFormElement(element))
+        return &toHTMLFormElement(element);
+    return element.formOwner();
+}
+
 // Scans logically forward from "start", including any child frames.
 static HTMLFormElement* scanForForm(Node* start)
 {
     if (!start)
         return 0;
+
     HTMLElement* element = start->isHTMLElement() ? toHTMLElement(start) : Traversal<HTMLElement>::next(*start);
     for (; element; element = Traversal<HTMLElement>::next(*element)) {
-        if (isHTMLFormElement(*element))
-            return toHTMLFormElement(element);
-
-        if (HTMLFormElement* owner = element->formOwner())
-                return owner;
+        if (HTMLFormElement* form = associatedFormElement(*element))
+            return form;
 
         if (isHTMLFrameElementBase(*element)) {
             Node* childDocument = toHTMLFrameElementBase(*element).contentDocument();
@@ -1749,17 +1754,13 @@ HTMLFormElement* FrameSelection::currentForm() const
     Node* start = m_frame->document()->focusedElement();
     if (!start)
         start = this->start().deprecatedNode();
+    if (!start)
+        return 0;
 
     // Try walking up the node tree to find a form element.
-    Node* node;
-    for (node = start; node; node = node->parentNode()) {
-        if (isHTMLFormElement(*node))
-            return toHTMLFormElement(node);
-        if (node->isHTMLElement()) {
-            HTMLFormElement* owner = toHTMLElement(node)->formOwner();
-            if (owner)
-                return owner;
-        }
+    for (HTMLElement* element = Traversal<HTMLElement>::firstAncestorOrSelf(*start); element; element = Traversal<HTMLElement>::firstAncestor(*element)) {
+        if (HTMLFormElement* form = associatedFormElement(*element))
+            return form;
     }
 
     // Try walking forward in the node tree to find a form element.

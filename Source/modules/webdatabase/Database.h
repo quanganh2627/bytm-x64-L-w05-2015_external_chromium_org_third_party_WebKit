@@ -72,7 +72,7 @@ public:
     void scheduleTransactionCallback(SQLTransaction*);
 
 private:
-    Database(PassRefPtr<DatabaseContext>, const String& name,
+    Database(DatabaseContext*, const String& name,
         const String& expectedVersion, const String& displayName, unsigned long estimatedSize);
     PassRefPtrWillBeRawPtr<DatabaseBackend> backend();
     static PassRefPtrWillBeRawPtr<Database> create(ExecutionContext*, PassRefPtrWillBeRawPtr<DatabaseBackendBase>);
@@ -86,7 +86,7 @@ private:
     void reportCommitTransactionResult(int errorSite, int webSqlErrorCode, int sqliteErrorCode);
 
     RefPtr<SecurityOrigin> m_databaseThreadSecurityOrigin;
-    RefPtr<DatabaseContext> m_databaseContext;
+    RefPtrWillBeMember<DatabaseContext> m_databaseContext;
 
     friend class DatabaseManager;
     friend class DatabaseServer; // FIXME: remove this when the backend has been split out.

@@ -252,8 +252,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFEImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilter.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilterBuilder.cpp \
-	third_party/WebKit/Source/core/svg/properties/NewSVGAnimatedProperty.cpp \
-	third_party/WebKit/Source/core/svg/properties/NewSVGPropertyTearOff.cpp
+	third_party/WebKit/Source/core/svg/properties/SVGAnimatedProperty.cpp \
+	third_party/WebKit/Source/core/svg/properties/SVGPropertyTearOff.cpp
 
 
 # Flags passed to both C and C++ files.
@@ -324,9 +324,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -339,6 +337,7 @@ MY_DEFS_Debug := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -476,9 +475,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -491,6 +488,7 @@ MY_DEFS_Release := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

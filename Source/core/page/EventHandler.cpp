@@ -49,7 +49,6 @@
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
 #include "core/events/TextEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/events/TouchEvent.h"
 #include "core/events/WheelEvent.h"
 #include "core/fetch/ImageResource.h"
@@ -503,6 +502,8 @@ void EventHandler::selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHit
 
 bool EventHandler::handleMousePressEventDoubleClick(const MouseEventWithHitTestResults& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMousePressEventDoubleClick");
+
     if (event.event().button() != LeftButton)
         return false;
 
@@ -521,6 +522,8 @@ bool EventHandler::handleMousePressEventDoubleClick(const MouseEventWithHitTestR
 
 bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestResults& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMousePressEventTripleClick");
+
     if (event.event().button() != LeftButton)
         return false;
 
@@ -546,6 +549,8 @@ static int textDistance(const Position& start, const Position& end)
 
 bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestResults& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMousePressEventSingleClick");
+
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
     Node* innerNode = event.targetNode();
     if (!(innerNode && innerNode->renderer() && m_mouseDownMayStartSelect))
@@ -622,6 +627,8 @@ static inline bool canMouseDownStartSelect(Node* node)
 
 bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMousePressEvent");
+
     // Reset drag state.
     dragState().m_dragSrc = nullptr;
 
@@ -687,6 +694,8 @@ bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& eve
 
 bool EventHandler::handleMouseDraggedEvent(const MouseEventWithHitTestResults& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMouseDraggedEvent");
+
     if (!m_mousePressed)
         return false;
 
@@ -699,7 +708,7 @@ bool EventHandler::handleMouseDraggedEvent(const MouseEventWithHitTestResults& e
 
     RenderObject* renderer = targetNode->renderer();
     if (!renderer) {
-        Node* parent = EventPath::parent(targetNode);
+        Node* parent = NodeRenderingTraversal::parent(targetNode);
         if (!parent)
             return false;
 
@@ -886,6 +895,8 @@ bool EventHandler::panScrollInProgress() const
 
 HitTestResult EventHandler::hitTestResultAtPoint(const LayoutPoint& point, HitTestRequest::HitTestRequestType hitType, const LayoutSize& padding)
 {
+    TRACE_EVENT0("webkit", "EventHandler::hitTestResultAtPoint");
+
     // We always send hitTestResultAtPoint to the main frame if we have one,
     // otherwise we might hit areas that are obscured by higher frames.
     if (Page* page = m_frame->page()) {
@@ -1255,11 +1266,9 @@ OptionalCursor EventHandler::selectAutoCursor(const HitTestResult& result, Node*
 
     bool inResizer = false;
     RenderObject* renderer = node ? node->renderer() : 0;
-    if (renderer) {
-        if (RenderLayer* layer = renderer->enclosingLayer()) {
-            if (m_frame->view())
-                inResizer = layer->scrollableArea() && layer->scrollableArea()->isPointInResizeControl(result.roundedPointInMainFrame(), ResizerForPointer);
-        }
+    if (renderer && m_frame->view()) {
+        RenderLayer* layer = renderer->enclosingLayer();
+        inResizer = layer->scrollableArea() && layer->scrollableArea()->isPointInResizeControl(result.roundedPointInMainFrame(), ResizerForPointer);
     }
 
     // During selection, use an I-beam no matter what we're over.
@@ -1286,6 +1295,8 @@ static LayoutPoint documentPointForWindowPoint(LocalFrame* frame, const IntPoint
 
 bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMousePressEvent");
+
     RefPtr<FrameView> protector(m_frame->view());
 
     bool defaultPrevented = dispatchSyntheticTouchEventIfEnabled(mouseEvent);
@@ -1447,6 +1458,8 @@ ScrollableArea* EventHandler::associatedScrollableArea(const RenderLayer* layer)
 
 bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMouseMoveEvent");
+
     RefPtr<FrameView> protector(m_frame->view());
     MaximumDurationTracker maxDurationTracker(&m_maxMouseMovedDuration);
 
@@ -1474,6 +1487,8 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& event)
 
 void EventHandler::handleMouseLeaveEvent(const PlatformMouseEvent& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMouseLeaveEvent");
+
     RefPtr<FrameView> protector(m_frame->view());
     handleMouseMoveOrLeaveEvent(event);
 }
@@ -1612,6 +1627,8 @@ static Node* parentForClickEvent(const Node& node)
 
 bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleMouseReleaseEvent");
+
     RefPtr<FrameView> protector(m_frame->view());
 
     m_frame->selection().setCaretBlinkingSuspended(false);
@@ -1715,7 +1732,7 @@ bool EventHandler::handlePasteGlobalSelection(const PlatformMouseEvent& mouseEve
 
     if (!m_frame->page())
         return false;
-    LocalFrame* focusFrame = m_frame->page()->focusController().focusedOrMainFrame();
+    Frame* focusFrame = m_frame->page()->focusController().focusedOrMainFrame();
     // Do not paste here if the focus was moved somewhere else.
     if (m_frame == focusFrame && m_frame->editor().behavior().supportsGlobalSelection())
         return m_frame->editor().command("PasteGlobalSelection").execute();
@@ -1748,7 +1765,11 @@ static bool targetIsFrame(Node* target, LocalFrame*& frame)
     if (!isHTMLFrameElementBase(target))
         return false;
 
-    frame = toHTMLFrameElementBase(target)->contentFrame();
+    // Cross-process drag and drop is not yet supported.
+    if (toHTMLFrameElementBase(target)->contentFrame() && !toHTMLFrameElementBase(target)->contentFrame()->isLocalFrame())
+        return false;
+
+    frame = toLocalFrame(toHTMLFrameElementBase(target)->contentFrame());
     return true;
 }
 
@@ -1769,7 +1790,7 @@ static bool findDropZone(Node* target, Clipboard* clipboard)
             continue;
 
         DragOperation dragOperation = DragOperationNone;
-        for (unsigned int i = 0; i < keywords.size(); i++) {
+        for (unsigned i = 0; i < keywords.size(); i++) {
             DragOperation op = convertDropZoneOperationToDragOperation(keywords[i]);
             if (op != DragOperationNone) {
                 if (dragOperation == DragOperationNone)
@@ -1801,7 +1822,7 @@ bool EventHandler::updateDragAndDrop(const PlatformMouseEvent& event, Clipboard*
     // Drag events should never go to text nodes (following IE, and proper mouseover/out dispatch)
     RefPtr<Node> newTarget = mev.targetNode();
     if (newTarget && newTarget->isTextNode())
-        newTarget = EventPath::parent(newTarget.get());
+        newTarget = NodeRenderingTraversal::parent(newTarget.get());
 
     if (AutoscrollController* controller = autoscrollController())
         controller->updateDragAndDrop(newTarget.get(), event.position(), event.timestamp());
@@ -1935,7 +1956,7 @@ void EventHandler::updateMouseEventTargetNode(Node* targetNode, const PlatformMo
     else {
         // If the target node is a text node, dispatch on the parent node - rdar://4196646
         if (result && result->isTextNode())
-            result = EventPath::parent(result);
+            result = NodeRenderingTraversal::parent(result);
     }
     m_nodeUnderMouse = result;
     m_instanceUnderMouse = instanceAssociatedWithShadowTreeElement(result);
@@ -2143,7 +2164,7 @@ bool EventHandler::handleWheelEvent(const PlatformWheelEvent& e)
     Node* node = result.innerNode();
     // Wheel events should not dispatch to text nodes.
     if (node && node->isTextNode())
-        node = EventPath::parent(node);
+        node = NodeRenderingTraversal::parent(node);
 
     bool isOverWidget;
     if (e.useLatchedEventNode()) {
@@ -2183,13 +2204,6 @@ bool EventHandler::handleWheelEvent(const PlatformWheelEvent& e)
         if (node && !node->dispatchWheelEvent(event))
             RETURN_WHEEL_EVENT_HANDLED();
     }
-
-    // Ctrl + scrollwheel is reserved for triggering zoom in/out actions in Chromium.
-    // When Ctrl is pressed and the event was not canceled by JavaScript code,
-    // return false to notify the caller that the scrollwheel event was not canceled.
-    if (e.ctrlKey())
-        return false;
-
 
     // We do another check on the frame view because the event handler can run JS which results in the frame getting destroyed.
     view = m_frame->view();
@@ -2819,6 +2833,7 @@ bool EventHandler::sendContextMenuEventForKey()
     Element* focusedElement = doc->focusedElement();
     FrameSelection& selection = m_frame->selection();
     Position start = selection.selection().start();
+    bool shouldTranslateToRootView = true;
 
     if (start.deprecatedNode() && (selection.rootEditableElement() || selection.isRange())) {
         RefPtr<Range> selectionRange = selection.toNormalizedRange();
@@ -2838,11 +2853,12 @@ bool EventHandler::sendContextMenuEventForKey()
         location = IntPoint(
             rightAligned ? view->contentsWidth() - kContextMenuMargin : kContextMenuMargin,
             kContextMenuMargin);
+        shouldTranslateToRootView = false;
     }
 
     m_frame->view()->setCursor(pointerCursor());
 
-    IntPoint position = view->contentsToRootView(location);
+    IntPoint position = shouldTranslateToRootView ? view->contentsToRootView(location) : location;
     IntPoint globalPosition = view->hostWindow()->rootViewToScreen(IntRect(position, IntSize())).location();
 
     Node* targetNode = doc->focusedElement();
@@ -3576,6 +3592,8 @@ HitTestResult EventHandler::hitTestResultInFrame(LocalFrame* frame, const Layout
 
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 {
+    TRACE_EVENT0("webkit", "EventHandler::handleTouchEvent");
+
     // First build up the lists to use for the 'touches', 'targetTouches' and 'changedTouches' attributes
     // in the JS event. See http://www.sitepen.com/blog/2008/07/10/touching-and-gesturing-on-the-iphone/
     // for an overview of how these lists fit together.
@@ -3592,7 +3610,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     typedef HashSet<RefPtr<EventTarget> > EventTargetSet;
     struct {
         // The touches corresponding to the particular change state this struct instance represents.
-        RefPtrWillBeRawPtr<TouchList> m_touches;
+        RefPtrWillBeMember<TouchList> m_touches;
         // Set of targets involved in m_touches.
         EventTargetSet m_targets;
     } changedTouches[PlatformTouchPoint::TouchStateEnd];
@@ -3664,7 +3682,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
             // Touch events should not go to text nodes
             if (node->isTextNode())
-                node = EventPath::parent(node);
+                node = NodeRenderingTraversal::parent(node);
 
             Document& doc = node->document();
             // Record the originating touch document even if it does not have a touch listener.

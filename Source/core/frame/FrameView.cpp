@@ -371,15 +371,10 @@ void FrameView::setFrameRect(const IntRect& newRect)
 
     // Autosized font sizes depend on the width of the viewing area.
     if (newRect.width() != oldRect.width()) {
-        if (isMainFrame()) {
-            Page* page = m_frame->page();
-            bool textAutosizingEnabled = m_frame->settings()->textAutosizingEnabled();
-            if (textAutosizingEnabled) {
-                TextAutosizer* textAutosizer = m_frame->document()->textAutosizer();
-                if (textAutosizer) {
-                    for (LocalFrame* frame = page->mainFrame(); frame; frame = frame->tree().traverseNext())
-                        textAutosizer->recalculateMultipliers();
-                }
+        if (isMainFrame() && m_frame->settings()->textAutosizingEnabled()) {
+            for (LocalFrame* frame = m_frame.get(); frame; frame = frame->tree().traverseNext()) {
+                if (TextAutosizer* textAutosizer = frame->document()->textAutosizer())
+                    textAutosizer->recalculateMultipliers();
             }
         }
     }
@@ -780,7 +775,7 @@ void FrameView::performPreLayoutTasks()
     // Always ensure our style info is up-to-date. This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
     TemporaryChange<bool> changeDoingPreLayoutStyleUpdate(m_doingPreLayoutStyleUpdate, true);
-    document->updateStyleIfNeeded();
+    document->updateRenderTreeIfNeeded();
     lifecycle().advanceTo(DocumentLifecycle::StyleClean);
 }
 
@@ -864,10 +859,6 @@ void FrameView::layout(bool allowSubtree)
     DocumentLifecycle::Scope lifecycleScope(lifecycle(), DocumentLifecycle::LayoutClean);
 
     RELEASE_ASSERT(!isPainting());
-
-    // Store the current maximal outline size to use when computing the old/new
-    // outline rects for repainting.
-    renderView()->setOldMaximalOutlineSize(renderView()->maximalOutlineSize());
 
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willLayout(m_frame.get());
 
@@ -983,8 +974,8 @@ void FrameView::layout(bool allowSubtree)
 
     m_layoutCount++;
 
-    if (AXObjectCache* cache = rootForThisLayout->document().existingAXObjectCache())
-        cache->postNotification(rootForThisLayout, AXObjectCache::AXLayoutComplete, true);
+    if (AXObjectCache* cache = rootForThisLayout->document().axObjectCache())
+        cache->handleLayoutComplete(rootForThisLayout);
     updateAnnotatedRegions();
 
     ASSERT(!rootForThisLayout->needsLayout());
@@ -1004,8 +995,7 @@ void FrameView::layout(bool allowSubtree)
         if (m_doFullRepaint)
             renderView()->setShouldDoFullRepaintAfterLayout(true);
 
-        if (m_doFullRepaint)
-            repaintTree(rootForThisLayout);
+        repaintTree(rootForThisLayout);
 
     } else if (m_doFullRepaint) {
         // FIXME: This isn't really right, since the RenderView doesn't fully encompass
@@ -1048,59 +1038,51 @@ void FrameView::repaintTree(RenderObject* root)
     DisableCompositingQueryAsserts disabler;
 
     for (RenderObject* renderer = root; renderer; renderer = renderer->nextInPreOrder()) {
-        // The repaint rectangles stored on the RenderObjects should all match
-        // the current repaint rectangles for the renderers.
-        ASSERT(renderer->clippedOverflowRectForRepaint(renderer->containerForRepaint()) == renderer->newRepaintRect());
-
         const LayoutRect& oldRepaintRect = renderer->oldRepaintRect();
         const LayoutRect& newRepaintRect = renderer->newRepaintRect();
 
-        LayoutRect oldOutlineRect = oldRepaintRect;
-        oldOutlineRect.inflate(renderView()->oldMaximalOutlineSize());
-
-        LayoutRect newOutlineRect = newRepaintRect;
-        newOutlineRect.inflate(renderView()->maximalOutlineSize());
+        if ((renderer->onlyNeededPositionedMovementLayout() && renderer->compositingState() != PaintsIntoOwnBacking)
+            || (renderer->shouldDoFullRepaintIfSelfPaintingLayer()
+                && renderer->hasLayer()
+                && toRenderLayerModelObject(renderer)->layer()->isSelfPaintingLayer())) {
+            renderer->setShouldDoFullRepaintAfterLayout(true);
+        }
 
         // FIXME: Currently renderers with layers will get repainted when we call updateLayerPositionsAfterLayout.
         // That call should be broken apart to position the layers be done before
         // the repaintTree call so this will repaint everything.
         bool didFullRepaint = false;
-        if (!renderer->hasLayer()) {
-            if (!renderer->layoutDidGetCalled()) {
-                if (renderer->shouldDoFullRepaintAfterLayout()) {
-                    renderer->repaint();
-                    didFullRepaint = true;
-                }
-
-            } else {
-                didFullRepaint = renderer->repaintAfterLayoutIfNeeded(renderer->containerForRepaint(),
-                    renderer->shouldDoFullRepaintAfterLayout(), oldRepaintRect, oldOutlineRect,
-                    &newRepaintRect, &newOutlineRect);
+        if (!renderer->layoutDidGetCalled()) {
+            if (renderer->shouldDoFullRepaintAfterLayout()) {
+                renderer->repaint();
+                didFullRepaint = true;
             }
+
+        } else {
+            didFullRepaint = renderer->repaintAfterLayoutIfNeeded(renderer->containerForRepaint(),
+                renderer->shouldDoFullRepaintAfterLayout(), oldRepaintRect, &newRepaintRect);
         }
 
         if (!didFullRepaint)
             renderer->repaintOverflowIfNeeded();
 
         // Repaint any scrollbars if there is a scrollable area for this renderer.
-        if (renderer->enclosingLayer()) {
-            if (RenderLayerScrollableArea* area = renderer->enclosingLayer()->scrollableArea()) {
-                if (area->hasVerticalBarDamage())
-                    renderer->repaintRectangle(area->verticalBarDamage());
-                if (area->hasHorizontalBarDamage())
-                    renderer->repaintRectangle(area->horizontalBarDamage());
-                area->resetScrollbarDamage();
-            }
+        if (RenderLayerScrollableArea* area = renderer->enclosingLayer()->scrollableArea()) {
+            if (area->hasVerticalBarDamage())
+                renderer->repaintRectangle(area->verticalBarDamage());
+            if (area->hasHorizontalBarDamage())
+                renderer->repaintRectangle(area->horizontalBarDamage());
+            area->resetScrollbarDamage();
         }
+
         // The list box has a verticalScrollbar we may need to repaint.
         if (renderer->isListBox()) {
             RenderListBox* listBox = static_cast<RenderListBox*>(renderer);
             listBox->repaintScrollbarIfNeeded();
         }
 
-        renderer->clearRepaintRects();
+        renderer->clearRepaintState();
     }
-    renderView()->setOldMaximalOutlineSize(0);
 
     // Repaint the frameviews scrollbars if needed
     if (hasVerticalBarDamage())
@@ -1259,10 +1241,6 @@ bool FrameView::useSlowRepaintsIfNotOverlapped() const
 
 bool FrameView::shouldAttemptToScrollUsingFastPath() const
 {
-    // FIXME: useSlowRepaints reads compositing state in parent frames. Compositing state on the parent
-    // frames is not necessarily up to date.
-    // https://code.google.com/p/chromium/issues/detail?id=343766
-    DisableCompositingQueryAsserts disabler;
     return !useSlowRepaints();
 }
 
@@ -1402,6 +1380,24 @@ bool FrameView::shouldSetCursor() const
     return page && page->visibilityState() != PageVisibilityStateHidden && page->focusController().isActive();
 }
 
+void FrameView::scrollContentsIfNeededRecursive()
+{
+    scrollContentsIfNeeded();
+
+    for (LocalFrame* child = m_frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (FrameView* view = child->view())
+            view->scrollContentsIfNeededRecursive();
+    }
+}
+
+void FrameView::scrollContentsIfNeeded()
+{
+    bool didScroll = !pendingScrollDelta().isZero();
+    ScrollView::scrollContentsIfNeeded();
+    if (didScroll)
+        updateFixedElementRepaintRectsAfterScroll();
+}
+
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
     if (!m_viewportConstrainedObjects || m_viewportConstrainedObjects->isEmpty()) {
@@ -1409,8 +1405,6 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
         return true;
     }
 
-    // https://code.google.com/p/chromium/issues/detail?id=343767
-    DisableCompositingQueryAsserts disabler;
     const bool isCompositedContentLayer = contentsInCompositedLayer();
 
     // Get the rects of the fixed objects visible in the rectToScroll
@@ -1418,8 +1412,8 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
     ViewportConstrainedObjectSet::const_iterator end = m_viewportConstrainedObjects->end();
     for (ViewportConstrainedObjectSet::const_iterator it = m_viewportConstrainedObjects->begin(); it != end; ++it) {
         RenderObject* renderer = *it;
-        if (!renderer->style()->hasViewportConstrainedPosition())
-            continue;
+        // m_viewportConstrainedObjects should not contain non-viewport constrained objects.
+        ASSERT(renderer->style()->hasViewportConstrainedPosition());
 
         // Fixed items should always have layers.
         ASSERT(renderer->hasLayer());
@@ -1473,7 +1467,7 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
     for (size_t i = 0; i < viewportConstrainedObjectsCount; ++i) {
         IntRect updateRect = subRectsToUpdate[i];
         IntRect scrolledRect = updateRect;
-        scrolledRect.move(scrollDelta);
+        scrolledRect.move(-scrollDelta);
         updateRect.unite(scrolledRect);
         if (isCompositedContentLayer) {
             updateRect = rootViewToContents(updateRect);
@@ -1491,11 +1485,6 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
 
 void FrameView::scrollContentsSlowPath(const IntRect& updateRect)
 {
-    // FIXME: This is called when JS calls scrollTo, at which point there's no guarantee that
-    // compositing state is up to date.
-    // https://code.google.com/p/chromium/issues/detail?id=343767
-    DisableCompositingQueryAsserts disabler;
-
     if (contentsInCompositedLayer()) {
         IntRect updateRect = visibleContentRect();
         ASSERT(renderView());
@@ -1595,7 +1584,7 @@ void FrameView::maintainScrollPositionAtAnchor(Node* anchorNode)
 
     // We need to update the layout before scrolling, otherwise we could
     // really mess things up if an anchor scroll comes at a bad moment.
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
     // Only do a layout if changes have occurred that make it necessary.
     RenderView* renderView = this->renderView();
     if (renderView && renderView->needsLayout())
@@ -1660,11 +1649,8 @@ void FrameView::scrollPositionChanged()
     m_frame->eventHandler().dispatchFakeMouseMoveEventSoon();
 
     if (RenderView* renderView = document->renderView()) {
-        if (renderView->usesCompositing()) {
-            // https://code.google.com/p/chromium/issues/detail?id=343767
-            DisableCompositingQueryAsserts disabler;
+        if (renderView->usesCompositing())
             renderView->compositor()->frameViewDidScroll();
-        }
     }
 
     if (m_didScrollTimer.isActive())
@@ -1684,23 +1670,57 @@ void FrameView::didScrollTimerFired(Timer<FrameView>*)
     }
 }
 
-void FrameView::repaintFixedElementsAfterScrolling()
+void FrameView::updateLayersAndCompositingAfterScrollIfNeeded()
 {
+    // Nothing to do after scrolling if there are no fixed position elements.
+    if (!hasViewportConstrainedObjects())
+        return;
+
     RefPtr<FrameView> protect(this);
-    // For fixed position elements, update widget positions and compositing layers after scrolling,
-    // but only if we're not inside of layout.
-    if (!m_nestedLayoutCount && hasViewportConstrainedObjects()) {
+
+    // If there fixed position elements, scrolling may cause compositing layers to change.
+    // Update widget and layer positions after scrolling, but only if we're not inside of
+    // layout.
+    if (!m_nestedLayoutCount) {
         updateWidgetPositions();
         if (RenderView* renderView = this->renderView())
             renderView->layer()->updateLayerPositionsAfterDocumentScroll();
     }
+
+    // Compositing layers may change after scrolling.
+    // FIXME: Maybe no longer needed after we land squashing and kill overlap testing?
+    if (RenderView* renderView = this->renderView())
+        renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateOnScroll);
 }
 
-void FrameView::updateFixedElementsAfterScrolling()
+void FrameView::updateFixedElementRepaintRectsAfterScroll()
 {
-    if (m_nestedLayoutCount <= 1 && hasViewportConstrainedObjects()) {
-        if (RenderView* renderView = this->renderView())
-            renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateOnScroll);
+    if (!hasViewportConstrainedObjects())
+        return;
+
+    // Update the repaint rects for fixed elements after scrolling and invalidation to reflect
+    // the new scroll position.
+    ViewportConstrainedObjectSet::const_iterator end = m_viewportConstrainedObjects->end();
+    for (ViewportConstrainedObjectSet::const_iterator it = m_viewportConstrainedObjects->begin(); it != end; ++it) {
+        RenderObject* renderer = *it;
+        // m_viewportConstrainedObjects should not contain non-viewport constrained objects.
+        ASSERT(renderer->style()->hasViewportConstrainedPosition());
+
+        // Fixed items should always have layers.
+        ASSERT(renderer->hasLayer());
+
+        RenderLayer* layer = toRenderBoxModelObject(renderer)->layer();
+
+        // Don't need to do this for composited fixed items.
+        if (layer->compositingState() == PaintsIntoOwnBacking)
+            continue;
+
+        // Also don't need to do this for invisible items.
+        if (layer->viewportConstrainedNotCompositedReason() == RenderLayer::NotCompositedForBoundsOutOfView
+            || layer->viewportConstrainedNotCompositedReason() == RenderLayer::NotCompositedForNoVisibleContent)
+            continue;
+
+        layer->repainter().computeRepaintRects(renderer->containerForRepaint());
     }
 }
 
@@ -1772,10 +1792,6 @@ void FrameView::scrollbarExistenceDidChange()
     if (!useOverlayScrollbars && needsLayout())
         layout();
 
-    // FIXME: Rather than updating this state synchronously, we should set some dirty bits
-    // and clean them out when updating compositing.
-    // https://code.google.com/p/chromium/issues/detail?id=343756
-    DisableCompositingQueryAsserts disabler;
     if (renderView() && renderView()->usesCompositing()) {
         renderView()->compositor()->frameViewScrollbarsExistenceDidChange();
 
@@ -2309,8 +2325,10 @@ void FrameView::scrollTo(const IntSize& newOffset)
 {
     LayoutSize offset = scrollOffset();
     ScrollView::scrollTo(newOffset);
-    if (offset != scrollOffset())
+    if (offset != scrollOffset()) {
+        updateLayersAndCompositingAfterScrollIfNeeded();
         scrollPositionChanged();
+    }
     frame().loader().client()->didChangeScrollOffset();
 }
 
@@ -2713,7 +2731,7 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     m_isPainting = true;
 
     // m_nodeToDraw is used to draw only one element (and its descendants)
-    RenderObject* eltRenderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
+    RenderObject* renderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
     RenderLayer* rootLayer = renderView->layer();
 
 #ifndef NDEBUG
@@ -2721,11 +2739,11 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     RenderObject::SetLayoutNeededForbiddenScope forbidSetNeedsLayout(rootLayer->renderer());
 #endif
 
-    RenderObject* enclosingLayerRenderer = eltRenderer->enclosingLayer() ? eltRenderer->enclosingLayer()->renderer() : eltRenderer;
+    RenderObject* enclosingLayerRenderer = renderer ? renderer->enclosingLayer()->renderer() : 0;
     rootLayer->paint(p, rect, m_paintBehavior, enclosingLayerRenderer);
 
     if (rootLayer->containsDirtyOverlayScrollbars())
-        rootLayer->paintOverlayScrollbars(p, rect, m_paintBehavior, eltRenderer);
+        rootLayer->paintOverlayScrollbars(p, rect, m_paintBehavior, renderer);
 
     m_isPainting = false;
 
@@ -2788,8 +2806,17 @@ void FrameView::updateLayoutAndStyleForPainting()
     RefPtr<FrameView> protector(this);
 
     updateLayoutAndStyleIfNeededRecursive();
-    if (RenderView* view = renderView())
+    if (RenderView* view = renderView()) {
+        ASSERT(!view->needsLayout());
         view->compositor()->updateCompositingLayers();
+
+        // FIXME: we should not have any dirty bits left at this point. Unfortunately, this is not yet the case because
+        // the code in updateCompositingLayers sometimes creates new dirty bits when updating direct compositing reasons.
+        // See crbug.com/354100.
+        view->compositor()->scheduleAnimationIfNeeded();
+    }
+
+    scrollContentsIfNeededRecursive();
 }
 
 void FrameView::updateLayoutAndStyleIfNeededRecursive()
@@ -2803,7 +2830,7 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
     // region but then become included later by the second frame adding rects to the dirty region
     // when it lays out.
 
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     if (needsLayout())
         layout();

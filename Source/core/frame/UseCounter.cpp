@@ -264,13 +264,13 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyWebkitBoxPack: return 210;
     case CSSPropertyWebkitBoxReflect: return 211;
     case CSSPropertyWebkitBoxShadow: return 212;
-    case CSSPropertyWebkitColumnAxis: return 214;
+    // CSSPropertyWebkitColumnAxis was 214
     case CSSPropertyWebkitColumnBreakAfter: return 215;
     case CSSPropertyWebkitColumnBreakBefore: return 216;
     case CSSPropertyWebkitColumnBreakInside: return 217;
     case CSSPropertyWebkitColumnCount: return 218;
     case CSSPropertyWebkitColumnGap: return 219;
-    case CSSPropertyWebkitColumnProgression: return 220;
+    // CSSPropertyWebkitColumnProgression was 220
     case CSSPropertyWebkitColumnRule: return 221;
     case CSSPropertyWebkitColumnRuleColor: return 222;
     case CSSPropertyWebkitColumnRuleStyle: return 223;
@@ -392,7 +392,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     // case CSSPropertyWebkitRegionBreakAfter: return 343;
     // case CSSPropertyWebkitRegionBreakBefore: return 344;
     // case CSSPropertyWebkitRegionBreakInside: return 345;
-    case CSSPropertyShapeInside: return 346;
+    // case CSSPropertyShapeInside: return 346;
     case CSSPropertyShapeOutside: return 347;
     case CSSPropertyShapeMargin: return 348;
     case CSSPropertyShapePadding: return 349;
@@ -500,6 +500,12 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyJustifySelf: return 443;
     case CSSPropertyScrollBehavior: return 444;
     case CSSPropertyWillChange: return 445;
+    case CSSPropertyTransform: return 446;
+    case CSSPropertyTransformOrigin: return 447;
+    case CSSPropertyTransformStyle: return 448;
+    case CSSPropertyPerspective: return 449;
+    case CSSPropertyPerspectiveOrigin: return 450;
+    case CSSPropertyBackfaceVisibility: return 451;
 
     // Add new features above this line (don't change the assigned numbers of the existing
     // items) and update maximumCSSSampleId() with the new maximum value.
@@ -519,7 +525,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     return 0;
 }
 
-static int maximumCSSSampleId() { return 445; }
+static int maximumCSSSampleId() { return 451; }
 
 void UseCounter::muteForInspector()
 {
@@ -655,8 +661,23 @@ String UseCounter::deprecationMessage(Feature feature)
     case CSSStyleSheetInsertRuleOptionalArg:
         return "Calling CSSStyleSheet.insertRule() with one argument is deprecated. Please pass the index argument as well: insertRule(x, 0).";
 
-    case SVGElementGetPresentationAttribute:
-        return "CSSValue and SVGElement.getPresentationAttribute are deprecated. Please use getPropertyValue and parse the return value instead.";
+    case PrefixedVideoSupportsFullscreen:
+        return "'HTMLVideoElement.webkitSupportsFullscreen' is deprecated. Its value is true if the video is loaded.";
+
+    case PrefixedVideoDisplayingFullscreen:
+        return "'HTMLVideoElement.webkitDisplayingFullscreen' is deprecated. Please use the 'fullscreenchange' and 'webkitfullscreenchange' events instead.";
+
+    case PrefixedVideoEnterFullscreen:
+        return "'HTMLVideoElement.webkitEnterFullscreen()' is deprecated. Please use 'Element.requestFullscreen()' and 'Element.webkitRequestFullscreen()' instead.";
+
+    case PrefixedVideoExitFullscreen:
+        return "'HTMLVideoElement.webkitExitFullscreen()' is deprecated. Please use 'Document.exitFullscreen()' and 'Document.webkitExitFullscreen()' instead.";
+
+    case PrefixedVideoEnterFullScreen:
+        return "'HTMLVideoElement.webkitEnterFullScreen()' is deprecated. Please use 'Element.requestFullscreen()' and 'Element.webkitRequestFullscreen()' instead.";
+
+    case PrefixedVideoExitFullScreen:
+        return "'HTMLVideoElement.webkitExitFullScreen()' is deprecated. Please use 'Document.exitFullscreen()' and 'Document.webkitExitFullscreen()' instead.";
 
     case PrefixedMediaSourceOpen:
         return "'WebKitMediaSource' is deprecated. Please use 'MediaSource' instead.";
@@ -670,20 +691,20 @@ String UseCounter::deprecationMessage(Feature feature)
     case HTMLSourceElementMedia:
         return "'HTMLSourceElement.media' is deprecated. This attribute doesn't do anything.";
 
-    case PrefixedGetImageDataHD:
-        return "'CanvasRenderingContext2D.webkitGetImageDataHD' is deprecated. Please use getImageData instead.";
-
-    case PrefixedPutImageDataHD:
-        return "'CanvasRenderingContext2D.webkitPutImageDataHD' is deprecated. Please use putImageData instead.";
-
-    case ShadowRootApplyAuthorStyles:
-        return "'ShadowRoot.applyAuthorStyles' is deprecated.";
-
     case PrefixedSpeechAttribute:
         return "The 'x-webkit-speech' input field attribute is deprecated. Please use the JavaScript API instead.";
 
     case PrefixedGamepad:
         return "'navigator.webkitGetGamepads' is deprecated. Please use 'navigator.getGamepads' instead.";
+
+    case PrefixedRequestAnimationFrame:
+        return "'webkitRequestAnimationFrame' is vendor-specific. Please use the standard 'requestAnimationFrame' instead.";
+
+    case PrefixedCancelAnimationFrame:
+        return "'webkitCancelAnimationFrame' is vendor-specific. Please use the standard 'cancelAnimationFrame' instead.";
+
+    case PrefixedCancelRequestAnimationFrame:
+        return "'webkitCancelRequestAnimationFrame' is vendor-specific. Please use the standard 'cancelAnimationFrame' instead.";
 
     // Features that aren't deprecated don't have a deprecation message.
     default:

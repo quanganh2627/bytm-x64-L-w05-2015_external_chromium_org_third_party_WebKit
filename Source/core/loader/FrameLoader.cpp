@@ -45,7 +45,6 @@
 #include "core/editing/UndoStack.h"
 #include "core/events/Event.h"
 #include "core/events/PageTransitionEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/FetchContext.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/fetch/ResourceLoader.h"
@@ -106,48 +105,11 @@ static bool needsHistoryItemRestore(FrameLoadType type)
     return type == FrameLoadTypeBackForward || type == FrameLoadTypeReload || type == FrameLoadTypeReloadFromOrigin;
 }
 
-class FrameLoader::FrameProgressTracker {
-public:
-    static PassOwnPtr<FrameProgressTracker> create(LocalFrame* frame) { return adoptPtr(new FrameProgressTracker(frame)); }
-    ~FrameProgressTracker()
-    {
-        ASSERT(!m_inProgress || m_frame->page());
-        if (m_inProgress)
-            m_frame->page()->progress().progressCompleted(m_frame);
-    }
-
-    void progressStarted()
-    {
-        ASSERT(m_frame->page());
-        if (!m_inProgress)
-            m_frame->page()->progress().progressStarted(m_frame);
-        m_inProgress = true;
-    }
-
-    void progressCompleted()
-    {
-        ASSERT(m_inProgress);
-        ASSERT(m_frame->page());
-        m_inProgress = false;
-        m_frame->page()->progress().progressCompleted(m_frame);
-    }
-
-private:
-    FrameProgressTracker(LocalFrame* frame)
-        : m_frame(frame)
-        , m_inProgress(false)
-    {
-    }
-
-    LocalFrame* m_frame;
-    bool m_inProgress;
-};
-
 FrameLoader::FrameLoader(LocalFrame* frame, FrameLoaderClient* client)
     : m_frame(frame)
     , m_client(client)
     , m_mixedContentChecker(frame)
-    , m_progressTracker(FrameProgressTracker::create(m_frame))
+    , m_progressTracker(ProgressTracker::create(frame))
     , m_state(FrameStateProvisional)
     , m_loadType(FrameLoadTypeStandard)
     , m_fetchContext(FrameFetchContext::create(frame))
@@ -574,14 +536,14 @@ void FrameLoader::updateForSameDocumentNavigation(const KURL& newURL, SameDocume
     // don't fire them for fragment redirection that happens in window.onload handler.
     // See https://bugs.webkit.org/show_bug.cgi?id=31838
     if (m_frame->document()->loadEventFinished())
-        m_client->postProgressStartedNotification(NavigationWithinSameDocument);
+        m_client->didStartLoading(NavigationWithinSameDocument);
 
     HistoryCommitType historyCommitType = updateBackForwardList == UpdateBackForwardList && m_currentItem ? StandardCommit : HistoryInertCommit;
     setHistoryItemStateForCommit(historyCommitType, sameDocumentNavigationSource == SameDocumentNavigationHistoryApi, data);
     m_client->dispatchDidNavigateWithinPage(m_currentItem.get(), historyCommitType);
     m_client->dispatchDidReceiveTitle(m_frame->document()->title());
     if (m_frame->document()->loadEventFinished())
-        m_client->postProgressFinishedNotification();
+        m_client->didStopLoading();
 }
 
 void FrameLoader::loadInSameDocument(const KURL& url, PassRefPtr<SerializedScriptValue> stateObject, UpdateBackForwardListPolicy updateBackForwardList, ClientRedirectPolicy clientRedirect)
@@ -731,7 +693,6 @@ void FrameLoader::load(const FrameLoadRequest& passedRequest)
 {
     ASSERT(m_frame->document());
 
-    // Protect frame from getting blown away inside dispatchBeforeLoadEvent in loadWithDocumentLoader.
     RefPtr<LocalFrame> protect(m_frame);
 
     if (m_inStopAllLoaders)
@@ -763,7 +724,7 @@ void FrameLoader::load(const FrameLoadRequest& passedRequest)
     const KURL& url = request.resourceRequest().url();
     if (!action.shouldOpenInNewWindow() && shouldPerformFragmentNavigation(request.formState(), request.resourceRequest().httpMethod(), newLoadType, url)) {
         m_documentLoader->setTriggeringAction(action);
-        loadInSameDocument(url, nullptr, newLoadType == FrameLoadTypeStandard ? UpdateBackForwardList : DoNotUpdateBackForwardList, request.clientRedirect());
+        loadInSameDocument(url, nullptr, newLoadType == FrameLoadTypeStandard && !shouldTreatURLAsSameAsCurrent(url) ? UpdateBackForwardList : DoNotUpdateBackForwardList, request.clientRedirect());
         return;
     }
     bool sameURL = url == m_documentLoader->urlForHistory();
@@ -1089,17 +1050,6 @@ void FrameLoader::checkLoadComplete(DocumentLoader* documentLoader)
     checkLoadComplete();
 }
 
-int FrameLoader::numPendingOrLoadingRequests(bool recurse) const
-{
-    if (!recurse)
-        return m_frame->document()->fetcher()->requestCount();
-
-    int count = 0;
-    for (LocalFrame* frame = m_frame; frame; frame = frame->tree().traverseNext(m_frame))
-        count += frame->document()->fetcher()->requestCount();
-    return count;
-}
-
 String FrameLoader::userAgent(const KURL& url) const
 {
     String userAgent = m_client->userAgent(url);
@@ -1283,17 +1233,7 @@ void FrameLoader::loadWithNavigationAction(const NavigationAction& action, Frame
     if (m_frame->document()->pageDismissalEventBeingDispatched() != Document::NoDismissal)
         return;
 
-    // We skip dispatching the beforeload event on the frame owner if we've already committed a real
-    // document load because the event would leak subsequent activity by the frame which the parent
-    // frame isn't supposed to learn. For example, if the child frame navigated to  a new URL, the
-    // parent frame shouldn't learn the URL.
     const ResourceRequest& request = action.resourceRequest();
-    if (!m_stateMachine.committedFirstRealDocumentLoad() && m_frame->ownerElement() && !m_frame->ownerElement()->dispatchBeforeLoadEvent(request.url().string()))
-        return;
-
-    // Dispatching the beforeload event could have blown away the frame.
-    if (!m_client)
-        return;
 
     if (!m_stateMachine.startedFirstRealLoad())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::StartedFirstRealLoad);
@@ -1399,6 +1339,11 @@ bool FrameLoader::shouldInterruptLoadForXFrameOptions(const String& content, con
         ASSERT_NOT_REACHED();
         return false;
     }
+}
+
+bool FrameLoader::shouldTreatURLAsSameAsCurrent(const KURL& url) const
+{
+    return m_currentItem && url == m_currentItem->url();
 }
 
 bool FrameLoader::shouldTreatURLAsSrcdocDocument(const KURL& url) const

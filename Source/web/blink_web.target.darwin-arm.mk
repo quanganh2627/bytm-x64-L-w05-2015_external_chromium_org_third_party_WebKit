@@ -109,6 +109,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/InspectorFrontendClientImpl.cpp \
 	third_party/WebKit/Source/web/LinkHighlight.cpp \
 	third_party/WebKit/Source/web/LocalFileSystemClient.cpp \
+	third_party/WebKit/Source/web/MediaKeysClientImpl.cpp \
 	third_party/WebKit/Source/web/MIDIClientProxy.cpp \
 	third_party/WebKit/Source/web/NotificationPresenterImpl.cpp \
 	third_party/WebKit/Source/web/PageOverlay.cpp \
@@ -128,6 +129,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/SpellCheckerClientImpl.cpp \
 	third_party/WebKit/Source/web/StorageClientImpl.cpp \
 	third_party/WebKit/Source/web/StorageQuotaClientImpl.cpp \
+	third_party/WebKit/Source/web/TextFinder.cpp \
 	third_party/WebKit/Source/web/UserMediaClientImpl.cpp \
 	third_party/WebKit/Source/web/ValidationMessageClientImpl.cpp \
 	third_party/WebKit/Source/web/ViewportAnchor.cpp \
@@ -327,9 +329,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -337,6 +337,7 @@ MY_DEFS_Debug := \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -471,9 +472,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -481,6 +480,7 @@ MY_DEFS_Release := \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

@@ -51,19 +51,20 @@ class Document;
 class DocumentMarker;
 class Element;
 class ExceptionState;
-class LocalFrame;
+class ExecutionContext;
 class GCObservation;
+class HTMLMediaElement;
 class InspectorFrontendChannelDummy;
 class InternalProfilers;
 class InternalRuntimeFlags;
 class InternalSettings;
 class LayerRectList;
+class LocalFrame;
 class MallocStatistics;
 class Node;
 class Page;
 class PagePopupController;
 class Range;
-class ExecutionContext;
 class SerializedScriptValue;
 class ShadowRoot;
 class TypeConversions;
@@ -170,9 +171,9 @@ public:
     unsigned lengthFromRange(Element* scope, const Range*, ExceptionState&);
     String rangeAsText(const Range*, ExceptionState&);
 
-    PassRefPtr<DOMPoint> touchPositionAdjustedToBestClickableNode(long x, long y, long width, long height, Document*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<DOMPoint> touchPositionAdjustedToBestClickableNode(long x, long y, long width, long height, Document*, ExceptionState&);
     Node* touchNodeAdjustedToBestClickableNode(long x, long y, long width, long height, Document*, ExceptionState&);
-    PassRefPtr<DOMPoint> touchPositionAdjustedToBestContextMenuNode(long x, long y, long width, long height, Document*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<DOMPoint> touchPositionAdjustedToBestContextMenuNode(long x, long y, long width, long height, Document*, ExceptionState&);
     Node* touchNodeAdjustedToBestContextMenuNode(long x, long y, long width, long height, Document*, ExceptionState&);
     PassRefPtr<ClientRect> bestZoomableAreaForTouchPoint(long x, long y, long width, long height, Document*, ExceptionState&);
 
@@ -244,7 +245,7 @@ public:
     unsigned numberOfLiveDocuments() const;
     String dumpRefCountedInstanceCounts() const;
     Vector<String> consoleMessageArgumentCounts(Document*) const;
-    PassRefPtr<DOMWindow> openDummyInspectorFrontend(const String& url);
+    PassRefPtrWillBeRawPtr<DOMWindow> openDummyInspectorFrontend(const String& url);
     void closeDummyInspectorFrontend();
     Vector<unsigned long> setMemoryCacheCapacities(unsigned long minDeadBytes, unsigned long maxDeadBytes, unsigned long totalBytes);
     void setInspectorResourcesDataSizeLimits(int maximumResourcesContentSize, int maximumSingleResourceContentSize, ExceptionState&);
@@ -267,6 +268,8 @@ public:
     void webkitDidEnterFullScreenForElement(Document*, Element*);
     void webkitWillExitFullScreenForElement(Document*, Element*);
     void webkitDidExitFullScreenForElement(Document*, Element*);
+
+    void mediaPlayerRequestFullscreen(HTMLMediaElement*);
 
     void registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme);
     void removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(const String& scheme);
@@ -330,7 +333,7 @@ private:
     PassRefPtr<ClientRectList> annotatedRegions(Document*, bool draggable, ExceptionState&);
 
     DocumentMarker* markerAt(Node*, const String& markerType, unsigned index, ExceptionState&);
-    RefPtr<DOMWindow> m_frontendWindow;
+    RefPtrWillBeMember<DOMWindow> m_frontendWindow;
     OwnPtr<InspectorFrontendChannelDummy> m_frontendChannel;
     RefPtrWillBeMember<InternalRuntimeFlags> m_runtimeFlags;
     RefPtrWillBeMember<InternalProfilers> m_profilers;

@@ -99,12 +99,12 @@ public:
     // Stores value=propertySet.getPropertyCSSValue(id).get().
     CSSPropertyValue(CSSPropertyID, const StylePropertySet&);
     CSSPropertyID property;
-    CSSValue* value;
+    RawPtrWillBeMember<CSSValue> value;
 };
 
 // This class selects a RenderStyle for a given element based on a collection of stylesheets.
 class StyleResolver FINAL : public CSSFontSelectorClient {
-    WTF_MAKE_NONCOPYABLE(StyleResolver); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(StyleResolver); WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED;
 public:
     explicit StyleResolver(Document&);
     virtual ~StyleResolver();
@@ -179,7 +179,7 @@ public:
     };
     PassRefPtrWillBeRawPtr<CSSRuleList> cssRulesForElement(Element*, unsigned rulesToInclude = AllButEmptyCSSRules);
     PassRefPtrWillBeRawPtr<CSSRuleList> pseudoCSSRulesForElement(Element*, PseudoId, unsigned rulesToInclude = AllButEmptyCSSRules);
-    PassRefPtr<StyleRuleList> styleRulesForElement(Element*, unsigned rulesToInclude);
+    PassRefPtrWillBeRawPtr<StyleRuleList> styleRulesForElement(Element*, unsigned rulesToInclude);
 
     // |properties| is an array with |count| elements.
     void applyPropertiesToStyle(const CSSPropertyValue* properties, size_t count, RenderStyle*);
@@ -230,6 +230,8 @@ public:
 
     PassRefPtr<PseudoElement> createPseudoElementIfNeeded(Element& parent, PseudoId);
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 private:
     // CSSFontSelectorClient implementation.
     virtual void fontsNeedUpdate(CSSFontSelector*) OVERRIDE;
@@ -271,11 +273,11 @@ private:
     template <StyleResolver::StyleApplicationPass pass>
     static inline bool isPropertyForPass(CSSPropertyID);
     template <StyleApplicationPass pass>
-    void applyMatchedProperties(StyleResolverState&, const MatchResult&, bool important, int startIndex, int endIndex, bool inheritedOnly);
+    void applyMatchedProperties(StyleResolverState&, const MatchResult&, bool important, const RuleRange&, bool inheritedOnly);
     template <StyleApplicationPass pass>
     void applyProperties(StyleResolverState&, const StylePropertySet* properties, StyleRule*, bool isImportant, bool inheritedOnly, PropertyWhitelistType = PropertyWhitelistNone);
     template <StyleApplicationPass pass>
-    void applyAnimatedProperties(StyleResolverState&, const HashMap<CSSPropertyID, RefPtr<Interpolation> >&);
+    void applyAnimatedProperties(StyleResolverState&, const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >&);
     void matchPageRules(MatchResult&, RuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
     void matchPageRulesForList(WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >& matchedRules, const WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >&, bool isLeftPage, bool isFirstPage, const String& pageName);
     void collectViewportRules();
@@ -289,7 +291,7 @@ private:
     bool pseudoStyleForElementInternal(Element&, const PseudoStyleRequest&, RenderStyle* parentStyle, StyleResolverState&);
 
     // FIXME: This likely belongs on RuleSet.
-    typedef WillBePersistentHeapHashMap<StringImpl*, RefPtrWillBeMember<StyleRuleKeyframes> > KeyframesRuleMap;
+    typedef WillBeHeapHashMap<StringImpl*, RefPtrWillBeMember<StyleRuleKeyframes> > KeyframesRuleMap;
     KeyframesRuleMap m_keyframesRuleMap;
 
     static RenderStyle* s_styleNotYetAvailable;
@@ -299,16 +301,16 @@ private:
     MatchedPropertiesCache m_matchedPropertiesCache;
 
     OwnPtr<MediaQueryEvaluator> m_medium;
-    WillBePersistentMediaQueryResultList m_viewportDependentMediaQueryResults;
+    MediaQueryResultList m_viewportDependentMediaQueryResults;
 
     RefPtr<RenderStyle> m_rootDefaultStyle;
 
     Document& m_document;
     SelectorFilter m_selectorFilter;
 
-    RefPtrWillBePersistent<ViewportStyleResolver> m_viewportStyleResolver;
+    OwnPtrWillBeMember<ViewportStyleResolver> m_viewportStyleResolver;
 
-    // FIXME: Oilpan: This should be a WillBePersistentHeapListHashSet.
+    // FIXME: Oilpan: This should be a WillBeHeapListHashSet.
     // This is safe for now, but should be updated when we support
     // heap allocated ListHashSets.
     ListHashSet<CSSStyleSheet*, 16> m_pendingStyleSheets;
@@ -318,11 +320,11 @@ private:
     // FIXME: The entire logic of collecting features on StyleResolver, as well as transferring them
     // between various parts of machinery smells wrong. This needs to be better somehow.
     RuleFeatureSet m_features;
-    OwnPtrWillBePersistent<RuleSet> m_siblingRuleSet;
-    OwnPtrWillBePersistent<RuleSet> m_uncommonAttributeRuleSet;
+    OwnPtrWillBeMember<RuleSet> m_siblingRuleSet;
+    OwnPtrWillBeMember<RuleSet> m_uncommonAttributeRuleSet;
 
     // FIXME: watched selectors should be implemented using injected author stylesheets: http://crbug.com/316960
-    OwnPtrWillBePersistent<RuleSet> m_watchedSelectorsRules;
+    OwnPtrWillBeMember<RuleSet> m_watchedSelectorsRules;
     TreeBoundaryCrossingRules m_treeBoundaryCrossingRules;
 
     bool m_needCollectFeatures;

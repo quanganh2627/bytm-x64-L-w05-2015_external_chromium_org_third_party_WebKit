@@ -165,7 +165,6 @@ protected:
         settings->setAcceleratedCompositingForOverflowScrollEnabled(true);
         settings->setAcceleratedCompositingForScrollableFramesEnabled(true);
         settings->setCompositedScrollingForFramesEnabled(true);
-        settings->setFixedPositionCreatesStackingContext(true);
     }
 
     void initializeTextSelectionWebView(const std::string& url, FrameTestHelpers::WebViewHelper* webViewHelper)
@@ -690,7 +689,33 @@ TEST_F(WebFrameTest, FrameViewNeedsLayoutOnFixedLayoutResize)
     webViewHelper.webViewImpl()->layout();
 }
 
-TEST_F(WebFrameTest, ChangeInFixedLayoutTriggersTextAutosizingRecalculate)
+// Helper function to check or set text autosizing multipliers on a document.
+static bool checkOrSetTextAutosizingMultiplier(Document* document, float multiplier, bool setMultiplier)
+{
+    bool multiplierCheckedOrSetAtLeastOnce = false;
+    for (WebCore::RenderObject* renderer = document->renderer(); renderer; renderer = renderer->nextInPreOrder()) {
+        if (renderer->style()) {
+            if (setMultiplier)
+                renderer->style()->setTextAutosizingMultiplier(multiplier);
+            EXPECT_EQ(multiplier, renderer->style()->textAutosizingMultiplier());
+            multiplierCheckedOrSetAtLeastOnce = true;
+        }
+    }
+    return multiplierCheckedOrSetAtLeastOnce;
+
+}
+
+static bool setTextAutosizingMultiplier(Document* document, float multiplier)
+{
+    return checkOrSetTextAutosizingMultiplier(document, multiplier, true);
+}
+
+static bool checkTextAutosizingMultiplier(Document* document, float multiplier)
+{
+    return checkOrSetTextAutosizingMultiplier(document, multiplier, false);
+}
+
+TEST_F(WebFrameTest, ChangeInFixedLayoutResetsTextAutosizingMultipliers)
 {
     UseMockScrollbarSettings mockScrollbarSettings;
     registerMockedHttpURLLoad("fixed_layout.html");
@@ -699,8 +724,6 @@ TEST_F(WebFrameTest, ChangeInFixedLayoutTriggersTextAutosizingRecalculate)
     int viewportWidth = 640;
     int viewportHeight = 480;
 
-    // Make sure we initialize to minimum scale, even if the window size
-    // only becomes available after the load begins.
     FrameTestHelpers::WebViewHelper webViewHelper;
     webViewHelper.initializeAndLoad(m_baseURL + "fixed_layout.html", true, 0, &client, enableViewportSettings);
 
@@ -710,17 +733,7 @@ TEST_F(WebFrameTest, ChangeInFixedLayoutTriggersTextAutosizingRecalculate)
     webViewHelper.webViewImpl()->resize(WebSize(viewportWidth, viewportHeight));
     webViewHelper.webViewImpl()->layout();
 
-    WebCore::RenderObject* renderer = document->renderer();
-    bool multiplierSetAtLeastOnce = false;
-    while (renderer) {
-        if (renderer->style()) {
-            renderer->style()->setTextAutosizingMultiplier(2);
-            EXPECT_EQ(2, renderer->style()->textAutosizingMultiplier());
-            multiplierSetAtLeastOnce = true;
-        }
-        renderer = renderer->nextInPreOrder();
-    }
-    EXPECT_TRUE(multiplierSetAtLeastOnce);
+    EXPECT_TRUE(setTextAutosizingMultiplier(document, 2));
 
     WebCore::ViewportDescription description = document->viewportDescription();
     // Choose a width that's not going match the viewport width of the loaded document.
@@ -728,16 +741,37 @@ TEST_F(WebFrameTest, ChangeInFixedLayoutTriggersTextAutosizingRecalculate)
     description.maxWidth = WebCore::Length(100, WebCore::Fixed);
     webViewHelper.webViewImpl()->updatePageDefinedViewportConstraints(description);
 
-    bool multiplierCheckedAtLeastOnce = false;
-    renderer = document->renderer();
-    while (renderer) {
-        if (renderer->style()) {
-            EXPECT_EQ(1, renderer->style()->textAutosizingMultiplier());
-            multiplierCheckedAtLeastOnce = true;
-        }
-        renderer = renderer->nextInPreOrder();
-    }
-    EXPECT_TRUE(multiplierCheckedAtLeastOnce);
+    EXPECT_TRUE(checkTextAutosizingMultiplier(document, 1));
+}
+
+TEST_F(WebFrameTest, SetFrameRectResetsTextAutosizingMultipliers)
+{
+    UseMockScrollbarSettings mockScrollbarSettings;
+    registerMockedHttpURLLoad("iframe_reload.html");
+    registerMockedHttpURLLoad("visible_iframe.html");
+
+    FixedLayoutTestWebViewClient client;
+    int viewportWidth = 640;
+    int viewportHeight = 480;
+
+    FrameTestHelpers::WebViewHelper webViewHelper;
+    webViewHelper.initializeAndLoad(m_baseURL + "iframe_reload.html", true, 0, &client, enableViewportSettings);
+
+    WebCore::LocalFrame* mainFrame = webViewHelper.webViewImpl()->page()->mainFrame();
+    WebCore::Document* document = mainFrame->document();
+    WebCore::FrameView* frameView = webViewHelper.webViewImpl()->mainFrameImpl()->frameView();
+    document->settings()->setTextAutosizingEnabled(true);
+    EXPECT_TRUE(document->settings()->textAutosizingEnabled());
+    webViewHelper.webViewImpl()->resize(WebSize(viewportWidth, viewportHeight));
+    webViewHelper.webViewImpl()->layout();
+
+    for (WebCore::LocalFrame* frame = mainFrame; frame; frame = frame->tree().traverseNext())
+        EXPECT_TRUE(setTextAutosizingMultiplier(frame->document(), 2));
+
+    frameView->setFrameRect(WebCore::IntRect(0, 0, 200, 200));
+
+    for (WebCore::LocalFrame* frame = mainFrame; frame; frame = frame->tree().traverseNext())
+        EXPECT_TRUE(checkTextAutosizingMultiplier(frame->document(), 1));
 }
 
 TEST_F(WebFrameTest, FixedLayoutSizeStopsResizeFromChangingLayoutSize)
@@ -2058,8 +2092,7 @@ TEST_F(WebFrameTest, pageScaleFactorScalesPaintClip)
     webViewHelper.webView()->setPageScaleFactor(0.5, WebPoint());
 
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, 200, 200);
-    bitmap.allocPixels();
+    ASSERT_TRUE(bitmap.allocN32Pixels(200, 200));
     bitmap.eraseColor(0);
     SkCanvas canvas(bitmap);
 
@@ -5009,9 +5042,9 @@ TEST_F(WebFrameTest, WebNodeImageContents)
 //    EXPECT_EQ(bitmap.getColor(0, 0), SK_ColorBLUE);
 }
 
-class TestStartStopCallbackWebViewClient : public WebViewClient {
+class TestStartStopCallbackWebFrameClient : public WebFrameClient {
 public:
-    TestStartStopCallbackWebViewClient()
+    TestStartStopCallbackWebFrameClient()
         : m_startLoadingCount(0)
         , m_stopLoadingCount(0)
         , m_differentDocumentStartCount(0)
@@ -5043,9 +5076,9 @@ private:
 TEST_F(WebFrameTest, PushStateStartsAndStops)
 {
     registerMockedHttpURLLoad("push_state.html");
-    TestStartStopCallbackWebViewClient client;
+    TestStartStopCallbackWebFrameClient client;
     FrameTestHelpers::WebViewHelper webViewHelper;
-    webViewHelper.initializeAndLoad(m_baseURL + "push_state.html", true, 0, &client);
+    webViewHelper.initializeAndLoad(m_baseURL + "push_state.html", true, &client);
     runPendingTasks();
 
     EXPECT_EQ(client.startLoadingCount(), 2);
@@ -5308,7 +5341,6 @@ TEST_F(WebFrameTest, FullscreenLayerNonScrollable)
     int viewportWidth = 640;
     int viewportHeight = 480;
     WebViewImpl* webViewImpl = webViewHelper.initializeAndLoad(m_baseURL + "fullscreen_div.html", true, 0, &client, &configueCompositingWebView);
-    webViewImpl->settings()->setFullScreenEnabled(true);
     webViewImpl->resize(WebSize(viewportWidth, viewportHeight));
     webViewImpl->layout();
 

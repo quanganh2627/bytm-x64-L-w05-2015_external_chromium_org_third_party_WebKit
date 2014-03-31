@@ -114,6 +114,7 @@ PassRefPtr<AudioContext> AudioContext::create(Document& document, unsigned numbe
 AudioContext::AudioContext(Document* document)
     : ActiveDOMObject(document)
     , m_isStopScheduled(false)
+    , m_isCleared(false)
     , m_isInitialized(false)
     , m_isAudioThreadFinished(false)
     , m_destinationNode(nullptr)
@@ -134,6 +135,7 @@ AudioContext::AudioContext(Document* document)
 AudioContext::AudioContext(Document* document, unsigned numberOfChannels, size_t numberOfFrames, float sampleRate)
     : ActiveDOMObject(document)
     , m_isStopScheduled(false)
+    , m_isCleared(false)
     , m_isInitialized(false)
     , m_isAudioThreadFinished(false)
     , m_destinationNode(nullptr)
@@ -155,9 +157,6 @@ AudioContext::AudioContext(Document* document, unsigned numberOfChannels, size_t
 void AudioContext::constructCommon()
 {
     ScriptWrappable::init(this);
-    // According to spec AudioContext must die only after page navigate.
-    // Lets mark it as ActiveDOMObject with pending activity and unmark it in clear method.
-    setPendingActivity(this);
 
     FFTFrame::initialize();
 
@@ -171,7 +170,6 @@ AudioContext::~AudioContext()
 #endif
     // AudioNodes keep a reference to their context, so there should be no way to be in the destructor if there are still AudioNodes around.
     ASSERT(!m_isInitialized);
-    ASSERT(m_isStopScheduled);
     ASSERT(!m_nodesToDelete.size());
     ASSERT(!m_referencedNodes.size());
     ASSERT(!m_finishedNodes.size());
@@ -218,8 +216,7 @@ void AudioContext::clear()
         m_nodesMarkedForDeletion.clear();
     } while (m_nodesToDelete.size());
 
-    // It was set in constructCommon.
-    unsetPendingActivity(this);
+    m_isCleared = true;
 }
 
 void AudioContext::uninitialize()
@@ -274,6 +271,12 @@ void AudioContext::stop()
     // ActiveDOMObjects so let's schedule uninitialize() to be called later.
     // FIXME: see if there's a more direct way to handle this issue.
     callOnMainThread(stopDispatch, this);
+}
+
+bool AudioContext::hasPendingActivity() const
+{
+    // According to spec AudioContext must die only after page navigates.
+    return !m_isCleared;
 }
 
 PassRefPtr<AudioBuffer> AudioContext::createBuffer(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate, ExceptionState& exceptionState)
@@ -393,21 +396,18 @@ PassRefPtr<MediaStreamAudioSourceNode> AudioContext::createMediaStreamSource(Med
     ASSERT(isMainThread());
     lazyInitialize();
 
-    AudioSourceProvider* provider = 0;
-
     MediaStreamTrackVector audioTracks = mediaStream->getAudioTracks();
-    RefPtr<MediaStreamTrack> audioTrack;
-
-    // FIXME: get a provider for non-local MediaStreams (like from a remote peer).
-    for (size_t i = 0; i < audioTracks.size(); ++i) {
-        audioTrack = audioTracks[i];
-        if (audioTrack->component()->audioSourceProvider()) {
-            provider = audioTrack->component()->audioSourceProvider();
-            break;
-        }
+    if (audioTracks.isEmpty()) {
+        exceptionState.throwDOMException(
+            InvalidStateError,
+            "MediaStream has no audio track");
+        return nullptr;
     }
 
-    RefPtr<MediaStreamAudioSourceNode> node = MediaStreamAudioSourceNode::create(this, mediaStream, audioTrack.get(), provider);
+    // Use the first audio track in the media stream.
+    RefPtr<MediaStreamTrack> audioTrack = audioTracks[0];
+    OwnPtr<AudioSourceProvider> provider = audioTrack->createWebAudioSource();
+    RefPtr<MediaStreamAudioSourceNode> node = MediaStreamAudioSourceNode::create(this, mediaStream, audioTrack.get(), provider.release());
 
     // FIXME: Only stereo streams are supported right now. We should be able to accept multi-channel streams.
     node->setFormat(2, sampleRate());
@@ -418,9 +418,8 @@ PassRefPtr<MediaStreamAudioSourceNode> AudioContext::createMediaStreamSource(Med
 
 PassRefPtr<MediaStreamAudioDestinationNode> AudioContext::createMediaStreamDestination()
 {
-    // FIXME: Add support for an optional argument which specifies the number of channels.
-    // FIXME: The default should probably be stereo instead of mono.
-    return MediaStreamAudioDestinationNode::create(this, 1);
+    // Set number of output channels to stereo by default.
+    return MediaStreamAudioDestinationNode::create(this, 2);
 }
 
 PassRefPtr<ScriptProcessorNode> AudioContext::createScriptProcessor(ExceptionState& exceptionState)

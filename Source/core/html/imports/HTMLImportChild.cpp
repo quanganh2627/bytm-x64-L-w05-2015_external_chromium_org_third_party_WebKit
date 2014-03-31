@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-HTMLImportChild::HTMLImportChild(Document& master, const KURL& url, bool sync)
+HTMLImportChild::HTMLImportChild(Document& master, const KURL& url, SyncMode sync)
     : HTMLImport(sync)
     , m_master(master)
     , m_url(url)
@@ -125,7 +125,7 @@ void HTMLImportChild::importDestroyed()
     if (parent())
         parent()->removeChild(this);
     if (m_loader) {
-        m_loader->removeClient(this);
+        m_loader->removeImport(this);
         m_loader.clear();
     }
 }
@@ -187,8 +187,8 @@ void HTMLImportChild::createLoader()
 {
     ASSERT(!state().shouldBlockDocumentCreation());
     ASSERT(!m_loader);
-    m_loader = HTMLImportLoader::create(this);
-    m_loader->addClient(this);
+    m_loader = HTMLImportLoader::create();
+    m_loader->addImport(this);
     m_loader->startLoading(resource());
 }
 
@@ -196,7 +196,7 @@ void HTMLImportChild::shareLoader(HTMLImportChild* loader)
 {
     ASSERT(!m_loader);
     m_loader = loader->m_loader;
-    m_loader->addClient(this);
+    m_loader->addImport(this);
     stateWillChange();
 }
 

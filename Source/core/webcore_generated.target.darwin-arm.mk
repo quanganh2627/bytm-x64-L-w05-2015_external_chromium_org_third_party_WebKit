@@ -214,6 +214,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ExceptionState.cpp \
 	third_party/WebKit/Source/bindings/v8/ExceptionStatePlaceholder.cpp \
 	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
+	third_party/WebKit/Source/bindings/v8/MIDIAccessResolver.cpp \
 	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
 	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/RetainedDOMInfo.cpp \
@@ -294,7 +295,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8ErrorEventCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8FileCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8FileReaderCustom.cpp \
-	third_party/WebKit/Source/bindings/v8/custom/V8FormDataCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8GeolocationCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
@@ -326,11 +326,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8SQLTransactionSyncCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8SVGElementCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8SVGPathSegCustom.cpp \
+	third_party/WebKit/Source/bindings/v8/custom/V8ServiceWorkerCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8StyleSheetCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TextCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TextTrackCueCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TrackEventCustom.cpp \
-	third_party/WebKit/Source/bindings/v8/custom/V8WebGLRenderingContextBaseCustom.cpp \
+	third_party/WebKit/Source/bindings/v8/custom/V8WebGLRenderingContextCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8WebKitPointCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8WindowCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8WorkerGlobalScopeCustom.cpp \
@@ -410,9 +411,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -425,6 +424,7 @@ MY_DEFS_Debug := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -568,9 +568,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -583,6 +581,7 @@ MY_DEFS_Release := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

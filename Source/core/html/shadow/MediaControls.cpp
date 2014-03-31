@@ -29,7 +29,6 @@
 
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/events/MouseEvent.h"
-#include "core/frame/Settings.h"
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/MediaController.h"
 #include "core/rendering/RenderTheme.h"
@@ -65,6 +64,7 @@ MediaControls::MediaControls(HTMLMediaElement& mediaElement)
     , m_hideFullscreenControlsTimer(this, &MediaControls::hideFullscreenControlsTimerFired)
     , m_isFullscreen(false)
     , m_isMouseOverControls(false)
+    , m_isPausedForScrubbing(false)
 {
 }
 
@@ -176,23 +176,22 @@ void MediaControls::reset()
     m_durationDisplay->setInnerText(RenderTheme::theme().formatMediaControlsTime(duration), ASSERT_NO_EXCEPTION);
     m_durationDisplay->setCurrentValue(duration);
 
-    m_playButton->updateDisplayType();
+    updatePlayState();
 
     updateCurrentTimeDisplay();
 
     m_timeline->setDuration(mediaControllerInterface().duration());
     m_timeline->setPosition(mediaControllerInterface().currentTime());
 
-    if (!mediaControllerInterface().hasAudio()) {
+    if (!mediaElement().hasAudio())
         m_volumeSlider->hide();
-    } else {
+    else
         m_volumeSlider->show();
-        m_volumeSlider->setVolume(mediaControllerInterface().volume());
-    }
+    updateVolume();
 
     refreshClosedCaptionsButtonVisibility();
 
-    if (mediaElement().hasVideo() && document().settings() && document().settings()->fullScreenEnabled())
+    if (mediaElement().hasVideo())
         m_fullScreenButton->show();
     else
         m_fullScreenButton->hide();
@@ -233,9 +232,7 @@ void MediaControls::playbackStarted()
     m_currentTimeDisplay->show();
     m_durationDisplay->hide();
 
-    if (m_overlayPlayButton)
-        m_overlayPlayButton->updateDisplayType();
-    m_playButton->updateDisplayType();
+    updatePlayState();
     m_timeline->setPosition(mediaControllerInterface().currentTime());
     updateCurrentTimeDisplay();
 
@@ -254,14 +251,39 @@ void MediaControls::playbackProgressed()
 
 void MediaControls::playbackStopped()
 {
-    if (m_overlayPlayButton)
-        m_overlayPlayButton->updateDisplayType();
-    m_playButton->updateDisplayType();
+    updatePlayState();
     m_timeline->setPosition(mediaControllerInterface().currentTime());
     updateCurrentTimeDisplay();
     makeOpaque();
 
     stopHideFullscreenControlsTimer();
+}
+
+void MediaControls::updatePlayState()
+{
+    if (m_isPausedForScrubbing)
+        return;
+
+    if (m_overlayPlayButton)
+        m_overlayPlayButton->updateDisplayType();
+    m_playButton->updateDisplayType();
+}
+
+void MediaControls::beginScrubbing()
+{
+    if (!mediaElement().togglePlayStateWillPlay()) {
+        m_isPausedForScrubbing = true;
+        mediaElement().togglePlayState();
+    }
+}
+
+void MediaControls::endScrubbing()
+{
+    if (m_isPausedForScrubbing) {
+        m_isPausedForScrubbing = false;
+        if (mediaElement().togglePlayStateWillPlay())
+            mediaElement().togglePlayState();
+    }
 }
 
 void MediaControls::updateCurrentTimeDisplay()
@@ -280,21 +302,16 @@ void MediaControls::updateCurrentTimeDisplay()
     m_currentTimeDisplay->setCurrentValue(now);
 }
 
-void MediaControls::changedMute()
+void MediaControls::updateVolume()
 {
     m_muteButton->updateDisplayType();
-
-    if (mediaControllerInterface().muted())
-        m_volumeSlider->setVolume(0);
-    else
-        m_volumeSlider->setVolume(mediaControllerInterface().volume());
-}
-
-void MediaControls::changedVolume()
-{
-    m_volumeSlider->setVolume(mediaControllerInterface().volume());
     if (m_muteButton->renderer())
         m_muteButton->renderer()->repaint();
+
+    if (mediaElement().muted())
+        m_volumeSlider->setVolume(0);
+    else
+        m_volumeSlider->setVolume(mediaElement().volume());
 }
 
 void MediaControls::changedClosedCaptionsVisibility()
@@ -336,7 +353,7 @@ void MediaControls::defaultEventHandler(Event* event)
     if (event->type() == EventTypeNames::mouseover) {
         if (!containsRelatedTarget(event)) {
             m_isMouseOverControls = true;
-            if (!mediaControllerInterface().canPlay()) {
+            if (!mediaElement().togglePlayStateWillPlay()) {
                 makeOpaque();
                 if (shouldHideFullscreenControls())
                     startHideFullscreenControlsTimer();
@@ -367,7 +384,7 @@ void MediaControls::defaultEventHandler(Event* event)
 
 void MediaControls::hideFullscreenControlsTimerFired(Timer<MediaControls>*)
 {
-    if (mediaControllerInterface().paused())
+    if (mediaElement().togglePlayStateWillPlay())
         return;
 
     if (!m_isFullscreen)

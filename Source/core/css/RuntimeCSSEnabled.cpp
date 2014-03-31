@@ -54,7 +54,6 @@ static void setPropertySwitchesFromRuntimeFeatures()
         CSSPropertyShapeMargin,
         CSSPropertyShapePadding,
         CSSPropertyShapeImageThreshold,
-        CSSPropertyShapeInside,
         CSSPropertyShapeOutside,
     };
     setCSSPropertiesEnabled(shapeProperties, WTF_ARRAY_LENGTH(shapeProperties), RuntimeEnabledFeatures::cssShapesEnabled());
@@ -105,6 +104,16 @@ static void setPropertySwitchesFromRuntimeFeatures()
         CSSPropertyAnimationPlayState
     };
     setCSSPropertiesEnabled(animationProperties, WTF_ARRAY_LENGTH(animationProperties), RuntimeEnabledFeatures::cssAnimationUnprefixedEnabled());
+
+    CSSPropertyID transformProperties[] = {
+        CSSPropertyBackfaceVisibility,
+        CSSPropertyPerspective,
+        CSSPropertyPerspectiveOrigin,
+        CSSPropertyTransform,
+        CSSPropertyTransformOrigin,
+        CSSPropertyTransformStyle
+    };
+    setCSSPropertiesEnabled(transformProperties, WTF_ARRAY_LENGTH(transformProperties), RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
 
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyMixBlendMode, RuntimeEnabledFeatures::cssCompositingEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyIsolation, RuntimeEnabledFeatures::cssCompositingEnabled());

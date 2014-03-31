@@ -37,6 +37,7 @@
 #include "DragClientImpl.h"
 #include "EditorClientImpl.h"
 #include "InspectorClientImpl.h"
+#include "MediaKeysClientImpl.h"
 #include "NotificationPresenterImpl.h"
 #include "PageOverlayList.h"
 #include "PageScaleConstraintsSet.h"
@@ -63,8 +64,7 @@
 
 namespace WebCore {
 class DataObject;
-class Color;
-class LocalFrame;
+class Frame;
 class GraphicsLayerFactory;
 class HistoryItem;
 class HitTestResult;
@@ -149,10 +149,6 @@ public:
     virtual bool confirmComposition(const WebString& text) OVERRIDE;
     virtual bool compositionRange(size_t* location, size_t* length) OVERRIDE;
     virtual WebTextInputInfo textInputInfo() OVERRIDE;
-    virtual bool setEditableSelectionOffsets(int start, int end) OVERRIDE;
-    virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) OVERRIDE;
-    virtual void extendSelectionAndDelete(int before, int after) OVERRIDE;
-    virtual bool isSelectionEditable() const OVERRIDE;
     virtual WebColor backgroundColor() const OVERRIDE;
     virtual bool selectionBounds(WebRect& anchor, WebRect& focus) const OVERRIDE;
     virtual void didShowCandidateWindow() OVERRIDE;
@@ -316,7 +312,7 @@ public:
         return m_lastMouseDownPoint;
     }
 
-    WebCore::LocalFrame* focusedWebCoreFrame() const;
+    WebCore::Frame* focusedWebCoreFrame() const;
 
     // Returns the currently focused Element or null if no element has focus.
     WebCore::Element* focusedElement() const;
@@ -365,7 +361,8 @@ public:
     void hasTouchEventHandlers(bool);
 
     // WebGestureCurveTarget implementation for fling.
-    virtual void scrollBy(const WebFloatSize&) OVERRIDE;
+    virtual bool scrollBy(const WebFloatSize& delta, const WebFloatSize& velocity) OVERRIDE;
+    virtual void scrollBy(const WebFloatSize& delta) OVERRIDE;
 
     // Handles context menu events orignated via the the keyboard. These
     // include the VK_APPS virtual key and the Shift+F10 combine. Code is
@@ -748,6 +745,7 @@ private:
     OwnPtr<GeolocationClientProxy> m_geolocationClientProxy;
 
     UserMediaClientImpl m_userMediaClientImpl;
+    MediaKeysClientImpl m_mediaKeysClientImpl;
     OwnPtr<MIDIClientProxy> m_midiClientProxy;
     OwnPtr<NavigatorContentUtilsClientImpl> m_navigatorContentUtilsClient;
     OwnPtr<WebActiveGestureAnimation> m_gestureAnimation;

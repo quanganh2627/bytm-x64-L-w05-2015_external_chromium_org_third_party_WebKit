@@ -255,17 +255,34 @@ public:
         m_connectedFrameCount -= amount;
     }
 
+    bool hasElementFlag(ElementFlags mask) const { return m_elementFlags & mask; }
+    void setElementFlag(ElementFlags mask, bool value) { m_elementFlags = (m_elementFlags & ~mask) | (-(int32_t)value & mask); }
+    void clearElementFlag(ElementFlags mask) { m_elementFlags &= ~mask; }
+
+    bool hasRestyleFlag(DynamicRestyleFlags mask) const { return m_restyleFlags & mask; }
+    void setRestyleFlag(DynamicRestyleFlags mask) { m_restyleFlags |= mask; RELEASE_ASSERT(m_restyleFlags); }
+    bool hasRestyleFlags() const { return m_restyleFlags; }
+    void clearRestyleFlags() { m_restyleFlags = 0; }
+
+    enum {
+        ConnectedFrameCountBits = 10, // Must fit Page::maxNumberOfFrames.
+    };
+
 protected:
     NodeRareData(RenderObject* renderer)
         : NodeRareDataBase(renderer)
         , m_connectedFrameCount(0)
+        , m_elementFlags(0)
+        , m_restyleFlags(0)
     { }
 
 private:
-    unsigned m_connectedFrameCount : 10; // Must fit Page::maxNumberOfFrames.
-
     OwnPtr<NodeListsNodeData> m_nodeLists;
     OwnPtr<NodeMutationObserverData> m_mutationObserverData;
+
+    unsigned m_connectedFrameCount : ConnectedFrameCountBits;
+    unsigned m_elementFlags : NumberOfElementFlags;
+    unsigned m_restyleFlags : NumberOfDynamicRestyleFlags;
 };
 
 inline bool NodeListsNodeData::deleteThisAndUpdateNodeRareDataIfAboutToRemoveLastList(Node& ownerNode)
@@ -276,9 +293,6 @@ inline bool NodeListsNodeData::deleteThisAndUpdateNodeRareDataIfAboutToRemoveLas
     ownerNode.clearNodeLists();
     return true;
 }
-
-// Ensure the 10 bits reserved for the m_connectedFrameCount cannot overflow
-COMPILE_ASSERT(Page::maxNumberOfFrames < 1024, Frame_limit_should_fit_in_rare_data_count);
 
 } // namespace WebCore
 

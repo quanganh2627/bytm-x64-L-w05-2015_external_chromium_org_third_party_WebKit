@@ -39,7 +39,6 @@
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/events/Event.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
 #include "core/frame/UseCounter.h"
@@ -84,6 +83,7 @@
 
 using namespace std;
 using blink::WebInbandTextTrack;
+using blink::WebMediaPlayer;
 using blink::WebMimeRegistry;
 
 namespace WebCore {
@@ -273,6 +273,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_closedCaptionsVisible(false)
     , m_completelyLoaded(false)
     , m_havePreparedToPlay(false)
+    , m_delayingLoadForPreloadNone(false)
     , m_tracksAreReady(true)
     , m_haveVisibleTextTrack(false)
     , m_processingPreferenceChange(false)
@@ -398,9 +399,9 @@ void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomicStr
             clearMediaPlayer(LoadMediaResource);
             scheduleDelayedAction(LoadMediaResource);
         }
-    } else if (name == controlsAttr)
+    } else if (name == controlsAttr) {
         configureMediaControls();
-    else if (name == preloadAttr) {
+    } else if (name == preloadAttr) {
         if (equalIgnoringCase(value, "none"))
             m_preload = MediaPlayer::None;
         else if (equalIgnoringCase(value, "metadata"))
@@ -413,14 +414,13 @@ void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomicStr
 
         // The attribute must be ignored if the autoplay attribute is present
         if (!autoplay() && m_player)
-            m_player->setPreload(m_preload);
+            setPlayerPreload();
 
-    } else if (name == mediagroupAttr)
+    } else if (name == mediagroupAttr) {
         setMediaGroup(value);
-    else if (name == onbeforeloadAttr)
-        setAttributeEventListener(EventTypeNames::beforeload, createAttributeEventListener(this, name, value));
-    else
+    } else {
         HTMLElement::parseAttribute(name, value);
+    }
 }
 
 void HTMLMediaElement::finishParsingChildren()
@@ -526,8 +526,6 @@ void HTMLMediaElement::scheduleEvent(PassRefPtr<Event> event)
 
 void HTMLMediaElement::loadTimerFired(Timer<HTMLMediaElement>*)
 {
-    RefPtr<HTMLMediaElement> protect(this); // loadNextSourceChild may fire 'beforeload', which can make arbitrary DOM mutations.
-
     if (RuntimeEnabledFeatures::videoTrackEnabled() && (m_pendingActionFlags & LoadTextTrackResource))
         configureTextTracks();
 
@@ -585,8 +583,6 @@ String HTMLMediaElement::canPlayType(const String& mimeType, const String& keySy
 
 void HTMLMediaElement::load()
 {
-    RefPtr<HTMLMediaElement> protect(this); // loadInternal may result in a 'beforeload' event, which can make arbitrary DOM mutations.
-
     WTF_LOG(Media, "HTMLMediaElement::load()");
 
     if (UserGestureIndicator::processingUserGesture())
@@ -604,6 +600,8 @@ void HTMLMediaElement::prepareForLoad()
     // Perform the cleanup required for the resource load algorithm to run.
     stopPeriodicTimers();
     m_loadTimer.stop();
+    // FIXME: Figure out appropriate place to reset LoadTextTrackResource if necessary and set m_pendingActionFlags to 0 here.
+    m_pendingActionFlags &= ~LoadMediaResource;
     m_sentEndEvent = false;
     m_sentStalledEvent = false;
     m_haveFiredLoadedData = false;
@@ -703,11 +701,6 @@ void HTMLMediaElement::prepareForLoad()
 
 void HTMLMediaElement::loadInternal()
 {
-    // Some of the code paths below this function dispatch the BeforeLoad event. This ASSERT helps
-    // us catch those bugs more quickly without needing all the branches to align to actually
-    // trigger the event.
-    ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
-
     // HTMLMediaElement::textTracksAreReady will need "... the text tracks whose mode was not in the
     // disabled state when the element's resource selection algorithm last started".
     if (RuntimeEnabledFeatures::videoTrackEnabled()) {
@@ -773,7 +766,7 @@ void HTMLMediaElement::selectMediaResource()
             return;
         }
 
-        if (!isSafeToLoadURL(mediaURL, Complain) || !dispatchBeforeLoadEvent(mediaURL.string())) {
+        if (!isSafeToLoadURL(mediaURL, Complain)) {
             mediaLoadingFailed(MediaPlayer::FormatError);
             return;
         }
@@ -829,15 +822,13 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
 
     WTF_LOG(Media, "HTMLMediaElement::loadResource - m_currentSrc -> %s", urlForLoggingMedia(m_currentSrc).utf8().data());
 
-    blink::WebMediaPlayer::LoadType loadType = blink::WebMediaPlayer::LoadTypeURL;
-
     startProgressEventTimer();
 
     // Reset display mode to force a recalculation of what to show because we are resetting the player.
     setDisplayMode(Unknown);
 
     if (!autoplay())
-        m_player->setPreload(m_preload);
+        setPlayerPreload();
 
     if (fastHasAttribute(mutedAttr))
         m_muted = true;
@@ -849,14 +840,11 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
 
     if (url.protocolIs(mediaSourceBlobProtocol)) {
         if (isMediaStreamURL(url.string())) {
-            loadType = blink::WebMediaPlayer::LoadTypeMediaStream;
             m_userGestureRequiredForPlay = false;
         } else {
             m_mediaSource = HTMLMediaSource::lookup(url.string());
 
             if (m_mediaSource) {
-                loadType = blink::WebMediaPlayer::LoadTypeMediaSource;
-
                 if (!m_mediaSource->attachToElement(this)) {
                     // Forget our reference to the MediaSource, so we leave it alone
                     // while processing remainder of load failure.
@@ -868,7 +856,13 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
     }
 
     if (attemptLoad && canLoadURL(url, contentType, keySystem)) {
-        m_player->load(loadType, url);
+        ASSERT(!webMediaPlayer());
+
+        if (m_preload == MediaPlayer::None) {
+            m_delayingLoadForPreloadNone = true;
+        } else {
+            m_player->load(loadType(), m_currentSrc, corsMode());
+        }
     } else {
         mediaLoadingFailed(MediaPlayer::FormatError);
     }
@@ -879,6 +873,34 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
 
     if (renderer())
         renderer()->updateFromElement();
+}
+
+void HTMLMediaElement::setPlayerPreload()
+{
+    m_player->setPreload(m_preload);
+
+    if (m_delayingLoadForPreloadNone && m_preload != MediaPlayer::None)
+        startDelayedLoad();
+}
+
+void HTMLMediaElement::startDelayedLoad()
+{
+    ASSERT(m_delayingLoadForPreloadNone);
+
+    m_delayingLoadForPreloadNone = false;
+
+    m_player->load(loadType(), m_currentSrc, corsMode());
+}
+
+WebMediaPlayer::LoadType HTMLMediaElement::loadType() const
+{
+    if (m_mediaSource)
+        return WebMediaPlayer::LoadTypeMediaSource;
+
+    if (isMediaStreamURL(m_currentSrc.string()))
+        return WebMediaPlayer::LoadTypeMediaStream;
+
+    return WebMediaPlayer::LoadTypeURL;
 }
 
 static bool trackIndexCompare(TextTrack* a,
@@ -1667,7 +1689,9 @@ void HTMLMediaElement::prepareToPlay()
     if (m_havePreparedToPlay)
         return;
     m_havePreparedToPlay = true;
-    m_player->prepareToPlay();
+
+    if (m_delayingLoadForPreloadNone)
+        startDelayedLoad();
 }
 
 void HTMLMediaElement::seek(double time, ExceptionState& exceptionState)
@@ -2093,37 +2117,7 @@ void HTMLMediaElement::setMuted(bool muted)
 
     updateVolume();
 
-    if (hasMediaControls())
-        mediaControls()->changedMute();
-
     scheduleEvent(EventTypeNames::volumechange);
-}
-
-void HTMLMediaElement::beginScrubbing()
-{
-    WTF_LOG(Media, "HTMLMediaElement::beginScrubbing - paused() is %s", boolString(paused()));
-
-    if (!paused()) {
-        if (ended()) {
-            // Because a media element stays in non-paused state when it reaches end, playback resumes
-            // when the slider is dragged from the end to another position unless we pause first. Do
-            // a "hard pause" so an event is generated, since we want to stay paused after scrubbing finishes.
-            pause();
-        } else {
-            // Not at the end but we still want to pause playback so the media engine doesn't try to
-            // continue playing during scrubbing. Pause without generating an event as we will
-            // unpause after scrubbing finishes.
-            setPausedInternal(true);
-        }
-    }
-}
-
-void HTMLMediaElement::endScrubbing()
-{
-    WTF_LOG(Media, "HTMLMediaElement::endScrubbing - m_pausedInternal is %s", boolString(m_pausedInternal));
-
-    if (m_pausedInternal)
-        setPausedInternal(false);
 }
 
 // The spec says to fire periodic timeupdate events (those sent while playing) every
@@ -2184,9 +2178,29 @@ void HTMLMediaElement::scheduleTimeupdateEvent(bool periodicEvent)
     }
 }
 
-bool HTMLMediaElement::canPlay() const
+bool HTMLMediaElement::togglePlayStateWillPlay() const
 {
-    return paused() || ended() || m_readyState < HAVE_METADATA;
+    if (m_mediaController)
+        return m_mediaController->paused() || m_mediaController->isRestrained();
+    return paused();
+}
+
+void HTMLMediaElement::togglePlayState()
+{
+    // The activation behavior of a media element that is exposing a user interface to the user
+    if (m_mediaController) {
+        if (m_mediaController->isRestrained())
+            m_mediaController->play();
+        else if (m_mediaController->paused())
+            m_mediaController->unpause();
+        else
+            m_mediaController->pause();
+    } else {
+        if (paused())
+            play();
+        else
+            pause();
+    }
 }
 
 void HTMLMediaElement::mediaPlayerDidAddTextTrack(WebInbandTextTrack* webTrack)
@@ -2577,7 +2591,6 @@ KURL HTMLMediaElement::selectNextSourceChild(ContentType* contentType, String* k
     String system;
     bool lookingForStartNode = m_nextChildNodeToConsider;
     bool canUseSourceElement = false;
-    bool okToLoadSourceURL;
 
     NodeVector potentialSourceNodes;
     getChildNodes(*this, potentialSourceNodes);
@@ -2618,16 +2631,7 @@ KURL HTMLMediaElement::selectNextSourceChild(ContentType* contentType, String* k
         }
 
         // Is it safe to load this url?
-        okToLoadSourceURL = isSafeToLoadURL(mediaURL, actionIfInvalid) && dispatchBeforeLoadEvent(mediaURL.string());
-
-        // A 'beforeload' event handler can mutate the DOM, so check to see if the source element is still a child node.
-        if (node->parentNode() != this) {
-            WTF_LOG(Media, "HTMLMediaElement::selectNextSourceChild : 'beforeload' removed current element");
-            source = 0;
-            goto check_again;
-        }
-
-        if (!okToLoadSourceURL)
+        if (!isSafeToLoadURL(mediaURL, actionIfInvalid))
             goto check_again;
 
         // Making it this far means the <source> looks reasonable.
@@ -2824,6 +2828,11 @@ void HTMLMediaElement::mediaPlayerPlaybackStateChanged()
 void HTMLMediaElement::mediaPlayerRequestFullscreen()
 {
     WTF_LOG(Media, "HTMLMediaElement::mediaPlayerRequestFullscreen");
+
+    // The player is responsible for only invoking this callback in response to
+    // user interaction or when it is technically required to play the video.
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingNewUserGesture);
+
     enterFullscreen();
 }
 
@@ -2960,7 +2969,7 @@ void HTMLMediaElement::updateVolume()
         webMediaPlayer()->setVolume(playerVolume());
 
     if (hasMediaControls())
-        mediaControls()->changedVolume();
+        mediaControls()->updateVolume();
 }
 
 double HTMLMediaElement::playerVolume() const
@@ -3119,6 +3128,8 @@ void HTMLMediaElement::clearMediaPlayer(int flags)
 
     closeMediaSource();
 
+    m_delayingLoadForPreloadNone = false;
+
     clearMediaPlayerAndAudioSourceProviderClient();
 
     stopPeriodicTimers();
@@ -3172,8 +3183,14 @@ void HTMLMediaElement::enterFullscreen()
 {
     WTF_LOG(Media, "HTMLMediaElement::enterFullscreen");
 
-    if (document().settings() && document().settings()->fullScreenEnabled())
-        FullscreenElementStack::from(document()).requestFullScreenForElement(this, 0, FullscreenElementStack::ExemptIFrameAllowFullScreenRequirement);
+    FullscreenElementStack::from(document()).requestFullScreenForElement(this, 0, FullscreenElementStack::ExemptIFrameAllowFullScreenRequirement);
+}
+
+void HTMLMediaElement::exitFullscreen()
+{
+    WTF_LOG(Media, "HTMLMediaElement::exitFullscreen");
+
+    FullscreenElementStack::from(document()).webkitCancelFullScreen();
 }
 
 void HTMLMediaElement::didBecomeFullscreenElement()
@@ -3388,6 +3405,10 @@ void HTMLMediaElement::markCaptionAndSubtitleTracksAsUnconfigured()
     configureTextTracks();
 }
 
+bool HTMLMediaElement::willRespondToMouseClickEvents()
+{
+    return controls();
+}
 
 void* HTMLMediaElement::preDispatchEventHandler(Event* event)
 {
@@ -3395,6 +3416,16 @@ void* HTMLMediaElement::preDispatchEventHandler(Event* event)
         configureMediaControls();
 
     return 0;
+}
+
+void HTMLMediaElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == EventTypeNames::click && willRespondToMouseClickEvents()) {
+        togglePlayState();
+        event->setDefaultHandled();
+        return;
+    }
+    HTMLElement::defaultEventHandler(event);
 }
 
 void HTMLMediaElement::createMediaPlayer()
@@ -3579,14 +3610,14 @@ void HTMLMediaElement::applyMediaFragmentURI()
     }
 }
 
-MediaPlayerClient::CORSMode HTMLMediaElement::mediaPlayerCORSMode() const
+WebMediaPlayer::CORSMode HTMLMediaElement::corsMode() const
 {
     const AtomicString& crossOriginMode = fastGetAttribute(crossoriginAttr);
     if (crossOriginMode.isNull())
-        return Unspecified;
+        return WebMediaPlayer::CORSModeUnspecified;
     if (equalIgnoringCase(crossOriginMode, "use-credentials"))
-        return UseCredentials;
-    return Anonymous;
+        return WebMediaPlayer::CORSModeUseCredentials;
+    return WebMediaPlayer::CORSModeAnonymous;
 }
 
 void HTMLMediaElement::mediaPlayerSetWebLayer(blink::WebLayer* webLayer)

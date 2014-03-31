@@ -44,18 +44,18 @@ MIDIClientProxy::MIDIClientProxy(WebMIDIClient* client)
 {
 }
 
-void MIDIClientProxy::requestSysExPermission(PassRefPtrWillBeRawPtr<MIDIAccess> access)
+void MIDIClientProxy::requestSysexPermission(PassRefPtrWillBeRawPtr<MIDIAccess> access)
 {
     if (m_client)
-        m_client->requestSysExPermission(WebMIDIPermissionRequest(access));
+        m_client->requestSysexPermission(WebMIDIPermissionRequest(access));
     else
-        access->setSysExEnabled(false);
+        access->setSysexEnabled(false);
 }
 
-void MIDIClientProxy::cancelSysExPermissionRequest(MIDIAccess* access)
+void MIDIClientProxy::cancelSysexPermissionRequest(MIDIAccess* access)
 {
     if (m_client)
-        m_client->cancelSysExPermissionRequest(WebMIDIPermissionRequest(access));
+        m_client->cancelSysexPermissionRequest(WebMIDIPermissionRequest(access));
 }
 
 } // namespace blink

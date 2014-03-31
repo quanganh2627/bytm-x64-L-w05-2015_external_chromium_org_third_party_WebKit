@@ -29,7 +29,6 @@
 #include "bindings/v8/ScriptEventListener.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/Document.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/parser/HTMLParserIdioms.h"
@@ -92,9 +91,9 @@ void HTMLFrameElementBase::openURL(bool lockBackForwardList)
 
     if (!loadOrRedirectSubframe(url, m_frameName, lockBackForwardList))
         return;
-    if (!contentFrame() || scriptURL.isEmpty())
+    if (!contentFrame() || scriptURL.isEmpty() || !contentFrame()->isLocalFrame())
         return;
-    contentFrame()->script().executeScriptIfJavaScriptURL(scriptURL);
+    toLocalFrame(contentFrame())->script().executeScriptIfJavaScriptURL(scriptURL);
 }
 
 void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -125,9 +124,7 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
         else if (equalIgnoringCase(value, "no"))
             m_scrolling = ScrollbarAlwaysOff;
         // FIXME: If we are already attached, this has no effect.
-    } else if (name == onbeforeloadAttr)
-        setAttributeEventListener(EventTypeNames::beforeload, createAttributeEventListener(this, name, value));
-    else if (name == onbeforeunloadAttr) {
+    } else if (name == onbeforeunloadAttr) {
         // FIXME: should <frame> elements have beforeunload handlers?
         setAttributeEventListener(EventTypeNames::beforeunload, createAttributeEventListener(this, name, value));
     } else
@@ -137,8 +134,6 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
 void HTMLFrameElementBase::setNameAndOpenURL()
 {
     m_frameName = getNameAttribute();
-    if (m_frameName.isNull())
-        m_frameName = getIdAttribute();
     openURL();
 }
 
@@ -164,8 +159,10 @@ void HTMLFrameElementBase::attach(const AttachContext& context)
     HTMLFrameOwnerElement::attach(context);
 
     if (RenderPart* part = renderPart()) {
-        if (LocalFrame* frame = contentFrame())
-            part->setWidget(frame->view());
+        if (Frame* frame = contentFrame()) {
+            if (frame->isLocalFrame())
+                part->setWidget(toLocalFrame(frame)->view());
+        }
     }
 }
 

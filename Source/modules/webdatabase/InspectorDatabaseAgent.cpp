@@ -198,21 +198,15 @@ void InspectorDatabaseAgent::didOpenDatabase(PassRefPtrWillBeRawPtr<Database> da
         return;
     }
 
-    RefPtr<InspectorDatabaseResource> resource = InspectorDatabaseResource::create(database, domain, name, version);
+    RefPtrWillBeRawPtr<InspectorDatabaseResource> resource = InspectorDatabaseResource::create(database, domain, name, version);
     m_resources.set(resource->id(), resource);
     // Resources are only bound while visible.
     if (m_frontend && m_enabled)
         resource->bind(m_frontend);
 }
 
-void InspectorDatabaseAgent::didCommitLoad(LocalFrame* frame, DocumentLoader* loader)
+void InspectorDatabaseAgent::didCommitLoadForMainFrame()
 {
-    // FIXME: If "frame" is always guarenteed to be in the same Page as loader->frame()
-    // then all we need to check here is loader->frame()->isMainFrame()
-    // and we don't need "frame" at all.
-    if (loader->frame() != frame->page()->mainFrame())
-        return;
-
     m_resources.clear();
 }
 
@@ -245,8 +239,8 @@ void InspectorDatabaseAgent::enable(ErrorString*)
     m_enabled = true;
     m_state->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
 
-    DatabaseResourcesMap::iterator databasesEnd = m_resources.end();
-    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
+    DatabaseResourcesHeapMap::iterator databasesEnd = m_resources.end();
+    for (DatabaseResourcesHeapMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
         it->value->bind(m_frontend);
 }
 
@@ -304,7 +298,7 @@ void InspectorDatabaseAgent::executeSQL(ErrorString*, const String& databaseId, 
 
 InspectorDatabaseResource* InspectorDatabaseAgent::findByFileName(const String& fileName)
 {
-    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+    for (DatabaseResourcesHeapMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
         if (it->value->database()->fileName() == fileName)
             return it->value.get();
     }
@@ -313,7 +307,7 @@ InspectorDatabaseResource* InspectorDatabaseAgent::findByFileName(const String& 
 
 Database* InspectorDatabaseAgent::databaseForId(const String& databaseId)
 {
-    DatabaseResourcesMap::iterator it = m_resources.find(databaseId);
+    DatabaseResourcesHeapMap::iterator it = m_resources.find(databaseId);
     if (it == m_resources.end())
         return 0;
     return it->value->database();

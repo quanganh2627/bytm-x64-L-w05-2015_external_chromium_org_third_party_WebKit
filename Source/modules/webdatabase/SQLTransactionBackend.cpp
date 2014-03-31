@@ -341,13 +341,17 @@
 namespace WebCore {
 
 PassRefPtrWillBeRawPtr<SQLTransactionBackend> SQLTransactionBackend::create(DatabaseBackend* db,
-    PassRefPtrWillBeRawPtr<AbstractSQLTransaction> frontend, PassRefPtr<SQLTransactionWrapper> wrapper, bool readOnly)
+    PassRefPtrWillBeRawPtr<AbstractSQLTransaction> frontend,
+    PassRefPtrWillBeRawPtr<SQLTransactionWrapper> wrapper,
+    bool readOnly)
 {
     return adoptRefWillBeNoop(new SQLTransactionBackend(db, frontend, wrapper, readOnly));
 }
 
 SQLTransactionBackend::SQLTransactionBackend(DatabaseBackend* db,
-    PassRefPtrWillBeRawPtr<AbstractSQLTransaction> frontend, PassRefPtr<SQLTransactionWrapper> wrapper, bool readOnly)
+    PassRefPtrWillBeRawPtr<AbstractSQLTransaction> frontend,
+    PassRefPtrWillBeRawPtr<SQLTransactionWrapper> wrapper,
+    bool readOnly)
     : m_frontend(frontend)
     , m_database(db)
     , m_wrapper(wrapper)
@@ -375,6 +379,7 @@ void SQLTransactionBackend::trace(Visitor* visitor)
     visitor->trace(m_frontend);
     visitor->trace(m_currentStatementBackend);
     visitor->trace(m_database);
+    visitor->trace(m_wrapper);
     visitor->trace(m_statementQueue);
 }
 
@@ -433,9 +438,9 @@ AbstractSQLStatement* SQLTransactionBackend::currentStatement()
     return m_currentStatementBackend->frontend();
 }
 
-PassRefPtr<SQLError> SQLTransactionBackend::transactionError()
+SQLErrorData* SQLTransactionBackend::transactionError()
 {
-    return m_transactionError;
+    return m_transactionError.get();
 }
 
 void SQLTransactionBackend::setShouldRetryCurrentStatement(bool shouldRetry)
@@ -573,7 +578,7 @@ SQLTransactionState SQLTransactionBackend::openTransactionAndPreflight()
     if (!m_sqliteTransaction->inProgress()) {
         ASSERT(!m_database->sqliteDatabase().transactionInProgress());
         m_database->reportStartTransactionResult(2, SQLError::DATABASE_ERR, m_database->sqliteDatabase().lastError());
-        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "unable to begin transaction",
+        m_transactionError = SQLErrorData::create(SQLError::DATABASE_ERR, "unable to begin transaction",
             m_database->sqliteDatabase().lastError(), m_database->sqliteDatabase().lastErrorMsg());
         m_sqliteTransaction.clear();
         return nextStateForTransactionError();
@@ -585,7 +590,7 @@ SQLTransactionState SQLTransactionBackend::openTransactionAndPreflight()
     String actualVersion;
     if (!m_database->getActualVersionForTransaction(actualVersion)) {
         m_database->reportStartTransactionResult(3, SQLError::DATABASE_ERR, m_database->sqliteDatabase().lastError());
-        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "unable to read version",
+        m_transactionError = SQLErrorData::create(SQLError::DATABASE_ERR, "unable to read version",
             m_database->sqliteDatabase().lastError(), m_database->sqliteDatabase().lastErrorMsg());
         m_database->disableAuthorizer();
         m_sqliteTransaction.clear();
@@ -599,10 +604,11 @@ SQLTransactionState SQLTransactionBackend::openTransactionAndPreflight()
         m_database->disableAuthorizer();
         m_sqliteTransaction.clear();
         m_database->enableAuthorizer();
-        m_transactionError = m_wrapper->sqlError();
-        if (!m_transactionError) {
+        if (m_wrapper->sqlError()) {
+            m_transactionError = SQLErrorData::create(*m_wrapper->sqlError());
+        } else {
             m_database->reportStartTransactionResult(4, SQLError::UNKNOWN_ERR, 0);
-            m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "unknown error occurred during transaction preflight");
+            m_transactionError = SQLErrorData::create(SQLError::UNKNOWN_ERR, "unknown error occurred during transaction preflight");
         }
         return nextStateForTransactionError();
     }
@@ -699,10 +705,11 @@ SQLTransactionState SQLTransactionBackend::nextStateForCurrentStatementError()
     if (m_currentStatementBackend->hasStatementErrorCallback() && !m_sqliteTransaction->wasRolledBackBySqlite())
         return SQLTransactionState::DeliverStatementCallback;
 
-    m_transactionError = m_currentStatementBackend->sqlError();
-    if (!m_transactionError) {
+    if (m_currentStatementBackend->sqlError()) {
+        m_transactionError = SQLErrorData::create(*m_currentStatementBackend->sqlError());
+    } else {
         m_database->reportCommitTransactionResult(1, SQLError::DATABASE_ERR, 0);
-        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "the statement failed to execute");
+        m_transactionError = SQLErrorData::create(SQLError::DATABASE_ERR, "the statement failed to execute");
     }
     return nextStateForTransactionError();
 }
@@ -713,10 +720,11 @@ SQLTransactionState SQLTransactionBackend::postflightAndCommit()
 
     // Spec 4.3.2.7: Perform postflight steps, jumping to the error callback if they fail.
     if (m_wrapper && !m_wrapper->performPostflight(this)) {
-        m_transactionError = m_wrapper->sqlError();
-        if (!m_transactionError) {
+        if (m_wrapper->sqlError()) {
+            m_transactionError = SQLErrorData::create(*m_wrapper->sqlError());
+        } else {
             m_database->reportCommitTransactionResult(3, SQLError::UNKNOWN_ERR, 0);
-            m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "unknown error occurred during transaction postflight");
+            m_transactionError = SQLErrorData::create(SQLError::UNKNOWN_ERR, "unknown error occurred during transaction postflight");
         }
         return nextStateForTransactionError();
     }
@@ -733,7 +741,7 @@ SQLTransactionState SQLTransactionBackend::postflightAndCommit()
         if (m_wrapper)
             m_wrapper->handleCommitFailedAfterPostflight(this);
         m_database->reportCommitTransactionResult(4, SQLError::DATABASE_ERR, m_database->sqliteDatabase().lastError());
-        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "unable to commit transaction",
+        m_transactionError = SQLErrorData::create(SQLError::DATABASE_ERR, "unable to commit transaction",
             m_database->sqliteDatabase().lastError(), m_database->sqliteDatabase().lastErrorMsg());
         return nextStateForTransactionError();
     }

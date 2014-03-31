@@ -36,6 +36,7 @@
 WebInspector.ScreencastView = function()
 {
     WebInspector.VBox.call(this);
+    this.setMinimumSize(150, 150);
     this.registerRequiredCSS("screencastView.css");
 };
 
@@ -44,11 +45,6 @@ WebInspector.ScreencastView._bordersSize = 40;
 WebInspector.ScreencastView._navBarHeight = 29;
 
 WebInspector.ScreencastView._HttpRegex = /^https?:\/\/(.+)/;
-
-WebInspector.ScreencastView.Constraints = {
-    Width: 150,
-    Height: 150
-};
 
 WebInspector.ScreencastView.prototype = {
     initialize: function()
@@ -132,7 +128,7 @@ WebInspector.ScreencastView.prototype = {
         dimensions.width *= WebInspector.zoomManager.zoomFactor();
         dimensions.height *= WebInspector.zoomManager.zoomFactor();
         PageAgent.startScreencast("jpeg", 80, Math.min(maxImageDimension, dimensions.width), Math.min(maxImageDimension, dimensions.height));
-        WebInspector.domAgent.setHighlighter(this);
+        WebInspector.domModel.setHighlighter(this);
     },
 
     _stopCasting: function()
@@ -141,7 +137,7 @@ WebInspector.ScreencastView.prototype = {
             return;
         this._isCasting = false;
         PageAgent.stopScreencast();
-        WebInspector.domAgent.setHighlighter(null);
+        WebInspector.domModel.setHighlighter(null);
     },
 
     /**
@@ -283,7 +279,7 @@ WebInspector.ScreencastView.prototype = {
             if (event.type === "mousemove")
                 this.highlightDOMNode(nodeId, this._inspectModeConfig);
             else if (event.type === "click")
-                WebInspector.Revealer.reveal(WebInspector.domAgent.nodeForId(nodeId));
+                WebInspector.Revealer.reveal(WebInspector.domModel.nodeForId(nodeId));
         }
     },
 
@@ -458,7 +454,7 @@ WebInspector.ScreencastView.prototype = {
             return;
         }
 
-        this._node = WebInspector.domAgent.nodeForId(nodeId);
+        this._node = WebInspector.domModel.nodeForId(nodeId);
         DOMAgent.getBoxModel(nodeId, callback.bind(this));
 
         /**
@@ -928,15 +924,13 @@ WebInspector.ScreencastController = function()
 
     this._rootSplitView = new WebInspector.SplitView(false, true, "InspectorView.screencastSplitViewState", 300, 300);
     this._rootSplitView.show(rootView.element);
-    this._rootSplitView.setSidebarElementConstraints(180, 50);
-    this._rootSplitView.setMainElementConstraints(WebInspector.ScreencastView.Constraints.Width, WebInspector.ScreencastView.Constraints.Height);
 
     WebInspector.inspectorView.show(this._rootSplitView.sidebarElement());
     this._screencastView = new WebInspector.ScreencastView();
     this._screencastView.show(this._rootSplitView.mainElement());
 
     this._onStatusBarButtonStateChanged("disabled");
-    rootView.show(document.body);
+    rootView.attachToBody();
 
     this._initialized = false;
 };

@@ -28,7 +28,6 @@
 #include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptEventListener.h"
 #include "core/dom/Attribute.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/ImageResource.h"
 #include "core/html/HTMLAnchorElement.h"
 #include "core/html/HTMLCanvasElement.h"
@@ -165,19 +164,16 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
                 toRenderImage(renderer())->setImageDevicePixelRatio(m_imageDevicePixelRatio);
         }
         m_imageLoader.updateFromElementIgnoringPreviousError();
-    } else if (name == crossoriginAttr) {
-        m_imageLoader.updateFromElementIgnoringPreviousError();
-    } else if (name == usemapAttr)
+    } else if (name == usemapAttr) {
         setIsLink(!value.isNull());
-    else if (name == onbeforeloadAttr)
-        setAttributeEventListener(EventTypeNames::beforeload, createAttributeEventListener(this, name, value));
-    else if (name == compositeAttr) {
+    } else if (name == compositeAttr) {
         // FIXME: images don't support blend modes in their compositing attribute.
         blink::WebBlendMode blendOp = blink::WebBlendModeNormal;
         if (!parseCompositeAndBlendOperator(value, m_compositeOperator, blendOp))
             m_compositeOperator = CompositeSourceOver;
-    } else
+    } else {
         HTMLElement::parseAttribute(name, value);
+    }
 }
 
 const AtomicString& HTMLImageElement::altText() const
@@ -215,7 +211,7 @@ void HTMLImageElement::attach(const AttachContext& context)
 {
     HTMLElement::attach(context);
 
-    if (renderer() && renderer()->isImage() && !m_imageLoader.hasPendingBeforeLoadEvent()) {
+    if (renderer() && renderer()->isImage()) {
         RenderImage* renderImage = toRenderImage(renderer());
         RenderImageResource* renderImageResource = renderImage->imageResource();
         if (renderImageResource->hasImage())

@@ -32,7 +32,6 @@
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/RawDataDocumentParser.h"
 #include "core/events/KeyboardEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLBodyElement.h"
 #include "core/html/HTMLHeadElement.h"
@@ -143,11 +142,7 @@ void MediaDocument::defaultEventHandler(Event* event)
         KeyboardEvent* keyboardEvent = toKeyboardEvent(event);
         if (keyboardEvent->keyIdentifier() == "U+0020" || keyboardEvent->keyCode() == VKEY_MEDIA_PLAY_PAUSE) {
             // space or media key (play/pause)
-            if (video->paused()) {
-                if (video->canPlay())
-                    video->play();
-            } else
-                video->pause();
+            video->togglePlayState();
             event->setDefaultHandled();
         }
     }

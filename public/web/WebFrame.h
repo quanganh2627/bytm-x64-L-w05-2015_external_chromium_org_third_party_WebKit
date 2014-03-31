@@ -31,6 +31,7 @@
 #ifndef WebFrame_h
 #define WebFrame_h
 
+#include "WebCompositionUnderline.h"
 #include "WebIconURL.h"
 #include "WebNode.h"
 #include "WebURLLoaderOptions.h"
@@ -85,6 +86,8 @@ struct WebURLLoaderOptions;
 
 template <typename T> class WebVector;
 
+typedef class WebFrame WebLocalFrame;
+
 class WebFrame {
 public:
     // Control of renderTreeAsText output
@@ -97,7 +100,7 @@ public:
 
     // Creates a WebFrame. Delete this WebFrame by calling WebFrame::close().
     // It is valid to pass a null client pointer.
-    BLINK_EXPORT static WebFrame* create(WebFrameClient*);
+    BLINK_EXPORT static WebLocalFrame* create(WebFrameClient*);
 
     // Returns the number of live WebFrame objects, used for leak checking.
     BLINK_EXPORT static int instanceCount();
@@ -105,16 +108,18 @@ public:
     // Returns the WebFrame associated with the current V8 context. This
     // function can return 0 if the context is associated with a Document that
     // is not currently being displayed in a Frame.
-    BLINK_EXPORT static WebFrame* frameForCurrentContext();
+    BLINK_EXPORT static WebLocalFrame* frameForCurrentContext();
 
     // Returns the frame corresponding to the given context. This can return 0
     // if the context is detached from the frame, or if the context doesn't
     // correspond to a frame (e.g., workers).
-    BLINK_EXPORT static WebFrame* frameForContext(v8::Handle<v8::Context>);
+    BLINK_EXPORT static WebLocalFrame* frameForContext(v8::Handle<v8::Context>);
 
     // Returns the frame inside a given frame or iframe element. Returns 0 if
     // the given element is not a frame, iframe or if the frame is empty.
-    BLINK_EXPORT static WebFrame* fromFrameOwnerElement(const WebElement&);
+    BLINK_EXPORT static WebLocalFrame* fromFrameOwnerElement(const WebElement&);
+
+    virtual WebLocalFrame* toWebLocalFrame() = 0;
 
     // This method closes and deletes the WebFrame.
     virtual void close() = 0;
@@ -234,6 +239,13 @@ public:
     virtual WebDocument document() const = 0;
 
     virtual WebPerformance performance() const = 0;
+
+
+    // Closing -------------------------------------------------------------
+
+    // Runs beforeunload handlers for this frame, returning false if a
+    // handler suppressed unloading.
+    virtual bool dispatchBeforeUnloadEvent() = 0;
 
 
     // Scripting ----------------------------------------------------------
@@ -461,6 +473,10 @@ public:
     // the root editable element.
     virtual void moveRangeSelection(const WebPoint& base, const WebPoint& extent) = 0;
     virtual void moveCaretSelection(const WebPoint&) = 0;
+
+    virtual bool setEditableSelectionOffsets(int start, int end) = 0;
+    virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) = 0;
+    virtual void extendSelectionAndDelete(int before, int after) = 0;
 
     virtual void setCaretVisible(bool) = 0;
 

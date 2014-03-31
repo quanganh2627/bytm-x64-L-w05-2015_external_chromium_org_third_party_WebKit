@@ -96,7 +96,7 @@ protected:
     friend class SQLTransactionBackend;
     friend class SQLTransactionBackendSync;
 
-    DatabaseBackendBase(PassRefPtr<DatabaseContext>, const String& name, const String& expectedVersion,
+    DatabaseBackendBase(DatabaseContext*, const String& name, const String& expectedVersion,
         const String& displayName, unsigned long estimatedSize, DatabaseType);
 
     void closeDatabase();
@@ -122,7 +122,7 @@ protected:
     static const char* databaseInfoTableName();
 
     RefPtr<SecurityOrigin> m_contextThreadSecurityOrigin;
-    RefPtr<DatabaseContext> m_databaseContext; // Associated with m_executionContext.
+    RefPtrWillBeMember<DatabaseContext> m_databaseContext; // Associated with m_executionContext.
 
     String m_name;
     String m_expectedVersion;
@@ -144,7 +144,7 @@ private:
 
     SQLiteDatabase m_sqliteDatabase;
 
-    RefPtr<DatabaseAuthorizer> m_databaseAuthorizer;
+    RefPtrWillBeMember<DatabaseAuthorizer> m_databaseAuthorizer;
 
     friend class DatabaseServer;
 };

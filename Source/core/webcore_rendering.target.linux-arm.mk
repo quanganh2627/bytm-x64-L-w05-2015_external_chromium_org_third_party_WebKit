@@ -145,6 +145,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/TextAutosizer.cpp \
 	third_party/WebKit/Source/core/rendering/break_lines.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositedLayerMapping.cpp \
+	third_party/WebKit/Source/core/rendering/compositing/CompositingPropertyUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingReasonFinder.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/GraphicsLayerUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/RenderLayerCompositor.cpp \
@@ -158,7 +159,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/shapes/RectangleShape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/Shape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/ShapeInfo.cpp \
-	third_party/WebKit/Source/core/rendering/shapes/ShapeInsideInfo.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/ShapeOutsideInfo.cpp \
 	third_party/WebKit/Source/core/rendering/style/BasicShapes.cpp \
 	third_party/WebKit/Source/core/rendering/style/ContentData.cpp \
@@ -260,9 +260,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -275,6 +273,7 @@ MY_DEFS_Debug := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -413,9 +412,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -428,6 +425,7 @@ MY_DEFS_Release := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

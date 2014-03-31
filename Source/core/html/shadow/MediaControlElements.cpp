@@ -36,7 +36,6 @@
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/events/MouseEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLVideoElement.h"
 #include "core/html/shadow/MediaControls.h"
@@ -75,6 +74,17 @@ const AtomicString& MediaControlPanelElement::shadowPseudoId() const
 {
     DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-panel", AtomicString::ConstructFromLiteral));
     return id;
+}
+
+void MediaControlPanelElement::defaultEventHandler(Event* event)
+{
+    // Suppress the media element activation behavior (toggle play/pause) when
+    // any part of the control panel is clicked.
+    if (event->type() == EventTypeNames::click) {
+        event->setDefaultHandled();
+        return;
+    }
+    HTMLDivElement::defaultEventHandler(event);
 }
 
 void MediaControlPanelElement::startTimer()
@@ -191,7 +201,7 @@ PassRefPtr<MediaControlMuteButtonElement> MediaControlMuteButtonElement::create(
 void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
 {
     if (event->type() == EventTypeNames::click) {
-        mediaControllerInterface().setMuted(!mediaControllerInterface().muted());
+        mediaElement().setMuted(!mediaElement().muted());
         event->setDefaultHandled();
     }
 
@@ -200,7 +210,7 @@ void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
 
 void MediaControlMuteButtonElement::updateDisplayType()
 {
-    setDisplayType(mediaControllerInterface().muted() ? MediaUnMuteButton : MediaMuteButton);
+    setDisplayType(mediaElement().muted() ? MediaUnMuteButton : MediaMuteButton);
 }
 
 const AtomicString& MediaControlMuteButtonElement::shadowPseudoId() const
@@ -227,10 +237,7 @@ PassRefPtr<MediaControlPlayButtonElement> MediaControlPlayButtonElement::create(
 void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 {
     if (event->type() == EventTypeNames::click) {
-        if (mediaControllerInterface().canPlay())
-            mediaControllerInterface().play();
-        else
-            mediaControllerInterface().pause();
+        mediaElement().togglePlayState();
         updateDisplayType();
         event->setDefaultHandled();
     }
@@ -239,7 +246,7 @@ void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 
 void MediaControlPlayButtonElement::updateDisplayType()
 {
-    setDisplayType(mediaControllerInterface().canPlay() ? MediaPlayButton : MediaPauseButton);
+    setDisplayType(mediaElement().togglePlayStateWillPlay() ? MediaPlayButton : MediaPauseButton);
 }
 
 const AtomicString& MediaControlPlayButtonElement::shadowPseudoId() const
@@ -265,8 +272,8 @@ PassRefPtr<MediaControlOverlayPlayButtonElement> MediaControlOverlayPlayButtonEl
 
 void MediaControlOverlayPlayButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == EventTypeNames::click && mediaControllerInterface().canPlay()) {
-        mediaControllerInterface().play();
+    if (event->type() == EventTypeNames::click && mediaElement().togglePlayStateWillPlay()) {
+        mediaElement().togglePlayState();
         updateDisplayType();
         event->setDefaultHandled();
     }
@@ -275,7 +282,7 @@ void MediaControlOverlayPlayButtonElement::defaultEventHandler(Event* event)
 
 void MediaControlOverlayPlayButtonElement::updateDisplayType()
 {
-    if (mediaControllerInterface().canPlay()) {
+    if (mediaElement().togglePlayStateWillPlay()) {
         show();
     } else
         hide();
@@ -347,18 +354,17 @@ PassRefPtr<MediaControlTimelineElement> MediaControlTimelineElement::create(Medi
 
 void MediaControlTimelineElement::defaultEventHandler(Event* event)
 {
-    // Left button is 0. Rejects mouse events not from left button.
-    if (event->isMouseEvent() && toMouseEvent(event)->button())
+    if (event->isMouseEvent() && toMouseEvent(event)->button() != LeftButton)
         return;
 
     if (!inDocument() || !document().isActive())
         return;
 
     if (event->type() == EventTypeNames::mousedown)
-        mediaControllerInterface().beginScrubbing();
+        mediaControls().beginScrubbing();
 
     if (event->type() == EventTypeNames::mouseup)
-        mediaControllerInterface().endScrubbing();
+        mediaControls().endScrubbing();
 
     MediaControlInputElement::defaultEventHandler(event);
 
@@ -427,8 +433,8 @@ void MediaControlVolumeSliderElement::defaultEventHandler(Event* event)
         return;
 
     double volume = value().toDouble();
-    mediaControllerInterface().setVolume(volume, ASSERT_NO_EXCEPTION);
-    mediaControllerInterface().setMuted(false);
+    mediaElement().setVolume(volume, ASSERT_NO_EXCEPTION);
+    mediaElement().setMuted(false);
 }
 
 bool MediaControlVolumeSliderElement::willRespondToMouseMoveEvents()

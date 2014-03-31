@@ -356,12 +356,6 @@ void XMLDocumentParser::append(PassRefPtr<StringImpl> inputSource)
     RefPtr<XMLDocumentParser> protect(this);
 
     doWrite(source.toString());
-
-    if (isStopped())
-        return;
-
-    if (document()->frame() && document()->frame()->script().canExecuteScripts(NotAboutToExecuteScript))
-        ImageLoader::dispatchPendingBeforeLoadEvents();
 }
 
 void XMLDocumentParser::handleError(XMLErrors::ErrorType type, const char* formattedMessage, TextPosition position)
@@ -451,7 +445,6 @@ void XMLDocumentParser::insertErrorMessageBlock()
 void XMLDocumentParser::notifyFinished(Resource* unusedResource)
 {
     ASSERT_UNUSED(unusedResource, unusedResource == m_pendingScript);
-    ASSERT(m_pendingScript->accessCount() > 0);
 
     ScriptSourceCode sourceCode(m_pendingScript.get());
     bool errorOccurred = m_pendingScript->errorOccurred();

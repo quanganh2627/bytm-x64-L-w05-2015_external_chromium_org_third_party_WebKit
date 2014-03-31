@@ -33,9 +33,8 @@
 #include "core/events/Event.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/LocalFrame.h"
-#include "core/frame/Settings.h"
+#include "core/frame/UseCounter.h"
 #include "core/html/HTMLFrameOwnerElement.h"
-#include "core/html/HTMLMediaElement.h"
 #include "core/page/Chrome.h"
 #include "core/page/ChromeClient.h"
 #include "core/rendering/RenderFullScreen.h"
@@ -45,13 +44,18 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static bool isAttributeOnAllOwners(const WebCore::QualifiedName& attribute, const WebCore::QualifiedName& prefixedAttribute, const HTMLFrameOwnerElement* owner)
+static bool fullscreenIsAllowedForAllOwners(const Document& document)
 {
+    const HTMLFrameOwnerElement* owner = document.ownerElement();
     if (!owner)
         return true;
     do {
-        if (!(owner->hasAttribute(attribute) || owner->hasAttribute(prefixedAttribute)))
-            return false;
+        if (!owner->hasAttribute(allowfullscreenAttr)) {
+            if (owner->hasAttribute(webkitallowfullscreenAttr))
+                UseCounter::count(document, UseCounter::PrefixedAllowFullscreenAttribute);
+            else
+                return false;
+        }
     } while ((owner = owner->document().ownerElement()));
     return true;
 }
@@ -134,7 +138,7 @@ void FullscreenElementStack::documentWasDisposed()
 bool FullscreenElementStack::fullScreenIsAllowedForElement(Element* element) const
 {
     ASSERT(element);
-    return isAttributeOnAllOwners(allowfullscreenAttr, webkitallowfullscreenAttr, element->document().ownerElement());
+    return fullscreenIsAllowedForAllOwners(element->document());
 }
 
 void FullscreenElementStack::requestFullScreenForElement(Element* element, unsigned short flags, FullScreenCheckType checkType)
@@ -189,13 +193,10 @@ void FullscreenElementStack::requestFullScreenForElement(Element* element, unsig
         //   An algorithm is allowed to show a pop-up if, in the task in which the algorithm is running, either:
         //   - an activation behavior is currently being processed whose click event was trusted, or
         //   - the event listener for a trusted click event is being handled.
-        // FIXME: Does this need to null-check settings()?
-        if (!UserGestureIndicator::processingUserGesture() && (!isHTMLMediaElement(*element) || document()->settings()->mediaFullscreenRequiresUserGesture()))
+        if (!UserGestureIndicator::processingUserGesture())
             break;
 
         // There is a previously-established user preference, security risk, or platform limitation.
-        if (!document()->settings() || !document()->settings()->fullScreenEnabled())
-            break;
 
         // 2. Let doc be element's node document. (i.e. "this")
         Document* currentDoc = document();
@@ -359,8 +360,7 @@ bool FullscreenElementStack::webkitFullscreenEnabled(Document& document)
     // browsing context's documents have their fullscreen enabled flag set, or false otherwise.
 
     // Top-level browsing contexts are implied to have their allowFullScreen attribute set.
-    return isAttributeOnAllOwners(allowfullscreenAttr, webkitallowfullscreenAttr, document.ownerElement());
-
+    return fullscreenIsAllowedForAllOwners(document);
 }
 
 void FullscreenElementStack::webkitWillEnterFullScreenForElement(Element* element)
@@ -368,9 +368,6 @@ void FullscreenElementStack::webkitWillEnterFullScreenForElement(Element* elemen
     ASSERT(element);
     if (!document()->isActive())
         return;
-
-    ASSERT(document()->settings()); // If we're active we must have settings.
-    ASSERT(document()->settings()->fullScreenEnabled());
 
     if (m_fullScreenRenderer)
         m_fullScreenRenderer->unwrapRenderer();
@@ -395,7 +392,7 @@ void FullscreenElementStack::webkitWillEnterFullScreenForElement(Element* elemen
 
     // FIXME: This should not call updateStyleIfNeeded.
     document()->setNeedsStyleRecalc(SubtreeStyleChange);
-    document()->updateStyleIfNeeded();
+    document()->updateRenderTreeIfNeeded();
 }
 
 void FullscreenElementStack::webkitDidEnterFullScreenForElement(Element*)

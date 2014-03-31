@@ -200,7 +200,7 @@ const char* DatabaseBackendBase::databaseInfoTableName()
     return infoTableName;
 }
 
-DatabaseBackendBase::DatabaseBackendBase(PassRefPtr<DatabaseContext> databaseContext, const String& name,
+DatabaseBackendBase::DatabaseBackendBase(DatabaseContext* databaseContext, const String& name,
     const String& expectedVersion, const String& displayName, unsigned long estimatedSize, DatabaseType databaseType)
     : m_databaseContext(databaseContext)
     , m_name(name.isolatedCopy())
@@ -248,8 +248,11 @@ DatabaseBackendBase::~DatabaseBackendBase()
     ASSERT(!m_opened);
 }
 
-void DatabaseBackendBase::trace(Visitor*)
+void DatabaseBackendBase::trace(Visitor* visitor)
 {
+    visitor->trace(m_databaseContext);
+    visitor->trace(m_sqliteDatabase);
+    visitor->trace(m_databaseAuthorizer);
 }
 
 void DatabaseBackendBase::closeDatabase()
@@ -412,7 +415,7 @@ bool DatabaseBackendBase::performOpenAndVerify(bool shouldSetVersionInNewDatabas
     }
 
     ASSERT(m_databaseAuthorizer);
-    m_sqliteDatabase.setAuthorizer(m_databaseAuthorizer);
+    m_sqliteDatabase.setAuthorizer(m_databaseAuthorizer.get());
 
     databaseContext()->didOpenDatabase(*this);
     // See comment at the top this file regarding calling addOpenDatabase().

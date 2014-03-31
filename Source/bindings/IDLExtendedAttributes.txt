@@ -60,11 +60,10 @@ WillBeGarbageCollected
 GlobalContext=Window|WorkerGlobalScope|SharedWorkerGlobalScope|DedicatedWorkerGlobalScope|ServiceWorkerGlobalScope
 Immutable
 ImplementedAs=*
+ImplementedInBaseClass
 InitializedByEventConstructor
 MeasureAs=*
 NamedConstructor=*
-# FIXME: remove [NoHeader] once switch to Python
-NoHeader
 NoInterfaceObject
 NotEnumerable
 OverrideBuiltins

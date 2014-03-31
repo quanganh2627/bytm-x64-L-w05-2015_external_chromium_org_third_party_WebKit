@@ -59,7 +59,7 @@ public:
     virtual void clearFrontend() OVERRIDE;
     virtual void restore() OVERRIDE;
 
-    void didCommitLoad(LocalFrame*, DocumentLoader*);
+    virtual void didCommitLoadForMainFrame() OVERRIDE;
 
     // Called from the front-end.
     virtual void enable(ErrorString*) OVERRIDE;
@@ -75,8 +75,8 @@ private:
     InspectorDatabaseResource* findByFileName(const String& fileName);
 
     InspectorFrontend::Database* m_frontend;
-    typedef HashMap<String, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
-    DatabaseResourcesMap m_resources;
+    typedef WillBePersistentHeapHashMap<String, RefPtrWillBeMember<InspectorDatabaseResource> > DatabaseResourcesHeapMap;
+    DatabaseResourcesHeapMap m_resources;
     bool m_enabled;
 };
 

@@ -51,10 +51,12 @@ public:
     void playbackProgressed();
     void playbackStopped();
 
+    void beginScrubbing();
+    void endScrubbing();
+
     void updateCurrentTimeDisplay();
 
-    void changedMute();
-    void changedVolume();
+    void updateVolume();
 
     void changedClosedCaptionsVisibility();
     void refreshClosedCaptionsButtonVisibility();
@@ -72,6 +74,8 @@ private:
 
     void makeOpaque();
     void makeTransparent();
+
+    void updatePlayState();
 
     bool shouldHideFullscreenControls();
     void hideFullscreenControlsTimerFired(Timer<MediaControls>*);
@@ -113,8 +117,9 @@ private:
     MediaControlPanelEnclosureElement* m_enclosure;
 
     Timer<MediaControls> m_hideFullscreenControlsTimer;
-    bool m_isFullscreen;
-    bool m_isMouseOverControls;
+    bool m_isFullscreen : 1;
+    bool m_isMouseOverControls : 1;
+    bool m_isPausedForScrubbing : 1;
 };
 
 DEFINE_ELEMENT_TYPE_CASTS(MediaControls, isMediaControls());

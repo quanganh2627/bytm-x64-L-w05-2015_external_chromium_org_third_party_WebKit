@@ -44,11 +44,11 @@ static bool checkDocumentAndRenderer(Element* element)
 {
     if (!element->inActiveDocument())
         return false;
-    element->document().updateStyleIfNeeded();
+    element->document().updateRenderTreeIfNeeded();
     return element->renderer();
 }
 
-PassRefPtrWillBeRawPtr<AnimationEffect> EffectInput::convert(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, bool unsafe)
+PassRefPtrWillBeRawPtr<AnimationEffect> EffectInput::convert(Element* element, const Vector<Dictionary>& keyframeDictionaryVector,  ExceptionState& exceptionState, bool unsafe)
 {
     // FIXME: This test will not be neccessary once resolution of keyframe values occurs at
     // animation application time.
@@ -106,7 +106,13 @@ PassRefPtrWillBeRawPtr<AnimationEffect> EffectInput::convert(Element* element, c
     }
 
     // FIXME: Replace this with code that just parses, when that code is available.
-    return StyleResolver::createKeyframeEffectModel(*element, propertySetVector, keyframes);
+    RefPtrWillBeRawPtr<KeyframeEffectModel> keyframeEffectModel = StyleResolver::createKeyframeEffectModel(*element, propertySetVector, keyframes);
+    if (!keyframeEffectModel->isReplaceOnly()) {
+        exceptionState.throwDOMException(NotSupportedError, "Partial keyframes are not supported.");
+        return nullptr;
+    }
+
+    return keyframeEffectModel;
 }
 
 } // namespace WebCore

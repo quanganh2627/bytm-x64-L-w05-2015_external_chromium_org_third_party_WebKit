@@ -33,7 +33,6 @@
 #include "platform/graphics/filters/SkiaImageFilterBuilder.h"
 #include "platform/graphics/filters/SourceAlpha.h"
 #include "platform/graphics/filters/SourceGraphic.h"
-#include "platform/graphics/gpu/AcceleratedImageBufferSurface.h"
 
 using namespace std;
 
@@ -117,18 +116,14 @@ void RenderSVGResourceFilter::adjustScaleForMaximumImageSize(const FloatSize& si
     filterScale.scale(sqrt(FilterEffect::maxFilterArea() / scaledArea));
 }
 
-static bool createImageBuffer(const Filter* filter, OwnPtr<ImageBuffer>& imageBuffer, bool accelerated)
+static bool createImageBuffer(const Filter* filter, OwnPtr<ImageBuffer>& imageBuffer)
 {
     IntRect paintRect = filter->sourceImageRect();
     // Don't create empty ImageBuffers.
     if (paintRect.isEmpty())
         return false;
 
-    OwnPtr<ImageBufferSurface> surface;
-    if (accelerated)
-        surface = adoptPtr(new AcceleratedImageBufferSurface(paintRect.size()));
-    if (!accelerated || !surface->isValid())
-        surface = adoptPtr(new UnacceleratedImageBufferSurface(paintRect.size()));
+    OwnPtr<ImageBufferSurface> surface = adoptPtr(new UnacceleratedImageBufferSurface(paintRect.size()));
     if (!surface->isValid())
         return false;
     OwnPtr<ImageBuffer> image = ImageBuffer::create(surface.release());
@@ -237,7 +232,23 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
             // Scale the CTM so the primitive is drawn to filterRes.
             context->scale(filterResScale);
             // Create a resize filter with the inverse scale.
-            imageFilter = builder.buildResize(1 / filterResScale.width(), 1 / filterResScale.height(), imageFilter.get());
+            AffineTransform resizeMatrix;
+            resizeMatrix.scale(1 / filterResScale.width(), 1 / filterResScale.height());
+            imageFilter = builder.buildTransform(resizeMatrix, imageFilter.get());
+        }
+        // If the CTM contains rotation or shearing, apply the filter to
+        // the unsheared/unrotated matrix, and do the shearing/rotation
+        // as a final pass.
+        AffineTransform ctm = context->getCTM();
+        if (ctm.b() || ctm.c()) {
+            AffineTransform scaleAndTranslate;
+            scaleAndTranslate.translate(ctm.e(), ctm.f());
+            scaleAndTranslate.scale(ctm.xScale(), ctm.yScale());
+            ASSERT(scaleAndTranslate.isInvertible());
+            AffineTransform shearAndRotate = scaleAndTranslate.inverse();
+            shearAndRotate.multiply(ctm);
+            context->setCTM(scaleAndTranslate);
+            imageFilter = builder.buildTransform(shearAndRotate, imageFilter.get());
         }
         context->beginLayer(1, CompositeSourceOver, &boundaries, ColorFilterNone, imageFilter.get());
         return true;
@@ -253,16 +264,12 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     }
 
     OwnPtr<ImageBuffer> sourceGraphic;
-    bool isAccelerated = object->document().settings()->acceleratedFiltersEnabled();
-    if (!createImageBuffer(filterData->filter.get(), sourceGraphic, isAccelerated)) {
+    if (!createImageBuffer(filterData->filter.get(), sourceGraphic)) {
         ASSERT(!m_filter.contains(object));
         filterData->savedContext = context;
         m_filter.set(object, filterData.release());
         return false;
     }
-
-    // Set the rendering mode from the page's settings.
-    filterData->filter->setIsAccelerated(isAccelerated);
 
     GraphicsContext* sourceGraphicContext = sourceGraphic->context();
     ASSERT(sourceGraphicContext);

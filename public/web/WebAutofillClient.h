@@ -31,11 +31,12 @@
 #ifndef WebAutofillClient_h
 #define WebAutofillClient_h
 
+#include "WebFrame.h"
+
 namespace blink {
 
 class WebFormControlElement;
 class WebFormElement;
-class WebFrame;
 class WebInputElement;
 class WebKeyboardEvent;
 class WebNode;
@@ -45,13 +46,10 @@ template <typename T> class WebVector;
 class WebAutofillClient {
 public:
     // Informs the browser an interactive autocomplete has been requested.
-    virtual void didRequestAutocomplete(WebFrame*, const WebFormElement&) { }
+    virtual void didRequestAutocomplete(WebLocalFrame*, const WebFormElement&) { }
 
     // These methods are called when the users edits a text-field.
     virtual void textFieldDidEndEditing(const WebInputElement&) { }
-    // FIXME: This function is to be removed once both chromium and blink changes
-    // for BUG332557 are in.
-    virtual void textFieldDidChange(const WebInputElement&) { }
     virtual void textFieldDidChange(const WebFormControlElement&) { }
     virtual void textFieldDidReceiveKeyDown(const WebInputElement&, const WebKeyboardEvent&) { }
     // This is called when a datalist indicator is clicked.

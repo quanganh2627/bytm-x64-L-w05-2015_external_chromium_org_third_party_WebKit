@@ -55,7 +55,6 @@
 #include "core/events/MessageEvent.h"
 #include "core/events/PageTransitionEvent.h"
 #include "core/events/PopStateEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/BarProp.h"
 #include "core/frame/Console.h"
 #include "core/frame/DOMPoint.h"
@@ -112,25 +111,27 @@ namespace WebCore {
 
 class PostMessageTimer FINAL : public SuspendableTimer {
 public:
-    PostMessageTimer(DOMWindow& window, PassRefPtr<SerializedScriptValue> message, const String& sourceOrigin, PassRefPtr<DOMWindow> source, PassOwnPtr<MessagePortChannelArray> channels, SecurityOrigin* targetOrigin, PassRefPtr<ScriptCallStack> stackTrace)
+    PostMessageTimer(DOMWindow& window, PassRefPtr<SerializedScriptValue> message, const String& sourceOrigin, PassRefPtrWillBeRawPtr<DOMWindow> source, PassOwnPtr<MessagePortChannelArray> channels, SecurityOrigin* targetOrigin, PassRefPtr<ScriptCallStack> stackTrace, UserGestureToken* userGestureToken)
         : SuspendableTimer(window.document())
-        , m_window(window)
+        , m_window(&window)
         , m_message(message)
         , m_origin(sourceOrigin)
         , m_source(source)
         , m_channels(channels)
         , m_targetOrigin(targetOrigin)
         , m_stackTrace(stackTrace)
+        , m_userGestureToken(userGestureToken)
     {
     }
 
     PassRefPtr<MessageEvent> event()
     {
-        return MessageEvent::create(m_channels.release(), m_message, m_origin, String(), m_source);
+        return MessageEvent::create(m_channels.release(), m_message, m_origin, String(), m_source.get());
 
     }
     SecurityOrigin* targetOrigin() const { return m_targetOrigin.get(); }
     ScriptCallStack* stackTrace() const { return m_stackTrace.get(); }
+    UserGestureToken* userGestureToken() const { return m_userGestureToken.get(); }
 
 private:
     virtual void fired() OVERRIDE
@@ -139,13 +140,14 @@ private:
         // This object is deleted now.
     }
 
-    RefPtr<DOMWindow> m_window;
+    RefPtrWillBePersistent<DOMWindow> m_window;
     RefPtr<SerializedScriptValue> m_message;
     String m_origin;
-    RefPtr<DOMWindow> m_source;
+    RefPtrWillBePersistent<DOMWindow> m_source;
     OwnPtr<MessagePortChannelArray> m_channels;
     RefPtr<SecurityOrigin> m_targetOrigin;
     RefPtr<ScriptCallStack> m_stackTrace;
+    RefPtr<UserGestureToken> m_userGestureToken;
 };
 
 static void disableSuddenTermination()
@@ -852,7 +854,7 @@ void DOMWindow::postMessage(PassRefPtr<SerializedScriptValue> message, const Mes
         stackTrace = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
 
     // Schedule the message.
-    PostMessageTimer* timer = new PostMessageTimer(*this, message, sourceOrigin, source, channels.release(), target.get(), stackTrace.release());
+    PostMessageTimer* timer = new PostMessageTimer(*this, message, sourceOrigin, source, channels.release(), target.get(), stackTrace.release(), UserGestureIndicator::currentToken());
     timer->startOneShot(0, FROM_HERE);
     timer->suspendIfNeeded();
 }
@@ -871,6 +873,8 @@ void DOMWindow::postMessageTimerFired(PassOwnPtr<PostMessageTimer> t)
     // postMessage calls across WebKit instances.
     if (m_frame->loader().client()->willCheckAndDispatchMessageEvent(timer->targetOrigin(), event.get()))
         return;
+
+    UserGestureIndicator gestureIndicator(timer->userGestureToken());
 
     event->entangleMessagePorts(document());
     dispatchMessageEventWithOriginCheck(timer->targetOrigin(), event, timer->stackTrace());
@@ -999,7 +1003,7 @@ void DOMWindow::alert(const String& message)
     if (!m_frame)
         return;
 
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     FrameHost* host = m_frame->host();
     if (!host)
@@ -1013,7 +1017,7 @@ bool DOMWindow::confirm(const String& message)
     if (!m_frame)
         return false;
 
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     FrameHost* host = m_frame->host();
     if (!host)
@@ -1027,7 +1031,7 @@ String DOMWindow::prompt(const String& message, const String& defaultValue)
     if (!m_frame)
         return String();
 
-    m_frame->document()->updateStyleIfNeeded();
+    m_frame->document()->updateRenderTreeIfNeeded();
 
     FrameHost* host = m_frame->host();
     if (!host)
@@ -1318,7 +1322,7 @@ PassRefPtrWillBeRawPtr<CSSRuleList> DOMWindow::getMatchedCSSRules(Element* eleme
     return m_frame->document()->ensureStyleResolver().pseudoCSSRulesForElement(element, pseudoId, rulesToInclude);
 }
 
-PassRefPtr<DOMPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, const DOMPoint* p) const
+PassRefPtrWillBeRawPtr<DOMPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, const DOMPoint* p) const
 {
     if (!node || !p)
         return nullptr;
@@ -1333,7 +1337,7 @@ PassRefPtr<DOMPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, con
     return DOMPoint::create(pagePoint.x(), pagePoint.y());
 }
 
-PassRefPtr<DOMPoint> DOMWindow::webkitConvertPointFromPageToNode(Node* node, const DOMPoint* p) const
+PassRefPtrWillBeRawPtr<DOMPoint> DOMWindow::webkitConvertPointFromPageToNode(Node* node, const DOMPoint* p) const
 {
     if (!node || !p)
         return nullptr;
@@ -1760,7 +1764,7 @@ bool DOMWindow::isInsecureScriptAccess(DOMWindow& callingWindow, const String& u
     return true;
 }
 
-PassRefPtr<DOMWindow> DOMWindow::open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
+PassRefPtrWillBeRawPtr<DOMWindow> DOMWindow::open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
     DOMWindow* callingWindow, DOMWindow* enteredWindow)
 {
     if (!isCurrentlyDisplayedInFrame())
@@ -1866,5 +1870,28 @@ PassOwnPtr<LifecycleNotifier<DOMWindow> > DOMWindow::createLifecycleNotifier()
     return DOMWindowLifecycleNotifier::create(this);
 }
 
+void DOMWindow::trace(Visitor* visitor)
+{
+    visitor->trace(m_screen);
+    visitor->trace(m_history);
+    visitor->trace(m_locationbar);
+    visitor->trace(m_menubar);
+    visitor->trace(m_personalbar);
+    visitor->trace(m_scrollbars);
+    visitor->trace(m_statusbar);
+    visitor->trace(m_toolbar);
+    visitor->trace(m_console);
+    visitor->trace(m_navigator);
+    visitor->trace(m_location);
+    visitor->trace(m_media);
+    visitor->trace(m_sessionStorage);
+    visitor->trace(m_localStorage);
+    visitor->trace(m_applicationCache);
+    visitor->trace(m_performance);
+    visitor->trace(m_css);
+#if ENABLE(OILPAN)
+    HeapSupplementable<DOMWindow>::trace(visitor);
+#endif
+}
 
 } // namespace WebCore

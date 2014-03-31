@@ -150,7 +150,7 @@ ALWAYS_INLINE RenderStyle::RenderStyle(const RenderStyle& o)
 {
 }
 
-static StyleRecalcChange comparePseudoStyles(const RenderStyle* oldStyle, const RenderStyle* newStyle)
+static StyleRecalcChange diffPseudoStyles(const RenderStyle* oldStyle, const RenderStyle* newStyle)
 {
     // If the pseudoStyles have changed, we want any StyleRecalcChange that is not NoChange
     // because setStyle will do the right thing with anything else.
@@ -169,7 +169,7 @@ static StyleRecalcChange comparePseudoStyles(const RenderStyle* oldStyle, const 
     return NoChange;
 }
 
-StyleRecalcChange RenderStyle::compare(const RenderStyle* oldStyle, const RenderStyle* newStyle)
+StyleRecalcChange RenderStyle::stylePropagationDiff(const RenderStyle* oldStyle, const RenderStyle* newStyle)
 {
     if ((!oldStyle && newStyle) || (oldStyle && !newStyle))
         return Reattach;
@@ -180,13 +180,13 @@ StyleRecalcChange RenderStyle::compare(const RenderStyle* oldStyle, const Render
     if (oldStyle->display() != newStyle->display()
         || oldStyle->hasPseudoStyle(FIRST_LETTER) != newStyle->hasPseudoStyle(FIRST_LETTER)
         || oldStyle->columnSpan() != newStyle->columnSpan()
-        || oldStyle->specifiesAutoColumns() != newStyle->specifiesAutoColumns()
+        || oldStyle->specifiesColumns() != newStyle->specifiesColumns()
         || !oldStyle->contentDataEquivalent(newStyle)
         || oldStyle->hasTextCombine() != newStyle->hasTextCombine())
         return Reattach;
 
     if (*oldStyle == *newStyle)
-        return comparePseudoStyles(oldStyle, newStyle);
+        return diffPseudoStyles(oldStyle, newStyle);
 
     if (oldStyle->inheritedNotEqual(newStyle)
         || oldStyle->hasExplicitlyInheritedProperties()
@@ -367,7 +367,7 @@ static bool positionedObjectMovedOnly(const LengthBox& a, const LengthBox& b, co
     return true;
 }
 
-StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedContextSensitiveProperties) const
+StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle* other, unsigned& changedContextSensitiveProperties) const
 {
     changedContextSensitiveProperties = ContextSensitivePropertyNone;
 
@@ -430,7 +430,6 @@ StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedCon
             || rareNonInheritedData->m_justifyContent != other->rareNonInheritedData->m_justifyContent
             || rareNonInheritedData->m_grid.get() != other->rareNonInheritedData->m_grid.get()
             || rareNonInheritedData->m_gridItem.get() != other->rareNonInheritedData->m_gridItem.get()
-            || rareNonInheritedData->m_shapeInside != other->rareNonInheritedData->m_shapeInside
             || rareNonInheritedData->m_textCombine != other->rareNonInheritedData->m_textCombine
             || rareNonInheritedData->hasFilters() != other->rareNonInheritedData->hasFilters())
             return StyleDifferenceLayout;
@@ -662,9 +661,9 @@ StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle* other, unsigned&
         || visual->textDecoration != other->visual->textDecoration
         || rareNonInheritedData->m_textDecorationStyle != other->rareNonInheritedData->m_textDecorationStyle
         || rareNonInheritedData->m_textDecorationColor != other->rareNonInheritedData->m_textDecorationColor
-        || rareInheritedData->textFillColor != other->rareInheritedData->textFillColor
-        || rareInheritedData->textStrokeColor != other->rareInheritedData->textStrokeColor
-        || rareInheritedData->textEmphasisColor != other->rareInheritedData->textEmphasisColor
+        || rareInheritedData->textFillColor() != other->rareInheritedData->textFillColor()
+        || rareInheritedData->textStrokeColor() != other->rareInheritedData->textStrokeColor()
+        || rareInheritedData->textEmphasisColor() != other->rareInheritedData->textEmphasisColor()
         || rareInheritedData->textEmphasisFill != other->rareInheritedData->textEmphasisFill)
         return StyleDifferenceRepaintIfTextOrColorChange;
 
@@ -1155,14 +1154,14 @@ void RenderStyle::adjustTransitions()
 CSSAnimationDataList* RenderStyle::accessAnimations()
 {
     if (!rareNonInheritedData.access()->m_animations)
-        rareNonInheritedData.access()->m_animations = adoptPtr(new CSSAnimationDataList());
+        rareNonInheritedData.access()->m_animations = adoptPtrWillBeNoop(new CSSAnimationDataList());
     return rareNonInheritedData->m_animations.get();
 }
 
 CSSAnimationDataList* RenderStyle::accessTransitions()
 {
     if (!rareNonInheritedData.access()->m_transitions)
-        rareNonInheritedData.access()->m_transitions = adoptPtr(new CSSAnimationDataList());
+        rareNonInheritedData.access()->m_transitions = adoptPtrWillBeNoop(new CSSAnimationDataList());
     return rareNonInheritedData->m_transitions.get();
 }
 
@@ -1229,8 +1228,23 @@ int RenderStyle::computedLineHeight() const
     return lh.value();
 }
 
-void RenderStyle::setWordSpacing(float v) { inherited.access()->font.mutableFontDescription().setWordSpacing(v); }
-void RenderStyle::setLetterSpacing(float v) { inherited.access()->font.mutableFontDescription().setLetterSpacing(v); }
+void RenderStyle::setWordSpacing(float wordSpacing)
+{
+    FontSelector* currentFontSelector = font().fontSelector();
+    FontDescription desc(fontDescription());
+    desc.setWordSpacing(wordSpacing);
+    setFontDescription(desc);
+    font().update(currentFontSelector);
+}
+
+void RenderStyle::setLetterSpacing(float letterSpacing)
+{
+    FontSelector* currentFontSelector = font().fontSelector();
+    FontDescription desc(fontDescription());
+    desc.setLetterSpacing(letterSpacing);
+    setFontDescription(desc);
+    font().update(currentFontSelector);
+}
 
 void RenderStyle::setFontSize(float size)
 {

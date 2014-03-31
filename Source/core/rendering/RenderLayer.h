@@ -191,8 +191,7 @@ public:
     RenderLayer* enclosingPaginationLayer() const { return m_enclosingPaginationLayer; }
 
     void updateTransform();
-    void update3dRenderingContext();
-    RenderLayer* renderingContextRoot() const { return m_3dRenderingContextRoot; }
+    RenderLayer* renderingContextRoot();
 
     const LayoutSize& offsetForInFlowPosition() const { return m_offsetForInFlowPosition; }
 
@@ -299,10 +298,6 @@ public:
 
     // Bounding box relative to some ancestor layer. Pass offsetFromRoot if known.
     LayoutRect boundingBox(const RenderLayer* rootLayer, CalculateLayerBoundsFlags = 0, const LayoutPoint* offsetFromRoot = 0) const;
-    // Bounding box in the coordinates of this layer.
-    LayoutRect localBoundingBox(CalculateLayerBoundsFlags = 0) const;
-    // Pixel snapped bounding box relative to the root.
-    IntRect absoluteBoundingBox() const;
 
     // Bounds used for layer overlap testing in RenderLayerCompositor.
     LayoutRect overlapBounds() const { return overlapBoundsIncludeChildren() ? calculateLayerBounds(this) : localBoundingBox(); }
@@ -341,7 +336,7 @@ public:
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
 
     // FIXME: reflections should force transform-style to be flat in the style: https://bugs.webkit.org/show_bug.cgi?id=106959
-    bool shouldFlattenTransform() const { return renderer()->hasReflection() || !renderer()->style() || renderer()->style()->transformStyle3D() != TransformStyle3DPreserve3D; }
+    bool shouldPreserve3D() const { return !renderer()->hasReflection() && renderer()->style()->transformStyle3D() == TransformStyle3DPreserve3D; }
 
     void filterNeedsRepaint();
     bool hasFilter() const { return renderer()->hasFilter(); }
@@ -357,6 +352,9 @@ public:
     // This returns true if our document is in a phase of its lifestyle during which
     // compositing state may legally be read.
     bool isAllowedToQueryCompositingState() const;
+
+    // This returns true if our current phase is the compositing update.
+    bool isInCompositingUpdate() const;
 
     CompositedLayerMappingPtr compositedLayerMapping() const;
     CompositedLayerMappingPtr ensureCompositedLayerMapping();
@@ -478,8 +476,53 @@ public:
     bool scrollsOverflow() const;
 
     bool hasDirectReasonsForCompositing() const { return compositingReasons() & CompositingReasonComboAllDirectReasons; }
+    CompositingReasons styleDeterminedCompositingReasons() const { return compositingReasons() & CompositingReasonComboAllStyleDeterminedReasons; }
+
+    void clearAncestorDependentPropertyCache();
+
+    class AncestorDependentProperties {
+    public:
+        IntRect clippedAbsoluteBoundingBox;
+    };
+
+    void setNeedsToUpdateAncestorDependentProperties();
+    bool childNeedsToUpdateAncestorDependantProperties() const { return m_childNeedsToUpdateAncestorDependantProperties; }
+    bool needsToUpdateAncestorDependentProperties() const { return m_needsToUpdateAncestorDependentProperties; }
+
+    void updateAncestorDependentProperties(const AncestorDependentProperties&);
+    void clearChildNeedsToUpdateAncestorDependantProperties();
+
+    const AncestorDependentProperties& ancestorDependentProperties() { ASSERT(!m_needsToUpdateAncestorDependentProperties); return m_ancestorDependentProperties; }
 
 private:
+    // FIXME: Merge with AncestorDependentProperties.
+    class AncestorDependentPropertyCache {
+        WTF_MAKE_NONCOPYABLE(AncestorDependentPropertyCache);
+    public:
+        AncestorDependentPropertyCache();
+
+        RenderLayer* ancestorCompositedScrollingLayer() const;
+        void setAncestorCompositedScrollingLayer(RenderLayer*);
+
+        RenderLayer* scrollParent() const;
+        void setScrollParent(RenderLayer*);
+
+        bool ancestorCompositedScrollingLayerDirty() const { return m_ancestorCompositedScrollingLayerDirty; }
+        bool scrollParentDirty() const { return m_scrollParentDirty; }
+
+    private:
+        RenderLayer* m_ancestorCompositedScrollingLayer;
+        RenderLayer* m_scrollParent;
+
+        bool m_ancestorCompositedScrollingLayerDirty;
+        bool m_scrollParentDirty;
+    };
+
+    void ensureAncestorDependentPropertyCache() const;
+
+    // Bounding box in the coordinates of this layer.
+    LayoutRect localBoundingBox(CalculateLayerBoundsFlags = 0) const;
+
     bool hasOverflowControls() const;
 
     void setIsUnclippedDescendant(bool isUnclippedDescendant) { m_isUnclippedDescendant = isUnclippedDescendant; }
@@ -578,7 +621,6 @@ private:
 
     bool shouldBeSelfPaintingLayer() const;
 
-private:
     // FIXME: We should only create the stacking node if needed.
     bool requiresStackingNode() const { return true; }
     void updateStackingNode();
@@ -623,14 +665,13 @@ private:
     bool lostGroupedMapping() const { return m_compositingProperties.lostGroupedMapping; }
     void setLostGroupedMapping(bool b) { m_compositingProperties.lostGroupedMapping = b; }
 
-    void setCompositingReasons(CompositingReasons);
     CompositingReasons compositingReasons() const { return m_compositingProperties.compositingReasons; }
+    void setCompositingReasons(CompositingReasons, CompositingReasons mask = CompositingReasonAll);
 
     friend class CompositedLayerMapping;
     friend class RenderLayerCompositor;
     friend class RenderLayerModelObject;
 
-private:
     LayerType m_layerType;
 
     // Self-painting layer is an optimization where we avoid the heavy RenderLayer painting
@@ -682,6 +723,8 @@ private:
     const unsigned m_canSkipRepaintRectsUpdateOnScroll : 1;
 
     unsigned m_hasFilterInfo : 1;
+    unsigned m_needsToUpdateAncestorDependentProperties : 1;
+    unsigned m_childNeedsToUpdateAncestorDependantProperties : 1;
 
     RenderLayerModelObject* m_renderer;
 
@@ -708,10 +751,6 @@ private:
 
     // Pointer to the enclosing RenderLayer that caused us to be paginated. It is 0 if we are not paginated.
     RenderLayer* m_enclosingPaginationLayer;
-
-    // Pointer to the enclosing RenderLayer that establishes the 3d rendering context in which this layer participates.
-    // If it 0, it does not participate in a 3d rendering context.
-    RenderLayer* m_3dRenderingContextRoot;
 
     // Properties that are computed while updating compositing layers. These values may be dirty/invalid if
     // compositing status is not up-to-date before using them.
@@ -749,12 +788,17 @@ private:
         IntSize offsetFromSquashingLayerOrigin;
     };
 
+    // FIXME: Merge m_ancestorDependentPropertyCache into m_ancestorDependentProperties;
+    AncestorDependentProperties m_ancestorDependentProperties;
+
     CompositingProperties m_compositingProperties;
 
     IntRect m_blockSelectionGapsBounds;
 
     OwnPtr<CompositedLayerMapping> m_compositedLayerMapping;
     OwnPtr<RenderLayerScrollableArea> m_scrollableArea;
+
+    mutable OwnPtr<AncestorDependentPropertyCache> m_ancestorDependentPropertyCache;
 
     CompositedLayerMapping* m_groupedMapping;
 

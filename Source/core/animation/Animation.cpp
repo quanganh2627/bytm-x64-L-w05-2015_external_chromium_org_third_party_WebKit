@@ -32,6 +32,7 @@
 #include "core/animation/Animation.h"
 
 #include "bindings/v8/Dictionary.h"
+#include "bindings/v8/ExceptionState.h"
 #include "core/animation/ActiveAnimations.h"
 #include "core/animation/AnimationHelpers.h"
 #include "core/animation/AnimationPlayer.h"
@@ -40,6 +41,7 @@
 #include "core/animation/Interpolation.h"
 #include "core/animation/KeyframeEffectModel.h"
 #include "core/dom/Element.h"
+#include "core/frame/UseCounter.h"
 #include "core/rendering/RenderLayer.h"
 
 namespace WebCore {
@@ -64,20 +66,23 @@ PassRefPtr<Animation> Animation::create(Element* element, PassRefPtrWillBeRawPtr
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
     return create(element, effect, Timing());
 }
-PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, const Dictionary& timingInputDictionary)
+PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, const Dictionary& timingInputDictionary, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    return create(element, EffectInput::convert(element, keyframeDictionaryVector), TimingInput::convert(timingInputDictionary));
+    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectObjectTiming);
+    return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), TimingInput::convert(timingInputDictionary));
 }
-PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, double duration)
+PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, double duration, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    return create(element, EffectInput::convert(element, keyframeDictionaryVector), TimingInput::convert(duration));
+    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectDoubleTiming);
+    return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), TimingInput::convert(duration));
 }
-PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector)
+PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    return create(element, EffectInput::convert(element, keyframeDictionaryVector), Timing());
+    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectNoTiming);
+    return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), Timing());
 }
 
 Animation::Animation(PassRefPtr<Element> target, PassRefPtrWillBeRawPtr<AnimationEffect> effect, const Timing& timing, Priority priority, PassOwnPtr<EventDelegate> eventDelegate)
@@ -122,7 +127,7 @@ void Animation::applyEffects(bool previouslyInEffect)
     double iteration = currentIteration();
     ASSERT(iteration >= 0);
     // FIXME: Handle iteration values which overflow int.
-    m_activeInterpolations = m_effect->sample(static_cast<int>(iteration), timeFraction());
+    m_activeInterpolations = m_effect->sample(static_cast<int>(iteration), timeFraction(), duration());
     if (player())
         m_target->setNeedsAnimationStyleRecalc();
 }

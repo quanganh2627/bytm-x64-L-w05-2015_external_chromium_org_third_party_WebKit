@@ -10,6 +10,8 @@
 
 namespace WebCore {
 
+DEFINE_EMPTY_DESTRUCTOR_WILL_BE_REMOVED(Interpolation);
+
 namespace {
 
 bool typesMatch(const InterpolableValue* start, const InterpolableValue* end)
@@ -35,7 +37,7 @@ bool typesMatch(const InterpolableValue* start, const InterpolableValue* end)
 
 }
 
-Interpolation::Interpolation(PassOwnPtr<InterpolableValue> start, PassOwnPtr<InterpolableValue> end)
+Interpolation::Interpolation(PassOwnPtrWillBeRawPtr<InterpolableValue> start, PassOwnPtrWillBeRawPtr<InterpolableValue> end)
     : m_start(start)
     , m_end(end)
     , m_cachedFraction(0)
@@ -54,10 +56,27 @@ void Interpolation::interpolate(int iteration, double fraction) const
     }
 }
 
+void Interpolation::trace(Visitor* visitor)
+{
+    visitor->trace(m_start);
+    visitor->trace(m_end);
+    visitor->trace(m_cachedValue);
+}
+
+void StyleInterpolation::trace(Visitor* visitor)
+{
+    Interpolation::trace(visitor);
+}
+
 void LegacyStyleInterpolation::apply(StyleResolverState& state) const
 {
     AnimatableValue* value = currentValue();
     AnimatedStyleBuilder::applyProperty(m_id, state, value);
+}
+
+void LegacyStyleInterpolation::trace(Visitor* visitor)
+{
+    StyleInterpolation::trace(visitor);
 }
 
 }

@@ -39,7 +39,6 @@
 
 namespace WebCore {
 
-class AnimatableValue;
 class Interpolation;
 
 class AnimationEffect : public RefCountedWillBeGarbageCollectedFinalized<AnimationEffect> {
@@ -50,7 +49,7 @@ public:
     };
 
     virtual ~AnimationEffect() { }
-    virtual PassOwnPtr<Vector<RefPtr<Interpolation> > > sample(int iteration, double fraction) const = 0;
+    virtual PassOwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > sample(int iteration, double fraction, double iterationDuration) const = 0;
 
     virtual bool affects(CSSPropertyID) { return false; };
     virtual bool isKeyframeEffectModel() const { return false; }

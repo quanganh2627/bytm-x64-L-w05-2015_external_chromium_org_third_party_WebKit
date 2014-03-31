@@ -53,7 +53,6 @@
 #include "core/dom/ScriptableDocumentParser.h"
 #include "core/events/Event.h"
 #include "core/events/EventListener.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/DOMWindow.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
@@ -190,12 +189,7 @@ v8::Local<v8::Value> ScriptController::executeScriptAndReturnValue(v8::Handle<v8
         v8::TryCatch tryCatch;
         tryCatch.SetVerbose(true);
 
-        v8::Handle<v8::String> code = v8String(m_isolate, source.source());
-        OwnPtr<v8::ScriptData> scriptData = V8ScriptRunner::precompileScript(code, source.resource());
-
-        // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
-        // 1, whereas v8 starts at 0.
-        v8::Handle<v8::Script> script = V8ScriptRunner::compileScript(code, source.url(), source.startPosition(), scriptData.get(), m_isolate, corsStatus);
+        v8::Handle<v8::Script> script = V8ScriptRunner::compileScript(source, m_isolate, corsStatus);
 
         // Keep LocalFrame (and therefore ScriptController) alive.
         RefPtr<LocalFrame> protect(m_frame);

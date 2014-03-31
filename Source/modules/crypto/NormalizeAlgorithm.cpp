@@ -171,7 +171,7 @@ private:
     AlgorithmNameToIdMap m_algorithmNameToId;
 
     // Algorithm ID to information.
-    AlgorithmInfo m_algorithms[blink::NumberOfWebCryptoAlgorithmId];
+    AlgorithmInfo m_algorithms[blink::WebCryptoAlgorithmIdLast + 1];
 };
 
 AlgorithmRegistry& AlgorithmRegistry::instance()
@@ -623,7 +623,7 @@ bool parseAlgorithmParams(const Dictionary& raw, blink::WebCryptoAlgorithmParams
         context.add("AesKeyGenParams");
         return parseAesKeyGenParams(raw, params, context, errorDetails);
     case blink::WebCryptoAlgorithmParamsTypeHmacImportParams:
-        context.add("HmacImporParams");
+        context.add("HmacImportParams");
         return parseHmacImportParams(raw, params, context, errorDetails);
     case blink::WebCryptoAlgorithmParamsTypeHmacKeyGenParams:
         context.add("HmacKeyGenParams");

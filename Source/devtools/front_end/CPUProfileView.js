@@ -52,7 +52,7 @@ WebInspector.CPUProfileView = function(profileHeader)
     this.viewSelectComboBox = new WebInspector.StatusBarComboBox(this._changeView.bind(this));
 
     var options = {};
-    options[WebInspector.CPUProfileView._TypeFlame] = this.viewSelectComboBox.createOption(WebInspector.UIString("Flame Chart"), "", WebInspector.CPUProfileView._TypeFlame);
+    options[WebInspector.CPUProfileView._TypeFlame] = this.viewSelectComboBox.createOption(WebInspector.UIString("Chart"), "", WebInspector.CPUProfileView._TypeFlame);
     options[WebInspector.CPUProfileView._TypeHeavy] = this.viewSelectComboBox.createOption(WebInspector.UIString("Heavy (Bottom Up)"), "", WebInspector.CPUProfileView._TypeHeavy);
     options[WebInspector.CPUProfileView._TypeTree] = this.viewSelectComboBox.createOption(WebInspector.UIString("Tree (Top Down)"), "", WebInspector.CPUProfileView._TypeTree);
 
@@ -387,7 +387,7 @@ WebInspector.CPUProfileView.prototype = {
         if (this._flameChart)
             return;
         this._dataProvider = new WebInspector.CPUFlameChartDataProvider(this);
-        this._flameChart = new WebInspector.FlameChart(this._dataProvider);
+        this._flameChart = new WebInspector.CPUProfileFlameChart(this._dataProvider);
         this._flameChart.addEventListener(WebInspector.FlameChart.Events.EntrySelected, this._onEntrySelected.bind(this));
     },
 
@@ -731,7 +731,6 @@ WebInspector.CPUProfileType.prototype = {
             undefined,
             undefined,
             undefined,
-            undefined,
             [{
                 functionName: "",
                 scriptId: scriptLocation.scriptId,
@@ -1032,12 +1031,12 @@ WebInspector.CPUProfileHeader.prototype = {
 }
 
 /**
- * @return {!WebInspector.FlameChart.ColorGenerator}
+ * @return {!WebInspector.CPUProfileFlameChart.ColorGenerator}
  */
 WebInspector.CPUProfileView.colorGenerator = function()
 {
     if (!WebInspector.CPUProfileView._colorGenerator) {
-        var colorGenerator = new WebInspector.FlameChart.ColorGenerator();
+        var colorGenerator = new WebInspector.CPUProfileFlameChart.ColorGenerator();
         colorGenerator.colorForID("(idle)::0", 50);
         colorGenerator.colorForID("(program)::0", 50);
         colorGenerator.colorForID("(garbage collector)::0", 50);
@@ -1284,8 +1283,8 @@ WebInspector.CPUFlameChartDataProvider.prototype = {
         var totalTime = this._millisecondsToString(timelineData.entryTotalTimes[entryIndex]);
         pushEntryInfoRow(WebInspector.UIString("Self time"), selfTime);
         pushEntryInfoRow(WebInspector.UIString("Total time"), totalTime);
-        if (node.url)
-            pushEntryInfoRow(WebInspector.UIString("URL"), node.url + ":" + node.lineNumber);
+        var text = WebInspector.Linkifier.liveLocationText(node.scriptId, node.lineNumber, node.columnNumber);
+        pushEntryInfoRow(WebInspector.UIString("URL"), text);
         pushEntryInfoRow(WebInspector.UIString("Aggregated self time"), Number.secondsToString(node.selfTime / 1000, true));
         pushEntryInfoRow(WebInspector.UIString("Aggregated total time"), Number.secondsToString(node.totalTime / 1000, true));
         if (node.deoptReason && node.deoptReason !== "no reason")

@@ -62,8 +62,10 @@ PassOwnPtr<WebGLRenderingContext> WebGLRenderingContext::create(HTMLCanvasElemen
 {
     Document& document = canvas->document();
     LocalFrame* frame = document.frame();
-    if (!frame)
+    if (!frame) {
+        canvas->dispatchEvent(WebGLContextEvent::create(EventTypeNames::webglcontextcreationerror, false, true, "Web page was not allowed to create a WebGL context."));
         return nullptr;
+    }
     Settings* settings = frame->settings();
 
     // The FrameLoaderClient might block creation of a new WebGL context despite the page settings; in
@@ -128,8 +130,8 @@ void WebGLRenderingContext::registerContextExtensions()
     registerExtension<OESTextureHalfFloat>(m_oesTextureHalfFloat);
     registerExtension<OESTextureHalfFloatLinear>(m_oesTextureHalfFloatLinear);
     registerExtension<OESVertexArrayObject>(m_oesVertexArrayObject);
-    registerExtension<WebGLCompressedTextureATC>(m_webglCompressedTextureATC, PrefixedExtension, webkitPrefix);
-    registerExtension<WebGLCompressedTexturePVRTC>(m_webglCompressedTexturePVRTC, PrefixedExtension, webkitPrefix);
+    registerExtension<WebGLCompressedTextureATC>(m_webglCompressedTextureATC, EnabledDraftExtension, webkitPrefix);
+    registerExtension<WebGLCompressedTexturePVRTC>(m_webglCompressedTexturePVRTC, EnabledDraftExtension, webkitPrefix);
     registerExtension<WebGLCompressedTextureS3TC>(m_webglCompressedTextureS3TC, ApprovedExtension, bothPrefixes);
     registerExtension<WebGLDepthTexture>(m_webglDepthTexture, ApprovedExtension, bothPrefixes);
     registerExtension<WebGLDrawBuffers>(m_webglDrawBuffers);

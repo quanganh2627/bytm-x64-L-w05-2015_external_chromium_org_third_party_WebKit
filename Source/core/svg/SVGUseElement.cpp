@@ -54,10 +54,10 @@ namespace WebCore {
 inline SVGUseElement::SVGUseElement(Document& document, bool wasInsertedByParser)
     : SVGGraphicsElement(SVGNames::useTag, document)
     , SVGURIReference(this)
-    , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth)))
-    , m_y(SVGAnimatedLength::create(this, SVGNames::yAttr, SVGLength::create(LengthModeHeight)))
-    , m_width(SVGAnimatedLength::create(this, SVGNames::widthAttr, SVGLength::create(LengthModeWidth)))
-    , m_height(SVGAnimatedLength::create(this, SVGNames::heightAttr, SVGLength::create(LengthModeHeight)))
+    , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
+    , m_y(SVGAnimatedLength::create(this, SVGNames::yAttr, SVGLength::create(LengthModeHeight), AllowNegativeLengths))
+    , m_width(SVGAnimatedLength::create(this, SVGNames::widthAttr, SVGLength::create(LengthModeWidth), ForbidNegativeLengths))
+    , m_height(SVGAnimatedLength::create(this, SVGNames::heightAttr, SVGLength::create(LengthModeHeight), ForbidNegativeLengths))
     , m_wasInsertedByParser(wasInsertedByParser)
     , m_haveFiredLoadEvent(false)
     , m_needsShadowTreeRecreation(false)
@@ -94,7 +94,7 @@ SVGElementInstance* SVGUseElement::instanceRoot()
     // wait for the lazy creation to happen if e.g. JS wants to access the instanceRoot
     // object right after creating the element on-the-fly
     if (!m_targetElementInstance)
-        document().updateStyleIfNeeded();
+        document().updateRenderTreeIfNeeded();
 
     return m_targetElementInstance.get();
 }
@@ -125,13 +125,13 @@ void SVGUseElement::parseAttribute(const QualifiedName& name, const AtomicString
     if (!isSupportedAttribute(name)) {
         SVGGraphicsElement::parseAttribute(name, value);
     } else if (name == SVGNames::xAttr) {
-        m_x->setBaseValueAsString(value, AllowNegativeLengths, parseError);
+        m_x->setBaseValueAsString(value, parseError);
     } else if (name == SVGNames::yAttr) {
-        m_y->setBaseValueAsString(value, AllowNegativeLengths, parseError);
+        m_y->setBaseValueAsString(value, parseError);
     } else if (name == SVGNames::widthAttr) {
-        m_width->setBaseValueAsString(value, ForbidNegativeLengths, parseError);
+        m_width->setBaseValueAsString(value, parseError);
     } else if (name == SVGNames::heightAttr) {
-        m_height->setBaseValueAsString(value, ForbidNegativeLengths, parseError);
+        m_height->setBaseValueAsString(value, parseError);
     } else if (SVGURIReference::parseAttribute(name, value, parseError)) {
     } else {
         ASSERT_NOT_REACHED();
@@ -238,7 +238,7 @@ void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
 }
 
 #ifdef DUMP_INSTANCE_TREE
-static void dumpInstanceTree(unsigned int& depth, String& text, SVGElementInstance* targetInstance)
+static void dumpInstanceTree(unsigned& depth, String& text, SVGElementInstance* targetInstance)
 {
     SVGElement* element = targetInstance->correspondingElement();
     ASSERT(element);
@@ -258,14 +258,14 @@ static void dumpInstanceTree(unsigned int& depth, String& text, SVGElementInstan
     String parentNodeName = element->parentNode() ? element->parentNode()->nodeName() : "null";
     String firstChildNodeName = element->firstChild() ? element->firstChild()->nodeName() : "null";
 
-    for (unsigned int i = 0; i < depth; ++i)
+    for (unsigned i = 0; i < depth; ++i)
         text += "  ";
 
     text += String::format("SVGElementInstance this=%p, (parentNode=%s (%p), firstChild=%s (%p), correspondingElement=%s (%p), directUseElement=%s (%p), shadowTreeElement=%s (%p), id=%s)\n",
                            targetInstance, parentNodeName.latin1().data(), element->parentNode(), firstChildNodeName.latin1().data(), element->firstChild(),
                            elementNodeName.latin1().data(), element, directUseElementName.latin1().data(), directUseElement, shadowTreeElementNodeName.latin1().data(), shadowTreeElement, elementId.latin1().data());
 
-    for (unsigned int i = 0; i < depth; ++i)
+    for (unsigned i = 0; i < depth; ++i)
         text += "  ";
 
     const HashSet<SVGElementInstance*>& elementInstances = element->instancesForElement();
@@ -273,7 +273,7 @@ static void dumpInstanceTree(unsigned int& depth, String& text, SVGElementInstan
 
     const HashSet<SVGElementInstance*>::const_iterator end = elementInstances.end();
     for (HashSet<SVGElementInstance*>::const_iterator it = elementInstances.begin(); it != end; ++it) {
-        for (unsigned int i = 0; i < depth; ++i)
+        for (unsigned i = 0; i < depth; ++i)
             text += "  ";
 
         text += String::format(" -> SVGElementInstance this=%p, (refCount: %i, shadowTreeElement in document? %i)\n",
@@ -484,7 +484,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGElement* target)
     // Eventually dump instance tree
 #ifdef DUMP_INSTANCE_TREE
     String text;
-    unsigned int depth = 0;
+    unsigned depth = 0;
 
     dumpInstanceTree(depth, text, m_targetElementInstance.get());
     fprintf(stderr, "\nDumping <use> instance tree:\n%s\n", text.latin1().data());

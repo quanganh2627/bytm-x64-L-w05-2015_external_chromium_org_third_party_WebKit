@@ -47,7 +47,6 @@
 #include "core/editing/htmlediting.h"
 #include "core/editing/markup.h"
 #include "core/events/BeforeTextInsertedEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLInputElement.h"
@@ -485,6 +484,7 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
                     // e.g. <b style="font-weight: normal;"> is converted to <span style="font-weight: normal;">
                     node = replaceElementWithSpanPreservingChildrenAndAttributes(htmlElement);
                     element = toElement(node);
+                    inlineStyle = element->inlineStyle();
                     insertedNodes.didReplaceNode(*htmlElement, *node);
                 } else if (newInlineStyle->extractConflictingImplicitStyleOfAttributes(htmlElement, EditingStyle::PreserveWritingDirection, 0, attributes,
                     EditingStyle::DoNotExtractMatchingStyle)) {

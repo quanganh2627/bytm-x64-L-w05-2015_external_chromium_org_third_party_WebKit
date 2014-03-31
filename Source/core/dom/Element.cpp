@@ -43,6 +43,7 @@
 #include "core/css/StylePropertySet.h"
 #include "core/css/parser/BisonCSSParser.h"
 #include "core/css/resolver/StyleResolver.h"
+#include "core/css/resolver/StyleResolverParentScope.h"
 #include "core/dom/Attr.h"
 #include "core/dom/CSSSelectorWatch.h"
 #include "core/dom/ClientRect.h"
@@ -57,13 +58,11 @@
 #include "core/dom/MutationRecord.h"
 #include "core/dom/NamedNodeMap.h"
 #include "core/dom/NodeRenderStyle.h"
-#include "core/dom/PostAttachCallbacks.h"
 #include "core/dom/PresentationAttributeStyle.h"
 #include "core/dom/PseudoElement.h"
 #include "core/dom/RenderTreeBuilder.h"
 #include "core/dom/ScriptableDocumentParser.h"
 #include "core/dom/SelectorQuery.h"
-#include "core/dom/SiblingRuleHelper.h"
 #include "core/dom/Text.h"
 #include "core/dom/custom/CustomElement.h"
 #include "core/dom/custom/CustomElementRegistrationContext.h"
@@ -111,40 +110,6 @@ namespace WebCore {
 
 using namespace HTMLNames;
 using namespace XMLNames;
-
-class StyleResolverParentPusher {
-public:
-    explicit StyleResolverParentPusher(Element& parent)
-        : m_parent(parent)
-        , m_pushedStyleResolver(0)
-    {
-    }
-    void push()
-    {
-        if (m_pushedStyleResolver)
-            return;
-        m_pushedStyleResolver = &m_parent.document().ensureStyleResolver();
-        m_pushedStyleResolver->pushParentElement(m_parent);
-    }
-    ~StyleResolverParentPusher()
-    {
-
-        if (!m_pushedStyleResolver)
-            return;
-
-        // This tells us that our pushed style selector is in a bad state,
-        // so we should just bail out in that scenario.
-        ASSERT(m_pushedStyleResolver == m_parent.document().styleResolver());
-        if (m_pushedStyleResolver != m_parent.document().styleResolver())
-            return;
-
-        m_pushedStyleResolver->popParentElement(m_parent);
-    }
-
-private:
-    Element& m_parent;
-    StyleResolver* m_pushedStyleResolver;
-};
 
 typedef Vector<RefPtr<Attr> > AttrNodeList;
 typedef HashMap<Element*, OwnPtr<AttrNodeList> > AttrNodeListMap;
@@ -230,22 +195,21 @@ inline ElementRareData& Element::ensureElementRareData()
 
 bool Element::hasElementFlagInternal(ElementFlags mask) const
 {
-    ASSERT(hasRareData());
-    return elementRareData()->hasFlag(mask);
+    return elementRareData()->hasElementFlag(mask);
 }
 
 void Element::setElementFlag(ElementFlags mask, bool value)
 {
     if (!hasRareData() && !value)
         return;
-    ensureElementRareData().setFlag(mask, value);
+    ensureElementRareData().setElementFlag(mask, value);
 }
 
 void Element::clearElementFlag(ElementFlags mask)
 {
     if (!hasRareData())
         return;
-    elementRareData()->clearFlag(mask);
+    elementRareData()->clearElementFlag(mask);
 }
 
 void Element::clearTabIndexExplicitlyIfNeeded()
@@ -388,7 +352,7 @@ ActiveAnimations& Element::ensureActiveAnimations()
 {
     ElementRareData& rareData = ensureElementRareData();
     if (!rareData.activeAnimations())
-        rareData.setActiveAnimations(adoptPtr(new ActiveAnimations()));
+        rareData.setActiveAnimations(adoptPtrWillBeNoop(new ActiveAnimations()));
     return *rareData.activeAnimations();
 }
 
@@ -588,7 +552,7 @@ int Element::offsetTop()
 
 int Element::offsetWidth()
 {
-    document().updateStyleForNodeIfNeeded(this);
+    document().updateRenderTreeForNodeIfNeeded(this);
 
     if (RenderBox* renderer = renderBox()) {
         if (renderer->canDetermineWidthWithoutLayout())
@@ -1050,8 +1014,6 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ne
         classAttributeChanged(newValue);
     } else if (name == HTMLNames::nameAttr) {
         setHasName(!newValue.isNull());
-    } else if (name == HTMLNames::pseudoAttr) {
-        shouldInvalidateStyle |= testShouldInvalidateStyle && isInShadowTree();
     }
 
     invalidateNodeListCachesInAncestors(&name, this);
@@ -1416,14 +1378,12 @@ void Element::attach(const AttachContext& context)
 {
     ASSERT(document().inStyleRecalc());
 
-    StyleResolverParentPusher parentPusher(*this);
-
     // We've already been through detach when doing an attach, but we might
     // need to clear any state that's been added since then.
     if (hasRareData() && styleChangeType() == NeedsReattachStyleChange) {
         ElementRareData* data = elementRareData();
         data->clearComputedStyle();
-        data->resetDynamicRestyleObservations();
+        data->clearRestyleFlags();
         // Only clear the style state if we're not going to reuse the style from recalcStyle.
         if (!context.resolvedStyle)
             data->resetStyleState();
@@ -1433,15 +1393,13 @@ void Element::attach(const AttachContext& context)
 
     addCallbackSelectors();
 
+    StyleResolverParentScope parentScope(*this);
+
     createPseudoElementIfNeeded(BEFORE);
 
     // When a shadow root exists, it does the work of attaching the children.
-    if (ElementShadow* shadow = this->shadow()) {
-        parentPusher.push();
+    if (ElementShadow* shadow = this->shadow())
         shadow->attach(context);
-    } else if (firstChild()) {
-        parentPusher.push();
-    }
 
     ContainerNode::attach(context);
 
@@ -1450,10 +1408,10 @@ void Element::attach(const AttachContext& context)
 
     if (hasRareData()) {
         ElementRareData* data = elementRareData();
-        if (data->hasFlag(NeedsFocusAppearanceUpdateSoonAfterAttach)) {
+        if (data->hasElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach)) {
             if (isFocusable() && document().focusedElement() == this)
                 document().updateFocusAppearanceSoon(false /* don't restore selection */);
-            data->clearFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
+            data->clearElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
         }
         if (!renderer()) {
             if (ActiveAnimations* activeAnimations = data->activeAnimations()) {
@@ -1471,6 +1429,8 @@ void Element::detach(const AttachContext& context)
     RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
     cancelFocusAppearanceUpdate();
     removeCallbackSelectors();
+    if (needsLayerUpdate())
+        document().unscheduleLayerUpdate(*this);
     if (hasRareData()) {
         ElementRareData* data = elementRareData();
         data->clearPseudoElements();
@@ -1479,7 +1439,7 @@ void Element::detach(const AttachContext& context)
         if (!document().inStyleRecalc()) {
             data->resetStyleState();
             data->clearComputedStyle();
-            data->resetDynamicRestyleObservations();
+            data->clearRestyleFlags();
         }
 
         if (ActiveAnimations* activeAnimations = data->activeAnimations()) {
@@ -1616,7 +1576,7 @@ StyleRecalcChange Element::recalcOwnStyle(StyleRecalcChange change)
 
     RefPtr<RenderStyle> oldStyle = renderStyle();
     RefPtr<RenderStyle> newStyle = styleForRenderer();
-    StyleRecalcChange localChange = RenderStyle::compare(oldStyle.get(), newStyle.get());
+    StyleRecalcChange localChange = RenderStyle::stylePropagationDiff(oldStyle.get(), newStyle.get());
 
     ASSERT(newStyle);
 
@@ -1638,7 +1598,7 @@ StyleRecalcChange Element::recalcOwnStyle(StyleRecalcChange change)
         updateCallbackSelectors(oldStyle.get(), newStyle.get());
 
     if (RenderObject* renderer = this->renderer()) {
-        if (localChange != NoChange || pseudoStyleCacheIsInvalid(oldStyle.get(), newStyle.get()) || shouldNotifyRendererWithIdenticalStyles()) {
+        if (localChange != NoChange || pseudoStyleCacheIsInvalid(oldStyle.get(), newStyle.get()) || needsLayerUpdate()) {
             renderer->setStyle(newStyle.get());
         } else {
             // Although no change occurred, we use the new style so that the cousin style sharing code won't get
@@ -1667,21 +1627,19 @@ void Element::recalcChildStyle(StyleRecalcChange change)
     ASSERT(change >= UpdatePseudoElements || childNeedsStyleRecalc());
     ASSERT(!needsStyleRecalc());
 
-    StyleResolverParentPusher parentPusher(*this);
-
-    if (change > UpdatePseudoElements || childNeedsStyleRecalc()) {
-        for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot()) {
-            if (root->shouldCallRecalcStyle(change)) {
-                parentPusher.push();
-                root->recalcStyle(change);
-            }
-        }
-    }
+    StyleResolverParentScope parentScope(*this);
 
     updatePseudoElement(BEFORE, change);
 
+    if (change > UpdatePseudoElements || childNeedsStyleRecalc()) {
+        for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot()) {
+            if (root->shouldCallRecalcStyle(change))
+                root->recalcStyle(change);
+        }
+    }
+
     if (change < Force && hasRareData() && childNeedsStyleRecalc())
-        SiblingRuleHelper(this).checkForChildrenAdjacentRuleChanges();
+        checkForChildrenAdjacentRuleChanges();
 
     if (change > UpdatePseudoElements || childNeedsStyleRecalc()) {
         // This loop is deliberately backwards because we use insertBefore in the rendering tree, and want to avoid
@@ -1696,12 +1654,10 @@ void Element::recalcChildStyle(StyleRecalcChange change)
                 lastTextNode = toText(child);
             } else if (child->isElementNode()) {
                 Element* element = toElement(child);
-                if (element->shouldCallRecalcStyle(change)) {
-                    parentPusher.push();
+                if (element->shouldCallRecalcStyle(change))
                     element->recalcStyle(change, lastTextNode);
-                } else if (element->supportsStyleSharing()) {
+                else if (element->supportsStyleSharing())
                     styleResolver.addToStyleSharingList(*element);
-                }
                 if (element->renderer())
                     lastTextNode = 0;
             }
@@ -2482,11 +2438,16 @@ String Element::textFromChildren()
 
 const AtomicString& Element::shadowPseudoId() const
 {
-    return getAttribute(pseudoAttr);
+    if (ShadowRoot* root = containingShadowRoot()) {
+        if (root->type() == ShadowRoot::UserAgentShadowRoot)
+            return fastGetAttribute(pseudoAttr);
+    }
+    return nullAtom;
 }
 
 void Element::setShadowPseudoId(const AtomicString& id)
 {
+    ASSERT(CSSSelector::parsePseudoType(id) == CSSSelector::PseudoWebKitCustomElement || CSSSelector::parsePseudoType(id) == CSSSelector::PseudoUserAgentCustomElement);
     setAttribute(pseudoAttr, id);
 }
 
@@ -2640,7 +2601,9 @@ void Element::createPseudoElementIfNeeded(PseudoId pseudoId)
     if (isPseudoElement())
         return;
 
-    RefPtr<PseudoElement> element = document().ensureStyleResolver().createPseudoElementIfNeeded(*this, pseudoId);
+    // Document::ensureStyleResolver is not inlined and shows up on profiles, avoid it here.
+    StyleEngine* engine = document().styleEngine();
+    RefPtr<PseudoElement> element = engine->ensureResolver().createPseudoElementIfNeeded(*this, pseudoId);
     if (!element)
         return;
 
@@ -2898,11 +2861,6 @@ void Element::updateLabel(TreeScope& scope, const AtomicString& oldForAttributeV
         scope.addLabel(newForAttributeValue, toHTMLLabelElement(this));
 }
 
-static bool hasSelectorForAttribute(Document* document, const AtomicString& localName)
-{
-    return document->ensureStyleResolver().ensureUpdatedRuleFeatureSet().hasSelectorForAttribute(localName);
-}
-
 void Element::willModifyAttribute(const QualifiedName& name, const AtomicString& oldValue, const AtomicString& newValue)
 {
     if (isIdAttributeName(name)) {
@@ -2916,8 +2874,8 @@ void Element::willModifyAttribute(const QualifiedName& name, const AtomicString&
     }
 
     if (oldValue != newValue) {
-        if (inActiveDocument() && hasSelectorForAttribute(&document(), name.localName()))
-            setNeedsStyleRecalc(SubtreeStyleChange);
+        if (inActiveDocument())
+            document().ensureStyleResolver().ensureUpdatedRuleFeatureSet().scheduleStyleInvalidationForAttributeChange(name, this);
 
         if (isUpgradedCustomElement())
             CustomElement::attributeDidChange(this, name.localName(), oldValue, newValue);
@@ -3037,19 +2995,9 @@ PassRefPtr<HTMLCollection> Element::ensureCachedHTMLCollection(CollectionType ty
     return ensureRareData().ensureNodeLists().addCache<HTMLCollection>(*this, type);
 }
 
-static void scheduleLayerUpdateCallback(Node* node)
-{
-    // Notify the renderer even is the styles are identical since it may need to
-    // create or destroy a RenderLayer.
-    node->setNeedsStyleRecalc(LocalStyleChange, StyleChangeFromRenderer);
-}
-
 void Element::scheduleLayerUpdate()
 {
-    if (document().inStyleRecalc())
-        PostAttachCallbacks::queueCallback(scheduleLayerUpdateCallback, this);
-    else
-        scheduleLayerUpdateCallback(this);
+    document().scheduleLayerUpdate(*this);
 }
 
 HTMLCollection* Element::cachedHTMLCollection(CollectionType type)
@@ -3416,11 +3364,6 @@ bool Element::supportsStyleSharing() const
         || isHTMLObjectElement(*this)
         || isHTMLAppletElement(*this)
         || isHTMLCanvasElement(*this))
-        return false;
-    // FIXME: We should share style for option and optgroup whenever possible.
-    // Before doing so, we need to resolve issues in HTMLSelectElement::recalcListItems
-    // and RenderMenuList::setText. See also https://bugs.webkit.org/show_bug.cgi?id=88405
-    if (isHTMLOptionElement(*this) || isHTMLOptGroupElement(*this))
         return false;
     if (FullscreenElementStack::isActiveFullScreenElement(this))
         return false;

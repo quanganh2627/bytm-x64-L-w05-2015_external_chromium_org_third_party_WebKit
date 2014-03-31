@@ -35,10 +35,12 @@
 #include "core/rendering/RenderObjectChildList.h"
 #include "core/rendering/ScrollAlignment.h"
 #include "core/rendering/SubtreeLayoutScope.h"
+#include "core/rendering/compositing/CompositingTriggers.h"
 #include "core/rendering/style/RenderStyle.h"
 #include "core/rendering/style/StyleInheritedData.h"
 #include "platform/geometry/FloatQuad.h"
 #include "platform/geometry/LayoutRect.h"
+#include "platform/graphics/CompositingReasons.h"
 #include "platform/transforms/TransformationMatrix.h"
 
 namespace WebCore {
@@ -132,7 +134,6 @@ const int showTreeCharacterOffset = 39;
 class RenderObject : public ImageResourceClient {
     friend class RenderBlock;
     friend class RenderBlockFlow;
-    friend class RenderLayer; // For setParent.
     friend class RenderLayerReflectionInfo; // For setParent
     friend class RenderLayerScrollableArea; // For setParent.
     friend class RenderObjectChildList;
@@ -379,7 +380,8 @@ public:
     virtual bool isRenderScrollbarPart() const { return false; }
 
     bool isRoot() const { return document().documentElement() == m_node; }
-    bool isBody() const;
+    // isBody is called from RenderBox::styleWillChange and is thus quite hot.
+    bool isBody() const { return node() && node()->hasTagName(HTMLNames::bodyTag); }
     bool isHR() const;
     bool isLegend() const;
 
@@ -676,6 +678,8 @@ public:
     void collectAnnotatedRegions(Vector<AnnotatedRegionValue>&);
 
     CompositingState compositingState() const;
+    virtual CompositingReasons additionalCompositingReasons(CompositingTriggerFlags) const;
+
     bool acceleratedCompositingForOverflowScrollEnabled() const;
     // FIXME: This is a temporary flag and should be removed once accelerated
     // overflow scroll is ready (crbug.com/254111).
@@ -803,9 +807,9 @@ public:
     // Repaint a specific subrectangle within a given object.  The rect |r| is in the object's coordinate space.
     void repaintRectangle(const LayoutRect&) const;
 
-    // Repaint only if our old bounds and new bounds are different. The caller may pass in newBounds and newOutlineBox if they are known.
+    // Repaint only if our old bounds and new bounds are different. The caller may pass in newBounds if they are known.
     bool repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, bool wasSelfLayout,
-        const LayoutRect& oldBounds, const LayoutRect& oldOutlineBox, const LayoutRect* newBoundsPtr = 0, const LayoutRect* newOutlineBoxPtr = 0);
+        const LayoutRect& oldBounds, const LayoutRect* newBoundsPtr = 0);
 
     virtual void repaintOverflow();
     void repaintOverflowIfNeeded();
@@ -822,7 +826,6 @@ public:
     IntRect pixelSnappedAbsoluteClippedOverflowRect() const;
     virtual LayoutRect clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const;
     virtual LayoutRect rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const;
-    virtual LayoutRect outlineBoundsForRepaint(const RenderLayerModelObject* /*repaintContainer*/, const RenderGeometryMap* = 0) const { return LayoutRect(); }
 
     // Given a rect in the object's coordinate space, compute a rect suitable for repainting
     // that rect in the coordinate space of repaintContainer.
@@ -839,7 +842,7 @@ public:
         return offset;
     }
 
-    virtual unsigned int length() const { return 1; }
+    virtual unsigned length() const { return 1; }
 
     bool isFloatingOrOutOfFlowPositioned() const { return (isFloating() || isOutOfFlowPositioned()); }
 
@@ -847,9 +850,6 @@ public:
     float opacity() const { return style()->opacity(); }
 
     bool hasReflection() const { return m_bitfields.hasReflection(); }
-
-    // Applied as a "slop" to dirty rect checks during the outline painting phase's dirty-rect checks.
-    int maximalOutlineSize(PaintPhase) const;
 
     enum SelectionState {
         SelectionNone, // The object is not selected.
@@ -956,11 +956,6 @@ public:
     // Compute a list of hit-test rectangles per layer rooted at this renderer.
     virtual void computeLayerHitTestRects(LayerHitTestRects&) const;
 
-    LayoutRect absoluteOutlineBounds() const
-    {
-        return outlineBoundsForRepaint(0);
-    }
-
     // Return the renderer whose background style is used to paint the root background. Should only be called on the renderer for which isRoot() is true.
     RenderObject* rendererForRootBackground();
 
@@ -974,19 +969,23 @@ public:
     const LayoutRect& oldRepaintRect() const { return m_oldRepaintRect; }
     void setOldRepaintRect(const LayoutRect& rect) { m_oldRepaintRect = rect; }
 
+    LayoutRect newOutlineRect();
+    void setNewOutlineRect(const LayoutRect&);
+
+    LayoutRect oldOutlineRect();
+    void setOldOutlineRect(const LayoutRect&);
+
     bool shouldDoFullRepaintAfterLayout() const { return m_bitfields.shouldDoFullRepaintAfterLayout(); }
     void setShouldDoFullRepaintAfterLayout(bool b) { m_bitfields.setShouldDoFullRepaintAfterLayout(b); }
     bool shouldRepaintOverflow() const { return m_bitfields.shouldRepaintOverflow(); }
 
-    void clearRepaintRects()
-    {
-        setNewRepaintRect(LayoutRect());
-        setOldRepaintRect(LayoutRect());
+    bool shouldDoFullRepaintIfSelfPaintingLayer() const { return m_bitfields.shouldDoFullRepaintIfSelfPaintingLayer(); }
+    void setShouldDoFullRepaintIfSelfPaintingLayer(bool b) { m_bitfields.setShouldDoFullRepaintIfSelfPaintingLayer(b); }
 
-        setShouldDoFullRepaintAfterLayout(false);
-        setShouldRepaintOverflow(false);
-        setLayoutDidGetCalled(false);
-    }
+    bool onlyNeededPositionedMovementLayout() const { return m_bitfields.onlyNeededPositionedMovementLayout(); }
+    void setOnlyNeededPositionedMovementLayout(bool b) { m_bitfields.setOnlyNeededPositionedMovementLayout(b); }
+
+    void clearRepaintState();
 
     // layoutDidGetCalled indicates whether this render object was re-laid-out
     // since the last call to setLayoutDidGetCalled(false) on this object.
@@ -1020,8 +1019,6 @@ protected:
     void addPDFURLRect(GraphicsContext*, const LayoutRect&);
 
     virtual LayoutRect viewRect() const;
-
-    void adjustRectForOutline(LayoutRect&) const;
 
     void clearLayoutRootIfNeeded() const;
     virtual void willBeDestroyed();
@@ -1104,6 +1101,8 @@ private:
             // for this flag.
             , m_shouldDoFullRepaintAfterLayout(false)
             , m_shouldRepaintOverflow(false)
+            , m_shouldDoFullRepaintIfSelfPaintingLayer(false)
+            , m_onlyNeededPositionedMovementLayout(false)
             , m_needsPositionedMovementLayout(false)
             , m_normalChildNeedsLayout(false)
             , m_posChildNeedsLayout(false)
@@ -1135,10 +1134,12 @@ private:
         {
         }
 
-        // 32 bits have been used in the first word, and 3 in the second.
+        // 32 bits have been used in the first word, and 5 in the second.
         ADD_BOOLEAN_BITFIELD(selfNeedsLayout, SelfNeedsLayout);
         ADD_BOOLEAN_BITFIELD(shouldDoFullRepaintAfterLayout, ShouldDoFullRepaintAfterLayout);
         ADD_BOOLEAN_BITFIELD(shouldRepaintOverflow, ShouldRepaintOverflow);
+        ADD_BOOLEAN_BITFIELD(shouldDoFullRepaintIfSelfPaintingLayer, ShouldDoFullRepaintIfSelfPaintingLayer);
+        ADD_BOOLEAN_BITFIELD(onlyNeededPositionedMovementLayout, OnlyNeededPositionedMovementLayout);
         ADD_BOOLEAN_BITFIELD(needsPositionedMovementLayout, NeedsPositionedMovementLayout);
         ADD_BOOLEAN_BITFIELD(normalChildNeedsLayout, NormalChildNeedsLayout);
         ADD_BOOLEAN_BITFIELD(posChildNeedsLayout, PosChildNeedsLayout);

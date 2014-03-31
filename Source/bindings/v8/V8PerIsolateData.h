@@ -97,7 +97,7 @@ public:
     bool hasInstance(const WrapperTypeInfo*, v8::Handle<v8::Value>);
     v8::Handle<v8::Object> findInstanceInPrototypeChain(const WrapperTypeInfo*, v8::Handle<v8::Value>);
 
-    v8::Local<v8::Context> ensureRegexContext();
+    v8::Local<v8::Context> ensureDomInJSContext();
 
     const char* previousSamplingState() const { return m_previousSamplingState; }
     void setPreviousSamplingState(const char* name) { m_previousSamplingState = name; }
@@ -106,7 +106,7 @@ private:
     explicit V8PerIsolateData(v8::Isolate*);
     ~V8PerIsolateData();
 
-    typedef HashMap<const void*, UnsafePersistent<v8::FunctionTemplate> > DOMTemplateMap;
+    typedef HashMap<const void*, v8::Eternal<v8::FunctionTemplate> > DOMTemplateMap;
     DOMTemplateMap& currentDOMTemplateMap();
     bool hasInstance(const WrapperTypeInfo*, v8::Handle<v8::Value>, DOMTemplateMap&);
     v8::Handle<v8::Object> findInstanceInPrototypeChain(const WrapperTypeInfo*, v8::Handle<v8::Value>, DOMTemplateMap&);
@@ -119,7 +119,7 @@ private:
     OwnPtr<StringCache> m_stringCache;
     OwnPtr<V8HiddenValue> m_hiddenValue;
     ScopedPersistent<v8::Value> m_liveRoot;
-    OwnPtr<V8PerContextData> m_perContextDataForRegex;
+    OwnPtr<V8PerContextData> m_domInJSPerContextData;
 
     const char* m_previousSamplingState;
 

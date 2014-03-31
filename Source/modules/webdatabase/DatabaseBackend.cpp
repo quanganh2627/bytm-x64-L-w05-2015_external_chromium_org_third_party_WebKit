@@ -40,7 +40,7 @@
 
 namespace WebCore {
 
-DatabaseBackend::DatabaseBackend(PassRefPtr<DatabaseContext> databaseContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
+DatabaseBackend::DatabaseBackend(DatabaseContext* databaseContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
     : DatabaseBackendBase(databaseContext, name, expectedVersion, displayName, estimatedSize, DatabaseType::Async)
     , m_transactionInProgress(false)
     , m_isTransactionQueueEnabled(true)
@@ -91,7 +91,7 @@ void DatabaseBackend::close()
         // Clean up transactions that have not been scheduled yet:
         // Transaction phase 1 cleanup. See comment on "What happens if a
         // transaction is interrupted?" at the top of SQLTransactionBackend.cpp.
-        RefPtrWillBeRawPtr<SQLTransactionBackend> transaction;
+        RefPtrWillBeRawPtr<SQLTransactionBackend> transaction = nullptr;
         while (!m_transactionQueue.isEmpty()) {
             transaction = m_transactionQueue.takeFirst();
             transaction->notifyDatabaseThreadIsShuttingDown();
@@ -112,11 +112,11 @@ PassRefPtrWillBeRawPtr<SQLTransactionBackend> DatabaseBackend::runTransaction(Pa
     if (!m_isTransactionQueueEnabled)
         return nullptr;
 
-    RefPtr<SQLTransactionWrapper> wrapper;
+    RefPtrWillBeRawPtr<SQLTransactionWrapper> wrapper = nullptr;
     if (data)
         wrapper = ChangeVersionWrapper::create(data->oldVersion(), data->newVersion());
 
-    RefPtrWillBeRawPtr<SQLTransactionBackend> transactionBackend = SQLTransactionBackend::create(this, transaction, wrapper, readOnly);
+    RefPtrWillBeRawPtr<SQLTransactionBackend> transactionBackend = SQLTransactionBackend::create(this, transaction, wrapper.release(), readOnly);
     m_transactionQueue.append(transactionBackend);
     if (!m_transactionInProgress)
         scheduleTransaction();
@@ -134,7 +134,7 @@ void DatabaseBackend::inProgressTransactionCompleted()
 void DatabaseBackend::scheduleTransaction()
 {
     ASSERT(!m_transactionInProgressMutex.tryLock()); // Locked by caller.
-    RefPtrWillBeRawPtr<SQLTransactionBackend> transaction;
+    RefPtrWillBeRawPtr<SQLTransactionBackend> transaction = nullptr;
 
     if (m_isTransactionQueueEnabled && !m_transactionQueue.isEmpty())
         transaction = m_transactionQueue.takeFirst();

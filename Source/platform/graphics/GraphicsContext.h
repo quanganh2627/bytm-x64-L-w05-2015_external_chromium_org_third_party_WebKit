@@ -79,7 +79,7 @@ public:
     SkCanvas* canvas()
     {
         // Flush any pending saves.
-        realizeCanvasSave(SkCanvas::kMatrixClip_SaveFlag);
+        realizeCanvasSave();
 
         return m_canvas;
     }
@@ -90,7 +90,7 @@ public:
     void save();
     void restore();
 
-    void saveLayer(const SkRect* bounds, const SkPaint*, SkCanvas::SaveFlags = SkCanvas::kARGB_ClipLayer_SaveFlag);
+    void saveLayer(const SkRect* bounds, const SkPaint*);
     void restoreLayer();
 
     float strokeThickness() const { return immutableState()->strokeData().thickness(); }
@@ -204,7 +204,7 @@ public:
     // ---------- End state management methods -----------------
 
     // Get the contents of the image buffer
-    bool readPixels(SkBitmap*, int, int, SkCanvas::Config8888 = SkCanvas::kNative_Premul_Config8888);
+    bool readPixels(const SkImageInfo&, void* pixels, size_t rowBytes, int x, int y);
 
     // Sets up the paint for the current fill style.
     void setupPaintForFilling(SkPaint*) const;
@@ -304,6 +304,9 @@ public:
     void beginTransparencyLayer(float opacity, const FloatRect* = 0);
     void beginLayer(float opacity, CompositeOperator, const FloatRect* = 0, ColorFilter = ColorFilterNone, ImageFilter* = 0);
     void endLayer();
+
+    void beginCull(const FloatRect&);
+    void endCull();
 
     // Instead of being dispatched to the active canvas, draw commands following beginRecording()
     // are stored in a display list that can be replayed at a later time.
@@ -443,12 +446,13 @@ private:
     }
 
     // Apply deferred canvas state saves
-    void realizeCanvasSave(SkCanvas::SaveFlags flags)
+    void realizeCanvasSave()
     {
-        if (m_canvasSaveFlags & flags) {
-            m_canvas->save((SkCanvas::SaveFlags)m_canvasSaveFlags);
-            m_canvasSaveFlags = 0;
-        }
+        if (!m_pendingCanvasSave)
+            return;
+
+        m_canvas->save();
+        m_pendingCanvasSave = false;
     }
 
     void didDrawTextInRect(const SkRect& textRect);
@@ -472,12 +476,9 @@ private:
     // Currently pending save flags for Skia Canvas state.
     // Canvas state includes the canavs, it's matrix and clips. Think of it as _where_
     // the draw operations will happen.
-    // FIXME: While defined as a bitmask of SkCanvas::SaveFlags, this is mostly used as a bool.
-    //        It will come in handy when adding granular save() support (clip vs. matrix vs. paint).
-    // crbug.com/233713
     struct CanvasSaveState;
-    unsigned m_canvasSaveFlags;
     Vector<CanvasSaveState> m_canvasStateStack;
+    bool m_pendingCanvasSave;
 
     AnnotationModeFlags m_annotationMode;
 

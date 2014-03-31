@@ -284,10 +284,6 @@ WebInspector.GenericSettingsTab = function()
     this._updateScriptDisabledCheckbox();
 
     p = this._appendSection(WebInspector.UIString("Appearance"));
-    p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Show 'Emulation' view in console drawer."), WebInspector.settings.showEmulationViewInDrawer));
-    this._appendDrawerNote(p.lastElementChild);
-    p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Show 'Rendering' view in console drawer."), WebInspector.settings.showRenderingViewInDrawer));
-    this._appendDrawerNote(p.lastElementChild);
     var splitVerticallyTitle = WebInspector.UIString("Split panels vertically when docked to %s", WebInspector.experimentsSettings.dockToLeft.isEnabled() ? "left or right" : "right");
     p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(splitVerticallyTitle, WebInspector.settings.splitVerticallyWhenDockedToRight));
     var panelShortcutTitle = WebInspector.UIString("Enable %s + 1-9 shortcut to switch panels", WebInspector.isMac() ? "Cmd" : "Ctrl");
@@ -345,6 +341,7 @@ WebInspector.GenericSettingsTab = function()
     p = this._appendSection(WebInspector.UIString("Console"));
     p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Log XMLHttpRequests"), WebInspector.settings.monitoringXHREnabled));
     p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Preserve log upon navigation"), WebInspector.settings.preserveConsoleLog));
+    p.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Show timestamps"), WebInspector.settings.consoleTimestampsEnabled));
 
     if (WebInspector.openAnchorLocationRegistry.handlerNames.length > 0) {
         var handlerSelector = new WebInspector.HandlerSelector(WebInspector.openAnchorLocationRegistry);
@@ -721,6 +718,23 @@ WebInspector.SettingsController.prototype =
     {
         if (this._settingsScreen && this._settingsScreen.isShowing())
             this._settingsScreen.doResize();
+    }
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.ActionDelegate}
+ */
+WebInspector.SettingsController.SettingsScreenActionDelegate = function() { }
+
+WebInspector.SettingsController.SettingsScreenActionDelegate.prototype = {
+    /**
+     * @return {boolean}
+     */
+    handleAction: function()
+    {
+        WebInspector.settingsController.showSettingsScreen(WebInspector.SettingsScreen.Tabs.General);
+        return true;
     }
 }
 

@@ -33,7 +33,6 @@
 #include "core/css/CSSFontSelector.h"
 #include "core/css/CSSStyleSheet.h"
 #include "core/css/FontFaceCache.h"
-#include "core/css/StyleInvalidationAnalysis.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/dom/DocumentStyleSheetCollector.h"
 #include "core/dom/Element.h"
@@ -91,8 +90,10 @@ void StyleEngine::detachFromDocument()
 
     if (m_fontSelector) {
         m_fontSelector->clearDocument();
+#if !ENABLE(OILPAN)
         if (m_resolver)
             m_fontSelector->unregisterForInvalidationCallbacks(m_resolver.get());
+#endif
     }
 
     // Decrement reference counts for things we could be keeping alive.
@@ -448,7 +449,7 @@ void StyleEngine::createResolver()
     ASSERT(m_document.frame());
     ASSERT(m_fontSelector);
 
-    m_resolver = adoptPtr(new StyleResolver(m_document));
+    m_resolver = adoptPtrWillBeNoop(new StyleResolver(m_document));
     appendActiveAuthorStyleSheets();
     m_fontSelector->registerForInvalidationCallbacks(m_resolver.get());
     combineCSSFeatureFlags(m_resolver->ensureUpdatedRuleFeatureSet());
@@ -461,7 +462,9 @@ void StyleEngine::clearResolver()
     ASSERT(m_fontSelector || !m_resolver);
     if (m_resolver) {
         m_document.updateStyleInvalidationIfNeeded();
+#if !ENABLE(OILPAN)
         m_fontSelector->unregisterForInvalidationCallbacks(m_resolver.get());
+#endif
     }
     m_resolver.clear();
 }
@@ -579,14 +582,14 @@ static bool isCacheableForStyleElement(const StyleSheetContents& contents)
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> StyleEngine::createSheet(Element* e, const String& text, TextPosition startPosition, bool createdByParser)
 {
-    RefPtrWillBeRawPtr<CSSStyleSheet> styleSheet;
+    RefPtrWillBeRawPtr<CSSStyleSheet> styleSheet = nullptr;
 
     e->document().styleEngine()->addPendingSheet();
 
     if (!e->document().inQuirksMode()) {
         AtomicString textContent(text);
 
-        HashMap<AtomicString, StyleSheetContents*>::AddResult result = m_textToSheetCache.add(textContent, 0);
+        WillBeHeapHashMap<AtomicString, RawPtrWillBeMember<StyleSheetContents> >::AddResult result = m_textToSheetCache.add(textContent, nullptr);
         if (result.isNewEntry || !result.storedValue->value) {
             styleSheet = StyleEngine::parseSheet(e, text, startPosition, createdByParser);
             if (result.isNewEntry && isCacheableForStyleElement(*styleSheet->contents())) {
@@ -612,7 +615,7 @@ PassRefPtrWillBeRawPtr<CSSStyleSheet> StyleEngine::createSheet(Element* e, const
 
 PassRefPtrWillBeRawPtr<CSSStyleSheet> StyleEngine::parseSheet(Element* e, const String& text, TextPosition startPosition, bool createdByParser)
 {
-    RefPtrWillBeRawPtr<CSSStyleSheet> styleSheet;
+    RefPtrWillBeRawPtr<CSSStyleSheet> styleSheet = nullptr;
     styleSheet = CSSStyleSheet::createInline(e, KURL(), startPosition, e->document().inputEncoding());
     styleSheet->contents()->parseStringAtPosition(text, startPosition, createdByParser);
     return styleSheet;
@@ -620,7 +623,7 @@ PassRefPtrWillBeRawPtr<CSSStyleSheet> StyleEngine::parseSheet(Element* e, const 
 
 void StyleEngine::removeSheet(StyleSheetContents* contents)
 {
-    HashMap<StyleSheetContents*, AtomicString>::iterator it = m_sheetToTextCache.find(contents);
+    WillBeHeapHashMap<RawPtrWillBeMember<StyleSheetContents>, AtomicString>::iterator it = m_sheetToTextCache.find(contents);
     if (it == m_sheetToTextCache.end())
         return;
 
@@ -634,6 +637,9 @@ void StyleEngine::trace(Visitor* visitor)
     visitor->trace(m_authorStyleSheets);
     visitor->trace(m_documentStyleSheetCollection);
     visitor->trace(m_styleSheetCollectionMap);
+    visitor->trace(m_resolver);
+    visitor->trace(m_textToSheetCache);
+    visitor->trace(m_sheetToTextCache);
 }
 
 }

@@ -130,6 +130,9 @@ class Port(object):
 
     SUPPORTED_VERSIONS = []
 
+    # URL to the build requirements page.
+    BUILD_REQUIREMENTS_URL = ''
+
     @classmethod
     def latest_platform_fallback_path(cls):
         return cls.FALLBACK_PATHS[cls.SUPPORTED_VERSIONS[-1]]
@@ -383,6 +386,10 @@ class Port(object):
             _log.error('To override, invoke with --nocheck-sys-deps')
             _log.error('')
             _log.error(output)
+            if self.BUILD_REQUIREMENTS_URL is not '':
+                _log.error('')
+                _log.error('For complete build requirements, please see:')
+                _log.error(self.BUILD_REQUIREMENTS_URL)
             return test_run_results.SYS_DEPS_EXIT_STATUS
         return test_run_results.OK_EXIT_STATUS
 
@@ -499,7 +506,7 @@ class Port(object):
             elif exit_code == 1:
                 result = self._filesystem.read_binary_file(native_diff_filename)
             else:
-                err_str = "image diff returned an exit code of %s" % exit_code
+                err_str = "Image diff returned an exit code of %s. See http://crbug.com/278596" % exit_code
         except OSError, e:
             err_str = 'error running image diff: %s' % str(e)
         finally:
@@ -1504,6 +1511,10 @@ class Port(object):
         return (stderr, 'crash log for %s (pid %s):\n%s\n%s\n' % (name_str, pid_str,
             '\n'.join(('STDOUT: ' + l) for l in stdout_lines),
             '\n'.join(('STDERR: ' + l) for l in stderr_lines)))
+
+    def _get_leak_log(self, name, pid, stdout, stderr, newer_than):
+        match = re.match('#LEAK - (\S+) pid (\d+) (.+)\n', stderr)
+        return (stderr, match.group(3))
 
     def look_for_new_crash_logs(self, crashed_processes, start_time):
         pass

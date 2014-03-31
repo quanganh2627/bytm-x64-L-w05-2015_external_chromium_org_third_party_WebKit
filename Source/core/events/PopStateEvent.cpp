@@ -28,7 +28,6 @@
 #include "core/events/PopStateEvent.h"
 
 #include "bindings/v8/SerializedScriptValue.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/History.h"
 
 namespace WebCore {
@@ -60,19 +59,19 @@ PopStateEvent::~PopStateEvent()
 {
 }
 
-PassRefPtr<PopStateEvent> PopStateEvent::create()
+PassRefPtrWillBeRawPtr<PopStateEvent> PopStateEvent::create()
 {
-    return adoptRef(new PopStateEvent);
+    return adoptRefWillBeRefCountedGarbageCollected(new PopStateEvent);
 }
 
-PassRefPtr<PopStateEvent> PopStateEvent::create(PassRefPtr<SerializedScriptValue> serializedState, PassRefPtrWillBeRawPtr<History> history)
+PassRefPtrWillBeRawPtr<PopStateEvent> PopStateEvent::create(PassRefPtr<SerializedScriptValue> serializedState, PassRefPtrWillBeRawPtr<History> history)
 {
-    return adoptRef(new PopStateEvent(serializedState, history));
+    return adoptRefWillBeRefCountedGarbageCollected(new PopStateEvent(serializedState, history));
 }
 
-PassRefPtr<PopStateEvent> PopStateEvent::create(const AtomicString& type, const PopStateEventInit& initializer)
+PassRefPtrWillBeRawPtr<PopStateEvent> PopStateEvent::create(const AtomicString& type, const PopStateEventInit& initializer)
 {
-    return adoptRef(new PopStateEvent(type, initializer));
+    return adoptRefWillBeRefCountedGarbageCollected(new PopStateEvent(type, initializer));
 }
 
 const AtomicString& PopStateEvent::interfaceName() const
@@ -82,6 +81,7 @@ const AtomicString& PopStateEvent::interfaceName() const
 
 void PopStateEvent::trace(Visitor* visitor)
 {
+    visitor->trace(m_history);
     Event::trace(visitor);
 }
 

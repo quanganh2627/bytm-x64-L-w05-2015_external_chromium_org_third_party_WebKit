@@ -86,6 +86,7 @@
 #include "core/html/HTMLContentElement.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
+#include "core/html/HTMLMediaElement.h"
 #include "core/html/HTMLSelectElement.h"
 #include "core/html/HTMLTextAreaElement.h"
 #include "core/html/forms/FormController.h"
@@ -295,7 +296,7 @@ unsigned Internals::updateStyleAndReturnAffectedElementCount(ExceptionState& exc
     }
 
     unsigned beforeCount = document->styleEngine()->resolverAccessCount();
-    document->updateStyleIfNeeded();
+    document->updateRenderTreeIfNeeded();
     return document->styleEngine()->resolverAccessCount() - beforeCount;
 }
 
@@ -1126,7 +1127,7 @@ String Internals::rangeAsText(const Range* range, ExceptionState& exceptionState
     return range->text();
 }
 
-PassRefPtr<DOMPoint> Internals::touchPositionAdjustedToBestClickableNode(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<DOMPoint> Internals::touchPositionAdjustedToBestClickableNode(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
 {
     if (!document || !document->frame()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's frame cannot be retrieved." : "The document provided is invalid.");
@@ -1166,7 +1167,7 @@ Node* Internals::touchNodeAdjustedToBestClickableNode(long x, long y, long width
     return targetNode;
 }
 
-PassRefPtr<DOMPoint> Internals::touchPositionAdjustedToBestContextMenuNode(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<DOMPoint> Internals::touchPositionAdjustedToBestContextMenuNode(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
 {
     if (!document || !document->frame()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's frame cannot be retrieved." : "The document provided is invalid.");
@@ -1555,7 +1556,7 @@ Vector<String> Internals::consoleMessageArgumentCounts(Document* document) const
     return result;
 }
 
-PassRefPtr<DOMWindow> Internals::openDummyInspectorFrontend(const String& url)
+PassRefPtrWillBeRawPtr<DOMWindow> Internals::openDummyInspectorFrontend(const String& url)
 {
     Page* page = contextDocument()->frame()->page();
     ASSERT(page);
@@ -1654,6 +1655,11 @@ String Internals::layerTreeAsText(Document* document, ExceptionState& exceptionS
 
 String Internals::elementLayerTreeAsText(Element* element, ExceptionState& exceptionState) const
 {
+    if (!element) {
+        exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
+        return String();
+    }
+
     FrameView* frameView = element->document().view();
     frameView->updateLayoutAndStyleForPainting();
 
@@ -2054,6 +2060,11 @@ void Internals::webkitDidExitFullScreenForElement(Document* document, Element* e
     FullscreenElementStack::from(*document).webkitDidExitFullScreenForElement(element);
 }
 
+void Internals::mediaPlayerRequestFullscreen(HTMLMediaElement* mediaElement)
+{
+    mediaElement->mediaPlayerRequestFullscreen();
+}
+
 void Internals::registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme)
 {
     SchemeRegistry::registerURLSchemeAsBypassingContentSecurityPolicy(scheme);
@@ -2420,6 +2431,7 @@ ScriptPromise Internals::addOneToPromise(ExecutionContext* context, ScriptPromis
 
 void Internals::trace(Visitor* visitor)
 {
+    visitor->trace(m_frontendWindow);
     visitor->trace(m_runtimeFlags);
     visitor->trace(m_profilers);
 }
@@ -2444,6 +2456,8 @@ void Internals::setValueForUser(Element* element, const String& value)
 
 String Internals::textSurroundingNode(Node* node, int x, int y, unsigned long maxLength)
 {
+    if (!node)
+        return String();
     blink::WebPoint point(x, y);
     SurroundingText surroundingText(VisiblePosition(node->renderer()->positionForPoint(static_cast<IntPoint>(point))), maxLength);
     return surroundingText.content();

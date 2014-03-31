@@ -42,6 +42,8 @@
 #include "platform/JSONValues.h"
 #include "platform/PlatformInstrumentation.h"
 #include "platform/geometry/LayoutRect.h"
+#include "wtf/HashMap.h"
+#include "wtf/HashSet.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/Vector.h"
 #include "wtf/WeakPtr.h"
@@ -139,7 +141,7 @@ public:
 
     virtual void enable(ErrorString*) OVERRIDE;
     virtual void disable(ErrorString*) OVERRIDE;
-    virtual void start(ErrorString*, const int* maxCallStackDepth, const bool* bufferEvents, const bool* includeCounters, const bool* includeGPUEvents) OVERRIDE;
+    virtual void start(ErrorString*, const int* maxCallStackDepth, const bool* bufferEvents, const String* liveEvents, const bool* includeCounters, const bool* includeGPUEvents) OVERRIDE;
     virtual void stop(ErrorString*, RefPtr<TypeBuilder::Array<TypeBuilder::Timeline::TimelineEvent> >& events) OVERRIDE;
 
     void setLayerTreeId(int layerTreeId) { m_layerTreeId = layerTreeId; }
@@ -215,8 +217,7 @@ public:
     void didReceiveResourceResponse(LocalFrame*, unsigned long, DocumentLoader*, const ResourceResponse&, ResourceLoader*);
     void didFinishLoading(unsigned long, DocumentLoader*, double monotonicFinishTime, int64_t);
     void didFailLoading(unsigned long identifier, const ResourceError&);
-    bool willReceiveResourceData(LocalFrame*, unsigned long identifier, int length);
-    void didReceiveResourceData();
+    void didReceiveData(LocalFrame*, unsigned long identifier, const char* data, int dataLength, int encodedDataLength);
 
     void didRequestAnimationFrame(Document*, int callbackId);
     void didCancelAnimationFrame(Document*, int callbackId);
@@ -285,7 +286,7 @@ private:
 
     void commitFrameRecord();
 
-    void addRecordToTimeline(PassRefPtr<TypeBuilder::Timeline::TimelineEvent>);
+    void addRecordToTimeline(PassRefPtr<TypeBuilder::Timeline::TimelineEvent>, double ts);
     void innerAddRecordToTimeline(PassRefPtr<TypeBuilder::Timeline::TimelineEvent>);
     void clearRecordStack();
     PassRefPtr<TypeBuilder::Timeline::TimelineEvent> createRecordForEvent(const TraceEventDispatcher::TraceEvent&, const String& type, PassRefPtr<JSONObject> data);
@@ -302,6 +303,7 @@ private:
     bool isStarted();
     void innerStart();
     void innerStop(bool fromConsole);
+    void setLiveEvents(const String&);
 
     InspectorPageAgent* m_pageAgent;
     InspectorDOMAgent* m_domAgent;
@@ -337,6 +339,8 @@ private:
     typedef HashMap<ThreadIdentifier, TimelineThreadState> ThreadStateMap;
     ThreadStateMap m_threadStates;
     bool m_mayEmitFirstPaint;
+    HashSet<String> m_liveEvents;
+    double m_lastProgressTimestamp;
 };
 
 } // namespace WebCore

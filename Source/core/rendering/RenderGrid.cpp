@@ -191,19 +191,27 @@ void RenderGrid::addChild(RenderObject* newChild, RenderObject* beforeChild)
         return;
     }
 
+    if (style()->gridAutoFlow() != AutoFlowNone) {
+        // The grid needs to be recomputed as it might contain auto-placed items that will change their position.
+        dirtyGrid();
+        return;
+    }
+
     RenderBox* newChildBox = toRenderBox(newChild);
     OwnPtr<GridSpan> rowPositions = resolveGridPositionsFromStyle(newChildBox, ForRows);
     OwnPtr<GridSpan> columnPositions = resolveGridPositionsFromStyle(newChildBox, ForColumns);
     if (!rowPositions || !columnPositions) {
         // The new child requires the auto-placement algorithm to run so we need to recompute the grid fully.
         dirtyGrid();
+        return;
     } else {
-        if (gridRowCount() <= rowPositions->finalPositionIndex || gridColumnCount() <= columnPositions->finalPositionIndex) {
-            // FIXME: We could just insert the new child provided we had a primitive to arbitrarily grow the grid.
-            dirtyGrid();
-        } else {
-            insertItemIntoGrid(newChildBox, GridCoordinate(*rowPositions, *columnPositions));
-        }
+        // Ensure that the grid is big enough to contain new grid item.
+        if (gridRowCount() <= rowPositions->finalPositionIndex)
+            growGrid(ForRows, rowPositions->finalPositionIndex);
+        if (gridColumnCount() <= columnPositions->finalPositionIndex)
+            growGrid(ForColumns, columnPositions->finalPositionIndex);
+
+        insertItemIntoGrid(newChildBox, GridCoordinate(*rowPositions, *columnPositions));
     }
 }
 
@@ -260,10 +268,6 @@ void RenderGrid::layoutBlock(bool relayoutChildren)
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
     LayoutStateMaintainer statePusher(*this, locationOffset());
 
-    RenderFlowThread* flowThread = flowThreadContainingBlock();
-    if (updateRegionsAndShapesLogicalSize(flowThread))
-        relayoutChildren = true;
-
     LayoutSize previousSize = size();
 
     setLogicalHeight(0);
@@ -279,10 +283,9 @@ void RenderGrid::layoutBlock(bool relayoutChildren)
 
     layoutPositionedObjects(relayoutChildren || isRoot());
 
-    computeRegionRangeForBlock(flowThread);
+    computeRegionRangeForBlock(flowThreadContainingBlock());
 
     computeOverflow(oldClientAfterEdge);
-    statePusher.pop();
 
     updateLayerTransform();
 
@@ -709,16 +712,18 @@ bool RenderGrid::tracksAreWiderThanMinTrackBreadth(GridTrackSizingDirection dire
 }
 #endif
 
-void RenderGrid::growGrid(GridTrackSizingDirection direction)
+void RenderGrid::growGrid(GridTrackSizingDirection direction, size_t maximumPositionIndex)
 {
     if (direction == ForColumns) {
-        const size_t oldColumnSize = m_grid[0].size();
+        ASSERT(maximumPositionIndex >= m_grid[0].size());
         for (size_t row = 0; row < m_grid.size(); ++row)
-            m_grid[row].grow(oldColumnSize + 1);
+            m_grid[row].grow(maximumPositionIndex + 1);
     } else {
+        ASSERT(maximumPositionIndex >= m_grid.size());
         const size_t oldRowSize = m_grid.size();
-        m_grid.grow(oldRowSize + 1);
-        m_grid[oldRowSize].grow(m_grid[0].size());
+        m_grid.grow(maximumPositionIndex + 1);
+        for (size_t row = oldRowSize; row < m_grid.size(); ++row)
+            m_grid[row].grow(m_grid[0].size());
     }
 }
 
@@ -824,7 +829,7 @@ void RenderGrid::placeSpecifiedMajorAxisItemsOnGrid(const Vector<RenderBox*>& au
             continue;
         }
 
-        growGrid(autoPlacementMinorAxisDirection());
+        growGrid(autoPlacementMinorAxisDirection(), autoPlacementMinorAxisDirection() == ForColumns ? m_grid[0].size() : m_grid.size());
         OwnPtr<GridCoordinate> emptyGridArea = iterator.nextEmptyGridArea();
         ASSERT(emptyGridArea);
         insertItemIntoGrid(autoGridItems[i], emptyGridArea->rows.initialPositionIndex, emptyGridArea->columns.initialPositionIndex);
@@ -863,7 +868,7 @@ void RenderGrid::placeAutoMajorAxisItemOnGrid(RenderBox* gridItem)
     // We didn't find an empty grid area so we need to create an extra major axis line and insert our gridItem in it.
     const size_t columnIndex = (autoPlacementMajorAxisDirection() == ForColumns) ? m_grid[0].size() : minorAxisIndex;
     const size_t rowIndex = (autoPlacementMajorAxisDirection() == ForColumns) ? minorAxisIndex : m_grid.size();
-    growGrid(autoPlacementMajorAxisDirection());
+    growGrid(autoPlacementMajorAxisDirection(), autoPlacementMajorAxisDirection() == ForColumns ? m_grid[0].size() : m_grid.size());
     insertItemIntoGrid(gridItem, rowIndex, columnIndex);
 }
 

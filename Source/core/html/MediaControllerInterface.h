@@ -38,23 +38,6 @@ public:
     virtual double duration() const = 0;
     virtual double currentTime() const = 0;
     virtual void setCurrentTime(double, ExceptionState&) = 0;
-
-    virtual bool paused() const = 0;
-    virtual void play() = 0;
-    virtual void pause() = 0;
-
-    virtual double volume() const = 0;
-    virtual void setVolume(double, ExceptionState&) = 0;
-
-    virtual bool muted() const = 0;
-    virtual void setMuted(bool) = 0;
-
-    virtual bool hasAudio() const = 0;
-
-    virtual void beginScrubbing() = 0;
-    virtual void endScrubbing() = 0;
-
-    virtual bool canPlay() const = 0;
 };
 
 }

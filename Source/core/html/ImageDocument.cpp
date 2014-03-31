@@ -30,7 +30,6 @@
 #include "core/dom/RawDataDocumentParser.h"
 #include "core/events/EventListener.h"
 #include "core/events/MouseEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/ImageResource.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
@@ -132,7 +131,7 @@ void ImageDocumentParser::appendBytes(const char* data, size_t length)
     document()->cachedImage()->appendData(data, length);
     // Make sure the image renderer gets created because we need the renderer
     // to read the aspect ratio. See crbug.com/320244
-    document()->updateStyleIfNeeded();
+    document()->updateRenderTreeIfNeeded();
     document()->imageUpdated();
 }
 

@@ -28,6 +28,7 @@
 
 #include "core/page/ChromeClient.h"
 #include "core/rendering/RenderLayer.h"
+#include "core/rendering/compositing/CompositingPropertyUpdater.h"
 #include "core/rendering/compositing/CompositingReasonFinder.h"
 #include "core/rendering/compositing/GraphicsLayerUpdater.h"
 #include "platform/graphics/GraphicsLayerClient.h"
@@ -161,12 +162,6 @@ public:
 
     void setIsInWindow(bool);
 
-    void clearMappingForAllRenderLayers();
-
-    // Walk the tree looking for layers with 3d transforms. Useful in case you need
-    // to know if there is non-affine content, e.g. for drawing into an image.
-    bool has3DContent() const;
-
     static RenderLayerCompositor* frameContentsCompositor(RenderPart*);
     // Return true if the layers changed.
     static bool parentFrameContentLayers(RenderPart*);
@@ -198,6 +193,10 @@ public:
     void setNeedsToRecomputeCompositingRequirements() { m_needsToRecomputeCompositingRequirements = true; }
 
     virtual String debugName(const GraphicsLayer*) OVERRIDE;
+
+    void updateStyleDeterminedCompositingReasons(RenderLayer*);
+
+    void scheduleAnimationIfNeeded();
 
 private:
     class OverlapMap;
@@ -233,6 +232,8 @@ private:
         RenderLayer* clippingAncestorForMostRecentMapping;
     };
 
+    bool hasUnresolvedDirtyBits();
+
     bool canSquashIntoCurrentSquashingOwner(const RenderLayer* candidate, const SquashingState&, const RenderLayer* clippingAncestor);
 
     CompositingStateTransitionType computeCompositedLayerUpdate(RenderLayer*);
@@ -262,34 +263,22 @@ private:
     bool allocateOrClearCompositedLayerMapping(RenderLayer*, CompositingStateTransitionType compositedLayerUpdate);
     bool updateSquashingAssignment(RenderLayer*, SquashingState&, CompositingStateTransitionType compositedLayerUpdate);
 
-    void clearMappingForRenderLayerIncludingDescendants(RenderLayer*);
-
     void recursiveRepaintLayer(RenderLayer*);
-
-    void addToOverlapMap(OverlapMap&, RenderLayer*, IntRect& layerBounds);
 
     // Forces an update for all frames of frame tree recursively. Used only when the mainFrame compositor is ready to
     // finish all deferred work.
     static void finishCompositingUpdateForFrameTree(LocalFrame*);
 
-    void computeCompositingRequirements(RenderLayer* ancestorLayer, RenderLayer*, OverlapMap*, struct CompositingRecursionData&, bool& descendantHas3DTransform, Vector<RenderLayer*>& unclippedDescendants, IntRect& absoluteDecendantBoundingBox);
+    void computeCompositingRequirements(RenderLayer* ancestorLayer, RenderLayer*, OverlapMap&, struct CompositingRecursionData&, bool& descendantHas3DTransform, Vector<RenderLayer*>& unclippedDescendants, IntRect& absoluteDecendantBoundingBox);
 
     // Defines which RenderLayers will paint into which composited backings, by allocating and destroying CompositedLayerMappings as needed.
     void assignLayersToBackings(RenderLayer*, bool& layersChanged);
     void assignLayersToBackingsInternal(RenderLayer*, SquashingState&, bool& layersChanged, RenderLayer* clippingAncestor);
 
-    // Allocates, sets up hierarchy, and sets appropriate properties for the GraphicsLayers that correspond to a given
-    // composited RenderLayer. Does nothing if the given RenderLayer does not have a CompositedLayerMapping.
-    void updateGraphicsLayersMappedToRenderLayer(RenderLayer*);
-
-    // Recurses down the tree, updating layer geometry only.
-    void updateLayerTreeGeometry(RenderLayer*);
-
     // Hook compositing layers together
     void setCompositingParent(RenderLayer* childLayer, RenderLayer* parentLayer);
     void removeCompositedChildren(RenderLayer*);
 
-    bool layerHas3DContent(const RenderLayer*) const;
     bool isRunningAcceleratedTransformAnimation(RenderObject*) const;
 
     bool hasAnyAdditionalCompositedLayers(const RenderLayer* rootLayer) const;
@@ -312,9 +301,6 @@ private:
     ScrollingCoordinator* scrollingCoordinator() const;
 
     void addViewportConstrainedLayer(RenderLayer*);
-
-    FixedPositionViewportConstraints computeFixedViewportConstraints(RenderLayer*) const;
-    StickyPositionViewportConstraints computeStickyViewportConstraints(RenderLayer*) const;
 
     bool requiresHorizontalScrollbarLayer() const;
     bool requiresVerticalScrollbarLayer() const;
@@ -341,7 +327,10 @@ private:
     // FIXME: This should absolutely not be mutable.
     mutable bool m_needsToRecomputeCompositingRequirements;
     bool m_needsToUpdateLayerTreeGeometry;
+
+    // FIXME: We should remove m_pendingUpdateType and propagate the bits with CompositingPropertyUpdater instead.
     GraphicsLayerUpdater::UpdateType m_pendingUpdateType;
+    CompositingPropertyUpdater::UpdateType m_pendingPropertyUpdateType;
 
     bool m_compositing;
     bool m_compositingLayersNeedRebuild;

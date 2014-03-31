@@ -200,7 +200,7 @@ public:
         return String::format("SetStyleSheetText %s", m_styleSheet->id().utf8().data());
     }
 
-    virtual void merge(PassOwnPtr<Action> action) OVERRIDE
+    virtual void merge(PassRefPtr<Action> action) OVERRIDE
     {
         ASSERT(action->mergeId() == mergeId());
 
@@ -229,7 +229,7 @@ public:
 
     virtual String toString() OVERRIDE
     {
-        return mergeId() + ": " + m_oldText + " -> " + m_text;
+        return mergeId() + ": " + m_oldStyleText + " -> " + m_text;
     }
 
     virtual bool perform(ExceptionState& exceptionState) OVERRIDE
@@ -240,14 +240,14 @@ public:
     virtual bool undo(ExceptionState& exceptionState) OVERRIDE
     {
         String placeholder;
-        return m_styleSheet->setPropertyText(m_cssId, m_propertyIndex, m_overwrite ? m_oldText : "", true, &placeholder, exceptionState);
+        return m_styleSheet->setStyleText(m_cssId, m_oldStyleText);
     }
 
     virtual bool redo(ExceptionState& exceptionState) OVERRIDE
     {
-        String oldText;
-        bool result = m_styleSheet->setPropertyText(m_cssId, m_propertyIndex, m_text, m_overwrite, &oldText, exceptionState);
-        m_oldText = oldText.stripWhiteSpace();
+        if (!m_styleSheet->getStyleText(m_cssId, &m_oldStyleText))
+            return false;
+        bool result = m_styleSheet->setPropertyText(m_cssId, m_propertyIndex, m_text, m_overwrite, exceptionState);
         return result;
     }
 
@@ -256,7 +256,7 @@ public:
         return String::format("SetPropertyText %s:%u:%s", m_styleSheet->id().utf8().data(), m_propertyIndex, m_overwrite ? "true" : "false");
     }
 
-    virtual void merge(PassOwnPtr<Action> action) OVERRIDE
+    virtual void merge(PassRefPtr<Action> action) OVERRIDE
     {
         ASSERT(action->mergeId() == mergeId());
 
@@ -269,7 +269,7 @@ private:
     InspectorCSSId m_cssId;
     unsigned m_propertyIndex;
     String m_text;
-    String m_oldText;
+    String m_oldStyleText;
     bool m_overwrite;
 };
 
@@ -827,26 +827,29 @@ void InspectorCSSAgent::setStyleSheetText(ErrorString* errorString, const String
 {
     InspectorStyleSheetBase* inspectorStyleSheet = assertStyleSheetForId(errorString, styleSheetId);
     if (!inspectorStyleSheet) {
-        *errorString = "Style sheet with id " + styleSheetId + " not found.";
+        *errorString = "Style sheet with id " + styleSheetId + " not found";
         return;
     }
 
     TrackExceptionState exceptionState;
-    m_domAgent->history()->perform(adoptPtr(new SetStyleSheetTextAction(inspectorStyleSheet, text)), exceptionState);
+    m_domAgent->history()->perform(adoptRef(new SetStyleSheetTextAction(inspectorStyleSheet, text)), exceptionState);
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
 }
 
 void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const RefPtr<JSONObject>& fullStyleId, int propertyIndex, const String& text, bool overwrite, RefPtr<TypeBuilder::CSS::CSSStyle>& result)
 {
     InspectorCSSId compoundId(fullStyleId);
-    ASSERT(!compoundId.isEmpty());
+    if (compoundId.isEmpty()) {
+        *errorString = "Failed to parse styleId argument";
+        return;
+    }
 
     InspectorStyleSheetBase* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
     if (!inspectorStyleSheet)
         return;
 
     TrackExceptionState exceptionState;
-    bool success = m_domAgent->history()->perform(adoptPtr(new SetPropertyTextAction(inspectorStyleSheet, compoundId, propertyIndex, text, overwrite)), exceptionState);
+    bool success = m_domAgent->history()->perform(adoptRef(new SetPropertyTextAction(inspectorStyleSheet, compoundId, propertyIndex, text, overwrite)), exceptionState);
     if (success)
         result = inspectorStyleSheet->buildObjectForStyle(inspectorStyleSheet->styleForId(compoundId));
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
@@ -862,7 +865,7 @@ void InspectorCSSAgent::setRuleSelector(ErrorString* errorString, const RefPtr<J
         return;
 
     TrackExceptionState exceptionState;
-    bool success = m_domAgent->history()->perform(adoptPtr(new SetRuleSelectorAction(inspectorStyleSheet, compoundId, selector)), exceptionState);
+    bool success = m_domAgent->history()->perform(adoptRef(new SetRuleSelectorAction(inspectorStyleSheet, compoundId, selector)), exceptionState);
 
     if (success) {
         CSSStyleRule* rule = inspectorStyleSheet->ruleForId(compoundId);
@@ -903,15 +906,14 @@ void InspectorCSSAgent::addRule(ErrorString* errorString, const String& styleShe
         return;
 
     TrackExceptionState exceptionState;
-    OwnPtr<AddRuleAction> action = adoptPtr(new AddRuleAction(inspectorStyleSheet, selector));
-    AddRuleAction* rawAction = action.get();
-    bool success = m_domAgent->history()->perform(action.release(), exceptionState);
+    RefPtr<AddRuleAction> action = adoptRef(new AddRuleAction(inspectorStyleSheet, selector));
+    bool success = m_domAgent->history()->perform(action, exceptionState);
     if (!success) {
         *errorString = InspectorDOMAgent::toErrorString(exceptionState);
         return;
     }
 
-    InspectorCSSId ruleId = rawAction->newRuleId();
+    InspectorCSSId ruleId = action->newRuleId();
     CSSStyleRule* rule = inspectorStyleSheet->ruleForId(ruleId);
     result = inspectorStyleSheet->buildObjectForRule(rule, buildMediaListChain(rule));
 }

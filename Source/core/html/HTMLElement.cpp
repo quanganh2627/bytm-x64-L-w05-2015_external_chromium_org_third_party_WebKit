@@ -41,7 +41,6 @@
 #include "core/editing/markup.h"
 #include "core/events/EventListener.h"
 #include "core/events/KeyboardEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLBRElement.h"
 #include "core/html/HTMLFormElement.h"
@@ -326,9 +325,9 @@ void HTMLElement::parseAttribute(const QualifiedName& name, const AtomicString& 
 PassRefPtr<DocumentFragment> HTMLElement::textToFragment(const String& text, ExceptionState& exceptionState)
 {
     RefPtr<DocumentFragment> fragment = DocumentFragment::create(document());
-    unsigned int i, length = text.length();
+    unsigned i, length = text.length();
     UChar c = 0;
-    for (unsigned int start = 0; start < length; ) {
+    for (unsigned start = 0; start < length; ) {
 
         // Find next line break.
         for (i = start; i < length; i++) {
@@ -611,13 +610,11 @@ TranslateAttributeMode HTMLElement::translateAttributeMode() const
 
 bool HTMLElement::translate() const
 {
-    for (const Node* n = this; n; n = n->parentNode()) {
-        if (n->isHTMLElement()) {
-            TranslateAttributeMode mode = toHTMLElement(n)->translateAttributeMode();
-            if (mode != TranslateAttributeInherit) {
-                ASSERT(mode == TranslateAttributeYes || mode == TranslateAttributeNo);
-                return mode == TranslateAttributeYes;
-            }
+    for (const HTMLElement* element = this; element; element = Traversal<HTMLElement>::firstAncestor(*element)) {
+        TranslateAttributeMode mode = element->translateAttributeMode();
+        if (mode != TranslateAttributeInherit) {
+            ASSERT(mode == TranslateAttributeYes || mode == TranslateAttributeNo);
+            return mode == TranslateAttributeYes;
         }
     }
 
@@ -632,11 +629,7 @@ void HTMLElement::setTranslate(bool enable)
 
 HTMLFormElement* HTMLElement::findFormAncestor() const
 {
-    for (ContainerNode* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
-        if (isHTMLFormElement(*ancestor))
-            return toHTMLFormElement(ancestor);
-    }
-    return 0;
+    return Traversal<HTMLFormElement>::firstAncestor(*this);
 }
 
 static inline bool elementAffectsDirectionality(const Node* node)
@@ -809,25 +802,25 @@ void HTMLElement::addHTMLLengthToStyle(MutableStylePropertySet* style, CSSProper
     // strip attribute garbage..
     StringImpl* v = value.impl();
     if (v) {
-        unsigned int l = 0;
+        unsigned length = 0;
 
-        while (l < v->length() && (*v)[l] <= ' ')
-            l++;
+        while (length < v->length() && (*v)[length] <= ' ')
+            length++;
 
-        for (; l < v->length(); l++) {
-            UChar cc = (*v)[l];
+        for (; length < v->length(); length++) {
+            UChar cc = (*v)[length];
             if (cc > '9')
                 break;
             if (cc < '0') {
                 if (cc == '%' || cc == '*')
-                    l++;
+                    length++;
                 if (cc != '.')
                     break;
             }
         }
 
-        if (l != v->length()) {
-            addPropertyToPresentationAttributeStyle(style, propertyID, v->substring(0, l));
+        if (length != v->length()) {
+            addPropertyToPresentationAttributeStyle(style, propertyID, v->substring(0, length));
             return;
         }
     }

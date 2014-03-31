@@ -30,14 +30,16 @@
 
 /**
  * @constructor
- *
+ * @param {!WebInspector.Target} target
  * @param {!WebInspector.ConsoleMessage} consoleMessage
  * @param {?WebInspector.Linkifier} linkifier
  */
-WebInspector.ConsoleViewMessage = function(consoleMessage, linkifier)
+WebInspector.ConsoleViewMessage = function(target, consoleMessage, linkifier)
 {
     this._message = consoleMessage;
     this._linkifier = linkifier;
+    this._target = target;
+    this._repeatCount = 1;
 
     /** @type {!Array.<!WebInspector.DataGrid>} */
     this._dataGrids = [];
@@ -159,11 +161,11 @@ WebInspector.ConsoleViewMessage.prototype = {
         }
 
         if (consoleMessage.source !== WebInspector.ConsoleMessage.MessageSource.Network || consoleMessage.request) {
-            if (consoleMessage.stackTrace && consoleMessage.stackTrace.length && consoleMessage.stackTrace[0].scriptId) {
-                this._anchorElement = this._linkifyCallFrame(consoleMessage.stackTrace[0]);
-            } else if (consoleMessage.url && consoleMessage.url !== "undefined") {
+            var callFrame = this._callFrameAnchorFromStackTrace(consoleMessage.stackTrace);
+            if (callFrame)
+                this._anchorElement = this._linkifyCallFrame(callFrame);
+            else if (consoleMessage.url && consoleMessage.url !== "undefined")
                 this._anchorElement = this._linkifyLocation(consoleMessage.url, consoleMessage.line, consoleMessage.column);
-            }
         }
 
         this._formattedMessage.appendChild(this._messageElement);
@@ -246,6 +248,30 @@ WebInspector.ConsoleViewMessage.prototype = {
     },
 
     /**
+     * @param {?Array.<!ConsoleAgent.CallFrame>} stackTrace
+     * @return {?ConsoleAgent.CallFrame}
+     */
+    _callFrameAnchorFromStackTrace: function(stackTrace)
+    {
+        if (!stackTrace || !stackTrace.length)
+            return null;
+        var callFrame = stackTrace[0].scriptId ? stackTrace[0] : null;
+        if (!WebInspector.experimentsSettings.frameworksDebuggingSupport.isEnabled())
+            return callFrame;
+        if (!WebInspector.settings.skipStackFramesSwitch.get())
+            return callFrame;
+        var regex = WebInspector.settings.skipStackFramesPattern.asRegExp();
+        if (!regex)
+            return callFrame;
+        for (var i = 0; i < stackTrace.length; ++i) {
+            var script = this._target.debuggerModel.scriptForId(stackTrace[i].scriptId);
+            if (!script || !regex.test(script.sourceURL))
+                return stackTrace[i].scriptId ? stackTrace[i] : null;
+        }
+        return callFrame;
+    },
+
+    /**
      * @return {boolean}
      */
     isErrorOrWarning: function()
@@ -268,9 +294,9 @@ WebInspector.ConsoleViewMessage.prototype = {
                 continue;
 
             if (typeof parameters[i] === "object")
-                parameters[i] = WebInspector.RemoteObject.fromPayload(parameters[i]);
+                parameters[i] = WebInspector.RemoteObject.fromPayload(parameters[i], this._target);
             else
-                parameters[i] = WebInspector.RemoteObject.fromPrimitiveValue(parameters[i]);
+                parameters[i] = WebInspector.RemoteObject.fromPrimitiveValue(parameters[i], this._target);
         }
 
         // There can be string log and string eval result. We distinguish between them based on message type.
@@ -472,7 +498,7 @@ WebInspector.ConsoleViewMessage.prototype = {
                 this._formatParameterAsObject(object, elem, false);
                 return;
             }
-            var node = WebInspector.domAgent.nodeForId(nodeId);
+            var node = WebInspector.domModel.nodeForId(nodeId);
             var renderer = WebInspector.moduleManager.instance(WebInspector.Renderer, node);
             if (renderer)
                 elem.appendChild(renderer.render(node));
@@ -843,6 +869,25 @@ WebInspector.ConsoleViewMessage.prototype = {
         return regexObject.test(this._formattedMessageText()) || (!!this._anchorElement && regexObject.test(this._anchorElement.textContent));
     },
 
+    updateTimestamp: function(show)
+    {
+        if (!this._element)
+            return;
+
+        if (show && !this.timestampElement) {
+            this.timestampElement = this._element.createChild("span", "console-timestamp");
+            this.timestampElement.textContent = (new Date(this._message.timestamp)).toConsoleTime();
+            var afterRepeatCountChild = this.repeatCountElement && this.repeatCountElement.nextSibling;
+            this._element.insertBefore(this.timestampElement, afterRepeatCountChild || this._element.firstChild);
+            return;
+        }
+
+        if (!show && this.timestampElement) {
+            this.timestampElement.remove();
+            delete this.timestampElement;
+        }
+    },
+
     /**
      * @return {!Element}
      */
@@ -880,8 +925,10 @@ WebInspector.ConsoleViewMessage.prototype = {
 
         element.appendChild(this.formattedMessage());
 
-        if (this._message.repeatCount > 1)
-            this.updateRepeatCount();
+        if (this._repeatCount > 1)
+            this._showRepeatCountElement();
+
+        this.updateTimestamp(WebInspector.settings.consoleTimestampsEnabled.get());
 
         return element;
     },
@@ -911,7 +958,14 @@ WebInspector.ConsoleViewMessage.prototype = {
         }
     },
 
-    updateRepeatCount: function() {
+    incrementRepeatCount: function()
+    {
+        this._repeatCount++;
+        this._showRepeatCountElement();
+    },
+
+    _showRepeatCountElement: function()
+    {
         if (!this._element)
             return;
 
@@ -922,7 +976,7 @@ WebInspector.ConsoleViewMessage.prototype = {
             this._element.insertBefore(this.repeatCountElement, this._element.firstChild);
             this._element.classList.add("repeated-message");
         }
-        this.repeatCountElement.textContent = this._message.repeatCount;
+        this.repeatCountElement.textContent = this._repeatCount;
     },
 
     /**

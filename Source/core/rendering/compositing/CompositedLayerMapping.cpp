@@ -136,10 +136,21 @@ static bool contentLayerSupportsDirectBackgroundComposition(const RenderObject* 
     return contentsRect(renderer).contains(backgroundRect(renderer));
 }
 
+static blink::WebLayer* platformLayerForPlugin(RenderObject* renderer)
+{
+    if (!renderer->isEmbeddedObject())
+        return 0;
+    Widget* widget = toRenderEmbeddedObject(renderer)->widget();
+    if (!widget || !widget->isPluginView())
+        return 0;
+    return toPluginView(widget)->platformLayer();
+
+}
+
 static inline bool isAcceleratedContents(RenderObject* renderer)
 {
     return isAcceleratedCanvas(renderer)
-        || (renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing())
+        || (renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->requiresAcceleratedCompositing())
         || renderer->isVideo();
 }
 
@@ -161,8 +172,8 @@ CompositedLayerMapping::CompositedLayerMapping(RenderLayer& layer)
     , m_requiresOwnBackingStoreForAncestorReasons(true)
     , m_canCompositeFilters(false)
     , m_backgroundLayerPaintsFixedRootBackground(false)
-    , m_needToUpdateGeometry(false)
-    , m_needToUpdateGeometryOfAllDecendants(false)
+    , m_needToUpdateGraphicsLayer(false)
+    , m_needToUpdateGraphicsLayerOfAllDecendants(false)
 {
     if (layer.isRootLayer() && renderer()->frame()->isMainFrame())
         m_isMainFrameRenderViewLayer = true;
@@ -350,8 +361,11 @@ bool CompositedLayerMapping::shouldClipCompositedBounds() const
     return false;
 }
 
-void CompositedLayerMapping::updateCompositedBounds()
+void CompositedLayerMapping::updateCompositedBounds(GraphicsLayerUpdater::UpdateType updateType)
 {
+    if (!shouldUpdateGraphicsLayer(updateType))
+        return;
+
     // We need to know if we draw content in order to update our bounds (this has an effect
     // on whether or not descendands will paint into our backing). Update this value now.
     updateDrawsContent();
@@ -425,7 +439,7 @@ void CompositedLayerMapping::updateAfterLayout(UpdateAfterLayoutFlags flags)
         //
         // The solution is to update compositing children of this layer here,
         // via updateCompositingChildrenGeometry().
-        updateCompositedBounds();
+        updateCompositedBounds(GraphicsLayerUpdater::ForceUpdate);
         layerCompositor->updateCompositingDescendantGeometry(m_owningLayer.stackingNode(), &m_owningLayer, flags & CompositingChildrenOnly);
 
         if (flags & IsUpdateRoot) {
@@ -441,8 +455,11 @@ void CompositedLayerMapping::updateAfterLayout(UpdateAfterLayoutFlags flags)
         setContentsNeedDisplay();
 }
 
-bool CompositedLayerMapping::updateGraphicsLayerConfiguration()
+bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdater::UpdateType updateType)
 {
+    if (!shouldUpdateGraphicsLayer(updateType))
+        return false;
+
     RenderLayerCompositor* compositor = this->compositor();
     RenderObject* renderer = this->renderer();
 
@@ -465,7 +482,7 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration()
     if (m_owningLayer.needsCompositedScrolling())
         needsDescendentsClippingLayer = false;
 
-    RenderLayer* scrollParent = m_owningLayer.scrollParent();
+    RenderLayer* scrollParent = renderer->compositorDrivenAcceleratedScrollingEnabled() ? m_owningLayer.scrollParent() : 0;
     bool needsAncestorClip = compositor->clippedByAncestor(&m_owningLayer);
     if (scrollParent) {
         // If our containing block is our ancestor scrolling layer, then we'll already be clipped
@@ -527,9 +544,8 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration()
     if (isDirectlyCompositedImage())
         updateImageContents();
 
-    if (renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing()) {
-        PluginView* pluginView = toPluginView(toRenderWidget(renderer)->widget());
-        m_graphicsLayer->setContentsToPlatformLayer(pluginView->platformLayer());
+    if (blink::WebLayer* layer = platformLayerForPlugin(renderer)) {
+        m_graphicsLayer->setContentsToPlatformLayer(layer);
     } else if (renderer->node() && renderer->node()->isFrameOwnerElement() && toHTMLFrameOwnerElement(renderer->node())->contentFrame()) {
         blink::WebLayer* layer = toHTMLFrameOwnerElement(renderer->node())->contentFrame()->remotePlatformLayer();
         if (layer)
@@ -640,17 +656,14 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
     }
 }
 
-GraphicsLayerUpdater::UpdateType CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType)
+void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType)
 {
     // If we haven't built z-order lists yet, wait until later.
     if (m_owningLayer.stackingNode()->isStackingContainer() && m_owningLayer.stackingNode()->zOrderListsDirty())
-        return updateType;
+        return;
 
-    if (!m_needToUpdateGeometry && updateType != GraphicsLayerUpdater::ForceUpdate)
-        return updateType;
-    m_needToUpdateGeometry = false;
-    if (m_needToUpdateGeometryOfAllDecendants)
-        updateType = GraphicsLayerUpdater::ForceUpdate;
+    if (!shouldUpdateGraphicsLayer(updateType))
+        return;
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
@@ -696,7 +709,7 @@ GraphicsLayerUpdater::UpdateType CompositedLayerMapping::updateGraphicsLayerGeom
         // If the compositing ancestor has a layer to clip children, we parent in that, and therefore
         // position relative to it.
         IntRect clippingBox = clipBox(toRenderBox(compAncestor->renderer()));
-        graphicsLayerParentLocation = clippingBox.location();
+        graphicsLayerParentLocation = clippingBox.location() + roundedIntSize(compAncestor->compositedLayerMapping()->subpixelAccumulation());
     } else if (compAncestor) {
         graphicsLayerParentLocation = ancestorCompositingBounds.location();
     } else {
@@ -737,7 +750,7 @@ GraphicsLayerUpdater::UpdateType CompositedLayerMapping::updateGraphicsLayerGeom
     IntRect clippingBox;
     if (GraphicsLayer* clipLayer = clippingLayer()) {
         clippingBox = clipBox(toRenderBox(renderer()));
-        clipLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location()));
+        clipLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location() + roundedIntSize(m_subpixelAccumulation)));
         clipLayer->setSize(clippingBox.size());
         clipLayer->setOffsetFromRenderer(toIntSize(clippingBox.location()));
         if (m_childClippingMaskLayer && !m_scrollingLayer) {
@@ -888,11 +901,10 @@ GraphicsLayerUpdater::UpdateType CompositedLayerMapping::updateGraphicsLayerGeom
     updateRenderingContext();
     updateShouldFlattenTransform();
     updateChildrenTransform();
+    updateScrollParent(renderer()->compositorDrivenAcceleratedScrollingEnabled() ? m_owningLayer.scrollParent() : 0);
     registerScrollingLayers();
 
     updateCompositingReasons();
-
-    return updateType;
 }
 
 void CompositedLayerMapping::registerScrollingLayers()
@@ -1259,7 +1271,7 @@ void CompositedLayerMapping::updateShouldFlattenTransform()
 {
     // All CLM-managed layers that could affect a descendant layer should update their
     // should-flatten-transform value (the other layers' transforms don't matter here).
-    UpdateShouldFlattenTransformFunctor functor = { m_owningLayer.shouldFlattenTransform() };
+    UpdateShouldFlattenTransformFunctor functor = { !m_owningLayer.shouldPreserve3D() };
     ApplyToGraphicsLayersMode mode = ApplyToCoreLayers;
     ApplyToGraphicsLayers(this, functor, mode);
 }
@@ -1414,9 +1426,12 @@ static void updateScrollParentForGraphicsLayer(GraphicsLayer* layer, GraphicsLay
 
 void CompositedLayerMapping::updateScrollParent(RenderLayer* scrollParent)
 {
+    if (!scrollParent && m_squashedLayers.size() && renderer()->compositorDrivenAcceleratedScrollingEnabled())
+        scrollParent = m_squashedLayers[0].renderLayer->scrollParent();
 
     if (ScrollingCoordinator* scrollingCoordinator = scrollingCoordinatorFromLayer(m_owningLayer)) {
-        GraphicsLayer* topmostLayer = localRootForOwningLayer();
+        GraphicsLayer* topmostLayer = childForSuperlayers();
+        updateScrollParentForGraphicsLayer(m_squashingContainmentLayer.get(), topmostLayer, scrollParent, scrollingCoordinator);
         updateScrollParentForGraphicsLayer(m_ancestorClippingLayer.get(), topmostLayer, scrollParent, scrollingCoordinator);
         updateScrollParentForGraphicsLayer(m_graphicsLayer.get(), topmostLayer, scrollParent, scrollingCoordinator);
     }
@@ -1541,7 +1556,7 @@ bool CompositedLayerMapping::paintsChildren() const
 
 static bool isCompositedPlugin(RenderObject* renderer)
 {
-    return renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing();
+    return renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->requiresAcceleratedCompositing();
 }
 
 static bool hasVisibleNonCompositingDescendant(RenderLayer* parent)
@@ -1813,27 +1828,41 @@ void CompositedLayerMapping::setBlendMode(blink::WebBlendMode blendMode)
     }
 }
 
-void CompositedLayerMapping::setNeedsGeometryUpdate()
+void CompositedLayerMapping::setNeedsGraphicsLayerUpdate()
 {
-    m_needToUpdateGeometryOfAllDecendants = true;
+    m_needToUpdateGraphicsLayerOfAllDecendants = true;
 
     for (RenderLayer* current = &m_owningLayer; current; current = current->ancestorCompositingLayer()) {
-        // FIXME: We should be able to return early from this function once we
-        // find a CompositedLayerMapping that has m_needToUpdateGeometry set.
-        // However, we can't do that until we remove the incremental compositing
-        // updates because they can clear m_needToUpdateGeometry without walking
-        // the whole tree.
         ASSERT(current->hasCompositedLayerMapping());
         CompositedLayerMappingPtr mapping = current->compositedLayerMapping();
-        mapping->m_needToUpdateGeometry = true;
+        if (mapping->m_needToUpdateGraphicsLayer)
+            return;
+        mapping->m_needToUpdateGraphicsLayer = true;
     }
 }
 
-void CompositedLayerMapping::clearNeedsGeometryUpdate()
+GraphicsLayerUpdater::UpdateType CompositedLayerMapping::updateTypeForChildren(GraphicsLayerUpdater::UpdateType updateType) const
 {
-    m_needToUpdateGeometry = false;
-    m_needToUpdateGeometryOfAllDecendants = false;
+    if (m_needToUpdateGraphicsLayerOfAllDecendants)
+        return GraphicsLayerUpdater::ForceUpdate;
+    return updateType;
 }
+
+void CompositedLayerMapping::clearNeedsGraphicsLayerUpdate()
+{
+    m_needToUpdateGraphicsLayer = false;
+    m_needToUpdateGraphicsLayerOfAllDecendants = false;
+}
+
+#if !ASSERT_DISABLED
+
+void CompositedLayerMapping::assertNeedsToUpdateGraphicsLayerBitsCleared()
+{
+    ASSERT(!m_needToUpdateGraphicsLayer);
+    ASSERT(!m_needToUpdateGraphicsLayerOfAllDecendants);
+}
+
+#endif
 
 struct SetContentsNeedsDisplayFunctor {
     void operator() (GraphicsLayer* layer) const

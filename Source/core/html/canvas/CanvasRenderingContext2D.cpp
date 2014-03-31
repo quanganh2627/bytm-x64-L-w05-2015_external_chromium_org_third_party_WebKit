@@ -79,10 +79,10 @@ static const char defaultFont[] = "10px sans-serif";
 
 CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, const Canvas2DContextAttributes* attrs, bool usesCSSCompatibilityParseMode)
     : CanvasRenderingContext(canvas)
-    , m_stateStack(1)
     , m_usesCSSCompatibilityParseMode(usesCSSCompatibilityParseMode)
     , m_hasAlpha(!attrs || attrs->alpha())
 {
+    m_stateStack.append(adoptPtrWillBeNoop(new State()));
     ScriptWrappable::init(this);
 }
 
@@ -118,7 +118,7 @@ void CanvasRenderingContext2D::reset()
 {
     unwindStateStack();
     m_stateStack.resize(1);
-    m_stateStack.first() = State();
+    m_stateStack.first() = adoptPtrWillBeNoop(new State());
     m_path.clear();
 }
 
@@ -185,8 +185,10 @@ CanvasRenderingContext2D::State& CanvasRenderingContext2D::State::operator=(cons
     if (this == &other)
         return *this;
 
+#if !ENABLE(OILPAN)
     if (m_realizedFont)
         static_cast<CSSFontSelector*>(m_font.fontSelector())->unregisterForInvalidationCallbacks(this);
+#endif
 
     m_unrealizedSaveCount = other.m_unrealizedSaveCount;
     m_unparsedStrokeColor = other.m_unparsedStrokeColor;
@@ -220,8 +222,10 @@ CanvasRenderingContext2D::State& CanvasRenderingContext2D::State::operator=(cons
 
 CanvasRenderingContext2D::State::~State()
 {
+#if !ENABLE(OILPAN)
     if (m_realizedFont)
         static_cast<CSSFontSelector*>(m_font.fontSelector())->unregisterForInvalidationCallbacks(this);
+#endif
 }
 
 void CanvasRenderingContext2D::State::fontsNeedUpdate(CSSFontSelector* fontSelector)
@@ -238,13 +242,13 @@ void CanvasRenderingContext2D::realizeSaves()
         ASSERT(m_stateStack.size() >= 1);
         // Reduce the current state's unrealized count by one now,
         // to reflect the fact we are saving one state.
-        m_stateStack.last().m_unrealizedSaveCount--;
-        m_stateStack.append(state());
+        m_stateStack.last()->m_unrealizedSaveCount--;
+        m_stateStack.append(adoptPtrWillBeNoop(new State(state())));
         // Set the new state's unrealized count to 0, because it has no outstanding saves.
         // We need to do this explicitly because the copy constructor and operator= used
         // by the Vector operations copy the unrealized count from the previous state (in
         // turn necessary to support correct resizing and unwinding of the stack).
-        m_stateStack.last().m_unrealizedSaveCount = 0;
+        m_stateStack.last()->m_unrealizedSaveCount = 0;
         GraphicsContext* context = drawingContext();
         if (context)
             context->save();
@@ -255,7 +259,7 @@ void CanvasRenderingContext2D::restore()
 {
     if (state().m_unrealizedSaveCount) {
         // We never realized the save, so just record that it was unnecessary.
-        --m_stateStack.last().m_unrealizedSaveCount;
+        --m_stateStack.last()->m_unrealizedSaveCount;
         return;
     }
     ASSERT(m_stateStack.size() >= 1);
@@ -1301,11 +1305,6 @@ bool CanvasRenderingContext2D::shouldDrawShadows() const
     return alphaChannel(state().m_shadowColor) && (state().m_shadowBlur || !state().m_shadowOffset.isZero());
 }
 
-enum ImageSizeType {
-    ImageSizeAfterDevicePixelRatio,
-    ImageSizeBeforeDevicePixelRatio
-};
-
 static inline FloatRect normalizeRect(const FloatRect& rect)
 {
     return FloatRect(min(rect.x(), rect.maxX()),
@@ -1713,11 +1712,6 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float 
     return createEmptyImageData(size);
 }
 
-PassRefPtr<ImageData> CanvasRenderingContext2D::webkitGetImageDataHD(float sx, float sy, float sw, float sh, ExceptionState& exceptionState) const
-{
-    return getImageData(sx, sy, sw, sh, exceptionState);
-}
-
 PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy, float sw, float sh, ExceptionState& exceptionState) const
 {
     if (!canvas()->originClean())
@@ -1924,8 +1918,10 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     StyleResolver& styleResolver = canvas()->document().ensureStyleResolver();
     styleResolver.applyPropertiesToStyle(properties, WTF_ARRAY_LENGTH(properties), newStyle.get());
 
+#if !ENABLE(OILPAN)
     if (state().m_realizedFont)
         static_cast<CSSFontSelector*>(state().m_font.fontSelector())->unregisterForInvalidationCallbacks(&modifiableState());
+#endif
     modifiableState().m_font = newStyle->font();
     modifiableState().m_font.update(canvas()->document().styleEngine()->fontSelector());
     modifiableState().m_realizedFont = true;
@@ -1993,7 +1989,7 @@ PassRefPtr<TextMetrics> CanvasRenderingContext2D::measureText(const String& text
         return metrics.release();
 
     FontCachePurgePreventer fontCachePurgePreventer;
-    canvas()->document().updateStyleIfNeeded();
+    canvas()->document().updateRenderTreeIfNeeded();
     const Font& font = accessFont();
     const TextRun textRun(text);
     FloatRect textBounds = font.selectionRectForText(textRun, FloatPoint(), font.fontDescription().computedSize(), 0, -1, true);
@@ -2044,7 +2040,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     // accessFont needs the style to be up to date, but updating style can cause script to run,
     // (e.g. due to autofocus) which can free the GraphicsContext, so update style before grabbing
     // the GraphicsContext.
-    canvas()->document().updateStyleIfNeeded();
+    canvas()->document().updateRenderTreeIfNeeded();
 
     GraphicsContext* c = drawingContext();
     if (!c)
@@ -2207,7 +2203,7 @@ PassRefPtr<Canvas2DContextAttributes> CanvasRenderingContext2D::getContextAttrib
     return attributes.release();
 }
 
-void CanvasRenderingContext2D::drawSystemFocusRing(Element* element)
+void CanvasRenderingContext2D::drawFocusIfNeeded(Element* element)
 {
     if (!focusRingCallIsValid(m_path, element))
         return;
@@ -2283,21 +2279,24 @@ void CanvasRenderingContext2D::drawFocusRing(const Path& path)
     if (!c)
         return;
 
+    // These should match the style defined in html.css.
+    Color focusRingColor = RenderTheme::theme().focusRingColor();
+    const int focusRingWidth = 5;
+    const int focusRingOutline = 0;
+
+    // We need to add focusRingWidth to dirtyRect.
+    StrokeData strokeData;
+    strokeData.setThickness(focusRingWidth);
+
     FloatRect dirtyRect;
-    if (!computeDirtyRect(path.boundingRect(), &dirtyRect))
+    if (!computeDirtyRect(path.strokeBoundingRect(strokeData), &dirtyRect))
         return;
 
     c->save();
     c->setAlphaAsFloat(1.0);
     c->clearShadow();
     c->setCompositeOperation(CompositeSourceOver, blink::WebBlendModeNormal);
-
-    // These should match the style defined in html.css.
-    Color focusRingColor = RenderTheme::theme().focusRingColor();
-    const int focusRingWidth = 5;
-    const int focusRingOutline = 0;
     c->drawFocusRing(path, focusRingWidth, focusRingOutline, focusRingColor);
-
     c->restore();
 
     didDraw(dirtyRect);

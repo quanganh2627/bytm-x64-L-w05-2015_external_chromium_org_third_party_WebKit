@@ -25,18 +25,16 @@
 #include "config.h"
 #include "modules/mediastream/RTCDataChannelEvent.h"
 
-#include "core/events/ThreadLocalEventNames.h"
-
 namespace WebCore {
 
-PassRefPtr<RTCDataChannelEvent> RTCDataChannelEvent::create()
+PassRefPtrWillBeRawPtr<RTCDataChannelEvent> RTCDataChannelEvent::create()
 {
-    return adoptRef(new RTCDataChannelEvent);
+    return adoptRefWillBeRefCountedGarbageCollected(new RTCDataChannelEvent);
 }
 
-PassRefPtr<RTCDataChannelEvent> RTCDataChannelEvent::create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<RTCDataChannel> channel)
+PassRefPtrWillBeRawPtr<RTCDataChannelEvent> RTCDataChannelEvent::create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<RTCDataChannel> channel)
 {
-    return adoptRef(new RTCDataChannelEvent(type, canBubble, cancelable, channel));
+    return adoptRefWillBeRefCountedGarbageCollected(new RTCDataChannelEvent(type, canBubble, cancelable, channel));
 }
 
 

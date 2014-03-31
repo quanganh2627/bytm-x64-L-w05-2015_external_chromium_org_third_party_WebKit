@@ -468,8 +468,8 @@ Element* InspectorDOMAgent::assertEditableElement(ErrorString* errorString, int 
     if (!element)
         return 0;
 
-    if (element->isInShadowTree()) {
-        *errorString = "Cannot edit elements from shadow trees";
+    if (element->isInShadowTree() && userAgentShadowRoot(element)) {
+        *errorString = "Cannot edit elements from user-agent shadow trees";
         return 0;
     }
 
@@ -1533,7 +1533,8 @@ PassRefPtr<TypeBuilder::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* n
 
         if (node->isFrameOwnerElement()) {
             HTMLFrameOwnerElement* frameOwner = toHTMLFrameOwnerElement(node);
-            if (LocalFrame* frame = frameOwner->contentFrame())
+            LocalFrame* frame = (frameOwner->contentFrame() && frameOwner->contentFrame()->isLocalFrame()) ? toLocalFrame(frameOwner->contentFrame()) : 0;
+            if (frame)
                 value->setFrameId(m_pageAgent->frameId(frame));
             if (Document* doc = frameOwner->contentDocument())
                 value->setContentDocument(buildObjectForNode(doc, 0, nodesMap));
@@ -2001,9 +2002,22 @@ void InspectorDOMAgent::pseudoElementDestroyed(PseudoElement* pseudoElement)
     m_frontend->pseudoElementRemoved(parentId, pseudoElementId);
 }
 
+static ShadowRoot* shadowRootForNode(Node* node, const String& type)
+{
+    if (!node->isElementNode())
+        return 0;
+    if (type == "a")
+        return toElement(node)->shadowRoot();
+    if (type == "u")
+        return toElement(node)->userAgentShadowRoot();
+    return 0;
+}
+
 Node* InspectorDOMAgent::nodeForPath(const String& path)
 {
-    // The path is of form "1,HTML,2,BODY,1,DIV"
+    // The path is of form "1,HTML,2,BODY,1,DIV" (<index> and <nodeName> interleaved).
+    // <index> may also be "a" (author shadow root) or "u" (user-agent shadow root),
+    // in which case <nodeName> MUST be "#document-fragment".
     if (!m_document)
         return 0;
 
@@ -2014,13 +2028,17 @@ Node* InspectorDOMAgent::nodeForPath(const String& path)
         return 0;
     for (size_t i = 0; i < pathTokens.size() - 1; i += 2) {
         bool success = true;
-        unsigned childNumber = pathTokens[i].toUInt(&success);
-        if (!success)
-            return 0;
-        if (childNumber >= innerChildNodeCount(node))
-            return 0;
+        String& indexValue = pathTokens[i];
+        unsigned childNumber = indexValue.toUInt(&success);
+        Node* child;
+        if (!success) {
+            child = shadowRootForNode(node, indexValue);
+        } else {
+            if (childNumber >= innerChildNodeCount(node))
+                return 0;
 
-        Node* child = innerFirstChild(node);
+            child = innerFirstChild(node);
+        }
         String childName = pathTokens[i + 1];
         for (size_t j = 0; child && j < childNumber; ++j)
             child = innerNextSibling(child);

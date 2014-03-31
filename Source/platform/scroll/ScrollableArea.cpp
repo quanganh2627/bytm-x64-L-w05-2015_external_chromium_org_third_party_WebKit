@@ -213,6 +213,10 @@ bool ScrollableArea::scrollBehaviorFromString(const String& behaviorString, Scro
 
 bool ScrollableArea::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
+    // ctrl+wheel events are used to trigger zooming, not scrolling.
+    if (wheelEvent.modifiers() & PlatformEvent::CtrlKey)
+        return false;
+
     return scrollAnimator()->handleWheelEvent(wheelEvent);
 }
 
@@ -420,6 +424,15 @@ IntPoint ScrollableArea::clampScrollPosition(const IntPoint& scrollPosition) con
 int ScrollableArea::lineStep(ScrollbarOrientation) const
 {
     return pixelsPerLineStep();
+}
+
+int ScrollableArea::pageStep(ScrollbarOrientation orientation) const
+{
+    int length = (orientation == HorizontalScrollbar) ? visibleWidth() : visibleHeight();
+    int minPageStep = static_cast<float>(length) * minFractionToStepWhenPaging();
+    int pageStep = std::max(minPageStep, length - maxOverlapBetweenPages());
+
+    return std::max(pageStep, 1);
 }
 
 int ScrollableArea::documentStep(ScrollbarOrientation orientation) const

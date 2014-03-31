@@ -93,9 +93,10 @@ private:
 } // unnamed namespace
 
 struct GraphicsContext::CanvasSaveState {
-    CanvasSaveState(unsigned mask, int count) : m_flags(mask), m_restoreCount(count) { }
+    CanvasSaveState(bool pendingSave, int count)
+        : m_pendingSave(pendingSave), m_restoreCount(count) { }
 
-    unsigned m_flags;
+    bool m_pendingSave;
     int m_restoreCount;
 };
 
@@ -116,7 +117,7 @@ GraphicsContext::GraphicsContext(SkCanvas* canvas)
     : m_canvas(canvas)
     , m_paintStateStack()
     , m_paintStateIndex(0)
-    , m_canvasSaveFlags(0)
+    , m_pendingCanvasSave(false)
     , m_annotationMode(0)
 #if !ASSERT_DISABLED
     , m_annotationCount(0)
@@ -152,8 +153,8 @@ void GraphicsContext::save()
 
     m_paintState->incrementSaveCount();
 
-    m_canvasStateStack.append(CanvasSaveState(m_canvasSaveFlags, m_canvas->getSaveCount()));
-    m_canvasSaveFlags |= SkCanvas::kMatrixClip_SaveFlag;
+    m_canvasStateStack.append(CanvasSaveState(m_pendingCanvasSave, m_canvas->getSaveCount()));
+    m_pendingCanvasSave = true;
 }
 
 void GraphicsContext::restore()
@@ -175,20 +176,18 @@ void GraphicsContext::restore()
 
     CanvasSaveState savedState = m_canvasStateStack.last();
     m_canvasStateStack.removeLast();
-    m_canvasSaveFlags = savedState.m_flags;
+    m_pendingCanvasSave = savedState.m_pendingSave;
     m_canvas->restoreToCount(savedState.m_restoreCount);
 }
 
-void GraphicsContext::saveLayer(const SkRect* bounds, const SkPaint* paint, SkCanvas::SaveFlags saveFlags)
+void GraphicsContext::saveLayer(const SkRect* bounds, const SkPaint* paint)
 {
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrixClip_SaveFlag);
+    realizeCanvasSave();
 
-    m_canvas->saveLayer(bounds, paint, saveFlags);
-    if (bounds)
-        m_canvas->clipRect(*bounds);
+    m_canvas->saveLayer(bounds, paint);
     if (m_trackOpaqueRegion)
         m_opaqueRegion.pushCanvasLayer(paint);
 }
@@ -392,6 +391,8 @@ bool GraphicsContext::couldUseLCDRenderedText()
 
 void GraphicsContext::setCompositeOperation(CompositeOperator compositeOperation, WebBlendMode blendMode)
 {
+    if (paintingDisabled())
+        return;
     mutableState()->setCompositeOperation(compositeOperation, blendMode);
 }
 
@@ -410,12 +411,12 @@ void GraphicsContext::setColorFilter(ColorFilter colorFilter)
     stateToSet->setColorFilter(WebCoreColorFilterToSkiaColorFilter(colorFilter));
 }
 
-bool GraphicsContext::readPixels(SkBitmap* bitmap, int x, int y, SkCanvas::Config8888 config8888)
+bool GraphicsContext::readPixels(const SkImageInfo& info, void* pixels, size_t rowBytes, int x, int y)
 {
     if (paintingDisabled())
         return false;
 
-    return m_canvas->readPixels(bitmap, x, y, config8888);
+    return m_canvas->readPixels(info, pixels, rowBytes, x, y);
 }
 
 void GraphicsContext::setMatrix(const SkMatrix& matrix)
@@ -423,7 +424,7 @@ void GraphicsContext::setMatrix(const SkMatrix& matrix)
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrix_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->setMatrix(matrix);
 }
@@ -436,7 +437,7 @@ void GraphicsContext::concat(const SkMatrix& matrix)
     if (matrix.isIdentity())
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrix_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->concat(matrix);
 }
@@ -451,31 +452,17 @@ void GraphicsContext::beginLayer(float opacity, CompositeOperator op, const Floa
     if (paintingDisabled())
         return;
 
-    // We need the "alpha" layer flag here because the base layer is opaque
-    // (the surface of the page) but layers on top may have transparent parts.
-    // Without explicitly setting the alpha flag, the layer will inherit the
-    // opaque setting of the base and some things won't work properly.
-    SkCanvas::SaveFlags saveFlags = static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag | SkCanvas::kFullColorLayer_SaveFlag);
-
     SkPaint layerPaint;
     layerPaint.setAlpha(static_cast<unsigned char>(opacity * 255));
     layerPaint.setXfermode(WebCoreCompositeToSkiaComposite(op, m_paintState->blendMode()).get());
     layerPaint.setColorFilter(WebCoreColorFilterToSkiaColorFilter(colorFilter).get());
     layerPaint.setImageFilter(imageFilter);
 
-    // Filters will adjust the clip to accomodate for filter bounds, but
-    // need the kClipToLayer_SaveFlag to do so. We also save the clip here, so
-    // it is restored back before the filtered layer is drawn in restore().
-    // The matrix also needs to be saved, in order to be correctly passed to
-    // the filter CTM during restore().
-    if (imageFilter)
-        saveFlags = SkCanvas::kARGB_ClipLayer_SaveFlag;
-
     if (bounds) {
         SkRect skBounds = WebCoreFloatRectToSKRect(*bounds);
-        saveLayer(&skBounds, &layerPaint, saveFlags);
+        saveLayer(&skBounds, &layerPaint);
     } else {
-        saveLayer(0, &layerPaint, saveFlags);
+        saveLayer(0, &layerPaint);
     }
 
 #if !ASSERT_DISABLED
@@ -503,16 +490,18 @@ void GraphicsContext::beginRecording(const FloatRect& bounds)
     SkCanvas* savedCanvas = m_canvas;
     SkMatrix savedMatrix = getTotalMatrix();
 
-    IntRect recordingRect = enclosingIntRect(bounds);
-    m_canvas = displayList->picture()->beginRecording(recordingRect.width(), recordingRect.height(),
-        SkPicture::kUsePathBoundsForClip_RecordingFlag);
+    if (!paintingDisabled()) {
+        IntRect recordingRect = enclosingIntRect(bounds);
+        m_canvas = displayList->picture()->beginRecording(recordingRect.width(), recordingRect.height(),
+            SkPicture::kUsePathBoundsForClip_RecordingFlag);
 
-    // We want the bounds offset mapped to (0, 0), such that the display list content
-    // is fully contained within the SkPictureRecord's bounds.
-    if (!toFloatSize(bounds.location()).isZero()) {
-        m_canvas->translate(-bounds.x(), -bounds.y());
-        // To avoid applying the offset repeatedly in getTotalMatrix(), we pre-apply it here.
-        savedMatrix.preTranslate(bounds.x(), bounds.y());
+        // We want the bounds offset mapped to (0, 0), such that the display list content
+        // is fully contained within the SkPictureRecord's bounds.
+        if (!toFloatSize(bounds.location()).isZero()) {
+            m_canvas->translate(-bounds.x(), -bounds.y());
+            // To avoid applying the offset repeatedly in getTotalMatrix(), we pre-apply it here.
+            savedMatrix.preTranslate(bounds.x(), bounds.y());
+        }
     }
 
     m_recordingStateStack.append(RecordingState(savedCanvas, savedMatrix, displayList));
@@ -523,8 +512,10 @@ PassRefPtr<DisplayList> GraphicsContext::endRecording()
     ASSERT(!m_recordingStateStack.isEmpty());
 
     RecordingState recording = m_recordingStateStack.last();
-    ASSERT(recording.m_displayList->picture()->getRecordingCanvas());
-    recording.m_displayList->picture()->endRecording();
+    if (!paintingDisabled()) {
+        ASSERT(recording.m_displayList->picture()->getRecordingCanvas());
+        recording.m_displayList->picture()->endRecording();
+    }
 
     m_recordingStateStack.removeLast();
     m_canvas = recording.m_savedCanvas;
@@ -545,7 +536,7 @@ void GraphicsContext::drawDisplayList(DisplayList* displayList)
     if (paintingDisabled() || displayList->bounds().isEmpty())
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrixClip_SaveFlag);
+    realizeCanvasSave();
 
     const FloatRect& bounds = displayList->bounds();
     if (bounds.x() || bounds.y())
@@ -664,6 +655,9 @@ static inline IntRect areaCastingShadowInHole(const IntRect& holeRect, int shado
 
 void GraphicsContext::drawInnerShadow(const RoundedRect& rect, const Color& shadowColor, const IntSize shadowOffset, int shadowBlur, int shadowSpread, Edges clippedEdges)
 {
+    if (paintingDisabled())
+        return;
+
     IntRect holeRect(rect.rect());
     holeRect.inflate(-shadowSpread);
 
@@ -1139,6 +1133,9 @@ void GraphicsContext::writePixels(const SkImageInfo& info, const void* pixels, s
 
 void GraphicsContext::writePixels(const SkBitmap& bitmap, int x, int y)
 {
+    if (paintingDisabled())
+        return;
+
     if (!bitmap.getTexture()) {
         SkAutoLockPixels alp(bitmap);
         if (bitmap.getPixels())
@@ -1209,6 +1206,9 @@ void GraphicsContext::drawRect(const SkRect& rect, const SkPaint& paint)
 
 void GraphicsContext::didDrawRect(const SkRect& rect, const SkPaint& paint, const SkBitmap* bitmap)
 {
+    if (paintingDisabled())
+        return;
+
     if (m_trackOpaqueRegion)
         m_opaqueRegion.didDrawRect(this, rect, paint, bitmap);
 }
@@ -1500,7 +1500,7 @@ void GraphicsContext::clipRect(const SkRect& rect, AntiAliasingMode aa, SkRegion
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kClip_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->clipRect(rect, op, aa == AntiAliased);
 }
@@ -1510,7 +1510,7 @@ void GraphicsContext::clipPath(const SkPath& path, AntiAliasingMode aa, SkRegion
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kClip_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->clipPath(path, op, aa == AntiAliased);
 }
@@ -1520,9 +1520,28 @@ void GraphicsContext::clipRRect(const SkRRect& rect, AntiAliasingMode aa, SkRegi
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kClip_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->clipRRect(rect, op, aa == AntiAliased);
+}
+
+void GraphicsContext::beginCull(const FloatRect& rect)
+{
+    if (paintingDisabled())
+        return;
+
+    realizeCanvasSave();
+    m_canvas->pushCull(rect);
+}
+
+void GraphicsContext::endCull()
+{
+    if (paintingDisabled())
+        return;
+
+    realizeCanvasSave();
+
+    m_canvas->popCull();
 }
 
 void GraphicsContext::rotate(float angleInRadians)
@@ -1530,7 +1549,7 @@ void GraphicsContext::rotate(float angleInRadians)
     if (paintingDisabled())
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrix_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->rotate(WebCoreFloatToSkScalar(angleInRadians * (180.0f / 3.14159265f)));
 }
@@ -1543,7 +1562,7 @@ void GraphicsContext::translate(float w, float h)
     if (!w && !h)
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrix_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->translate(WebCoreFloatToSkScalar(w), WebCoreFloatToSkScalar(h));
 }
@@ -1556,7 +1575,7 @@ void GraphicsContext::scale(const FloatSize& size)
     if (size.width() == 1.0f && size.height() == 1.0f)
         return;
 
-    realizeCanvasSave(SkCanvas::kMatrix_SaveFlag);
+    realizeCanvasSave();
 
     m_canvas->scale(WebCoreFloatToSkScalar(size.width()), WebCoreFloatToSkScalar(size.height()));
 }
@@ -1615,6 +1634,9 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, Compos
 
 void GraphicsContext::fillRoundedRect(const RoundedRect& rect, const Color& color)
 {
+    if (paintingDisabled())
+        return;
+
     if (rect.isRounded())
         fillRoundedRect(rect.rect(), rect.radii().topLeft(), rect.radii().topRight(), rect.radii().bottomLeft(), rect.radii().bottomRight(), color);
     else

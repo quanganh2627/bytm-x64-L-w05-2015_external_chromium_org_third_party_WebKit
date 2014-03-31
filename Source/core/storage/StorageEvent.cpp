@@ -26,7 +26,6 @@
 #include "config.h"
 #include "core/storage/StorageEvent.h"
 
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/storage/Storage.h"
 
 namespace WebCore {
@@ -35,9 +34,9 @@ StorageEventInit::StorageEventInit()
 {
 }
 
-PassRefPtr<StorageEvent> StorageEvent::create()
+PassRefPtrWillBeRawPtr<StorageEvent> StorageEvent::create()
 {
-    return adoptRef(new StorageEvent);
+    return adoptRefWillBeRefCountedGarbageCollected(new StorageEvent);
 }
 
 StorageEvent::StorageEvent()
@@ -49,14 +48,14 @@ StorageEvent::~StorageEvent()
 {
 }
 
-PassRefPtr<StorageEvent> StorageEvent::create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea)
+PassRefPtrWillBeRawPtr<StorageEvent> StorageEvent::create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea)
 {
-    return adoptRef(new StorageEvent(type, key, oldValue, newValue, url, storageArea));
+    return adoptRefWillBeRefCountedGarbageCollected(new StorageEvent(type, key, oldValue, newValue, url, storageArea));
 }
 
-PassRefPtr<StorageEvent> StorageEvent::create(const AtomicString& type, const StorageEventInit& initializer)
+PassRefPtrWillBeRawPtr<StorageEvent> StorageEvent::create(const AtomicString& type, const StorageEventInit& initializer)
 {
-    return adoptRef(new StorageEvent(type, initializer));
+    return adoptRefWillBeRefCountedGarbageCollected(new StorageEvent(type, initializer));
 }
 
 StorageEvent::StorageEvent(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea)
@@ -102,9 +101,6 @@ const AtomicString& StorageEvent::interfaceName() const
 
 void StorageEvent::trace(Visitor* visitor)
 {
-    // FIXME: oilpan: this code is not called as of now since Event is not on
-    // the oilpan heap anymore. We are keeping this code to avoid having to
-    // rewrite it once Event is moved back onto the oilpan heap.
     visitor->trace(m_storageArea);
     Event::trace(visitor);
 }

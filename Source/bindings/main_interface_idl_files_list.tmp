@@ -22,6 +22,7 @@
 ../core/css/CSSStyleRule.idl
 ../core/css/CSSStyleSheet.idl
 ../core/css/CSSSupportsRule.idl
+../core/css/CSSUnknownRule.idl
 ../core/css/CSSValue.idl
 ../core/css/CSSValueList.idl
 ../core/css/CSSViewportRule.idl
@@ -79,8 +80,8 @@
 ../core/dom/URL.idl
 ../core/dom/XMLDocument.idl
 ../core/dom/shadow/ShadowRoot.idl
+../core/events/ApplicationCacheErrorEvent.idl
 ../core/events/AutocompleteErrorEvent.idl
-../core/events/BeforeLoadEvent.idl
 ../core/events/BeforeUnloadEvent.idl
 ../core/events/CompositionEvent.idl
 ../core/events/CustomEvent.idl
@@ -240,7 +241,6 @@
 ../core/html/canvas/WebGLProgram.idl
 ../core/html/canvas/WebGLRenderbuffer.idl
 ../core/html/canvas/WebGLRenderingContext.idl
-../core/html/canvas/WebGLRenderingContextBase.idl
 ../core/html/canvas/WebGLShader.idl
 ../core/html/canvas/WebGLShaderPrecisionFormat.idl
 ../core/html/canvas/WebGLTexture.idl
@@ -481,6 +481,7 @@
 ../modules/filesystem/MetadataCallback.idl
 ../modules/gamepad/Gamepad.idl
 ../modules/gamepad/GamepadButton.idl
+../modules/gamepad/GamepadEvent.idl
 ../modules/gamepad/GamepadList.idl
 ../modules/gamepad/WebKitGamepad.idl
 ../modules/gamepad/WebKitGamepadList.idl
@@ -602,7 +603,6 @@
 ../modules/webdatabase/SQLTransactionSync.idl
 ../modules/webdatabase/SQLTransactionSyncCallback.idl
 ../modules/webmidi/MIDIAccess.idl
-../modules/webmidi/MIDIAccessPromise.idl
 ../modules/webmidi/MIDIConnectionEvent.idl
 ../modules/webmidi/MIDIErrorCallback.idl
 ../modules/webmidi/MIDIInput.idl

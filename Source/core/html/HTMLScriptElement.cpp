@@ -31,7 +31,6 @@
 #include "core/dom/ScriptLoader.h"
 #include "core/dom/Text.h"
 #include "core/events/Event.h"
-#include "core/events/ThreadLocalEventNames.h"
 
 namespace WebCore {
 
@@ -76,8 +75,6 @@ void HTMLScriptElement::parseAttribute(const QualifiedName& name, const AtomicSt
         m_loader->handleSourceAttribute(value);
     else if (name == asyncAttr)
         m_loader->handleAsyncAttribute();
-    else if (name == onbeforeloadAttr)
-        setAttributeEventListener(EventTypeNames::beforeload, createAttributeEventListener(this, name, value));
     else
         HTMLElement::parseAttribute(name, value);
 }

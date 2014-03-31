@@ -48,25 +48,20 @@ public:
     PseudoElement* pseudoElement(PseudoId) const;
 
     void resetStyleState();
-    void resetDynamicRestyleObservations();
 
     short tabIndex() const { return m_tabindex; }
 
     void setTabIndexExplicitly(short index)
     {
         m_tabindex = index;
-        setFlag(TabIndexWasSetExplicitly, true);
+        setElementFlag(TabIndexWasSetExplicitly, true);
     }
 
     void clearTabIndexExplicitly()
     {
         m_tabindex = 0;
-        clearFlag(TabIndexWasSetExplicitly);
+        clearElementFlag(TabIndexWasSetExplicitly);
     }
-
-    bool hasFlag(ElementFlags mask) const { return m_flags & mask; }
-    void setFlag(ElementFlags mask, bool value) { m_flags = (m_flags & ~mask) | (-(int32_t)value & mask); }
-    void clearFlag(ElementFlags mask) { m_flags &= ~mask; }
 
     unsigned childIndex() const { return m_childIndex; }
     void setChildIndex(unsigned index) { m_childIndex = index; }
@@ -108,7 +103,7 @@ public:
     void setSavedLayerScrollOffset(IntSize size) { m_savedLayerScrollOffset = size; }
 
     ActiveAnimations* activeAnimations() { return m_activeAnimations.get(); }
-    void setActiveAnimations(PassOwnPtr<ActiveAnimations> activeAnimations)
+    void setActiveAnimations(PassOwnPtrWillBeRawPtr<ActiveAnimations> activeAnimations)
     {
         m_activeAnimations = activeAnimations;
     }
@@ -130,7 +125,6 @@ public:
 private:
     short m_tabindex;
     unsigned short m_childIndex;
-    unsigned m_flags;
 
     LayoutSize m_minimumSizeForResizing;
     IntSize m_savedLayerScrollOffset;
@@ -140,7 +134,7 @@ private:
     OwnPtr<ElementShadow> m_shadow;
     OwnPtr<NamedNodeMap> m_attributeMap;
     OwnPtr<InputMethodContext> m_inputMethodContext;
-    OwnPtr<ActiveAnimations> m_activeAnimations;
+    OwnPtrWillBePersistent<ActiveAnimations> m_activeAnimations;
     OwnPtr<InlineCSSStyleDeclaration> m_cssomWrapper;
 
     RefPtr<RenderStyle> m_computedStyle;
@@ -162,7 +156,6 @@ inline ElementRareData::ElementRareData(RenderObject* renderer)
     : NodeRareData(renderer)
     , m_tabindex(0)
     , m_childIndex(0)
-    , m_flags(0)
     , m_minimumSizeForResizing(defaultMinimumSizeForResizing())
 {
 }
@@ -226,22 +219,8 @@ inline PseudoElement* ElementRareData::pseudoElement(PseudoId pseudoId) const
 
 inline void ElementRareData::resetStyleState()
 {
-    clearFlag(StyleAffectedByEmpty);
+    clearElementFlag(StyleAffectedByEmpty);
     setChildIndex(0);
-}
-
-inline void ElementRareData::resetDynamicRestyleObservations()
-{
-    clearFlag(ChildrenAffectedByFocus);
-    clearFlag(ChildrenAffectedByHover);
-    clearFlag(ChildrenAffectedByActive);
-    clearFlag(ChildrenAffectedByDrag);
-    clearFlag(ChildrenAffectedByFirstChildRules);
-    clearFlag(ChildrenAffectedByLastChildRules);
-    clearFlag(ChildrenAffectedByDirectAdjacentRules);
-    clearFlag(ChildrenAffectedByIndirectAdjacentRules);
-    clearFlag(ChildrenAffectedByForwardPositionalRules);
-    clearFlag(ChildrenAffectedByBackwardPositionalRules);
 }
 
 } // namespace

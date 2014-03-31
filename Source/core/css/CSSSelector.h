@@ -128,12 +128,8 @@ namespace WebCore {
             DirectAdjacent, // + combinator
             IndirectAdjacent, // ~ combinator
             SubSelector, // "No space" combinator
-            ShadowPseudo, // Special case of shadow DOM pseudo elements
-            // FIXME: implement named combinator (i.e. named relation) and
-            // replace the following /shadow/ and /shadow-deep/ with the implementation.
-            Shadow, // /shadow/ combinator
-            ShadowDeep, // /shadow-deep/ combinator
-            ShadowContent // /content/ for shadow styling
+            ShadowPseudo, // Special case of shadow DOM pseudo elements / shadow pseudo element
+            ShadowDeep // /shadow-deep/ combinator
         };
 
         enum PseudoType {
@@ -215,15 +211,11 @@ namespace WebCore {
             PseudoCue,
             PseudoFutureCue,
             PseudoPastCue,
-            PseudoDistributed,
             PseudoUnresolved,
+            PseudoContent,
             PseudoHost,
-            PseudoAncestor
-        };
-
-        enum OptionalPseudoTypeRequirements {
-            // 0 is used to mean "no requirements".
-            RequiresShadowDOM = 1
+            PseudoHostContext,
+            PseudoShadow
         };
 
         enum MarginBoxType {
@@ -292,7 +284,8 @@ namespace WebCore {
         bool isDirectAdjacentSelector() const { return m_relation == DirectAdjacent; }
         bool isSiblingSelector() const;
         bool isAttributeSelector() const;
-        bool isDistributedPseudoElement() const;
+        bool isContentPseudoElement() const;
+        bool isShadowPseudoElement() const;
         bool isHostPseudoClass() const;
 
         // FIXME: selectors with no tagHistory() get a relation() of Descendant. It should instead be
@@ -313,7 +306,7 @@ namespace WebCore {
         bool relationIsAffectedByPseudoContent() const { return m_relationIsAffectedByPseudoContent; }
         void setRelationIsAffectedByPseudoContent() { m_relationIsAffectedByPseudoContent = true; }
 
-        unsigned m_relation           : 4; // enum Relation
+        unsigned m_relation           : 3; // enum Relation
         mutable unsigned m_match      : 4; // enum Match
         mutable unsigned m_pseudoType : 8; // PseudoType
 
@@ -386,7 +379,7 @@ inline bool CSSSelector::isCustomPseudoElement() const
 
 inline bool CSSSelector::isHostPseudoClass() const
 {
-    return m_match == PseudoClass && m_pseudoType == PseudoHost;
+    return m_match == PseudoClass && (m_pseudoType == PseudoHost || m_pseudoType == PseudoHostContext);
 }
 
 inline bool CSSSelector::isSiblingSelector() const
@@ -418,9 +411,14 @@ inline bool CSSSelector::isAttributeSelector() const
         || m_match == CSSSelector::End;
 }
 
-inline bool CSSSelector::isDistributedPseudoElement() const
+inline bool CSSSelector::isContentPseudoElement() const
 {
-    return m_match == PseudoElement && pseudoType() == PseudoDistributed;
+    return m_match == PseudoElement && pseudoType() == PseudoContent;
+}
+
+inline bool CSSSelector::isShadowPseudoElement() const
+{
+    return m_match == PseudoElement && pseudoType() == PseudoShadow;
 }
 
 inline void CSSSelector::setValue(const AtomicString& value)

@@ -20,10 +20,7 @@ class MediaQueryTokenizer {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static void tokenize(String, Vector<MediaQueryToken>&);
-
 private:
-    class CodePoints;
-
     MediaQueryTokenizer(MediaQueryInputStream&);
 
     MediaQueryToken nextToken();
@@ -37,6 +34,7 @@ private:
     MediaQueryToken consumeNumber();
 
     void consumeUntilNonWhitespace();
+    bool consumeUntilCommentEndFound();
 
     bool consumeIfNext(UChar);
     String consumeName();
@@ -47,6 +45,8 @@ private:
     bool nextCharsAreIdentifier();
 
     typedef MediaQueryToken (MediaQueryTokenizer::*CodePoint)(UChar);
+
+    static const CodePoint codePoints[];
 
     MediaQueryToken whiteSpace(UChar);
     MediaQueryToken leftParenthesis(UChar);
@@ -61,8 +61,6 @@ private:
     MediaQueryToken asciiDigit(UChar);
     MediaQueryToken nameStart(UChar);
     MediaQueryToken endOfFile(UChar);
-
-    CodePoints* codePoints();
 
     MediaQueryInputStream& m_input;
 };

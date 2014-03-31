@@ -26,7 +26,6 @@
 #include "core/dom/ContainerNodeAlgorithms.h"
 #include "core/events/Event.h"
 #include "core/events/EventListener.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/svg/SVGElement.h"
 #include "core/svg/SVGElementInstanceList.h"
 #include "core/svg/SVGUseElement.h"
@@ -195,7 +194,7 @@ void SVGElementInstance::invalidateAllInstancesOfElement(SVGElement* element)
         }
     }
 
-    element->document().updateStyleIfNeeded();
+    element->document().updateRenderTreeIfNeeded();
 }
 
 const AtomicString& SVGElementInstance::interfaceName() const

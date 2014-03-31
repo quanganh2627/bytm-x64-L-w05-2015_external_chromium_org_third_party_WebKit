@@ -32,6 +32,7 @@
 #define WebServiceWorkerContextClient_h
 
 #include "WebWorkerPermissionClientProxy.h"
+#include "public/platform/WebServiceWorkerEventResult.h"
 
 namespace blink {
 
@@ -77,10 +78,17 @@ public:
     virtual void dispatchDevToolsMessage(const WebString&) { }
     virtual void saveDevToolsAgentState(const WebString&) { }
 
+    // ServiceWorker specific method.
+    virtual void didHandleActivateEvent(int eventID, blink::WebServiceWorkerEventResult result) { }
+
     // ServiceWorker specific method. Called after InstallEvent (dispatched
     // via WebServiceWorkerContextProxy) is handled by the ServiceWorker's
     // script context.
     virtual void didHandleInstallEvent(int installEventID) { }
+    virtual void didHandleInstallEvent(int installEventID, blink::WebServiceWorkerEventResult result)
+    {
+        didHandleInstallEvent(installEventID);
+    }
 
     // ServiceWorker specific methods. Called after FetchEvent is handled by the
     // ServiceWorker's script context. When no response is provided, the browser
@@ -90,6 +98,11 @@ public:
 
     // Ownership of the returned object is transferred to the caller.
     virtual WebServiceWorkerNetworkProvider* createServiceWorkerNetworkProvider(blink::WebDataSource*) { return 0; }
+
+    // ServiceWorker specific method. Called after SyncEvent (dispatched via
+    // WebServiceWorkerContextProxy) is handled by the ServiceWorker's script
+    // context.
+    virtual void didHandleSyncEvent(int syncEventID) { }
 };
 
 } // namespace blink

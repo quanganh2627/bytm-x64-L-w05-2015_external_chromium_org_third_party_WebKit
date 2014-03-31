@@ -5,8 +5,8 @@
 #ifndef CompositingReasonFinder_h
 #define CompositingReasonFinder_h
 
-#include "core/page/ChromeClient.h"
 #include "core/rendering/RenderLayer.h"
+#include "core/rendering/compositing/CompositingTriggers.h"
 #include "platform/graphics/CompositingReasons.h"
 
 namespace WebCore {
@@ -16,9 +16,11 @@ class RenderObject;
 class RenderView;
 
 class CompositingReasonFinder {
+    WTF_MAKE_NONCOPYABLE(CompositingReasonFinder);
 public:
     explicit CompositingReasonFinder(RenderView&);
 
+    CompositingReasons styleDeterminedReasons(RenderObject*) const;
     CompositingReasons directReasons(const RenderLayer*, bool* needToRecomputeCompositingRequirements) const;
 
     void updateTriggers();
@@ -35,13 +37,10 @@ public:
 private:
     bool isMainFrame() const;
 
+    CompositingReasons nonStyleDeterminedDirectReasons(const RenderLayer*, bool* needToRecomputeCompositingRequirements) const;
+
     bool requiresCompositingForAnimation(RenderObject*) const;
-    bool requiresCompositingForTransition(RenderObject*) const;
     bool requiresCompositingForTransform(RenderObject*) const;
-    bool requiresCompositingForVideo(RenderObject*) const;
-    bool requiresCompositingForCanvas(RenderObject*) const;
-    bool requiresCompositingForPlugin(RenderObject*, bool* needToRecomputeCompositingRequirements) const;
-    bool requiresCompositingForFrame(RenderObject*, bool* needToRecomputeCompositingRequirements) const;
     bool requiresCompositingForBackfaceVisibilityHidden(RenderObject*) const;
     bool requiresCompositingForFilters(RenderObject*) const;
     bool requiresCompositingForOverflowScrollingParent(const RenderLayer*) const;
@@ -50,7 +49,7 @@ private:
     bool requiresCompositingForWillChange(const RenderObject*) const;
 
     RenderView& m_renderView;
-    ChromeClient::CompositingTriggerFlags m_compositingTriggers;
+    CompositingTriggerFlags m_compositingTriggers;
 };
 
 } // namespace WebCore

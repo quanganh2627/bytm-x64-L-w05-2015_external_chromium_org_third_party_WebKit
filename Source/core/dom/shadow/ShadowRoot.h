@@ -122,25 +122,6 @@ public:
     PassRefPtr<Node> cloneNode(ExceptionState& exceptionState) { return cloneNode(true, exceptionState); }
 
     StyleSheetList* styleSheets();
-    bool isActiveForStyling() const;
-
-    bool childrenSupportStyleSharing() const;
-    bool childrenAffectedByPositionalRules() const;
-    bool childrenAffectedByFirstChildRules() const;
-    bool childrenAffectedByLastChildRules() const;
-    bool childrenAffectedByDirectAdjacentRules() const;
-    bool childrenAffectedByIndirectAdjacentRules() const;
-    bool childrenAffectedByForwardPositionalRules() const;
-    bool childrenAffectedByBackwardPositionalRules() const;
-
-    void setChildrenAffectedByFirstChildRules();
-    void setChildrenAffectedByLastChildRules();
-    void setChildrenAffectedByDirectAdjacentRules();
-    void setChildrenAffectedByIndirectAdjacentRules();
-    void setChildrenAffectedByForwardPositionalRules();
-    void setChildrenAffectedByBackwardPositionalRules();
-
-    using Node::isFinishedParsingChildren; // make public for SelectorChecker
 
 private:
     ShadowRoot(Document&, ShadowRootType);

@@ -32,6 +32,7 @@
 #include "core/loader/FrameLoader.h"
 #include "core/loader/NavigationScheduler.h"
 #include "core/page/FrameTree.h"
+#include "heap/Handle.h"
 #include "platform/scroll/ScrollTypes.h"
 
 namespace WebCore {
@@ -49,7 +50,6 @@ namespace WebCore {
     class IntSize;
     class Node;
     class Range;
-    class RenderPart;
     class TreeScope;
     class ScriptController;
     class SpellChecker;
@@ -72,11 +72,8 @@ namespace WebCore {
 
         virtual void willDetachFrameHost() OVERRIDE;
         virtual void detachFromFrameHost() OVERRIDE;
-        void disconnectOwnerElement();
 
-        HTMLFrameOwnerElement* ownerElement() const;
-
-        virtual void setDOMWindow(PassRefPtr<DOMWindow>) OVERRIDE;
+        virtual void setDOMWindow(PassRefPtrWillBeRawPtr<DOMWindow>) OVERRIDE;
         FrameView* view() const;
 
         Editor& editor() const;
@@ -89,8 +86,6 @@ namespace WebCore {
         FetchContext& fetchContext() const { return loader().fetchContext(); }
         ScriptController& script();
         SpellChecker& spellChecker() const;
-
-        RenderPart* ownerRenderer() const; // Renderer for the element that contains this frame.
 
         void didChangeVisibilityState();
 
@@ -128,7 +123,7 @@ namespace WebCore {
 
         String documentTypeString() const;
 
-        PassOwnPtr<DragImage> nodeImage(Node*);
+        PassOwnPtr<DragImage> nodeImage(Node&);
         PassOwnPtr<DragImage> dragImageForSelection();
 
         String selectedText() const;
@@ -214,11 +209,6 @@ namespace WebCore {
         return *m_inputMethodController;
     }
 
-    inline HTMLFrameOwnerElement* LocalFrame::ownerElement() const
-    {
-        return m_ownerElement;
-    }
-
     inline bool LocalFrame::inViewSourceMode() const
     {
         return m_inViewSourceMode;
@@ -243,5 +233,10 @@ namespace WebCore {
     DEFINE_TYPE_CASTS(LocalFrame, Frame, localFrame, localFrame->isLocalFrame(), localFrame.isLocalFrame());
 
 } // namespace WebCore
+
+// During refactoring, there are some places where we need to do type conversions that
+// will not be needed once all instances of LocalFrame and RemoteFrame are sorted out.
+// At that time this #define will be removed and all the uses of it will need to be corrected.
+#define toLocalFrameTemporary toLocalFrame
 
 #endif // LocalFrame_h

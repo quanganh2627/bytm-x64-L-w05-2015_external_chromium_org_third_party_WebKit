@@ -61,6 +61,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyMessageEvent.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyNeededEvent.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeys.cpp \
+	third_party/WebKit/Source/modules/encryptedmedia/MediaKeysController.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeySession.cpp \
 	third_party/WebKit/Source/modules/filesystem/DOMFilePath.cpp \
 	third_party/WebKit/Source/modules/filesystem/DOMFileSystem.cpp \
@@ -90,6 +91,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/gamepad/Gamepad.cpp \
 	third_party/WebKit/Source/modules/gamepad/GamepadButton.cpp \
 	third_party/WebKit/Source/modules/gamepad/GamepadCommon.cpp \
+	third_party/WebKit/Source/modules/gamepad/GamepadDispatcher.cpp \
+	third_party/WebKit/Source/modules/gamepad/GamepadEvent.cpp \
 	third_party/WebKit/Source/modules/gamepad/GamepadList.cpp \
 	third_party/WebKit/Source/modules/gamepad/NavigatorGamepad.cpp \
 	third_party/WebKit/Source/modules/gamepad/WebKitGamepad.cpp \
@@ -296,7 +299,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/webdatabase/sqlite/SQLiteStatement.cpp \
 	third_party/WebKit/Source/modules/webdatabase/sqlite/SQLiteTransaction.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIAccess.cpp \
-	third_party/WebKit/Source/modules/webmidi/MIDIAccessPromise.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIAccessor.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIClientMock.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIController.cpp \
@@ -387,9 +389,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -397,6 +397,7 @@ MY_DEFS_Debug := \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -526,9 +527,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -536,6 +535,7 @@ MY_DEFS_Release := \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

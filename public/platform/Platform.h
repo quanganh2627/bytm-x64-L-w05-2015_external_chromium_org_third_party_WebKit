@@ -38,6 +38,7 @@
 #include "WebAudioDevice.h"
 #include "WebCommon.h"
 #include "WebData.h"
+#include "WebGamepadListener.h"
 #include "WebGamepads.h"
 #include "WebGraphicsContext3D.h"
 #include "WebLocalizedString.h"
@@ -140,12 +141,6 @@ public:
     virtual WebSpeechSynthesizer* createSpeechSynthesizer(WebSpeechSynthesizerClient*) { return 0; }
 
 
-    // Media --------------------------------------------------------------
-
-    // May return null.
-    virtual WebContentDecryptionModule* createContentDecryptionModule(const WebString& keySystem) { return 0; }
-
-
     // Audio --------------------------------------------------------------
 
     virtual double audioHardwareSampleRate() { return 0; }
@@ -215,6 +210,8 @@ public:
     // Gamepad -------------------------------------------------------------
 
     virtual void sampleGamepads(WebGamepads& into) { into.length = 0; }
+
+    virtual void setGamepadListener(WebGamepadListener*) { }
 
 
     // History -------------------------------------------------------------
@@ -320,8 +317,8 @@ public:
     // Returns a new WebSocketHandle instance.
     virtual WebSocketHandle* createWebSocketHandle() { return 0; }
 
-    // Returns the User-Agent string that should be used for the given URL.
-    virtual WebString userAgent(const WebURL&) { return WebString(); }
+    // Returns the User-Agent string.
+    virtual WebString userAgent() { return WebString(); }
 
     // A suggestion to cache this metadata in association with this URL.
     virtual void cacheMetadata(const WebURL&, double responseTime, const char* data, size_t dataSize) { }
@@ -447,7 +444,6 @@ public:
 
     // Testing -------------------------------------------------------------
 
-#define HAVE_WEBUNITTESTSUPPORT 1
     // Get a pointer to testing support interfaces. Will not be available in production builds.
     virtual WebUnitTestSupport* unitTestSupport() { return 0; }
 

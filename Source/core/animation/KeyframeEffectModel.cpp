@@ -91,6 +91,11 @@ PassRefPtrWillBeRawPtr<Keyframe> Keyframe::cloneWithOffset(double offset) const
     return theClone.release();
 }
 
+void Keyframe::trace(Visitor* visitor)
+{
+    visitor->trace(m_propertyValues);
+}
+
 KeyframeEffectModel::KeyframeEffectModel(const KeyframeVector& keyframes)
     : m_keyframes(keyframes)
 {
@@ -112,14 +117,14 @@ PropertySet KeyframeEffectModel::properties() const
     return result;
 }
 
-PassOwnPtr<Vector<RefPtr<Interpolation> > > KeyframeEffectModel::sample(int iteration, double fraction) const
+PassOwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > KeyframeEffectModel::sample(int iteration, double fraction, double iterationDuration) const
 {
     ASSERT(iteration >= 0);
     ASSERT(!isNull(fraction));
     ensureKeyframeGroups();
     ensureInterpolationEffect();
 
-    return m_interpolationEffect->getActiveInterpolations(fraction);
+    return m_interpolationEffect->getActiveInterpolations(fraction, iterationDuration);
 }
 
 KeyframeEffectModel::KeyframeVector KeyframeEffectModel::normalizedKeyframes(const KeyframeVector& keyframes)
@@ -191,7 +196,7 @@ void KeyframeEffectModel::ensureKeyframeGroups() const
     if (m_keyframeGroups)
         return;
 
-    m_keyframeGroups = adoptPtr(new KeyframeGroupMap);
+    m_keyframeGroups = adoptPtrWillBeNoop(new KeyframeGroupMap);
     const KeyframeVector keyframes = normalizedKeyframes(getFrames());
     for (KeyframeVector::const_iterator keyframeIter = keyframes.begin(); keyframeIter != keyframes.end(); ++keyframeIter) {
         const Keyframe* keyframe = keyframeIter->get();
@@ -201,11 +206,12 @@ void KeyframeEffectModel::ensureKeyframeGroups() const
             KeyframeGroupMap::iterator groupIter = m_keyframeGroups->find(property);
             PropertySpecificKeyframeGroup* group;
             if (groupIter == m_keyframeGroups->end())
-                group = m_keyframeGroups->add(property, adoptPtr(new PropertySpecificKeyframeGroup)).storedValue->value.get();
+                group = m_keyframeGroups->add(property, adoptPtrWillBeNoop(new PropertySpecificKeyframeGroup)).storedValue->value.get();
             else
                 group = groupIter->value.get();
 
-            group->appendKeyframe(adoptPtr(
+            ASSERT(keyframe->composite() == AnimationEffect::CompositeReplace);
+            group->appendKeyframe(adoptPtrWillBeNoop(
                 new PropertySpecificKeyframe(keyframe->offset(), keyframe->easing(), keyframe->propertyValue(property), keyframe->composite())));
         }
     }
@@ -225,9 +231,11 @@ void KeyframeEffectModel::ensureInterpolationEffect() const
 
     for (KeyframeGroupMap::const_iterator iter = m_keyframeGroups->begin(); iter != m_keyframeGroups->end(); ++iter) {
         const PropertySpecificKeyframeVector& keyframes = iter->value->keyframes();
+        ASSERT(keyframes[0]->composite() == AnimationEffect::CompositeReplace);
         const AnimatableValue* start;
         const AnimatableValue* end = keyframes[0]->value();
         for (size_t i = 0; i < keyframes.size() - 1; i++) {
+            ASSERT(keyframes[i + 1]->composite() == AnimationEffect::CompositeReplace);
             start = end;
             end = keyframes[i + 1]->value();
             double applyFrom = i ? keyframes[i]->offset() : (-std::numeric_limits<double>::infinity());
@@ -243,29 +251,56 @@ void KeyframeEffectModel::ensureInterpolationEffect() const
     }
 }
 
+bool KeyframeEffectModel::isReplaceOnly()
+{
+    ensureKeyframeGroups();
+    for (KeyframeGroupMap::iterator iter = m_keyframeGroups->begin(); iter != m_keyframeGroups->end(); ++iter) {
+        const PropertySpecificKeyframeVector& keyframeVector = iter->value->keyframes();
+        for (size_t i = 0; i < keyframeVector.size(); ++i) {
+            if (keyframeVector[i]->composite() != AnimationEffect::CompositeReplace)
+                return false;
+        }
+    }
+    return true;
+}
+
+void KeyframeEffectModel::trace(Visitor* visitor)
+{
+    visitor->trace(m_keyframes);
+    visitor->trace(m_interpolationEffect);
+#if ENABLE_OILPAN
+    visitor->trace(m_keyframeGroups);
+#endif
+}
+
 KeyframeEffectModel::PropertySpecificKeyframe::PropertySpecificKeyframe(double offset, PassRefPtr<TimingFunction> easing, const AnimatableValue* value, CompositeOperation composite)
     : m_offset(offset)
     , m_easing(easing)
+    , m_composite(composite)
 {
-    ASSERT(composite == AnimationEffect::CompositeReplace);
     m_value = AnimatableValue::takeConstRef(value);
 }
 
-KeyframeEffectModel::PropertySpecificKeyframe::PropertySpecificKeyframe(double offset, PassRefPtr<TimingFunction> easing, PassRefPtr<AnimatableValue> value)
+KeyframeEffectModel::PropertySpecificKeyframe::PropertySpecificKeyframe(double offset, PassRefPtr<TimingFunction> easing, PassRefPtrWillBeRawPtr<AnimatableValue> value, CompositeOperation composite)
     : m_offset(offset)
     , m_easing(easing)
     , m_value(value)
+    , m_composite(composite)
 {
     ASSERT(!isNull(m_offset));
 }
 
-PassOwnPtr<KeyframeEffectModel::PropertySpecificKeyframe> KeyframeEffectModel::PropertySpecificKeyframe::cloneWithOffset(double offset) const
+PassOwnPtrWillBeRawPtr<KeyframeEffectModel::PropertySpecificKeyframe> KeyframeEffectModel::PropertySpecificKeyframe::cloneWithOffset(double offset) const
 {
-    return adoptPtr(new PropertySpecificKeyframe(offset, m_easing, m_value));
+    return adoptPtrWillBeNoop(new PropertySpecificKeyframe(offset, m_easing, m_value.get(), m_composite));
 }
 
+void KeyframeEffectModel::PropertySpecificKeyframe::trace(Visitor* visitor)
+{
+    visitor->trace(m_value);
+}
 
-void KeyframeEffectModel::PropertySpecificKeyframeGroup::appendKeyframe(PassOwnPtr<PropertySpecificKeyframe> keyframe)
+void KeyframeEffectModel::PropertySpecificKeyframeGroup::appendKeyframe(PassOwnPtrWillBeRawPtr<PropertySpecificKeyframe> keyframe)
 {
     ASSERT(m_keyframes.isEmpty() || m_keyframes.last()->offset() <= keyframe->offset());
     m_keyframes.append(keyframe);
@@ -293,26 +328,17 @@ void KeyframeEffectModel::PropertySpecificKeyframeGroup::removeRedundantKeyframe
 void KeyframeEffectModel::PropertySpecificKeyframeGroup::addSyntheticKeyframeIfRequired()
 {
     ASSERT(!m_keyframes.isEmpty());
-    double offset = m_keyframes.first()->offset();
-    bool allOffsetsEqual = true;
-    for (PropertySpecificKeyframeVector::const_iterator iter = m_keyframes.begin() + 1; iter != m_keyframes.end(); ++iter) {
-        if ((*iter)->offset() != offset) {
-            allOffsetsEqual = false;
-            break;
-        }
-    }
-    if (!allOffsetsEqual)
-        return;
-
-    if (!offset)
-        appendKeyframe(m_keyframes.first()->cloneWithOffset(1.0));
-    else
-        m_keyframes.insert(0, adoptPtr(new PropertySpecificKeyframe(0.0, nullptr, AnimatableValue::neutralValue(), CompositeAdd)));
+    if (m_keyframes.first()->offset() != 0.0)
+        m_keyframes.insert(0, adoptPtrWillBeNoop(new PropertySpecificKeyframe(0, nullptr, AnimatableValue::neutralValue(), CompositeAdd)));
+    if (m_keyframes.last()->offset() != 1.0)
+        appendKeyframe(adoptPtrWillBeNoop(new PropertySpecificKeyframe(1, nullptr, AnimatableValue::neutralValue(), CompositeAdd)));
 }
 
-void KeyframeEffectModel::trace(Visitor* visitor)
+void KeyframeEffectModel::PropertySpecificKeyframeGroup::trace(Visitor* visitor)
 {
+#if ENABLE_OILPAN
     visitor->trace(m_keyframes);
+#endif
 }
 
 } // namespace

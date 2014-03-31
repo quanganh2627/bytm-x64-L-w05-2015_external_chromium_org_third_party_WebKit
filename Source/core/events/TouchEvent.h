@@ -37,24 +37,24 @@ class TouchEvent FINAL : public MouseRelatedEvent {
 public:
     virtual ~TouchEvent();
 
-    static PassRefPtr<TouchEvent> create()
+    static PassRefPtrWillBeRawPtr<TouchEvent> create()
     {
-        return adoptRef(new TouchEvent);
+        return adoptRefWillBeRefCountedGarbageCollected(new TouchEvent);
     }
-    static PassRefPtr<TouchEvent> create(TouchList* touches,
+    static PassRefPtrWillBeRawPtr<TouchEvent> create(TouchList* touches,
         TouchList* targetTouches, TouchList* changedTouches,
-        const AtomicString& type, PassRefPtr<AbstractView> view,
+        const AtomicString& type, PassRefPtrWillBeRawPtr<AbstractView> view,
         int screenX, int screenY, int pageX, int pageY,
         bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
     {
-        return adoptRef(new TouchEvent(touches, targetTouches, changedTouches,
+        return adoptRefWillBeRefCountedGarbageCollected(new TouchEvent(touches, targetTouches, changedTouches,
             type, view, screenX, screenY, pageX, pageY,
             ctrlKey, altKey, shiftKey, metaKey));
     }
 
     void initTouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type,
-        PassRefPtr<AbstractView>, int screenX, int screenY,
+        PassRefPtrWillBeRawPtr<AbstractView>, int screenX, int screenY,
         int clientX, int clientY,
         bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
@@ -76,13 +76,13 @@ private:
     TouchEvent();
     TouchEvent(TouchList* touches, TouchList* targetTouches,
             TouchList* changedTouches, const AtomicString& type,
-            PassRefPtr<AbstractView>, int screenX, int screenY, int pageX,
+            PassRefPtrWillBeRawPtr<AbstractView>, int screenX, int screenY, int pageX,
             int pageY,
             bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
-    RefPtrWillBePersistent<TouchList> m_touches;
-    RefPtrWillBePersistent<TouchList> m_targetTouches;
-    RefPtrWillBePersistent<TouchList> m_changedTouches;
+    RefPtrWillBeMember<TouchList> m_touches;
+    RefPtrWillBeMember<TouchList> m_targetTouches;
+    RefPtrWillBeMember<TouchList> m_changedTouches;
 };
 
 class TouchEventDispatchMediator FINAL : public EventDispatchMediator {

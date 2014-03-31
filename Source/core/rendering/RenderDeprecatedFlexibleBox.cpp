@@ -258,44 +258,42 @@ void RenderDeprecatedFlexibleBox::layoutBlock(bool relayoutChildren)
         return;
 
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
-    LayoutStateMaintainer statePusher(*this, locationOffset());
 
-    RenderFlowThread* flowThread = flowThreadContainingBlock();
-    if (updateRegionsAndShapesLogicalSize(flowThread))
-        relayoutChildren = true;
+    {
+        // LayoutStateMaintainer needs this deliberate scope to pop before repaint
+        LayoutStateMaintainer statePusher(*this, locationOffset());
 
-    LayoutSize previousSize = size();
+        LayoutSize previousSize = size();
 
-    updateLogicalWidth();
-    updateLogicalHeight();
+        updateLogicalWidth();
+        updateLogicalHeight();
 
-    if (previousSize != size()
-        || (parent()->isDeprecatedFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL
-        && parent()->style()->boxAlign() == BSTRETCH))
-        relayoutChildren = true;
+        if (previousSize != size()
+            || (parent()->isDeprecatedFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL
+            && parent()->style()->boxAlign() == BSTRETCH))
+            relayoutChildren = true;
 
-    setHeight(0);
+        setHeight(0);
 
-    m_stretchingChildren = false;
+        m_stretchingChildren = false;
 
-    if (isHorizontal())
-        layoutHorizontalBox(relayoutChildren);
-    else
-        layoutVerticalBox(relayoutChildren);
+        if (isHorizontal())
+            layoutHorizontalBox(relayoutChildren);
+        else
+            layoutVerticalBox(relayoutChildren);
 
-    LayoutUnit oldClientAfterEdge = clientLogicalBottom();
-    updateLogicalHeight();
+        LayoutUnit oldClientAfterEdge = clientLogicalBottom();
+        updateLogicalHeight();
 
-    if (previousSize.height() != height())
-        relayoutChildren = true;
+        if (previousSize.height() != height())
+            relayoutChildren = true;
 
-    layoutPositionedObjects(relayoutChildren || isRoot());
+        layoutPositionedObjects(relayoutChildren || isRoot());
 
-    computeRegionRangeForBlock(flowThread);
+        computeRegionRangeForBlock(flowThreadContainingBlock());
 
-    computeOverflow(oldClientAfterEdge);
-
-    statePusher.pop();
+        computeOverflow(oldClientAfterEdge);
+    }
 
     updateLayerTransform();
 
@@ -498,7 +496,7 @@ void RenderDeprecatedFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
             bool expanding = remainingSpace > 0;
             unsigned int start = expanding ? lowestFlexGroup : highestFlexGroup;
             unsigned int end = expanding? highestFlexGroup : lowestFlexGroup;
-            for (unsigned int i = start; i <= end && remainingSpace; i++) {
+            for (unsigned i = start; i <= end && remainingSpace; i++) {
                 // Always start off by assuming the group can get all the remaining space.
                 LayoutUnit groupRemainingSpace = remainingSpace;
                 do {
@@ -752,7 +750,7 @@ void RenderDeprecatedFlexibleBox::layoutVerticalBox(bool relayoutChildren)
             bool expanding = remainingSpace > 0;
             unsigned int start = expanding ? lowestFlexGroup : highestFlexGroup;
             unsigned int end = expanding? highestFlexGroup : lowestFlexGroup;
-            for (unsigned int i = start; i <= end && remainingSpace; i++) {
+            for (unsigned i = start; i <= end && remainingSpace; i++) {
                 // Always start off by assuming the group can get all the remaining space.
                 LayoutUnit groupRemainingSpace = remainingSpace;
                 do {

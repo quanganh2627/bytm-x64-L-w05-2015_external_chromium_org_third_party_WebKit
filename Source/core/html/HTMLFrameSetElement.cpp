@@ -30,7 +30,6 @@
 #include "core/dom/Document.h"
 #include "core/events/Event.h"
 #include "core/events/MouseEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLCollection.h"
 #include "core/html/HTMLFrameElement.h"
@@ -169,21 +168,17 @@ void HTMLFrameSetElement::attach(const AttachContext& context)
 {
     // Inherit default settings from parent frameset
     // FIXME: This is not dynamic.
-    for (ContainerNode* node = parentNode(); node; node = node->parentNode()) {
-        if (isHTMLFrameSetElement(*node)) {
-            HTMLFrameSetElement& frameset = toHTMLFrameSetElement(*node);
-            if (!m_frameborderSet)
-                m_frameborder = frameset.hasFrameBorder();
-            if (m_frameborder) {
-                if (!m_borderSet)
-                    m_border = frameset.border();
-                if (!m_borderColorSet)
-                    m_borderColorSet = frameset.hasBorderColor();
-            }
-            if (!m_noresize)
-                m_noresize = frameset.noResize();
-            break;
+    if (HTMLFrameSetElement* frameset = Traversal<HTMLFrameSetElement>::firstAncestor(*this)) {
+        if (!m_frameborderSet)
+            m_frameborder = frameset->hasFrameBorder();
+        if (m_frameborder) {
+            if (!m_borderSet)
+                m_border = frameset->border();
+            if (!m_borderColorSet)
+                m_borderColorSet = frameset->hasBorderColor();
         }
+        if (!m_noresize)
+            m_noresize = frameset->noResize();
     }
 
     HTMLElement::attach(context);

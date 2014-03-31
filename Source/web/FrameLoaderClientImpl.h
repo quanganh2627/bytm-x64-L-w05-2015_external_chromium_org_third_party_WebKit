@@ -78,7 +78,7 @@ public:
     virtual void dispatchWillRequestAfterPreconnect(WebCore::ResourceRequest&) OVERRIDE;
     virtual void dispatchWillSendRequest(WebCore::DocumentLoader*, unsigned long identifier, WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse) OVERRIDE;
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&) OVERRIDE;
-    virtual void dispatchDidChangeResourcePriority(unsigned long identifier, WebCore::ResourceLoadPriority) OVERRIDE;
+    virtual void dispatchDidChangeResourcePriority(unsigned long identifier, WebCore::ResourceLoadPriority, int intraPriorityValue) OVERRIDE;
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier) OVERRIDE;
     virtual void dispatchDidLoadResourceFromMemoryCache(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) OVERRIDE;
     virtual void dispatchDidHandleOnloadEvents() OVERRIDE;
@@ -98,9 +98,9 @@ public:
     virtual void dispatchWillRequestResource(WebCore::FetchRequest*) OVERRIDE;
     virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) OVERRIDE;
     virtual void dispatchWillSubmitForm(WebCore::HTMLFormElement*) OVERRIDE;
-    virtual void postProgressStartedNotification(WebCore::LoadStartType) OVERRIDE;
-    virtual void postProgressEstimateChangedNotification() OVERRIDE;
-    virtual void postProgressFinishedNotification() OVERRIDE;
+    virtual void didStartLoading(WebCore::LoadStartType) OVERRIDE;
+    virtual void didStopLoading() OVERRIDE;
+    virtual void progressEstimateChanged(double progressEstimate) OVERRIDE;
     virtual void loadURLExternally(const WebCore::ResourceRequest&, WebCore::NavigationPolicy, const String& suggestedName = String()) OVERRIDE;
     virtual bool navigateBackForward(int offset) const OVERRIDE;
     virtual void didAccessInitialDocument() OVERRIDE;

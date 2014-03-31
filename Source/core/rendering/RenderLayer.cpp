@@ -64,6 +64,7 @@
 #include "core/rendering/HitTestRequest.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/HitTestingTransformState.h"
+#include "core/rendering/LayoutRectRecorder.h"
 #include "core/rendering/RenderFlowThread.h"
 #include "core/rendering/RenderGeometryMap.h"
 #include "core/rendering/RenderInline.h"
@@ -125,6 +126,8 @@ RenderLayer::RenderLayer(RenderLayerModelObject* renderer, LayerType type)
     , m_containsDirtyOverlayScrollbars(false)
     , m_canSkipRepaintRectsUpdateOnScroll(renderer->isTableCell())
     , m_hasFilterInfo(false)
+    , m_needsToUpdateAncestorDependentProperties(true)
+    , m_childNeedsToUpdateAncestorDependantProperties(true)
     , m_renderer(renderer)
     , m_parent(0)
     , m_previous(0)
@@ -134,7 +137,6 @@ RenderLayer::RenderLayer(RenderLayerModelObject* renderer, LayerType type)
     , m_staticInlinePosition(0)
     , m_staticBlockPosition(0)
     , m_enclosingPaginationLayer(0)
-    , m_3dRenderingContextRoot(0)
     , m_groupedMapping(0)
     , m_repainter(renderer)
     , m_clipper(renderer)
@@ -194,6 +196,10 @@ RenderLayerCompositor* RenderLayer::compositor() const
 
 void RenderLayer::contentChanged(ContentChangeType changeType)
 {
+    // updateLayerCompositingState will query compositingReasons for accelerated overflow scrolling.
+    // This is tripped by LayoutTests/compositing/content-changed-chicken-egg.html
+    DisableCompositingQueryAsserts disabler;
+
     // This can get called when video becomes accelerated, so the layers may change.
     if (changeType == CanvasChanged || changeType == VideoChanged || changeType == FullScreenChanged)
         compositor()->updateLayerCompositingState(this);
@@ -488,7 +494,7 @@ void RenderLayer::updateLayerPositionsAfterScroll(RenderGeometryMap* geometryMap
     if (geometryMap)
         geometryMap->pushMappingsToAncestor(this, parent());
 
-    if (flags & HasChangedAncestor || flags & HasSeenViewportConstrainedAncestor || flags & IsOverflowScroll)
+    if ((flags & HasChangedAncestor) || (flags & HasSeenViewportConstrainedAncestor) || (flags & IsOverflowScroll))
         m_clipper.clearClipRects();
 
     if (renderer()->style()->hasViewportConstrainedPosition())
@@ -497,18 +503,16 @@ void RenderLayer::updateLayerPositionsAfterScroll(RenderGeometryMap* geometryMap
     if (renderer()->hasOverflowClip())
         flags |= HasSeenAncestorWithOverflowClip;
 
-    if (flags & HasSeenViewportConstrainedAncestor
-        || (flags & IsOverflowScroll && flags & HasSeenAncestorWithOverflowClip && !m_canSkipRepaintRectsUpdateOnScroll)) {
-        // FIXME: Remove incremental compositing updates after fixing the chicken/egg issues
-        // https://code.google.com/p/chromium/issues/detail?id=343756
-        DisableCompositingQueryAsserts disabler;
+    if ((flags & IsOverflowScroll) && (flags & HasSeenAncestorWithOverflowClip) && !m_canSkipRepaintRectsUpdateOnScroll) {
+        // FIXME: This may not be needed. Once repaint-after-layout isn't
+        // under-painting for layer's we should see if this can be removed.
+        LayoutRectRecorder recorder(*m_renderer);
         // FIXME: We could track the repaint container as we walk down the tree.
         repainter().computeRepaintRects(renderer()->containerForRepaint(), geometryMap);
     } else {
         // Check that RenderLayerRepainter's cached rects are correct.
         // FIXME: re-enable these assertions when the issue with table cells is resolved: https://bugs.webkit.org/show_bug.cgi?id=103432
         // ASSERT(repainter().m_repaintRect == renderer()->clippedOverflowRectForRepaint(renderer()->containerForRepaint()));
-        // ASSERT(repainter().m_outlineBox == renderer()->outlineBoundsForRepaint(renderer()->containerForRepaint(), geometryMap));
     }
 
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
@@ -552,20 +556,24 @@ void RenderLayer::updateTransform()
         dirty3DTransformedDescendantStatus();
 }
 
-// Note: this function assumes that all ancestors have an updated 3d rendering context root.
-void RenderLayer::update3dRenderingContext()
+static RenderLayer* enclosingLayerForContainingBlock(RenderLayer* layer)
 {
-    m_3dRenderingContextRoot = 0;
+    if (RenderObject* containingBlock = layer->renderer()->containingBlock())
+        return containingBlock->enclosingLayer();
+    return 0;
+}
 
-    if (!shouldFlattenTransform())
-        m_3dRenderingContextRoot = this;
+RenderLayer* RenderLayer::renderingContextRoot()
+{
+    RenderLayer* renderingContext = 0;
 
-    if (RenderObject* containingBlock = renderer()->containingBlock()) {
-        if (RenderLayer* ancestorLayer = containingBlock->enclosingLayer()) {
-            if (!ancestorLayer->shouldFlattenTransform())
-                m_3dRenderingContextRoot = ancestorLayer->renderingContextRoot();
-        }
-    }
+    if (shouldPreserve3D())
+        renderingContext = this;
+
+    for (RenderLayer* current = enclosingLayerForContainingBlock(this); current && current->shouldPreserve3D(); current = enclosingLayerForContainingBlock(current))
+        renderingContext = current;
+
+    return renderingContext;
 }
 
 TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOrigin applyOrigin) const
@@ -716,13 +724,7 @@ void RenderLayer::setHasVisibleContent()
     m_hasVisibleContent = true;
     m_visibleContentStatusDirty = false;
 
-    {
-        // FIXME: We can remove this code once we remove the recursive tree
-        // walk inside updateGraphicsLayerGeometry.
-        DisableCompositingQueryAsserts disabler;
-        if (RenderLayer* compositingLayer = enclosingCompositingLayer())
-            compositingLayer->compositedLayerMapping()->setNeedsGeometryUpdate();
-    }
+    setNeedsToUpdateAncestorDependentProperties();
 
     repainter().computeRepaintRects(renderer()->containerForRepaint());
     if (!m_stackingNode->isNormalFlowOnly()) {
@@ -847,9 +849,8 @@ void RenderLayer::updateDescendantDependentFlags()
             if (!child->stackingNode()->isStackingContext())
                 child->updateDescendantDependentFlags();
 
-            bool childLayerHasBlendMode = child->blendInfo().childLayerHasBlendModeWhileDirty();
-            childLayerHasBlendMode |= child->paintsWithBlendMode()
-                || (childLayerHasBlendMode && !child->stackingNode()->isStackingContext());
+            bool childLayerHadBlendMode = child->blendInfo().childLayerHasBlendModeWhileDirty();
+            bool childLayerHasBlendMode = childLayerHadBlendMode || child->blendInfo().hasBlendMode();
 
             m_blendInfo.setChildLayerHasBlendMode(childLayerHasBlendMode);
 
@@ -860,7 +861,7 @@ void RenderLayer::updateDescendantDependentFlags()
     }
 
     if (m_visibleContentStatusDirty) {
-        bool previouslyHasVisibleCOntent = m_hasVisibleContent;
+        bool previouslyHasVisibleContent = m_hasVisibleContent;
         if (renderer()->style()->visibility() == VISIBLE)
             m_hasVisibleContent = true;
         else {
@@ -891,11 +892,8 @@ void RenderLayer::updateDescendantDependentFlags()
 
         // FIXME: We can remove this code once we remove the recursive tree
         // walk inside updateGraphicsLayerGeometry.
-        if (hasVisibleContent() != previouslyHasVisibleCOntent) {
-            DisableCompositingQueryAsserts disabler;
-            if (RenderLayer* compositingLayer = enclosingCompositingLayer())
-                compositingLayer->compositedLayerMapping()->setNeedsGeometryUpdate();
-        }
+        if (hasVisibleContent() != previouslyHasVisibleContent)
+            setNeedsToUpdateAncestorDependentProperties();
     }
 }
 
@@ -944,6 +942,9 @@ bool RenderLayer::updateLayerPosition()
 {
     LayoutPoint localPoint;
     LayoutSize inlineBoundingBoxOffset; // We don't put this into the RenderLayer x/y for inlines, so we need to subtract it out when done.
+
+    LayoutRectRecorder recorder(*m_renderer);
+
     if (renderer()->isInline() && renderer()->isRenderInline()) {
         RenderInline* inlineFlow = toRenderInline(renderer());
         IntRect lineBox = inlineFlow->linesBoundingBox();
@@ -1133,23 +1134,49 @@ RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot i
     return 0;
 }
 
+void RenderLayer::clearAncestorDependentPropertyCache()
+{
+    ASSERT(isInCompositingUpdate());
+    m_ancestorDependentPropertyCache.clear();
+}
+
+void RenderLayer::ensureAncestorDependentPropertyCache() const
+{
+    ASSERT(isInCompositingUpdate());
+    if (m_ancestorDependentPropertyCache)
+        return;
+    m_ancestorDependentPropertyCache = adoptPtr(new AncestorDependentPropertyCache());
+}
+
 RenderLayer* RenderLayer::ancestorCompositedScrollingLayer() const
 {
-    ASSERT(isAllowedToQueryCompositingState());
-
     if (!renderer()->acceleratedCompositingForOverflowScrollEnabled())
         return 0;
+
+    ASSERT(isInCompositingUpdate() || !m_ancestorDependentPropertyCache);
+
+    if (m_ancestorDependentPropertyCache && !m_ancestorDependentPropertyCache->ancestorCompositedScrollingLayerDirty())
+        return m_ancestorDependentPropertyCache->ancestorCompositedScrollingLayer();
 
     RenderObject* containingBlock = renderer()->containingBlock();
     if (!containingBlock)
         return 0;
 
+    if (isInCompositingUpdate())
+        ensureAncestorDependentPropertyCache();
+
+    RenderLayer* ancestorCompositedScrollingLayer = 0;
     for (RenderLayer* ancestorLayer = containingBlock->enclosingLayer(); ancestorLayer; ancestorLayer = ancestorLayer->parent()) {
-        if (ancestorLayer->needsCompositedScrolling())
-            return ancestorLayer;
+        if (ancestorLayer->needsCompositedScrolling()) {
+            ancestorCompositedScrollingLayer = ancestorLayer;
+            break;
+        }
     }
 
-    return 0;
+    if (m_ancestorDependentPropertyCache)
+        m_ancestorDependentPropertyCache->setAncestorCompositedScrollingLayer(ancestorCompositedScrollingLayer);
+
+    return ancestorCompositedScrollingLayer;
 }
 
 RenderLayer* RenderLayer::ancestorScrollingLayer() const
@@ -1177,11 +1204,32 @@ RenderLayer* RenderLayer::enclosingFilterLayer(IncludeSelfOrNot includeSelf) con
     return 0;
 }
 
-void RenderLayer::setCompositingReasons(CompositingReasons reasons)
+void RenderLayer::setNeedsToUpdateAncestorDependentProperties()
 {
-    if (m_compositingProperties.compositingReasons == reasons)
+    m_needsToUpdateAncestorDependentProperties = true;
+
+    for (RenderLayer* current = this; current && !current->m_childNeedsToUpdateAncestorDependantProperties; current = current->parent())
+        current->m_childNeedsToUpdateAncestorDependantProperties = true;
+}
+
+void RenderLayer::updateAncestorDependentProperties(const AncestorDependentProperties& ancestorDependentProperties)
+{
+    m_ancestorDependentProperties = ancestorDependentProperties;
+    m_needsToUpdateAncestorDependentProperties = false;
+}
+
+void RenderLayer::clearChildNeedsToUpdateAncestorDependantProperties()
+{
+    ASSERT(!m_needsToUpdateAncestorDependentProperties);
+    m_childNeedsToUpdateAncestorDependantProperties = false;
+}
+
+void RenderLayer::setCompositingReasons(CompositingReasons reasons, CompositingReasons mask)
+{
+    ASSERT(reasons == (reasons & mask));
+    if ((m_compositingProperties.compositingReasons & mask) == (reasons & mask))
         return;
-    m_compositingProperties.compositingReasons = reasons;
+    m_compositingProperties.compositingReasons = (reasons & mask) | (m_compositingProperties.compositingReasons & ~mask);
     m_clipper.setCompositingClipRectsDirty();
 }
 
@@ -1379,6 +1427,8 @@ void RenderLayer::addChild(RenderLayer* child, RenderLayer* beforeChild)
 
     child->setParent(this);
 
+    setNeedsToUpdateAncestorDependentProperties();
+
     if (child->stackingNode()->isNormalFlowOnly())
         m_stackingNode->dirtyNormalFlowList();
 
@@ -1396,7 +1446,7 @@ void RenderLayer::addChild(RenderLayer* child, RenderLayer* beforeChild)
     if (child->isSelfPaintingLayer() || child->hasSelfPaintingLayerDescendant())
         setAncestorChainHasSelfPaintingLayerDescendant();
 
-    if (child->paintsWithBlendMode() || child->blendInfo().childLayerHasBlendMode())
+    if (child->blendInfo().hasBlendMode() || child->blendInfo().childLayerHasBlendMode())
         m_blendInfo.setAncestorChainBlendedDescendant();
 
     if (subtreeContainsOutOfFlowPositionedLayer(child)) {
@@ -1460,7 +1510,7 @@ RenderLayer* RenderLayer::removeChild(RenderLayer* oldChild)
     if (oldChild->m_hasVisibleContent || oldChild->m_hasVisibleDescendant)
         dirtyAncestorChainVisibleDescendantStatus();
 
-    if (oldChild->paintsWithBlendMode() || oldChild->blendInfo().childLayerHasBlendMode())
+    if (oldChild->m_blendInfo.hasBlendMode() || oldChild->blendInfo().childLayerHasBlendMode())
         m_blendInfo.dirtyAncestorChainBlendedDescendantStatus();
 
     if (oldChild->isSelfPaintingLayer() || oldChild->hasSelfPaintingLayerDescendant())
@@ -1492,7 +1542,11 @@ void RenderLayer::removeOnlyThisLayer()
         RenderLayer* next = current->nextSibling();
         removeChild(current);
         m_parent->addChild(current, nextSib);
-        current->repainter().setRepaintStatus(NeedsFullRepaint);
+
+        if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
+            current->renderer()->setShouldDoFullRepaintAfterLayout(true);
+        else
+            current->repainter().setRepaintStatus(NeedsFullRepaint);
 
         // Hits in compositing/overflow/automatically-opt-into-composited-scrolling-part-1.html
         DisableCompositingQueryAsserts disabler;
@@ -1669,13 +1723,16 @@ void RenderLayer::convertToLayerCoords(const RenderLayer* ancestorLayer, LayoutR
 
 RenderLayer* RenderLayer::scrollParent() const
 {
-    if (!renderer()->compositorDrivenAcceleratedScrollingEnabled())
-        return 0;
+    ASSERT(renderer()->compositorDrivenAcceleratedScrollingEnabled());
 
     // Normal flow elements will be parented under the main scrolling layer, so
     // we don't need a scroll parent/child relationship to get them to scroll.
     if (stackingNode()->isNormalFlowOnly())
         return 0;
+
+    // We should never have an ancestor dependent property cache outside of the
+    // compositing update phase.
+    ASSERT(isInCompositingUpdate() || !m_ancestorDependentPropertyCache);
 
     // A layer scrolls with its containing block. So to find the overflow scrolling layer
     // that we scroll with respect to, we must ascend the layer tree until we reach the
@@ -1689,18 +1746,35 @@ RenderLayer* RenderLayer::scrollParent() const
     // our scrolling ancestor, and we will therefore not scroll with it. In this case, we must
     // be a composited layer since the compositor will need to take special measures to ensure
     // that we scroll with our scrolling ancestor and it cannot do this if we do not promote.
-    RenderLayer* scrollParent = ancestorCompositedScrollingLayer();
+    if (m_ancestorDependentPropertyCache && !m_ancestorDependentPropertyCache->scrollParentDirty())
+        return m_ancestorDependentPropertyCache->scrollParent();
 
-    if (!scrollParent || scrollParent->stackingNode()->isStackingContainer())
+    RenderLayer* scrollParent = ancestorCompositedScrollingLayer();
+    if (!scrollParent || scrollParent->stackingNode()->isStackingContainer()) {
+        if (m_ancestorDependentPropertyCache)
+            m_ancestorDependentPropertyCache->setScrollParent(0);
         return 0;
+    }
 
     // If we hit a stacking context on our way up to the ancestor scrolling layer, it will already
     // be composited due to an overflow scrolling parent, so we don't need to.
     for (RenderLayer* ancestor = parent(); ancestor && ancestor != scrollParent; ancestor = ancestor->parent()) {
-        if (ancestor->stackingNode()->isStackingContainer())
-            return 0;
+        if (ancestor->stackingNode()->isStackingContainer()) {
+            scrollParent = 0;
+            break;
+        }
+        if (!isInCompositingUpdate())
+            continue;
+        if (AncestorDependentPropertyCache* ancestorCache = ancestor->m_ancestorDependentPropertyCache.get()) {
+            if (!ancestorCache->ancestorCompositedScrollingLayerDirty() && ancestorCache->ancestorCompositedScrollingLayer() == scrollParent) {
+                scrollParent = ancestorCache->scrollParent();
+                break;
+            }
+        }
     }
 
+    if (m_ancestorDependentPropertyCache)
+        m_ancestorDependentPropertyCache->setScrollParent(scrollParent);
     return scrollParent;
 }
 
@@ -3277,9 +3351,7 @@ bool RenderLayer::intersectsDamageRect(const LayoutRect& layerBounds, const Layo
     RenderView* view = renderer()->view();
     ASSERT(view);
     if (view && !renderer()->isRenderInline()) {
-        LayoutRect b = layerBounds;
-        b.inflate(view->maximalOutlineSize());
-        if (b.intersects(damageRect))
+        if (layerBounds.intersects(damageRect))
             return true;
     }
 
@@ -3328,10 +3400,7 @@ LayoutRect RenderLayer::localBoundingBox(CalculateLayerBoundsFlags flags) const
         }
     }
 
-    RenderView* view = renderer()->view();
-    ASSERT(view);
-    if (view)
-        result.inflate(view->maximalOutlineSize()); // Used to apply a fudge factor to dirty-rect checks on blocks/tables.
+    ASSERT(renderer()->view());
 
     return result;
 }
@@ -3371,11 +3440,6 @@ LayoutRect RenderLayer::boundingBox(const RenderLayer* ancestorLayer, CalculateL
 
     result.moveBy(delta);
     return result;
-}
-
-IntRect RenderLayer::absoluteBoundingBox() const
-{
-    return pixelSnappedIntRect(boundingBox(root()));
 }
 
 LayoutRect RenderLayer::calculateLayerBounds(const RenderLayer* ancestorLayer, const LayoutPoint* offsetFromRoot, CalculateLayerBoundsFlags flags) const
@@ -3520,6 +3584,11 @@ bool RenderLayer::isAllowedToQueryCompositingState() const
     return renderer()->document().lifecycle().state() >= DocumentLifecycle::InCompositingUpdate;
 }
 
+bool RenderLayer::isInCompositingUpdate() const
+{
+    return renderer()->document().lifecycle().state() == DocumentLifecycle::InCompositingUpdate;
+}
+
 CompositedLayerMappingPtr RenderLayer::compositedLayerMapping() const
 {
     ASSERT(isAllowedToQueryCompositingState());
@@ -3530,7 +3599,7 @@ CompositedLayerMappingPtr RenderLayer::ensureCompositedLayerMapping()
 {
     if (!m_compositedLayerMapping) {
         m_compositedLayerMapping = adoptPtr(new CompositedLayerMapping(*this));
-        m_compositedLayerMapping->setNeedsGeometryUpdate();
+        m_compositedLayerMapping->setNeedsGraphicsLayerUpdate();
 
         updateOrRemoveFilterEffectRenderer();
 
@@ -3544,11 +3613,11 @@ void RenderLayer::clearCompositedLayerMapping(bool layerBeingDestroyed)
 {
     if (!layerBeingDestroyed) {
         // We need to make sure our decendants get a geometry update. In principle,
-        // we could call setNeedsGeometryUpdate on our children, but that would
+        // we could call setNeedsGraphicsLayerUpdate on our children, but that would
         // require walking the z-order lists to find them. Instead, we over-invalidate
         // by marking our parent as needing a geometry update.
         if (RenderLayer* compositingParent = enclosingCompositingLayer(ExcludeSelf))
-            compositingParent->compositedLayerMapping()->setNeedsGeometryUpdate();
+            compositingParent->compositedLayerMapping()->setNeedsGraphicsLayerUpdate();
     }
 
     m_compositedLayerMapping.clear();
@@ -3560,10 +3629,10 @@ void RenderLayer::clearCompositedLayerMapping(bool layerBeingDestroyed)
 void RenderLayer::setGroupedMapping(CompositedLayerMapping* groupedMapping, bool layerBeingDestroyed)
 {
     if (!layerBeingDestroyed && m_groupedMapping)
-        m_groupedMapping->setNeedsGeometryUpdate();
+        m_groupedMapping->setNeedsGraphicsLayerUpdate();
     m_groupedMapping = groupedMapping;
     if (!layerBeingDestroyed && m_groupedMapping)
-        m_groupedMapping->setNeedsGeometryUpdate();
+        m_groupedMapping->setNeedsGraphicsLayerUpdate();
 }
 
 bool RenderLayer::hasCompositedMask() const
@@ -3592,8 +3661,6 @@ bool RenderLayer::paintsWithTransform(PaintBehavior paintBehavior) const
 
 bool RenderLayer::paintsWithBlendMode() const
 {
-    // https://code.google.com/p/chromium/issues/detail?id=343759
-    DisableCompositingQueryAsserts disabler;
     return m_blendInfo.hasBlendMode() && compositingState() != PaintsIntoOwnBacking;
 }
 
@@ -3901,12 +3968,13 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
         updateFilters(oldStyle, renderer()->style());
     }
 
+    compositor()->updateStyleDeterminedCompositingReasons(this);
+
+    setNeedsToUpdateAncestorDependentProperties();
+
     // FIXME: Remove incremental compositing updates after fixing the chicken/egg issues
     // https://code.google.com/p/chromium/issues/detail?id=343756
     DisableCompositingQueryAsserts disabler;
-
-    if (RenderLayer* compositingLayer = enclosingCompositingLayer())
-        compositingLayer->compositedLayerMapping()->setNeedsGeometryUpdate();
 
     const RenderStyle* newStyle = renderer()->style();
 
@@ -3984,7 +4052,6 @@ void RenderLayer::updateOrRemoveFilterEffectRenderer()
     RenderLayerFilterInfo* filterInfo = ensureFilterInfo();
     if (!filterInfo->renderer()) {
         RefPtr<FilterEffectRenderer> filterRenderer = FilterEffectRenderer::create();
-        filterRenderer->setIsAccelerated(renderer()->frame()->settings()->acceleratedFiltersEnabled());
         filterInfo->setRenderer(filterRenderer.release());
 
         // We can optimize away code paths in other places if we know that there are no software filters.
@@ -4058,6 +4125,36 @@ DisableCompositingQueryAsserts::DisableCompositingQueryAsserts()
     : m_disabler(gCompositingQueryMode, CompositingQueriesAreAllowed) { }
 
 COMPILE_ASSERT(1 << RenderLayer::ViewportConstrainedNotCompositedReasonBits >= RenderLayer::NumNotCompositedReasons, too_many_viewport_constrained_not_compositing_reasons);
+
+RenderLayer::AncestorDependentPropertyCache::AncestorDependentPropertyCache()
+    : m_ancestorCompositedScrollingLayer(0)
+    , m_scrollParent(0)
+    , m_ancestorCompositedScrollingLayerDirty(true)
+    , m_scrollParentDirty(true) { }
+
+RenderLayer* RenderLayer::AncestorDependentPropertyCache::scrollParent() const
+{
+    ASSERT(!m_scrollParentDirty);
+    return m_scrollParent;
+}
+
+void RenderLayer::AncestorDependentPropertyCache::setScrollParent(RenderLayer* scrollParent)
+{
+    m_scrollParent = scrollParent;
+    m_scrollParentDirty = false;
+}
+
+RenderLayer* RenderLayer::AncestorDependentPropertyCache::ancestorCompositedScrollingLayer() const
+{
+    ASSERT(!m_ancestorCompositedScrollingLayerDirty);
+    return m_ancestorCompositedScrollingLayer;
+}
+
+void RenderLayer::AncestorDependentPropertyCache::setAncestorCompositedScrollingLayer(RenderLayer* layer)
+{
+    m_ancestorCompositedScrollingLayer = layer;
+    m_ancestorCompositedScrollingLayerDirty = false;
+}
 
 } // namespace WebCore
 

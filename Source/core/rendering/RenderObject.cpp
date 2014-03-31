@@ -247,11 +247,6 @@ bool RenderObject::isDescendantOf(const RenderObject* obj) const
     return false;
 }
 
-bool RenderObject::isBody() const
-{
-    return isHTMLBodyElement(node());
-}
-
 bool RenderObject::isHR() const
 {
     return isHTMLHRElement(node());
@@ -525,13 +520,13 @@ RenderLayer* RenderObject::findNextLayer(RenderLayer* parentLayer, RenderObject*
 
 RenderLayer* RenderObject::enclosingLayer() const
 {
-    const RenderObject* curr = this;
-    while (curr) {
-        RenderLayer* layer = curr->hasLayer() ? toRenderLayerModelObject(curr)->layer() : 0;
-        if (layer)
-            return layer;
-        curr = curr->parent();
+    for (const RenderObject* current = this; current; current = current->parent()) {
+        if (current->hasLayer())
+            return toRenderLayerModelObject(current)->layer();
     }
+    // FIXME: We should remove the one caller that triggers this case and make
+    // this function return a reference.
+    ASSERT(!m_parent && !isRenderView());
     return 0;
 }
 
@@ -741,7 +736,10 @@ void RenderObject::invalidateContainerPreferredLogicalWidths()
 void RenderObject::setLayerNeedsFullRepaint()
 {
     ASSERT(hasLayer());
-    toRenderLayerModelObject(this)->layer()->repainter().setRepaintStatus(NeedsFullRepaint);
+    if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
+        setShouldDoFullRepaintAfterLayout(true);
+    else
+        toRenderLayerModelObject(this)->layer()->repainter().setRepaintStatus(NeedsFullRepaint);
 }
 
 void RenderObject::setLayerNeedsFullRepaintForPositionedMovementLayout()
@@ -1330,29 +1328,23 @@ void RenderObject::paint(PaintInfo&, const LayoutPoint&)
 
 RenderLayerModelObject* RenderObject::containerForRepaint() const
 {
-    RenderView* v = view();
-    if (!v)
+    if (!isRooted())
         return 0;
 
     RenderLayerModelObject* repaintContainer = 0;
 
+    RenderView* v = view();
     if (v->usesCompositing()) {
-        if (RenderLayer* parentLayer = enclosingLayer()) {
-            // FIXME: CompositingState is not necessarily up to date for many callers of this function.
-            DisableCompositingQueryAsserts disabler;
+        // FIXME: CompositingState is not necessarily up to date for many callers of this function.
+        DisableCompositingQueryAsserts disabler;
 
-            RenderLayer* compLayer = parentLayer->enclosingCompositingLayerForRepaint();
-            if (compLayer)
-                repaintContainer = compLayer->renderer();
-        }
+        if (RenderLayer* compositingLayer = enclosingLayer()->enclosingCompositingLayerForRepaint())
+            repaintContainer = compositingLayer->renderer();
     }
 
     if (document().view()->hasSoftwareFilters()) {
-        if (RenderLayer* parentLayer = enclosingLayer()) {
-            RenderLayer* enclosingFilterLayer = parentLayer->enclosingFilterLayer();
-            if (enclosingFilterLayer)
-                return enclosingFilterLayer->renderer();
-        }
+        if (RenderLayer* enclosingFilterLayer = enclosingLayer()->enclosingFilterLayer())
+            return enclosingFilterLayer->renderer();
     }
 
     // If we have a flow thread, then we need to do individual repaints within the RenderRegions instead.
@@ -1384,6 +1376,7 @@ void RenderObject::repaintUsingContainer(const RenderLayerModelObject* repaintCo
     DisableCompositingQueryAsserts disabler;
     if (repaintContainer->compositingState() == PaintsIntoGroupedBacking) {
         ASSERT(repaintContainer->groupedMapping());
+        ASSERT(repaintContainer->layer());
 
         // Not clean, but if squashing layer does not yet exist here (e.g. repaint invalidation coming from within recomputing compositing requirements)
         // then it's ok to just exit here, since the squashing layer will get repainted when it is newly created.
@@ -1403,7 +1396,7 @@ void RenderObject::repaintUsingContainer(const RenderLayerModelObject* repaintCo
         // directly to the next chunk of code.
 
         // Then, convert the repaint rect from repaintConainer space into the squashing GraphicsLayer's coordinates.
-        if (repaintContainer->hasTransform())
+        if (repaintContainer->hasTransform() && repaintContainer->layer()->transform())
             offsetRect = repaintContainer->layer()->transform()->mapRect(r);
         offsetRect.move(-repaintContainer->layer()->offsetFromSquashingLayerOrigin());
         repaintContainer->groupedMapping()->squashingLayer()->setNeedsDisplayInRect(offsetRect);
@@ -1482,8 +1475,7 @@ IntRect RenderObject::pixelSnappedAbsoluteClippedOverflowRect() const
 }
 
 bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, bool wasSelfLayout,
-    const LayoutRect& oldBounds, const LayoutRect& oldOutlineBox,
-    const LayoutRect* newBoundsPtr, const LayoutRect* newOutlineBoxRectPtr)
+    const LayoutRect& oldBounds, const LayoutRect* newBoundsPtr)
 {
     RenderView* v = view();
     if (v->document().printing())
@@ -1492,7 +1484,6 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
     // ASSERT(!newBoundsPtr || *newBoundsPtr == clippedOverflowRectForRepaint(repaintContainer));
     LayoutRect newBounds = newBoundsPtr ? *newBoundsPtr : clippedOverflowRectForRepaint(repaintContainer);
-    LayoutRect newOutlineBox;
 
     bool fullRepaint = wasSelfLayout;
     // Presumably a background or a border exists if border-fit:lines was specified.
@@ -1505,19 +1496,13 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         RoundedRect newRoundedRect = style()->getRoundedBorderFor(newBounds);
         fullRepaint = oldRoundedRect.radii() != newRoundedRect.radii();
     }
-    if (!fullRepaint) {
-        // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
-        // ASSERT(!newOutlineBoxRectPtr || *newOutlineBoxRectPtr == outlineBoundsForRepaint(repaintContainer));
-        newOutlineBox = newOutlineBoxRectPtr ? *newOutlineBoxRectPtr : outlineBoundsForRepaint(repaintContainer);
 
-        if ((hasOutline() && newOutlineBox.location() != oldOutlineBox.location())
-            || (mustRepaintBackgroundOrBorder() && (newBounds != oldBounds || (hasOutline() && newOutlineBox != oldOutlineBox))))
-            fullRepaint = true;
-    }
+    if (!fullRepaint && (mustRepaintBackgroundOrBorder() && (newBounds != oldBounds)))
+        fullRepaint = true;
 
-    // If there is no intersection between the old and the new bounds, invalidating
-    // the difference is more expensive than just doing a full repaint.
-    if (!fullRepaint && !newBounds.intersects(oldBounds))
+    // If we shifted, we don't know the exact reason so we are conservative and trigger a full invalidation. Shifting could
+    // be caused by some layout property (left / top) or some in-flow renderer inserted / removed before us in the tree.
+    if (!fullRepaint && newBounds.location() != oldBounds.location())
         fullRepaint = true;
 
     if (!repaintContainer)
@@ -1530,7 +1515,7 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         return true;
     }
 
-    if (newBounds == oldBounds && newOutlineBox == oldOutlineBox)
+    if (oldBounds == newBounds)
         return false;
 
     LayoutUnit deltaLeft = newBounds.x() - oldBounds.x();
@@ -1557,7 +1542,8 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     else if (deltaBottom < 0)
         repaintUsingContainer(repaintContainer, pixelSnappedIntRect(oldBounds.x(), newBounds.maxY(), oldBounds.width(), -deltaBottom));
 
-    if (newOutlineBox == oldOutlineBox)
+    // FIXME: This is a limitation of our visual overflow being a single rectangle.
+    if (!style()->boxShadow() && !style()->hasBorderImageOutsets() && !style()->hasOutline())
         return false;
 
     // We didn't move, but we did change size. Invalidate the delta, which will consist of possibly
@@ -1565,7 +1551,7 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     RenderStyle* outlineStyle = outlineStyleForRepaint();
     LayoutUnit outlineWidth = outlineStyle->outlineSize();
     LayoutBoxExtent insetShadowExtent = style()->getBoxShadowInsetExtent();
-    LayoutUnit width = absoluteValue(newOutlineBox.width() - oldOutlineBox.width());
+    LayoutUnit width = absoluteValue(newBounds.width() - oldBounds.width());
     if (width) {
         LayoutUnit shadowLeft;
         LayoutUnit shadowRight;
@@ -1576,17 +1562,17 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         LayoutUnit borderWidth = max<LayoutUnit>(borderRight, max<LayoutUnit>(valueForLength(style()->borderTopRightRadius().width(), boxWidth), valueForLength(style()->borderBottomRightRadius().width(), boxWidth)));
         LayoutUnit decorationsLeftWidth = max<LayoutUnit>(-outlineStyle->outlineOffset(), borderWidth + minInsetRightShadowExtent) + max<LayoutUnit>(outlineWidth, -shadowLeft);
         LayoutUnit decorationsRightWidth = max<LayoutUnit>(-outlineStyle->outlineOffset(), borderWidth + minInsetRightShadowExtent) + max<LayoutUnit>(outlineWidth, shadowRight);
-        LayoutRect rightRect(newOutlineBox.x() + min(newOutlineBox.width(), oldOutlineBox.width()) - decorationsLeftWidth,
-            newOutlineBox.y(),
+        LayoutRect rightRect(newBounds.x() + min(newBounds.width(), oldBounds.width()) - decorationsLeftWidth,
+            newBounds.y(),
             width + decorationsLeftWidth + decorationsRightWidth,
-            max(newOutlineBox.height(), oldOutlineBox.height()));
+            max(newBounds.height(), oldBounds.height()));
         LayoutUnit right = min<LayoutUnit>(newBounds.maxX(), oldBounds.maxX());
         if (rightRect.x() < right) {
             rightRect.setWidth(min(rightRect.width(), right - rightRect.x()));
             repaintUsingContainer(repaintContainer, pixelSnappedIntRect(rightRect));
         }
     }
-    LayoutUnit height = absoluteValue(newOutlineBox.height() - oldOutlineBox.height());
+    LayoutUnit height = absoluteValue(newBounds.height() - oldBounds.height());
     if (height) {
         LayoutUnit shadowTop;
         LayoutUnit shadowBottom;
@@ -1597,9 +1583,9 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         LayoutUnit borderHeight = max<LayoutUnit>(borderBottom, max<LayoutUnit>(valueForLength(style()->borderBottomLeftRadius().height(), boxHeight), valueForLength(style()->borderBottomRightRadius().height(), boxHeight)));
         LayoutUnit decorationsTopHeight = max<LayoutUnit>(-outlineStyle->outlineOffset(), borderHeight + minInsetBottomShadowExtent) + max<LayoutUnit>(outlineWidth, -shadowTop);
         LayoutUnit decorationsBottomHeight = max<LayoutUnit>(-outlineStyle->outlineOffset(), borderHeight + minInsetBottomShadowExtent) + max<LayoutUnit>(outlineWidth, shadowBottom);
-        LayoutRect bottomRect(newOutlineBox.x(),
-            min(newOutlineBox.maxY(), oldOutlineBox.maxY()) - decorationsTopHeight,
-            max(newOutlineBox.width(), oldOutlineBox.width()),
+        LayoutRect bottomRect(newBounds.x(),
+            min(newBounds.maxY(), oldBounds.maxY()) - decorationsTopHeight,
+            max(newBounds.width(), oldBounds.width()),
             height + decorationsTopHeight + decorationsBottomHeight);
         LayoutUnit bottom = min(newBounds.maxY(), oldBounds.maxY());
         if (bottomRect.y() < bottom) {
@@ -1622,6 +1608,9 @@ void RenderObject::repaintOverflowIfNeeded()
 
 bool RenderObject::checkForRepaint() const
 {
+    if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
+        return !document().view()->needsFullRepaint() && everHadLayout();
+
     return !document().view()->needsFullRepaint() && !hasLayer() && everHadLayout();
 }
 
@@ -1916,7 +1905,7 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
     StyleDifference diff = StyleDifferenceEqual;
     unsigned contextSensitiveProperties = ContextSensitivePropertyNone;
     if (m_style)
-        diff = m_style->diff(style.get(), contextSensitiveProperties);
+        diff = m_style->visualInvalidationDiff(style.get(), contextSensitiveProperties);
 
     diff = adjustStyleDifference(diff, contextSensitiveProperties);
 
@@ -1931,14 +1920,7 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
     updateImage(oldStyle ? oldStyle->borderImage().image() : 0, m_style ? m_style->borderImage().image() : 0);
     updateImage(oldStyle ? oldStyle->maskBoxImage().image() : 0, m_style ? m_style->maskBoxImage().image() : 0);
 
-    updateShapeImage(oldStyle ? oldStyle->shapeInside() : 0, m_style ? m_style->shapeInside() : 0);
     updateShapeImage(oldStyle ? oldStyle->shapeOutside() : 0, m_style ? m_style->shapeOutside() : 0);
-
-    // We need to ensure that view->maximalOutlineSize() is valid for any repaints that happen
-    // during styleDidChange (it's used by clippedOverflowRectForRepaint()).
-    // FIXME: Do this more cleanly. http://crbug.com/273904
-    if (m_style->outlineWidth() > 0 && m_style->outlineSize() > view()->maximalOutlineSize())
-        view()->setMaximalOutlineSize(m_style->outlineSize());
 
     bool doesNotNeedLayout = !m_parent || isText();
 
@@ -1996,11 +1978,12 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
 
             // Keep layer hierarchy visibility bits up to date if visibility changes.
             if (m_style->visibility() != newStyle->visibility()) {
-                if (RenderLayer* l = enclosingLayer()) {
-                    if (newStyle->visibility() == VISIBLE)
-                        l->setHasVisibleContent();
-                    else if (l->hasVisibleContent() && (this == l->renderer() || l->renderer()->style()->visibility() != VISIBLE)) {
-                        l->dirtyVisibleContentStatus();
+                // We might not have an enclosing layer yet because we might not be in the tree.
+                if (RenderLayer* layer = enclosingLayer()) {
+                    if (newStyle->visibility() == VISIBLE) {
+                        layer->setHasVisibleContent();
+                    } else if (layer->hasVisibleContent() && (this == layer->renderer() || layer->renderer()->style()->visibility() != VISIBLE)) {
+                        layer->dirtyVisibleContentStatus();
                         if (diff > StyleDifferenceRepaintLayer)
                             repaint();
                     }
@@ -2382,21 +2365,15 @@ void RenderObject::computeLayerHitTestRects(LayerHitTestRects& layerRects) const
 
     if (!hasLayer()) {
         RenderObject* container = this->container();
-        if (container) {
-            currentLayer = container->enclosingLayer();
-            if (currentLayer && currentLayer->renderer() != container) {
-                layerOffset.move(container->offsetFromAncestorContainer(currentLayer->renderer()));
-                // If the layer itself is scrolled, we have to undo the subtraction of its scroll
-                // offset since we want the offset relative to the scrolling content, not the
-                // element itself.
-                if (currentLayer->renderer()->hasOverflowClip())
-                    layerOffset.move(currentLayer->renderBox()->scrolledContentOffset());
-            }
-        } else {
-            currentLayer = enclosingLayer();
+        currentLayer = container->enclosingLayer();
+        if (container && currentLayer->renderer() != container) {
+            layerOffset.move(container->offsetFromAncestorContainer(currentLayer->renderer()));
+            // If the layer itself is scrolled, we have to undo the subtraction of its scroll
+            // offset since we want the offset relative to the scrolling content, not the
+            // element itself.
+            if (currentLayer->renderer()->hasOverflowClip())
+                layerOffset.move(currentLayer->renderBox()->scrolledContentOffset());
         }
-        if (!currentLayer)
-            return;
     }
 
     this->addLayerHitTestRects(layerRects, currentLayer, layerOffset, LayoutRect());
@@ -2649,8 +2626,8 @@ void RenderObject::willBeRemovedFromTree()
     // If we remove a visible child from an invisible parent, we don't know the layer visibility any more.
     RenderLayer* layer = 0;
     if (parent()->style()->visibility() != VISIBLE && style()->visibility() == VISIBLE && !hasLayer()) {
-        if ((layer = parent()->enclosingLayer()))
-            layer->dirtyVisibleContentStatus();
+        layer = parent()->enclosingLayer();
+        layer->dirtyVisibleContentStatus();
     }
 
     // Keep our layer hierarchy updated.
@@ -2753,7 +2730,6 @@ void RenderObject::postDestroy()
         if (StyleImage* maskBoxImage = m_style->maskBoxImage().image())
             maskBoxImage->removeClient(this);
 
-        removeShapeImageClient(m_style->shapeInside());
         removeShapeImageClient(m_style->shapeOutside());
     }
 
@@ -2782,6 +2758,11 @@ void RenderObject::updateDragState(bool dragOn)
 CompositingState RenderObject::compositingState() const
 {
     return hasLayer() ? toRenderLayerModelObject(this)->layer()->compositingState() : NotComposited;
+}
+
+CompositingReasons RenderObject::additionalCompositingReasons(CompositingTriggerFlags) const
+{
+    return CompositingReasonNone;
 }
 
 bool RenderObject::acceleratedCompositingForOverflowScrollEnabled() const
@@ -3099,13 +3080,6 @@ bool RenderObject::willRenderImage(ImageResource*)
     return document().view()->isVisible();
 }
 
-int RenderObject::maximalOutlineSize(PaintPhase p) const
-{
-    if (p != PaintPhaseOutline && p != PaintPhaseSelfOutline && p != PaintPhaseChildOutlines)
-        return 0;
-    return view()->maximalOutlineSize();
-}
-
 int RenderObject::caretMinOffset() const
 {
     return 0;
@@ -3133,11 +3107,6 @@ int RenderObject::previousOffsetForBackwardDeletion(int current) const
 int RenderObject::nextOffset(int current) const
 {
     return current + 1;
-}
-
-void RenderObject::adjustRectForOutline(LayoutRect& rect) const
-{
-    rect.inflate(outlineStyleForRepaint()->outlineSize());
 }
 
 bool RenderObject::isInert() const
@@ -3325,6 +3294,14 @@ bool RenderObject::nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const
 bool RenderObject::isRelayoutBoundaryForInspector() const
 {
     return objectIsRelayoutBoundary(this);
+}
+
+void RenderObject::clearRepaintState()
+{
+    setShouldDoFullRepaintAfterLayout(false);
+    setShouldDoFullRepaintIfSelfPaintingLayer(false);
+    setShouldRepaintOverflow(false);
+    setLayoutDidGetCalled(false);
 }
 
 } // namespace WebCore

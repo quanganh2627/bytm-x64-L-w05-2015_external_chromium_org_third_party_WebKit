@@ -35,8 +35,6 @@ namespace WebCore {
 class Storage;
 
 struct StorageEventInit : public EventInit {
-    STACK_ALLOCATED();
-public:
     StorageEventInit();
 
     String key;
@@ -48,9 +46,9 @@ public:
 
 class StorageEvent FINAL : public Event {
 public:
-    static PassRefPtr<StorageEvent> create();
-    static PassRefPtr<StorageEvent> create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea);
-    static PassRefPtr<StorageEvent> create(const AtomicString&, const StorageEventInit&);
+    static PassRefPtrWillBeRawPtr<StorageEvent> create();
+    static PassRefPtrWillBeRawPtr<StorageEvent> create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea);
+    static PassRefPtrWillBeRawPtr<StorageEvent> create(const AtomicString&, const StorageEventInit&);
     virtual ~StorageEvent();
 
     const String& key() const { return m_key; }
@@ -78,7 +76,7 @@ private:
     String m_oldValue;
     String m_newValue;
     String m_url;
-    RefPtrWillBePersistent<Storage> m_storageArea;
+    RefPtrWillBeMember<Storage> m_storageArea;
 };
 
 } // namespace WebCore

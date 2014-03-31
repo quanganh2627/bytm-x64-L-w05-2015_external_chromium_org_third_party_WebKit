@@ -66,9 +66,9 @@ PassRefPtrWillBeRawPtr<Database> Database::create(ExecutionContext*, PassRefPtrW
     return static_cast<Database*>(backend.get());
 }
 
-Database::Database(PassRefPtr<DatabaseContext> databaseContext,
+Database::Database(DatabaseContext* databaseContext,
     const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
-    : DatabaseBackend(databaseContext.get(), name, expectedVersion, displayName, estimatedSize)
+    : DatabaseBackend(databaseContext, name, expectedVersion, displayName, estimatedSize)
     , DatabaseBase(databaseContext->executionContext())
     , m_databaseContext(DatabaseBackend::databaseContext())
 {
@@ -85,6 +85,7 @@ Database::~Database()
 
 void Database::trace(Visitor* visitor)
 {
+    visitor->trace(m_databaseContext);
     DatabaseBackend::trace(visitor);
 }
 
@@ -129,8 +130,9 @@ void Database::readTransaction(PassOwnPtr<SQLTransactionCallback> callback, Pass
     runTransaction(callback, errorCallback, successCallback, true);
 }
 
-static void callTransactionErrorCallback(ExecutionContext*, PassOwnPtr<SQLTransactionErrorCallback> callback, PassRefPtr<SQLError> error)
+static void callTransactionErrorCallback(ExecutionContext*, PassOwnPtr<SQLTransactionErrorCallback> callback, PassOwnPtr<SQLErrorData> errorData)
 {
+    RefPtrWillBeRawPtr<SQLError> error = SQLError::create(*errorData);
     callback->handleEvent(error.get());
 }
 
@@ -149,7 +151,7 @@ void Database::runTransaction(PassOwnPtr<SQLTransactionCallback> callback, PassO
         OwnPtr<SQLTransactionErrorCallback> callback = transaction->releaseErrorCallback();
         ASSERT(callback == originalErrorCallback);
         if (callback) {
-            RefPtr<SQLError> error = SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed");
+            OwnPtr<SQLErrorData> error = SQLErrorData::create(SQLError::UNKNOWN_ERR, "database has been closed");
             executionContext()->postTask(createCallbackTask(&callTransactionErrorCallback, callback.release(), error.release()));
         }
     }

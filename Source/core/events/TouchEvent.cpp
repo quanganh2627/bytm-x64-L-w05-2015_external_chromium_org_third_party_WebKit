@@ -29,7 +29,6 @@
 #include "core/events/TouchEvent.h"
 
 #include "core/events/EventDispatcher.h"
-#include "core/events/ThreadLocalEventNames.h"
 
 namespace WebCore {
 
@@ -40,7 +39,7 @@ TouchEvent::TouchEvent()
 
 TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type,
-        PassRefPtr<AbstractView> view, int screenX, int screenY, int pageX, int pageY,
+        PassRefPtrWillBeRawPtr<AbstractView> view, int screenX, int screenY, int pageX, int pageY,
         bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
     : MouseRelatedEvent(type, true, true, view, 0, IntPoint(screenX, screenY),
                         IntPoint(pageX, pageY),
@@ -59,7 +58,7 @@ TouchEvent::~TouchEvent()
 
 void TouchEvent::initTouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type,
-        PassRefPtr<AbstractView> view, int screenX, int screenY, int clientX, int clientY,
+        PassRefPtrWillBeRawPtr<AbstractView> view, int screenX, int screenY, int clientX, int clientY,
         bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
 {
     if (dispatched())
@@ -90,6 +89,9 @@ bool TouchEvent::isTouchEvent() const
 
 void TouchEvent::trace(Visitor* visitor)
 {
+    visitor->trace(m_touches);
+    visitor->trace(m_targetTouches);
+    visitor->trace(m_changedTouches);
     MouseRelatedEvent::trace(visitor);
 }
 

@@ -66,11 +66,12 @@ void HTMLImportsController::clear()
     if (m_master)
         m_master->setImport(0);
     m_master = 0;
+    m_recalcTimer.stop();
 }
 
 HTMLImportChild* HTMLImportsController::createChild(const KURL& url, HTMLImport* parent, HTMLImportChildClient* client)
 {
-    OwnPtr<HTMLImportChild> loader = adoptPtr(new HTMLImportChild(*m_master, url, client->isSync()));
+    OwnPtr<HTMLImportChild> loader = adoptPtr(new HTMLImportChild(*m_master, url, client->isSync() ? HTMLImport::Sync : HTMLImport::Async));
     loader->setClient(client);
     parent->appendChild(loader.get());
     m_imports.append(loader.release());
@@ -87,7 +88,10 @@ HTMLImportChild* HTMLImportsController::load(HTMLImport* parent, HTMLImportChild
         return child;
     }
 
-    request.setCrossOriginAccessControl(securityOrigin(), DoNotAllowStoredCredentials);
+    bool sameOriginRequest = securityOrigin()->canRequest(request.url());
+    request.setCrossOriginAccessControl(
+        securityOrigin(), sameOriginRequest ? AllowStoredCredentials : DoNotAllowStoredCredentials,
+        ClientDidNotRequestCredentials);
     ResourcePtr<RawResource> resource = parent->document()->fetcher()->fetchImport(request);
     if (!resource)
         return 0;
@@ -163,13 +167,15 @@ void HTMLImportsController::stateDidChange()
 
 void HTMLImportsController::scheduleRecalcState()
 {
-    if (m_recalcTimer.isActive())
+    if (m_recalcTimer.isActive() || !m_master)
         return;
     m_recalcTimer.startOneShot(0, FROM_HERE);
 }
 
 void HTMLImportsController::recalcTimerFired(Timer<HTMLImportsController>*)
 {
+    ASSERT(m_master);
+
     do {
         m_recalcTimer.stop();
         HTMLImport::recalcTreeState(this);

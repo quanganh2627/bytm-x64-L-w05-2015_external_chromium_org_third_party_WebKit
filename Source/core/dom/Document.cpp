@@ -53,6 +53,7 @@
 #include "core/css/StylePropertySet.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/css/StyleSheetList.h"
+#include "core/css/invalidation/StyleInvalidator.h"
 #include "core/css/resolver/FontBuilder.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/css/resolver/StyleResolverStats.h"
@@ -82,7 +83,6 @@
 #include "core/dom/NodeRenderingTraversal.h"
 #include "core/dom/NodeTraversal.h"
 #include "core/dom/NodeWithIndex.h"
-#include "core/dom/PostAttachCallbacks.h"
 #include "core/dom/ProcessingInstruction.h"
 #include "core/dom/RequestAnimationFrameCallback.h"
 #include "core/dom/ScriptRunner.h"
@@ -107,7 +107,6 @@
 #include "core/events/HashChangeEvent.h"
 #include "core/events/PageTransitionEvent.h"
 #include "core/events/ScopedEventQueue.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/DOMWindow.h"
 #include "core/frame/FrameHost.h"
@@ -705,13 +704,7 @@ Location* Document::location() const
 void Document::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     ContainerNode::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-
-    Element* newDocumentElement = ElementTraversal::firstWithin(*this);
-    if (newDocumentElement == m_documentElement)
-        return;
-    m_documentElement = newDocumentElement;
-    // The root style used for media query matching depends on the document element.
-    clearStyleResolver();
+    m_documentElement = ElementTraversal::firstWithin(*this);
 }
 
 PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionState& exceptionState)
@@ -993,7 +986,8 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionState& ex
 
         if (source->isFrameOwnerElement()) {
             HTMLFrameOwnerElement* frameOwnerElement = toHTMLFrameOwnerElement(source.get());
-            if (frame() && frame()->tree().isDescendantOf(frameOwnerElement->contentFrame())) {
+            // FIXME(kenrb): the downcast can be removed when the FrameTree supports RemoteFrames.
+            if (frame() && frame()->tree().isDescendantOf(toLocalFrameTemporary(frameOwnerElement->contentFrame()))) {
                 exceptionState.throwDOMException(HierarchyRequestError, "The node provided is a frame which contains this document.");
                 return nullptr;
             }
@@ -1528,14 +1522,24 @@ PassRefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToSho
     return TreeWalker::create(root, whatToShow, filter);
 }
 
-bool Document::shouldCallRecalcStyleForDocument()
+bool Document::needsRenderTreeUpdate() const
 {
     if (!isActive() || !view())
         return false;
-    return needsStyleRecalc() || childNeedsStyleRecalc() || childNeedsDistributionRecalc() || !m_useElementsNeedingUpdate.isEmpty() || childNeedsStyleInvalidation();
+    if (needsStyleRecalc() || childNeedsStyleRecalc())
+        return true;
+    if (childNeedsDistributionRecalc())
+        return true;
+    if (!m_useElementsNeedingUpdate.isEmpty())
+        return true;
+    if (!m_layerUpdateElements.isEmpty())
+        return true;
+    if (childNeedsStyleInvalidation())
+        return true;
+    return false;
 }
 
-bool Document::shouldScheduleStyleRecalc()
+bool Document::shouldScheduleRenderTreeUpdate() const
 {
     if (!isActive())
         return false;
@@ -1551,12 +1555,12 @@ bool Document::shouldScheduleStyleRecalc()
     return true;
 }
 
-void Document::scheduleStyleRecalc()
+void Document::scheduleRenderTreeUpdate()
 {
-    if (!shouldScheduleStyleRecalc())
+    if (!shouldScheduleRenderTreeUpdate())
         return;
 
-    ASSERT(shouldCallRecalcStyleForDocument());
+    ASSERT(needsRenderTreeUpdate());
 
     page()->animator().scheduleVisualUpdate();
     m_lifecycle.advanceTo(DocumentLifecycle::StyleRecalcPending);
@@ -1586,7 +1590,7 @@ void Document::updateStyleInvalidationIfNeeded()
     TRACE_EVENT0("webkit", "Document::computeNeedsStyleRecalcState");
     ASSERT(styleResolver());
 
-    styleResolver()->ruleFeatureSet().computeStyleInvalidation(*this);
+    StyleInvalidator(*this).invalidate();
 }
 
 void Document::updateDistributionForNodeIfNeeded(Node* node)
@@ -1703,18 +1707,11 @@ void Document::inheritHtmlAndBodyElementStyles(StyleRecalcChange change)
     }
 }
 
-void Document::updateStyleIfNeeded()
-{
-    updateStyle(NoChange);
-}
-
-// FIXME: We need a better name than updateStyleIfNeeded. It's performing style invalidation,
-// style recalc, distribution and <use> shadow tree creation.
-void Document::updateStyle(StyleRecalcChange change)
+void Document::updateRenderTree(StyleRecalcChange change)
 {
     ASSERT(isMainThread());
 
-    if (change != Force && !shouldCallRecalcStyleForDocument())
+    if (change != Force && !needsRenderTreeUpdate())
         return;
 
     if (inStyleRecalc())
@@ -1726,11 +1723,11 @@ void Document::updateStyle(StyleRecalcChange change)
     RELEASE_ASSERT(!view()->isInPerformLayout());
     RELEASE_ASSERT(!view()->isPainting());
 
-    // Script can run below in PostAttachCallbacks or WidgetUpdates, so protect the LocalFrame.
+    // Script can run below in WidgetUpdates, so protect the LocalFrame.
     RefPtr<LocalFrame> protect(m_frame);
 
-    TRACE_EVENT0("webkit", "Document::recalcStyle");
-    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "RecalcStyle");
+    TRACE_EVENT0("webkit", "Document::updateRenderTree");
+    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "UpdateRenderTree");
 
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRecalculateStyle(this);
 
@@ -1738,10 +1735,9 @@ void Document::updateStyle(StyleRecalcChange change)
     updateUseShadowTreesIfNeeded();
     updateStyleInvalidationIfNeeded();
 
-    if (m_evaluateMediaQueriesOnStyleRecalc) {
-        m_evaluateMediaQueriesOnStyleRecalc = false;
-        evaluateMediaQueryList();
-    }
+    // FIXME: This executes media query listeners which runs script, instead the script
+    // should run at raf timing in ScriptedAnimationController just like resize events.
+    evaluateMediaQueryListIfNeeded();
 
     // FIXME: We should update style on our ancestor chain before proceeding
     // however doing so currently causes several tests to crash, as LocalFrame::setDocument calls Document::attach
@@ -1753,62 +1749,7 @@ void Document::updateStyle(StyleRecalcChange change)
     if (m_elemSheet && m_elemSheet->contents()->usesRemUnits())
         m_styleEngine->setUsesRemUnit(true);
 
-    {
-        PostAttachCallbacks::SuspendScope suspendPostAttachCallbacks;
-        RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
-        m_lifecycle.advanceTo(DocumentLifecycle::InStyleRecalc);
-
-        if (styleChangeType() >= SubtreeStyleChange)
-            change = Force;
-
-        // FIXME: Cannot access the ensureStyleResolver() before calling styleForDocument below because
-        // apparently the StyleResolver's constructor has side effects. We should fix it.
-        // See printing/setPrinting.html, printing/width-overflow.html though they only fail on
-        // mac when accessing the resolver by what appears to be a viewport size difference.
-
-        if (change == Force) {
-            m_hasNodesWithPlaceholderStyle = false;
-            RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*this, m_styleEngine->fontSelector());
-            StyleRecalcChange localChange = RenderStyle::compare(documentStyle.get(), renderView()->style());
-            if (localChange != NoChange)
-                renderView()->setStyle(documentStyle.release());
-        }
-
-        clearNeedsStyleRecalc();
-
-        // Uncomment to enable printing of statistics about style sharing and the matched property cache.
-        // Optionally pass StyleResolver::ReportSlowStats to print numbers that require crawling the
-        // entire DOM (where collecting them is very slow).
-        // FIXME: Expose this as a runtime flag.
-        // ensureStyleResolver().enableStats(/*StyleResolver::ReportSlowStats*/);
-
-        if (StyleResolverStats* stats = ensureStyleResolver().stats())
-            stats->reset();
-
-        if (Element* documentElement = this->documentElement()) {
-            inheritHtmlAndBodyElementStyles(change);
-            if (documentElement->shouldCallRecalcStyle(change))
-                documentElement->recalcStyle(change);
-        }
-
-        ensureStyleResolver().printStats();
-
-        view()->updateCompositingLayersAfterStyleChange();
-
-        clearChildNeedsStyleRecalc();
-
-        if (m_styleEngine->hasResolver()) {
-            // Pseudo element removal and similar may only work with these flags still set. Reset them after the style recalc.
-            StyleResolver& resolver = m_styleEngine->ensureResolver();
-            m_styleEngine->resetCSSFeatureFlags(resolver.ensureUpdatedRuleFeatureSet());
-            resolver.clearStyleSharingList();
-        }
-
-        ASSERT(!needsStyleRecalc());
-        ASSERT(!childNeedsStyleRecalc());
-        ASSERT(inStyleRecalc());
-        m_lifecycle.advanceTo(DocumentLifecycle::StyleClean);
-    }
+    updateStyle(change);
 
     // As a result of the style recalculation, the currently hovered element might have been
     // detached (for example, by setting display:none in the :hover style), schedule another mouseMove event
@@ -1819,12 +1760,78 @@ void Document::updateStyle(StyleRecalcChange change)
     if (m_focusedElement && !m_focusedElement->isFocusable())
         clearFocusedElementSoon();
 
+#if ENABLE(SVG_FONTS)
+    if (svgExtensions())
+        accessSVGExtensions().removePendingSVGFontFaceElementsForRemoval();
+#endif
     InspectorInstrumentation::didRecalculateStyle(cookie);
 }
 
-void Document::updateStyleForNodeIfNeeded(Node* node)
+void Document::updateStyle(StyleRecalcChange change)
 {
-    if (!shouldCallRecalcStyleForDocument())
+    TRACE_EVENT0("webkit", "Document::updateStyle");
+
+    RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
+    m_lifecycle.advanceTo(DocumentLifecycle::InStyleRecalc);
+
+    if (styleChangeType() >= SubtreeStyleChange)
+        change = Force;
+
+    // FIXME: Cannot access the ensureStyleResolver() before calling styleForDocument below because
+    // apparently the StyleResolver's constructor has side effects. We should fix it.
+    // See printing/setPrinting.html, printing/width-overflow.html though they only fail on
+    // mac when accessing the resolver by what appears to be a viewport size difference.
+
+    if (change == Force) {
+        m_hasNodesWithPlaceholderStyle = false;
+        RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*this, m_styleEngine->fontSelector());
+        StyleRecalcChange localChange = RenderStyle::stylePropagationDiff(documentStyle.get(), renderView()->style());
+        if (localChange != NoChange)
+            renderView()->setStyle(documentStyle.release());
+    }
+
+    clearNeedsStyleRecalc();
+
+    // Uncomment to enable printing of statistics about style sharing and the matched property cache.
+    // Optionally pass StyleResolver::ReportSlowStats to print numbers that require crawling the
+    // entire DOM (where collecting them is very slow).
+    // FIXME: Expose this as a runtime flag.
+    // ensureStyleResolver().enableStats(/*StyleResolver::ReportSlowStats*/);
+
+    if (StyleResolverStats* stats = ensureStyleResolver().stats())
+        stats->reset();
+
+    if (Element* documentElement = this->documentElement()) {
+        inheritHtmlAndBodyElementStyles(change);
+        dirtyElementsForLayerUpdate();
+        if (documentElement->shouldCallRecalcStyle(change))
+            documentElement->recalcStyle(change);
+        while (dirtyElementsForLayerUpdate())
+            documentElement->recalcStyle(NoChange);
+    }
+
+    ensureStyleResolver().printStats();
+
+    view()->updateCompositingLayersAfterStyleChange();
+
+    clearChildNeedsStyleRecalc();
+
+    if (m_styleEngine->hasResolver()) {
+        // Pseudo element removal and similar may only work with these flags still set. Reset them after the style recalc.
+        StyleResolver& resolver = m_styleEngine->ensureResolver();
+        m_styleEngine->resetCSSFeatureFlags(resolver.ensureUpdatedRuleFeatureSet());
+        resolver.clearStyleSharingList();
+    }
+
+    ASSERT(!needsStyleRecalc());
+    ASSERT(!childNeedsStyleRecalc());
+    ASSERT(inStyleRecalc());
+    m_lifecycle.advanceTo(DocumentLifecycle::StyleClean);
+}
+
+void Document::updateRenderTreeForNodeIfNeeded(Node* node)
+{
+    if (!needsRenderTreeUpdate())
         return;
 
     // At this point, we know that we need to recalc some style on the document in order to fully update styles.
@@ -1838,7 +1845,7 @@ void Document::updateStyleForNodeIfNeeded(Node* node)
     for (Node* ancestor = node; ancestor && !needsRecalc; ancestor = ancestor->parentOrShadowHostNode())
         needsRecalc = ancestor->needsStyleRecalc();
     if (needsRecalc)
-        updateStyleIfNeeded();
+        updateRenderTreeIfNeeded();
 }
 
 void Document::updateLayout()
@@ -1855,7 +1862,7 @@ void Document::updateLayout()
     if (Element* oe = ownerElement())
         oe->document().updateLayout();
 
-    updateStyleIfNeeded();
+    updateRenderTreeIfNeeded();
 
     // Only do a layout if changes have occurred that make it necessary.
     if (isActive() && frameView && renderView() && (frameView->layoutPending() || renderView()->needsLayout()))
@@ -1875,37 +1882,11 @@ void Document::clearFocusedElementSoon()
 
 void Document::clearFocusedElementTimerFired(Timer<Document>*)
 {
-    updateStyleIfNeeded();
+    updateRenderTreeIfNeeded();
     m_clearFocusedElementTimer.stop();
 
     if (m_focusedElement && !m_focusedElement->isFocusable())
         setFocusedElement(nullptr);
-}
-
-void Document::recalcStyleForLayoutIgnoringPendingStylesheets()
-{
-    ASSERT(m_styleEngine->ignoringPendingStylesheets());
-
-    if (!m_styleEngine->hasPendingSheets())
-        return;
-
-    // FIXME: We are willing to attempt to suppress painting with outdated style info only once.
-    // Our assumption is that it would be dangerous to try to stop it a second time, after page
-    // content has already been loaded and displayed with accurate style information. (Our
-    // suppression involves blanking the whole page at the moment. If it were more refined, we
-    // might be able to do something better.) It's worth noting though that this entire method
-    // is a hack, since what we really want to do is suspend JS instead of doing a layout with
-    // inaccurate information.
-    HTMLElement* bodyElement = body();
-    if (bodyElement && !bodyElement->renderer() && m_pendingSheetLayout == NoLayoutWithPendingSheets) {
-        m_pendingSheetLayout = DidLayoutWithPendingSheets;
-        styleResolverChanged(RecalcStyleImmediately);
-    } else if (m_hasNodesWithPlaceholderStyle) {
-        // If new nodes have been added or style recalc has been done with style sheets still
-        // pending, some nodes may not have had their real style calculated yet. Normally this
-        // gets cleaned when style sheets arrive but here we need up-to-date style immediately.
-        updateStyle(Force);
-    }
 }
 
 // FIXME: This is a bad idea and needs to be removed eventually.
@@ -1917,8 +1898,29 @@ void Document::recalcStyleForLayoutIgnoringPendingStylesheets()
 void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks runPostLayoutTasks)
 {
     StyleEngine::IgnoringPendingStylesheet ignoring(m_styleEngine.get());
-    recalcStyleForLayoutIgnoringPendingStylesheets();
+
+    if (m_styleEngine->hasPendingSheets()) {
+        // FIXME: We are willing to attempt to suppress painting with outdated style info only once.
+        // Our assumption is that it would be dangerous to try to stop it a second time, after page
+        // content has already been loaded and displayed with accurate style information. (Our
+        // suppression involves blanking the whole page at the moment. If it were more refined, we
+        // might be able to do something better.) It's worth noting though that this entire method
+        // is a hack, since what we really want to do is suspend JS instead of doing a layout with
+        // inaccurate information.
+        HTMLElement* bodyElement = body();
+        if (bodyElement && !bodyElement->renderer() && m_pendingSheetLayout == NoLayoutWithPendingSheets) {
+            m_pendingSheetLayout = DidLayoutWithPendingSheets;
+            styleResolverChanged(RecalcStyleImmediately);
+        } else if (m_hasNodesWithPlaceholderStyle) {
+            // If new nodes have been added or style recalc has been done with style sheets still
+            // pending, some nodes may not have had their real style calculated yet. Normally this
+            // gets cleaned when style sheets arrive but here we need up-to-date style immediately.
+            updateRenderTree(Force);
+        }
+    }
+
     updateLayout();
+
     if (runPostLayoutTasks == RunPostLayoutTasksSynchronously && view())
         view()->flushAnyPendingPostLayoutTasks();
 }
@@ -1988,10 +1990,36 @@ void Document::setIsViewSource(bool isViewSource)
     didUpdateSecurityOrigin();
 }
 
+bool Document::dirtyElementsForLayerUpdate()
+{
+    if (m_layerUpdateElements.isEmpty())
+        return false;
+    HashSet<Element*>::iterator end = m_layerUpdateElements.end();
+    for (HashSet<Element*>::iterator it = m_layerUpdateElements.begin(); it != end; ++it)
+        (*it)->setNeedsStyleRecalc(LocalStyleChange);
+    m_layerUpdateElements.clear();
+    return true;
+}
+
+void Document::scheduleLayerUpdate(Element& element)
+{
+    if (element.styleChangeType() == NeedsReattachStyleChange)
+        return;
+    element.setNeedsLayerUpdate();
+    m_layerUpdateElements.add(&element);
+    scheduleRenderTreeUpdate();
+}
+
+void Document::unscheduleLayerUpdate(Element& element)
+{
+    element.clearNeedsLayerUpdate();
+    m_layerUpdateElements.remove(&element);
+}
+
 void Document::scheduleUseShadowTreeUpdate(SVGUseElement& element)
 {
     m_useElementsNeedingUpdate.add(&element);
-    scheduleStyleRecalc();
+    scheduleRenderTreeUpdate();
 }
 
 void Document::unscheduleUseShadowTreeUpdate(SVGUseElement& element)
@@ -2394,7 +2422,7 @@ void Document::implicitClose()
 
     // The call to dispatchWindowLoadEvent can detach the DOMWindow and cause it (and its
     // attached Document) to be destroyed.
-    RefPtr<DOMWindow> protectedWindow(this->domWindow());
+    RefPtrWillBeRawPtr<DOMWindow> protectedWindow(this->domWindow());
 
     m_loadEventProgress = LoadEventInProgress;
 
@@ -2406,7 +2434,6 @@ void Document::implicitClose()
     detachParser();
 
     if (frame() && frame()->script().canExecuteScripts(NotAboutToExecuteScript)) {
-        ImageLoader::dispatchPendingBeforeLoadEvents();
         ImageLoader::dispatchPendingLoadEvents();
         ImageLoader::dispatchPendingErrorEvents();
 
@@ -2450,7 +2477,7 @@ void Document::implicitClose()
     // necessary and can in fact be actively harmful if pages are loading at a rate of > 60fps
     // (if your platform is syncing flushes and limiting them to 60fps).
     if (!ownerElement() || (ownerElement()->renderer() && !ownerElement()->renderer()->needsLayout())) {
-        updateStyleIfNeeded();
+        updateRenderTreeIfNeeded();
 
         // Always do a layout after loading if needed.
         if (view() && renderView() && (!renderView()->firstChild() || renderView()->needsLayout()))
@@ -2577,7 +2604,7 @@ void Document::setParsing(bool b)
         m_elementDataCache = ElementDataCache::create();
 }
 
-bool Document::shouldScheduleLayout()
+bool Document::shouldScheduleLayout() const
 {
     // This function will only be called when FrameView thinks a layout is needed.
     // This enforces a couple extra rules.
@@ -3258,6 +3285,14 @@ void Document::setSelectedStylesheetSet(const String& aString)
     styleResolverChanged(RecalcStyleDeferred);
 }
 
+void Document::evaluateMediaQueryListIfNeeded()
+{
+    if (!m_evaluateMediaQueriesOnStyleRecalc)
+        return;
+    evaluateMediaQueryList();
+    m_evaluateMediaQueriesOnStyleRecalc = false;
+}
+
 void Document::evaluateMediaQueryList()
 {
     if (m_mediaQueryMatcher)
@@ -3294,7 +3329,7 @@ void Document::styleResolverChanged(RecalcStyleTime updateTime, StyleResolverUpd
     setNeedsStyleRecalc(SubtreeStyleChange);
 
     if (updateTime == RecalcStyleImmediately)
-        updateStyleIfNeeded();
+        updateRenderTreeIfNeeded();
 }
 
 void Document::setHoverNode(PassRefPtr<Node> newHoverNode)
@@ -3508,7 +3543,7 @@ bool Document::setFocusedElement(PassRefPtr<Element> prpNewFocusedElement, Focus
         frameHost()->chrome().focusedNodeChanged(m_focusedElement.get());
 
 SetFocusedElementDone:
-    updateStyleIfNeeded();
+    updateRenderTreeIfNeeded();
     if (LocalFrame* frame = this->frame())
         frame->selection().didChangeFocus();
     return !focusChangeBlocked;
@@ -3712,9 +3747,9 @@ void Document::enqueueResizeEvent()
     ensureScriptedAnimationController().enqueuePerFrameEvent(event.release());
 }
 
-PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Event> Document::createEvent(const String& eventType, ExceptionState& exceptionState)
 {
-    RefPtr<Event> event = EventFactory::create(eventType);
+    RefPtrWillBeRawPtr<Event> event = EventFactory::create(eventType);
     if (event)
         return event.release();
 
@@ -3722,7 +3757,7 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionState&
     return nullptr;
 }
 
-PassRefPtr<Event> Document::createEvent(ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Event> Document::createEvent(ExceptionState& exceptionState)
 {
     if (!isSVGDocument()) {
         exceptionState.throwTypeError(ExceptionMessages::notEnoughArguments(1, 0));
@@ -3771,13 +3806,6 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         addListenerType(ANIMATIONITERATION_LISTENER);
     } else if (eventType == EventTypeNames::webkitTransitionEnd || eventType == EventTypeNames::transitionend) {
         addListenerType(TRANSITIONEND_LISTENER);
-    } else if (eventType == EventTypeNames::beforeload) {
-        if (m_frame && m_frame->script().shouldBypassMainWorldContentSecurityPolicy()) {
-            UseCounter::count(*this, UseCounter::BeforeLoadEventInIsolatedWorld);
-        } else {
-            UseCounter::count(*this, UseCounter::BeforeLoadEvent);
-        }
-        addListenerType(BEFORELOAD_LISTENER);
     } else if (eventType == EventTypeNames::scroll) {
         addListenerType(SCROLL_LISTENER);
     } else if (eventType == EventTypeNames::DOMFocusIn || eventType == EventTypeNames::DOMFocusOut) {
@@ -4142,7 +4170,7 @@ static Editor::Command command(Document* document, const String& commandName, bo
     if (!frame || frame->document() != document)
         return Editor::Command();
 
-    document->updateStyleIfNeeded();
+    document->updateRenderTreeIfNeeded();
     return frame->editor().command(commandName, userInterface ? CommandFromDOMWithUserInterface : CommandFromDOM);
 }
 
@@ -4425,7 +4453,7 @@ void Document::finishedParsing()
         // started the resource load and might fire the window load event too early.  To avoid this
         // we force the styles to be up to date before calling FrameLoader::finishedParsing().
         // See https://bugs.webkit.org/show_bug.cgi?id=36864 starting around comment 35.
-        updateStyleIfNeeded();
+        updateRenderTreeIfNeeded();
 
         f->loader().finishedParsing();
 
@@ -5280,7 +5308,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
         }
     }
 
-    updateStyleIfNeeded();
+    updateRenderTreeIfNeeded();
 }
 
 bool Document::haveStylesheetsLoaded() const
@@ -5416,9 +5444,9 @@ bool Document::hasFocus() const
     Page* page = this->page();
     if (!page)
         return false;
-    if (!page->focusController().isActive() || !page->focusController().isFocused())
+    if (!page->focusController().isActive() || !page->focusController().isFocused() || !page->focusController().focusedFrame()->isLocalFrame())
         return false;
-    if (LocalFrame* focusedFrame = page->focusController().focusedFrame()) {
+    if (LocalFrame* focusedFrame = toLocalFrame(page->focusController().focusedFrame())) {
         if (focusedFrame->tree().isDescendantOf(frame()))
             return true;
     }

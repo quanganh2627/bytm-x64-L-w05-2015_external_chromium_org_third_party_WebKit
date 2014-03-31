@@ -109,11 +109,12 @@ WebInspector.NetworkLogView.prototype = {
         this._textFilterUI.addEventListener(WebInspector.FilterUI.Events.FilterChanged, this._filterChanged, this);
         this._filterBar.addFilter(this._textFilterUI);
 
-        this._resourceTypeFilterUI = new WebInspector.NamedBitSetFilterUI();
+        var types = [];
         for (var typeId in WebInspector.resourceTypes) {
             var resourceType = WebInspector.resourceTypes[typeId];
-            this._resourceTypeFilterUI.addBit(resourceType.name(), resourceType.categoryTitle());
+            types.push({name: resourceType.name(), label: resourceType.categoryTitle()});
         }
+        this._resourceTypeFilterUI = new WebInspector.NamedBitSetFilterUI(types, WebInspector.settings.networkResourceTypeFilters);
         this._resourceTypeFilterUI.addEventListener(WebInspector.FilterUI.Events.FilterChanged, this._filterChanged.bind(this), this);
         this._filterBar.addFilter(this._resourceTypeFilterUI);
 
@@ -182,11 +183,6 @@ WebInspector.NetworkLogView.prototype = {
         if (!this._dataGrid) // Not initialized yet.
             return [];
         return [this._dataGrid.scrollContainer];
-    },
-
-    onResize: function()
-    {
-        this._updateOffscreenRows();
     },
 
     _createTimelineGrid: function()
@@ -325,7 +321,6 @@ WebInspector.NetworkLogView.prototype = {
         // Event listeners need to be added _after_ we attach to the document, so that owner document is properly update.
         this._dataGrid.addEventListener(WebInspector.DataGrid.Events.SortingChanged, this._sortItems, this);
         this._dataGrid.addEventListener(WebInspector.DataGrid.Events.ColumnsResized, this._updateDividersIfNeeded, this);
-        this._dataGrid.scrollContainer.addEventListener("scroll", this._updateOffscreenRows.bind(this));
 
         this._patchTimelineHeader();
     },
@@ -429,7 +424,7 @@ WebInspector.NetworkLogView.prototype = {
 
         this._dataGrid.sortNodes(sortingFunction, !this._dataGrid.isSortOrderAscending());
         this._timelineSortSelector.selectedIndex = 0;
-        this._updateOffscreenRows();
+        this._updateRows();
 
         this.searchCanceled();
 
@@ -457,7 +452,7 @@ WebInspector.NetworkLogView.prototype = {
         else
             this._timelineGrid.showEventDividers();
         this._dataGrid.markColumnAsSortedBy("timeline", WebInspector.DataGrid.Order.Ascending);
-        this._updateOffscreenRows();
+        this._updateRows();
     },
 
     _createStatusBarItems: function()
@@ -912,7 +907,6 @@ WebInspector.NetworkLogView.prototype = {
             this._timelineGrid.element.classList.remove("small");
         }
         this.dispatchEventToListeners(WebInspector.NetworkLogView.EventTypes.RowSizeChanged, { largeRows: enabled });
-        this._updateOffscreenRows();
     },
 
     _getPopoverAnchor: function(element)
@@ -1154,18 +1148,13 @@ WebInspector.NetworkLogView.prototype = {
             NetworkAgent.clearBrowserCookies();
     },
 
-    _updateOffscreenRows: function()
+    _updateRows: function()
     {
         var dataTableBody = this._dataGrid.dataTableBody;
         var rows = dataTableBody.children;
         var recordsCount = rows.length;
         if (recordsCount < 2)
             return;  // Filler row only.
-
-        var visibleTop = this._dataGrid.scrollContainer.scrollTop;
-        var visibleBottom = visibleTop + this._dataGrid.scrollContainer.offsetHeight;
-
-        var rowHeight = 0;
 
         // Filler is at recordsCount - 1.
         var unfilteredRowIndex = 0;
@@ -1178,14 +1167,6 @@ WebInspector.NetworkLogView.prototype = {
                 continue;
             }
 
-            if (!rowHeight)
-                rowHeight = row.offsetHeight;
-
-            var rowIsVisible = unfilteredRowIndex * rowHeight < visibleBottom && (unfilteredRowIndex + 1) * rowHeight > visibleTop;
-            if (rowIsVisible !== row.rowIsVisible) {
-                row.classList.toggle("offscreen", !rowIsVisible);
-                row.rowIsVisible = rowIsVisible;
-            }
             var rowIsOdd = !!(unfilteredRowIndex & 1);
             if (rowIsOdd !== row.rowIsOdd) {
                 row.classList.toggle("odd", rowIsOdd);
@@ -1403,7 +1384,7 @@ WebInspector.NetworkLogView.prototype = {
         for (var i = 0; i < nodes.length; ++i)
             this._applyFilter(nodes[i]);
         this._updateSummaryBar();
-        this._updateOffscreenRows();
+        this._updateRows();
     },
 
     jumpToPreviousSearchResult: function()
@@ -1693,6 +1674,7 @@ WebInspector.NetworkPanel = function()
     this._filtersContainer = this.element.createChild("div", "network-filters-header hidden");
     this._filtersContainer.appendChild(this._filterBar.filtersElement());
     this._filterBar.addEventListener(WebInspector.FilterBar.Events.FiltersToggled, this._onFiltersToggled, this);
+    this._filterBar.setName("networkPanel");
 
     this._searchableView = new WebInspector.SearchableView(this);
     this._searchableView.show(this.element);
@@ -1736,12 +1718,13 @@ WebInspector.NetworkPanel = function()
 
     /**
      * @this {WebInspector.NetworkPanel}
+     * @return {?WebInspector.SourceFrame}
      */
-    function viewGetter()
+    function sourceFrameGetter()
     {
-        return this.visibleView;
+        return this._networkItemView.currentSourceFrame();
     }
-    WebInspector.GoToLineDialog.install(this, viewGetter.bind(this));
+    WebInspector.GoToLineDialog.install(this, sourceFrameGetter.bind(this));
 }
 
 /** @enum {string} */
@@ -1847,6 +1830,9 @@ WebInspector.NetworkPanel.prototype = {
         this._showRequest(event.data);
     },
 
+    /**
+     * @param {?WebInspector.NetworkRequest} request
+     */
     _showRequest: function(request)
     {
         if (!request)
@@ -1854,23 +1840,23 @@ WebInspector.NetworkPanel.prototype = {
 
         this._toggleViewingRequestMode();
 
-        if (this.visibleView) {
-            this.visibleView.detach();
-            delete this.visibleView;
+        if (this._networkItemView) {
+            this._networkItemView.detach();
+            delete this._networkItemView;
         }
 
         var view = new WebInspector.NetworkItemView(request);
         view.show(this._viewsContainerElement);
-        this.visibleView = view;
+        this._networkItemView = view;
     },
 
     _closeVisibleRequest: function()
     {
         this.element.classList.remove("viewing-resource");
 
-        if (this.visibleView) {
-            this.visibleView.detach();
-            delete this.visibleView;
+        if (this._networkItemView) {
+            this._networkItemView.detach();
+            delete this._networkItemView;
         }
     },
 
@@ -1966,7 +1952,7 @@ WebInspector.NetworkPanel.prototype = {
         if (!(target instanceof WebInspector.NetworkRequest))
             return;
         var request = /** @type {!WebInspector.NetworkRequest} */ (target);
-        if (this.visibleView && this.visibleView.isShowing() && this.visibleView.request() === request)
+        if (this._networkItemView && this._networkItemView.isShowing() && this._networkItemView.request() === request)
             return;
 
         appendRevealItem.call(this, request);
@@ -2379,8 +2365,6 @@ WebInspector.NetworkDataGridNode.prototype = {
     /** override */
     createCells: function()
     {
-        // Out of sight, out of mind: create nodes offscreen to save on render tree update times when running updateOffscreenRows()
-        this._element.classList.add("offscreen");
         this._nameCell = this._createDivInTD("name");
         this._methodCell = this._createDivInTD("method");
         this._statusCell = this._createDivInTD("status");

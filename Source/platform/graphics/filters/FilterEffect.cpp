@@ -28,7 +28,6 @@
 #include "platform/graphics/ImageBuffer.h"
 #include "platform/graphics/UnacceleratedImageBufferSurface.h"
 #include "platform/graphics/filters/Filter.h"
-#include "platform/graphics/gpu/AcceleratedImageBufferSurface.h"
 
 #if HAVE(ARM_NEON_INTRINSICS)
 #include <arm_neon.h>
@@ -290,10 +289,7 @@ ImageBuffer* FilterEffect::asImageBuffer()
     if (m_imageBufferResult)
         return m_imageBufferResult.get();
     OwnPtr<ImageBufferSurface> surface;
-    if (m_filter->isAccelerated())
-        surface = adoptPtr(new AcceleratedImageBufferSurface(m_absolutePaintRect.size()));
-    if (!m_filter->isAccelerated() || !surface->isValid())
-        surface = adoptPtr(new UnacceleratedImageBufferSurface(m_absolutePaintRect.size()));
+    surface = adoptPtr(new UnacceleratedImageBufferSurface(m_absolutePaintRect.size()));
     m_imageBufferResult = ImageBuffer::create(surface.release());
     if (!m_imageBufferResult)
         return 0;
@@ -434,10 +430,7 @@ ImageBuffer* FilterEffect::createImageBufferResult()
     if (m_absolutePaintRect.isEmpty())
         return 0;
     OwnPtr<ImageBufferSurface> surface;
-    if (m_filter->isAccelerated())
-        surface = adoptPtr(new AcceleratedImageBufferSurface(m_absolutePaintRect.size()));
-    if (!m_filter->isAccelerated() || !surface->isValid())
-        surface = adoptPtr(new UnacceleratedImageBufferSurface(m_absolutePaintRect.size()));
+    surface = adoptPtr(new UnacceleratedImageBufferSurface(m_absolutePaintRect.size()));
     m_imageBufferResult = ImageBuffer::create(surface.release());
     return m_imageBufferResult.get();
 }
@@ -551,24 +544,26 @@ PassRefPtr<SkImageFilter> FilterEffect::createImageFilter(SkiaImageFilterBuilder
 
 SkImageFilter::CropRect FilterEffect::getCropRect(const FloatSize& cropOffset) const
 {
-    SkRect rect = filter()->filterRegion();
+    FloatRect rect = filter()->filterRegion();
     uint32_t flags = 0;
     FloatRect boundaries = effectBoundaries();
     boundaries.move(cropOffset);
     if (hasX()) {
-        rect.fLeft = boundaries.x();
+        rect.setX(boundaries.x());
         flags |= SkImageFilter::CropRect::kHasLeft_CropEdge;
+        flags |= SkImageFilter::CropRect::kHasRight_CropEdge;
     }
     if (hasY()) {
-        rect.fTop = boundaries.y();
+        rect.setY(boundaries.y());
         flags |= SkImageFilter::CropRect::kHasTop_CropEdge;
+        flags |= SkImageFilter::CropRect::kHasBottom_CropEdge;
     }
     if (hasWidth()) {
-        rect.fRight = rect.fLeft + boundaries.width();
+        rect.setWidth(boundaries.width());
         flags |= SkImageFilter::CropRect::kHasRight_CropEdge;
     }
     if (hasHeight()) {
-        rect.fBottom = rect.fTop + boundaries.height();
+        rect.setHeight(boundaries.height());
         flags |= SkImageFilter::CropRect::kHasBottom_CropEdge;
     }
     rect = filter()->mapLocalRectToAbsoluteRect(rect);

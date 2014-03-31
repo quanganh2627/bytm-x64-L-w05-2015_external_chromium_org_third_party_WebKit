@@ -168,13 +168,9 @@ private:
     PassRefPtrWillBeRawPtr<CSSPrimitiveValue> parseBasicShape();
     PassRefPtrWillBeRawPtr<CSSPrimitiveValue> parseShapeRadius(CSSParserValue*);
 
-    PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapeRectangle(CSSParserValueList* args);
     PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapeCircle(CSSParserValueList* args);
-    PassRefPtrWillBeRawPtr<CSSBasicShape> parseDeprecatedBasicShapeCircle(CSSParserValueList* args);
     PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapeEllipse(CSSParserValueList* args);
-    PassRefPtrWillBeRawPtr<CSSBasicShape> parseDeprecatedBasicShapeEllipse(CSSParserValueList*);
     PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapePolygon(CSSParserValueList* args);
-    PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapeInsetRectangle(CSSParserValueList* args);
     PassRefPtrWillBeRawPtr<CSSBasicShape> parseBasicShapeInset(CSSParserValueList* args);
 
     bool parseFont(bool important);
@@ -294,6 +290,7 @@ private:
     };
 
     class ImplicitScope {
+        STACK_ALLOCATED();
         WTF_MAKE_NONCOPYABLE(ImplicitScope);
     public:
         ImplicitScope(CSSPropertyParser* parser, PropertyType propertyType)
@@ -311,11 +308,8 @@ private:
         CSSPropertyParser* m_parser;
     };
 
-    // FIXME: MSVC doesn't like ShorthandScope being private
-    // since ~OwnPtr can't access its destructor if non-inlined.
-public:
     class ShorthandScope {
-        WTF_MAKE_FAST_ALLOCATED;
+        STACK_ALLOCATED();
     public:
         ShorthandScope(CSSPropertyParser* parser, CSSPropertyID propId) : m_parser(parser)
         {
@@ -332,7 +326,6 @@ public:
         CSSPropertyParser* m_parser;
     };
 
-private:
     enum ReleaseParsedCalcValueCondition {
         ReleaseParsedCalcValue,
         DoNotReleaseParsedCalcValue
@@ -386,7 +379,7 @@ private:
     int m_inParseShorthand;
     CSSPropertyID m_currentShorthand;
     bool m_implicitShorthand;
-    RefPtrWillBeRawPtr<CSSCalcValue> m_parsedCalculation;
+    RefPtrWillBeMember<CSSCalcValue> m_parsedCalculation;
 
     // FIXME: There is probably a small set of APIs we could expose for these
     // classes w/o needing to make them friends.

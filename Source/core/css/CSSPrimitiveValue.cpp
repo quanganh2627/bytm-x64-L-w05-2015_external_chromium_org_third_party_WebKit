@@ -140,10 +140,10 @@ CSSPrimitiveValue::UnitTable createUnitTable()
     return table;
 }
 
-CSSPrimitiveValue::UnitTable& CSSPrimitiveValue::getUnitTable()
+CSSPrimitiveValue::UnitTypes CSSPrimitiveValue::fromName(const String& unit)
 {
     DEFINE_STATIC_LOCAL(UnitTable, unitTable, (createUnitTable()));
-    return unitTable;
+    return unitTable.get(unit.lower());
 }
 
 CSSPrimitiveValue::UnitCategory CSSPrimitiveValue::unitCategory(CSSPrimitiveValue::UnitTypes type)
@@ -268,9 +268,10 @@ CSSPrimitiveValue::CSSPrimitiveValue(CSSPropertyID propertyID)
     m_value.propertyID = propertyID;
 }
 
-CSSPrimitiveValue::CSSPrimitiveValue(int parserOperator)
+CSSPrimitiveValue::CSSPrimitiveValue(int parserOperator, UnitTypes type)
     : CSSValue(PrimitiveClass)
 {
+    ASSERT(type == CSS_PARSER_OPERATOR);
     m_primitiveUnitType = CSS_PARSER_OPERATOR;
     m_value.parserOperator = parserOperator;
 }
@@ -297,9 +298,10 @@ CSSPrimitiveValue::CSSPrimitiveValue(const LengthSize& lengthSize)
     init(lengthSize);
 }
 
-CSSPrimitiveValue::CSSPrimitiveValue(RGBA32 color)
+CSSPrimitiveValue::CSSPrimitiveValue(RGBA32 color, UnitTypes type)
     : CSSValue(PrimitiveClass)
 {
+    ASSERT(type == CSS_RGBCOLOR);
     m_primitiveUnitType = CSS_RGBCOLOR;
     m_value.rgbcolor = color;
 }
@@ -1141,7 +1143,7 @@ String CSSPrimitiveValue::customCSSText(CSSTextFormattingFlags formattingFlag) c
 
 PassRefPtrWillBeRawPtr<CSSPrimitiveValue> CSSPrimitiveValue::cloneForCSSOM() const
 {
-    RefPtrWillBeRawPtr<CSSPrimitiveValue> result;
+    RefPtrWillBeRawPtr<CSSPrimitiveValue> result = nullptr;
 
     switch (m_primitiveUnitType) {
     case CSS_STRING:

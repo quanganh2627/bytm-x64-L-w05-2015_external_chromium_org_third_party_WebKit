@@ -52,22 +52,21 @@ class StyleRuleKeyframes;
 
 // This class stores the CSS Animations/Transitions information we use during a style recalc.
 // This includes updates to animations/transitions as well as the Interpolations to be applied.
-class CSSAnimationUpdate FINAL {
+class CSSAnimationUpdate FINAL : public NoBaseWillBeGarbageCollectedFinalized<CSSAnimationUpdate> {
 public:
-    void startAnimation(AtomicString& animationName, const HashSet<RefPtr<InertAnimation> >& animations)
+    void startAnimation(AtomicString& animationName, PassRefPtr<InertAnimation> animation)
     {
         NewAnimation newAnimation;
         newAnimation.name = animationName;
-        newAnimation.animations = animations;
+        newAnimation.animation = animation;
         m_newAnimations.append(newAnimation);
     }
     // Returns whether player has been cancelled and should be filtered during style application.
-    bool isCancelledAnimation(const AnimationPlayer* player) const { return m_cancelledAnimationAnimationPlayers.contains(player); }
-    void cancelAnimation(const AtomicString& name, const HashSet<RefPtr<AnimationPlayer> >& players)
+    bool isCancelledAnimation(const AnimationPlayer* player) const { return m_cancelledAnimationPlayers.contains(player); }
+    void cancelAnimation(const AtomicString& name, AnimationPlayer& player)
     {
         m_cancelledAnimationNames.append(name);
-        for (HashSet<RefPtr<AnimationPlayer> >::const_iterator iter = players.begin(); iter != players.end(); ++iter)
-            m_cancelledAnimationAnimationPlayers.add(iter->get());
+        m_cancelledAnimationPlayers.add(&player);
     }
     void toggleAnimationPaused(const AtomicString& name)
     {
@@ -88,40 +87,51 @@ public:
 
     struct NewAnimation {
         AtomicString name;
-        HashSet<RefPtr<InertAnimation> > animations;
+        RefPtr<InertAnimation> animation;
     };
     const Vector<NewAnimation>& newAnimations() const { return m_newAnimations; }
     const Vector<AtomicString>& cancelledAnimationNames() const { return m_cancelledAnimationNames; }
-    const HashSet<const AnimationPlayer*>& cancelledAnimationAnimationPlayers() const { return m_cancelledAnimationAnimationPlayers; }
+    const HashSet<const AnimationPlayer*>& cancelledAnimationAnimationPlayers() const { return m_cancelledAnimationPlayers; }
     const Vector<AtomicString>& animationsWithPauseToggled() const { return m_animationsWithPauseToggled; }
 
     struct NewTransition {
+        ALLOW_ONLY_INLINE_ALLOCATION();
+    public:
+        void trace(Visitor* visitor)
+        {
+            visitor->trace(from);
+            visitor->trace(to);
+        }
+
         CSSPropertyID id;
-        const AnimatableValue* from;
-        const AnimatableValue* to;
+        RawPtrWillBeMember<const AnimatableValue> from;
+        RawPtrWillBeMember<const AnimatableValue> to;
         RefPtr<InertAnimation> animation;
     };
-    typedef HashMap<CSSPropertyID, NewTransition> NewTransitionMap;
+    typedef WillBeHeapHashMap<CSSPropertyID, NewTransition> NewTransitionMap;
     const NewTransitionMap& newTransitions() const { return m_newTransitions; }
     const HashSet<CSSPropertyID>& cancelledTransitions() const { return m_cancelledTransitions; }
 
-    void adoptActiveInterpolationsForAnimations(HashMap<CSSPropertyID, RefPtr<Interpolation> >& newMap) { newMap.swap(m_activeInterpolationsForAnimations); }
-    void adoptActiveInterpolationsForTransitions(HashMap<CSSPropertyID, RefPtr<Interpolation> >& newMap) { newMap.swap(m_activeInterpolationsForTransitions); }
-    const HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolationsForAnimations() const { return m_activeInterpolationsForAnimations; }
-    const HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolationsForTransitions() const { return m_activeInterpolationsForTransitions; }
-    HashMap<CSSPropertyID, RefPtr<Interpolation> >& activeInterpolationsForAnimations() { return m_activeInterpolationsForAnimations; }
+    void adoptActiveInterpolationsForAnimations(WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& newMap) { newMap.swap(m_activeInterpolationsForAnimations); }
+    void adoptActiveInterpolationsForTransitions(WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& newMap) { newMap.swap(m_activeInterpolationsForTransitions); }
+    const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& activeInterpolationsForAnimations() const { return m_activeInterpolationsForAnimations; }
+    const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& activeInterpolationsForTransitions() const { return m_activeInterpolationsForTransitions; }
+    WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& activeInterpolationsForAnimations() { return m_activeInterpolationsForAnimations; }
 
     bool isEmpty() const
     {
         return m_newAnimations.isEmpty()
             && m_cancelledAnimationNames.isEmpty()
-            && m_cancelledAnimationAnimationPlayers.isEmpty()
+            && m_cancelledAnimationPlayers.isEmpty()
             && m_animationsWithPauseToggled.isEmpty()
             && m_newTransitions.isEmpty()
             && m_cancelledTransitions.isEmpty()
             && m_activeInterpolationsForAnimations.isEmpty()
             && m_activeInterpolationsForTransitions.isEmpty();
     }
+
+    void trace(Visitor*);
+
 private:
     // Order is significant since it defines the order in which new animations
     // will be started. Note that there may be multiple animations present
@@ -129,17 +139,17 @@ private:
     // incomplete keyframes.
     Vector<NewAnimation> m_newAnimations;
     Vector<AtomicString> m_cancelledAnimationNames;
-    HashSet<const AnimationPlayer*> m_cancelledAnimationAnimationPlayers;
+    HashSet<const AnimationPlayer*> m_cancelledAnimationPlayers;
     Vector<AtomicString> m_animationsWithPauseToggled;
 
     NewTransitionMap m_newTransitions;
     HashSet<CSSPropertyID> m_cancelledTransitions;
 
-    HashMap<CSSPropertyID, RefPtr<Interpolation> > m_activeInterpolationsForAnimations;
-    HashMap<CSSPropertyID, RefPtr<Interpolation> > m_activeInterpolationsForTransitions;
+    WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> > m_activeInterpolationsForAnimations;
+    WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> > m_activeInterpolationsForTransitions;
 };
 
-class CSSAnimations FINAL {
+class CSSAnimations FINAL : public NoBaseWillBeGarbageCollectedFinalized<CSSAnimations> {
 public:
     // FIXME: This method is only used here and in the legacy animations
     // implementation. It should be made private or file-scope when the legacy
@@ -150,37 +160,46 @@ public:
     static const StylePropertyShorthand& animatableProperties();
     // FIXME: This should take a const ScopedStyleTree instead of a StyleResolver.
     // We should also change the Element* to a const Element*
-    static PassOwnPtr<CSSAnimationUpdate> calculateUpdate(Element*, const Element& parentElement, const RenderStyle&, RenderStyle* parentStyle, StyleResolver*);
+    static PassOwnPtrWillBeRawPtr<CSSAnimationUpdate> calculateUpdate(Element*, const Element& parentElement, const RenderStyle&, RenderStyle* parentStyle, StyleResolver*);
 
-    void setPendingUpdate(PassOwnPtr<CSSAnimationUpdate> update) { m_pendingUpdate = update; }
+    void setPendingUpdate(PassOwnPtrWillBeRawPtr<CSSAnimationUpdate> update) { m_pendingUpdate = update; }
     void maybeApplyPendingUpdate(Element*);
     bool isEmpty() const { return m_animations.isEmpty() && m_transitions.isEmpty() && !m_pendingUpdate; }
     void cancel();
 
-private:
-    // Note that a single animation name may map to multiple players due to
-    // the way in which we split up animations with incomplete keyframes.
-    // FIXME: Once the Web Animations model supports groups, we could use a
-    // ParGroup to drive multiple animations from a single AnimationPlayer.
-    typedef HashMap<AtomicString, HashSet<RefPtr<AnimationPlayer> > > AnimationMap;
-    struct RunningTransition {
-        Animation* transition; // The TransitionTimeline keeps the AnimationPlayers alive
-        const AnimatableValue* from;
-        const AnimatableValue* to;
-    };
-    typedef HashMap<CSSPropertyID, RunningTransition > TransitionMap;
-    AnimationMap m_animations;
-    TransitionMap m_transitions;
-    OwnPtr<CSSAnimationUpdate> m_pendingUpdate;
+    void trace(Visitor*);
 
-    HashMap<CSSPropertyID, RefPtr<Interpolation> > m_previousActiveInterpolationsForAnimations;
+private:
+    struct RunningTransition {
+        ALLOW_ONLY_INLINE_ALLOCATION();
+    public:
+        void trace(Visitor* visitor)
+        {
+            visitor->trace(from);
+            visitor->trace(to);
+        }
+
+        Animation* transition; // The TransitionTimeline keeps the AnimationPlayers alive
+        RawPtrWillBeMember<const AnimatableValue> from;
+        RawPtrWillBeMember<const AnimatableValue> to;
+    };
+
+    typedef HashMap<AtomicString, RefPtr<AnimationPlayer> > AnimationMap;
+    AnimationMap m_animations;
+
+    typedef WillBeHeapHashMap<CSSPropertyID, RunningTransition> TransitionMap;
+    TransitionMap m_transitions;
+
+    OwnPtrWillBeMember<CSSAnimationUpdate> m_pendingUpdate;
+
+    WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> > m_previousActiveInterpolationsForAnimations;
 
     static void calculateAnimationUpdate(CSSAnimationUpdate*, Element*, const Element& parentElement, const RenderStyle&, RenderStyle* parentStyle, StyleResolver*);
     static void calculateTransitionUpdate(CSSAnimationUpdate*, const Element*, const RenderStyle&);
     static void calculateTransitionUpdateForProperty(CSSPropertyID, const CSSAnimationData*, const RenderStyle& oldStyle, const RenderStyle&, const TransitionMap* activeTransitions, CSSAnimationUpdate*, const Element*);
 
-    static void calculateAnimationActiveInterpolations(CSSAnimationUpdate*, const Element*);
-    static void calculateTransitionActiveInterpolations(CSSAnimationUpdate*, const Element*);
+    static void calculateAnimationActiveInterpolations(CSSAnimationUpdate*, const Element*, double timelineCurrentTime);
+    static void calculateTransitionActiveInterpolations(CSSAnimationUpdate*, const Element*, double timelineCurrentTime);
 
     class AnimationEventDelegate FINAL : public TimedItem::EventDelegate {
     public:

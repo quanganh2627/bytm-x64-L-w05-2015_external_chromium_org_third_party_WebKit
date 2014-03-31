@@ -71,12 +71,7 @@ LayerType RenderEmbeddedObject::layerTypeRequired() const
     if (type != NoLayer)
         return type;
 
-    return allowsAcceleratedCompositing() ? NormalLayer : NoLayer;
-}
-
-bool RenderEmbeddedObject::allowsAcceleratedCompositing() const
-{
-    return widget() && widget()->isPluginView() && toPluginView(widget())->platformLayer();
+    return requiresAcceleratedCompositing() ? NormalLayer : NoLayer;
 }
 
 static String unavailablePluginReplacementText(Node* node, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason)
@@ -239,8 +234,6 @@ void RenderEmbeddedObject::layout()
     childBox->style()->setWidth(Length(newSize.width(), Fixed));
     childBox->forceLayout();
     clearNeedsLayout();
-
-    statePusher.pop();
 }
 
 bool RenderEmbeddedObject::scroll(ScrollDirection direction, ScrollGranularity granularity, float)
@@ -251,6 +244,13 @@ bool RenderEmbeddedObject::scroll(ScrollDirection direction, ScrollGranularity g
 bool RenderEmbeddedObject::canHaveChildren() const
 {
     return false;
+}
+
+CompositingReasons RenderEmbeddedObject::additionalCompositingReasons(CompositingTriggerFlags triggers) const
+{
+    if ((triggers & PluginTrigger) && requiresAcceleratedCompositing())
+        return CompositingReasonPlugin;
+    return CompositingReasonNone;
 }
 
 }

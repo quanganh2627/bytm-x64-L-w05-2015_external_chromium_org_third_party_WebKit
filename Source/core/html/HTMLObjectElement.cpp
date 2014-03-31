@@ -30,7 +30,6 @@
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/Text.h"
 #include "core/dom/shadow/ShadowRoot.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/ImageResource.h"
 #include "core/html/FormDataList.h"
 #include "core/html/HTMLCollection.h"
@@ -112,8 +111,6 @@ void HTMLObjectElement::parseAttribute(const QualifiedName& name, const AtomicSt
     } else if (name == classidAttr) {
         m_classId = value;
         reloadPluginOnAttributeChange(name);
-    } else if (name == onbeforeloadAttr) {
-        setAttributeEventListener(EventTypeNames::beforeload, createAttributeEventListener(this, name, value));
     } else {
         HTMLPlugInElement::parseAttribute(name, value);
     }
@@ -124,7 +121,7 @@ static void mapDataParamToSrc(Vector<String>* paramNames, Vector<String>* paramV
     // Some plugins don't understand the "data" attribute of the OBJECT tag (i.e. Real and WMP
     // require "src" attribute).
     int srcIndex = -1, dataIndex = -1;
-    for (unsigned int i = 0; i < paramNames->size(); ++i) {
+    for (unsigned i = 0; i < paramNames->size(); ++i) {
         if (equalIgnoringCase((*paramNames)[i], "src"))
             srcIndex = i;
         else if (equalIgnoringCase((*paramNames)[i], "data"))
@@ -320,12 +317,11 @@ void HTMLObjectElement::updateWidgetInternal()
     bool fallbackContent = hasFallbackContent();
     renderEmbeddedObject()->setHasFallbackContent(fallbackContent);
 
-    RefPtr<HTMLObjectElement> protect(this); // beforeload and plugin loading can make arbitrary DOM mutations.
-    bool beforeLoadAllowedLoad = dispatchBeforeLoadEvent(url);
-    if (!renderer()) // Do not load the plugin if beforeload removed this element or its renderer.
+    // FIXME: Is it possible to get here without a renderer now that we don't have beforeload events?
+    if (!renderer())
         return;
 
-    if (!beforeLoadAllowedLoad || !hasValidClassId() || !requestObject(url, serviceType, paramNames, paramValues)) {
+    if (!hasValidClassId() || !requestObject(url, serviceType, paramNames, paramValues)) {
         if (!url.isEmpty())
             dispatchErrorEvent();
         if (fallbackContent)
@@ -424,8 +420,8 @@ void HTMLObjectElement::renderFallbackContent()
 bool HTMLObjectElement::isExposed() const
 {
     // http://www.whatwg.org/specs/web-apps/current-work/#exposed
-    for (Node* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
-        if (isHTMLObjectElement(*ancestor) && toHTMLObjectElement(ancestor)->isExposed())
+    for (HTMLObjectElement* ancestor = Traversal<HTMLObjectElement>::firstAncestor(*this); ancestor; ancestor = Traversal<HTMLObjectElement>::firstAncestor(*ancestor)) {
+        if (ancestor->isExposed())
             return false;
     }
     for (HTMLElement* element = Traversal<HTMLElement>::firstWithin(*this); element; element = Traversal<HTMLElement>::next(*element, this)) {

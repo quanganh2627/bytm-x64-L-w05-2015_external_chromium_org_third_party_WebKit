@@ -39,17 +39,10 @@
 #include "core/events/MouseEvent.h"
 #include "core/events/TouchEvent.h"
 #include "core/events/TouchEventContext.h"
-#include "core/html/HTMLMediaElement.h"
 #include "core/svg/SVGElementInstance.h"
 #include "core/svg/SVGUseElement.h"
 
 namespace WebCore {
-
-Node* EventPath::parent(Node* node)
-{
-    EventPath eventPath(node);
-    return eventPath.size() > 1 ? eventPath[1].node() : 0;
-}
 
 EventTarget* EventPath::eventTargetRespectingTargetRules(Node* referenceNode)
 {
@@ -82,15 +75,6 @@ static inline bool inTheSameScope(ShadowRoot* shadowRoot, EventTarget* target)
 
 static inline EventDispatchBehavior determineDispatchBehavior(Event* event, ShadowRoot* shadowRoot, EventTarget* target)
 {
-    // Video-only full screen is a mode where we use the shadow DOM as an implementation
-    // detail that should not be detectable by the web content.
-    if (Element* element = FullscreenElementStack::currentFullScreenElementFrom(target->toNode()->document())) {
-        // FIXME: We assume that if the full screen element is a media element that it's
-        // the video-only full screen. Both here and elsewhere. But that is probably wrong.
-        if (isHTMLMediaElement(*element) && shadowRoot && shadowRoot->host() == element)
-            return StayInsideShadowDOM;
-    }
-
     // WebKit never allowed selectstart event to cross the the shadow DOM boundary.
     // Changing this breaks existing sites.
     // See https://bugs.webkit.org/show_bug.cgi?id=52195 for details.
@@ -131,7 +115,7 @@ void EventPath::resetWith(Node* node)
     m_treeScopeEventContexts.clear();
     calculatePath();
     calculateAdjustedTargets();
-    if (RuntimeEnabledFeatures::shadowDOMEnabled() && !node->isSVGElement())
+    if (!node->isSVGElement())
         calculateTreeScopePrePostOrderNumbers();
 }
 

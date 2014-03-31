@@ -354,8 +354,10 @@ bool ScrollingCoordinator::scrollableAreaScrollLayerDidChange(ScrollableArea* sc
     GraphicsLayer* scrollLayer = scrollableArea->layerForScrolling();
 
     if (scrollLayer) {
-        bool isMainFrame = isForMainFrame(scrollableArea);
-        scrollLayer->setScrollableArea(scrollableArea, isMainFrame);
+        // With pinch virtual viewport we no longer need to special case the main frame.
+        bool pinchVirtualViewportEnabled = m_page->mainFrame()->document()->settings()->pinchVirtualViewportEnabled();
+        bool layerScrollShouldFireGraphicsLayerDidScroll = isForMainFrame(scrollableArea) && !pinchVirtualViewportEnabled;
+        scrollLayer->setScrollableArea(scrollableArea, layerScrollShouldFireGraphicsLayerDidScroll);
     }
 
     WebLayer* webLayer = toWebLayer(scrollableArea->layerForScrolling());
@@ -392,7 +394,10 @@ static void makeLayerChildFrameMap(const LocalFrame* currentFrame, LayerFrameMap
     map->clear();
     const FrameTree& tree = currentFrame->tree();
     for (const LocalFrame* child = tree.firstChild(); child; child = child->tree().nextSibling()) {
-        const RenderLayer* containingLayer = child->ownerRenderer()->enclosingLayer();
+        const RenderObject* ownerRenderer = child->ownerRenderer();
+        if (!ownerRenderer)
+            continue;
+        const RenderLayer* containingLayer = ownerRenderer->enclosingLayer();
         LayerFrameMap::iterator iter = map->find(containingLayer);
         if (iter == map->end())
             map->add(containingLayer, Vector<const LocalFrame*>()).storedValue->value.append(child);

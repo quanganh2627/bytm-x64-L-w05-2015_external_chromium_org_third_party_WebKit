@@ -95,12 +95,6 @@ public:
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const OVERRIDE;
     virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const OVERRIDE;
 
-    void setMaximalOutlineSize(int o);
-    int maximalOutlineSize() const { return m_maximalOutlineSize; }
-
-    void setOldMaximalOutlineSize(int o) { m_oldMaximalOutlineSize = o; }
-    int oldMaximalOutlineSize() const { return m_oldMaximalOutlineSize; }
-
     virtual LayoutRect viewRect() const OVERRIDE;
 
     // layoutDelta is used transiently during layout to store how far an object has moved from its
@@ -109,18 +103,13 @@ public:
     LayoutSize layoutDelta() const
     {
         ASSERT(!RuntimeEnabledFeatures::repaintAfterLayoutEnabled());
-        return m_layoutState ? m_layoutState->m_layoutDelta : LayoutSize();
+        return m_layoutState ? m_layoutState->layoutDelta() : LayoutSize();
     }
     void addLayoutDelta(const LayoutSize& delta)
     {
         ASSERT(!RuntimeEnabledFeatures::repaintAfterLayoutEnabled());
-        if (m_layoutState) {
-            m_layoutState->m_layoutDelta += delta;
-#if !ASSERT_DISABLED
-            m_layoutState->m_layoutDeltaXSaturated |= m_layoutState->m_layoutDelta.width() == LayoutUnit::max() || m_layoutState->m_layoutDelta.width() == LayoutUnit::min();
-            m_layoutState->m_layoutDeltaYSaturated |= m_layoutState->m_layoutDelta.height() == LayoutUnit::max() || m_layoutState->m_layoutDelta.height() == LayoutUnit::min();
-#endif
-        }
+        if (m_layoutState)
+            m_layoutState->addLayoutDelta(delta);
     }
 
 #if !ASSERT_DISABLED
@@ -129,7 +118,7 @@ public:
         ASSERT(!RuntimeEnabledFeatures::repaintAfterLayoutEnabled());
         if (!m_layoutState)
             return false;
-        return (delta.width() == m_layoutState->m_layoutDelta.width() || m_layoutState->m_layoutDeltaXSaturated) && (delta.height() == m_layoutState->m_layoutDelta.height() || m_layoutState->m_layoutDeltaYSaturated);
+        return (delta.width() == m_layoutState->layoutDelta().width() || m_layoutState->layoutDeltaXSaturated()) && (delta.height() == m_layoutState->layoutDelta().height() || m_layoutState->layoutDeltaYSaturated());
     }
 #endif
 
@@ -141,7 +130,7 @@ public:
     void popLayoutState()
     {
         LayoutState* state = m_layoutState;
-        m_layoutState = state->m_next;
+        m_layoutState = state->next();
         delete state;
         popLayoutStateForCurrentFlowThread();
     }
@@ -162,6 +151,7 @@ public:
             m_pageLogicalHeightChanged = true;
         }
     }
+    bool pageLogicalHeightChanged() const { return m_pageLogicalHeightChanged; }
 
     // Notification that this view moved into or out of a native window.
     void setIsInWindow(bool);
@@ -211,8 +201,6 @@ private:
     virtual void mapAbsoluteToLocalPoint(MapCoordinatesFlags, TransformState&) const OVERRIDE;
     virtual void computeSelfHitTestRects(Vector<LayoutRect>&, const LayoutPoint& layerOffset) const OVERRIDE;
 
-    void initializeLayoutState(LayoutState&);
-
     bool shouldRepaint(const LayoutRect&) const;
 
     bool rootFillsViewportBackground(RenderBox* rootBox) const;
@@ -222,8 +210,6 @@ private:
     {
         // We push LayoutState even if layoutState is disabled because it stores layoutDelta too.
         if (!doingFullRepaint() || m_layoutState->isPaginated() || renderer.hasColumns() || renderer.flowThreadContainingBlock()
-            || (renderer.isRenderBlock() && toRenderBlock(renderer).shapeInsideInfo())
-            || (m_layoutState->shapeInsideInfo() && renderer.isRenderBlock() && !toRenderBlock(renderer).allowsShapeInsideInfoSharing(&m_layoutState->shapeInsideInfo()->owner()))
             ) {
             pushLayoutStateForCurrentFlowThread(renderer);
             m_layoutState = new LayoutState(m_layoutState, renderer, offset, pageHeight, pageHeightChanged, colInfo);
@@ -232,9 +218,9 @@ private:
         return false;
     }
 
-    void layoutContent(const LayoutState&);
+    void layoutContent();
 #ifndef NDEBUG
-    void checkLayoutState(const LayoutState&);
+    void checkLayoutState();
 #endif
 
     void positionDialog(RenderBox*);
@@ -245,6 +231,7 @@ private:
 
     friend class LayoutStateMaintainer;
     friend class LayoutStateDisabler;
+    friend class RootLayoutStateScope;
 
     bool shouldUsePrintingLayout() const;
 
@@ -255,9 +242,6 @@ private:
 
     int m_selectionStartPos;
     int m_selectionEndPos;
-
-    int m_maximalOutlineSize; // Used to apply a fudge factor to dirty-rect checks on blocks/tables.
-    int m_oldMaximalOutlineSize; // The fudge factor from the previous layout.
 
     LayoutUnit m_pageLogicalHeight;
     bool m_pageLogicalHeightChanged;
@@ -272,6 +256,26 @@ private:
 };
 
 DEFINE_RENDER_OBJECT_TYPE_CASTS(RenderView, isRenderView());
+
+class RootLayoutStateScope {
+public:
+    explicit RootLayoutStateScope(RenderView& view)
+        : m_view(view)
+        , m_rootLayoutState(view.pageLogicalHeight(), view.pageLogicalHeightChanged())
+    {
+        ASSERT(!m_view.m_layoutState);
+        m_view.m_layoutState = &m_rootLayoutState;
+    }
+
+    ~RootLayoutStateScope()
+    {
+        ASSERT(m_view.m_layoutState == &m_rootLayoutState);
+        m_view.m_layoutState = 0;
+    }
+private:
+    RenderView& m_view;
+    LayoutState m_rootLayoutState;
+};
 
 // Stack-based class to assist with LayoutState push/pop
 class LayoutStateMaintainer {
@@ -300,6 +304,8 @@ public:
 
     ~LayoutStateMaintainer()
     {
+        if (m_didStart)
+            pop();
         ASSERT(m_didStart == m_didEnd);   // if this fires, it means that someone did a push(), but forgot to pop().
     }
 
@@ -313,23 +319,21 @@ public:
         m_didStart = true;
     }
 
-    void pop()
-    {
-        if (m_didStart) {
-            ASSERT(!m_didEnd);
-            if (m_didCreateLayoutState) {
-                m_view.popLayoutState();
-                if (m_disabled)
-                    m_view.enableLayoutState();
-            }
-
-            m_didEnd = true;
-        }
-    }
-
     bool didPush() const { return m_didStart; }
 
 private:
+    void pop()
+    {
+        ASSERT(m_didStart && !m_didEnd);
+        if (m_didCreateLayoutState) {
+            m_view.popLayoutState();
+            if (m_disabled)
+                m_view.enableLayoutState();
+        }
+
+        m_didEnd = true;
+    }
+
     RenderView& m_view;
     bool m_disabled : 1;        // true if the offset and clip part of layoutState is disabled
     bool m_didStart : 1;        // true if we did a push or disable

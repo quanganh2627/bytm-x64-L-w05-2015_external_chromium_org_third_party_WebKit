@@ -36,7 +36,6 @@ namespace WebCore {
 LayoutState::LayoutState(LayoutState* prev, RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageLogicalHeight, bool pageLogicalHeightChanged, ColumnInfo* columnInfo)
     : m_columnInfo(columnInfo)
     , m_next(prev)
-    , m_shapeInsideInfo(0)
 #ifndef NDEBUG
     , m_renderer(&renderer)
 #endif
@@ -89,6 +88,7 @@ LayoutState::LayoutState(LayoutState* prev, RenderBox& renderer, const LayoutSiz
         m_pageOffset = LayoutSize(m_layoutOffset.width() + (!isFlipped ? renderer.borderLeft() + renderer.paddingLeft() : renderer.borderRight() + renderer.paddingRight()),
             m_layoutOffset.height() + (!isFlipped ? renderer.borderTop() + renderer.paddingTop() : renderer.borderBottom() + renderer.paddingBottom()));
         m_pageLogicalHeightChanged = pageLogicalHeightChanged;
+        m_isPaginated = true;
     } else {
         // If we don't establish a new page height, then propagate the old page height and offset down.
         m_pageLogicalHeight = m_next->m_pageLogicalHeight;
@@ -97,19 +97,16 @@ LayoutState::LayoutState(LayoutState* prev, RenderBox& renderer, const LayoutSiz
 
         // Disable pagination for objects we don't support. For now this includes overflow:scroll/auto, inline blocks and
         // writing mode roots.
-        if (renderer.isUnsplittableForPagination())
+        if (renderer.isUnsplittableForPagination()) {
             m_pageLogicalHeight = 0;
+            m_isPaginated = false;
+        } else {
+            m_isPaginated = m_pageLogicalHeight || m_next->m_columnInfo || renderer.flowThreadContainingBlock();
+        }
     }
 
     if (!m_columnInfo)
         m_columnInfo = m_next->m_columnInfo;
-
-    if (renderer.isRenderBlock()) {
-        const RenderBlock& renderBlock = toRenderBlock(renderer);
-        m_shapeInsideInfo = renderBlock.shapeInsideInfo();
-        if (!m_shapeInsideInfo && m_next->m_shapeInsideInfo && renderBlock.allowsShapeInsideInfoSharing(&m_next->m_shapeInsideInfo->owner()))
-            m_shapeInsideInfo = m_next->m_shapeInsideInfo;
-    }
 
     if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
         m_layoutDelta = m_next->m_layoutDelta;
@@ -118,8 +115,6 @@ LayoutState::LayoutState(LayoutState* prev, RenderBox& renderer, const LayoutSiz
         m_layoutDeltaYSaturated = m_next->m_layoutDeltaYSaturated;
 #endif
     }
-
-    m_isPaginated = m_pageLogicalHeight || m_columnInfo || renderer.isRenderFlowThread();
 
     // FIXME: <http://bugs.webkit.org/show_bug.cgi?id=13443> Apply control clip if present.
 }
@@ -134,7 +129,6 @@ LayoutState::LayoutState(RenderObject& root)
 #endif
     , m_columnInfo(0)
     , m_next(0)
-    , m_shapeInsideInfo(0)
     , m_pageLogicalHeight(0)
 #ifndef NDEBUG
     , m_renderer(&root)

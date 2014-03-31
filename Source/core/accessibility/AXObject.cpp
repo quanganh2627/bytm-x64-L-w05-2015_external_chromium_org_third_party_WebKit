@@ -43,7 +43,6 @@
 #include "wtf/text/WTFString.h"
 
 using blink::WebLocalizedString;
-using namespace std;
 
 namespace WebCore {
 
@@ -393,15 +392,6 @@ AccessibilityButtonState AXObject::checkboxOrRadioValue() const
         return ButtonStateMixed;
 
     return ButtonStateOff;
-}
-
-const AtomicString& AXObject::placeholderValue() const
-{
-    const AtomicString& placeholder = getAttribute(placeholderAttr);
-    if (!placeholder.isEmpty())
-        return placeholder;
-
-    return nullAtom;
 }
 
 bool AXObject::ariaIsMultiline() const

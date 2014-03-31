@@ -274,9 +274,7 @@ void ScrollView::scrollTo(const IntSize& newOffset)
     if (scrollbarsSuppressed())
         return;
 
-    repaintFixedElementsAfterScrolling();
-    scrollContents(scrollDelta);
-    updateFixedElementsAfterScrolling();
+    m_pendingScrollDelta += scrollDelta;
 }
 
 void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
@@ -513,6 +511,15 @@ IntRect ScrollView::rectToCopyOnScroll() const
         scrollViewRect.setHeight(scrollViewRect.height() - horizontalScrollbarHeight);
     }
     return scrollViewRect;
+}
+
+void ScrollView::scrollContentsIfNeeded()
+{
+    if (m_pendingScrollDelta.isZero())
+        return;
+    IntSize scrollDelta = m_pendingScrollDelta;
+    m_pendingScrollDelta = IntSize();
+    scrollContents(scrollDelta);
 }
 
 void ScrollView::scrollContents(const IntSize& scrollDelta)
@@ -1110,15 +1117,6 @@ void ScrollView::setScrollOrigin(const IntPoint& origin, bool updatePositionAtAl
     // Update if the scroll origin changes, since our position will be different if the content size did not change.
     if (updatePositionAtAll && updatePositionSynchronously)
         updateScrollbars(scrollOffset());
-}
-
-int ScrollView::pageStep(ScrollbarOrientation orientation) const
-{
-    int length = (orientation == HorizontalScrollbar) ? visibleWidth() : visibleHeight();
-    int minPageStep = static_cast<float>(length) * minFractionToStepWhenPaging();
-    int pageStep = std::max(minPageStep, length - maxOverlapBetweenPages());
-
-    return std::max(pageStep, 1);
 }
 
 } // namespace WebCore

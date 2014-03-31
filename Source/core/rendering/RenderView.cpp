@@ -54,7 +54,6 @@ RenderView::RenderView(Document* document)
     , m_selectionEnd(0)
     , m_selectionStartPos(-1)
     , m_selectionEndPos(-1)
-    , m_maximalOutlineSize(0)
     , m_pageLogicalHeight(0)
     , m_pageLogicalHeightChanged(false)
     , m_layoutState(0)
@@ -162,7 +161,7 @@ void RenderView::positionDialogs()
     }
 }
 
-void RenderView::layoutContent(const LayoutState& state)
+void RenderView::layoutContent()
 {
     ASSERT(needsLayout());
 
@@ -173,28 +172,20 @@ void RenderView::layoutContent(const LayoutState& state)
         positionDialogs();
 
 #ifndef NDEBUG
-    checkLayoutState(state);
+    checkLayoutState();
 #endif
 }
 
 #ifndef NDEBUG
-void RenderView::checkLayoutState(const LayoutState& state)
+void RenderView::checkLayoutState()
 {
     if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
         ASSERT(layoutDeltaMatches(LayoutSize()));
     }
     ASSERT(!m_layoutStateDisableCount);
-    ASSERT(m_layoutState == &state);
+    ASSERT(!m_layoutState->next());
 }
 #endif
-
-void RenderView::initializeLayoutState(LayoutState& state)
-{
-    state.m_clipped = false;
-    state.m_pageLogicalHeight = m_pageLogicalHeight;
-    state.m_pageLogicalHeightChanged = m_pageLogicalHeightChanged;
-    state.m_isPaginated = state.m_pageLogicalHeight;
-}
 
 void RenderView::layout()
 {
@@ -229,18 +220,15 @@ void RenderView::layout()
     if (!needsLayout())
         return;
 
-    LayoutState state;
-    initializeLayoutState(state);
+    RootLayoutStateScope rootLayoutStateScope(*this);
 
     m_pageLogicalHeightChanged = false;
-    m_layoutState = &state;
 
-    layoutContent(state);
+    layoutContent();
 
 #ifndef NDEBUG
-    checkLayoutState(state);
+    checkLayoutState();
 #endif
-    m_layoutState = 0;
     clearNeedsLayout();
 }
 
@@ -488,8 +476,13 @@ void RenderView::computeRectForRepaint(const RenderLayerModelObject* repaintCont
             rect.setX(viewWidth() - rect.maxX());
     }
 
-    if (fixed && m_frameView)
+    if (fixed && m_frameView) {
         rect.move(m_frameView->scrollOffsetForFixedPosition());
+        // If we have a pending scroll, invalidate the previous scroll position.
+        if (!m_frameView->pendingScrollDelta().isZero()) {
+            rect.move(-m_frameView->pendingScrollDelta());
+        }
+    }
 
     // Apply our transform if we have one (because of full page zooming).
     if (!repaintContainer && layer() && layer()->transform())
@@ -576,19 +569,6 @@ void RenderView::repaintSelection() const
                 break;
             RenderSelectionInfo(block, true).repaint();
         }
-    }
-}
-
-// Compositing layer dimensions take outline size into account, so we have to recompute layer
-// bounds when it changes.
-// FIXME: This is ugly; it would be nice to have a better way to do this.
-void RenderView::setMaximalOutlineSize(int o)
-{
-    if (o != m_maximalOutlineSize) {
-        m_maximalOutlineSize = o;
-
-        // maximalOutlineSize affects compositing layer dimensions.
-        compositor()->setCompositingLayersNeedRebuild();    // FIXME: this really just needs to be a geometry update.
     }
 }
 

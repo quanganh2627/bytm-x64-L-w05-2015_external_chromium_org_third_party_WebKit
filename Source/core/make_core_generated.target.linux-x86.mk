@@ -88,6 +88,16 @@ $(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: $(LOCAL_PATH)/third_par
 
 $(gyp_shared_intermediate_dir)/blink/MediaTypeNames.h: $(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp ;
 
+### Rules for action "MediaQueryTokenizerCodepoints":
+$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_mediaquery_tokenizer_codepoints.py $(GYP_TARGET_DEPENDENCIES)
+	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MediaQueryTokenizerCodepoints ($@)"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_mediaquery_tokenizer_codepoints.py --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_INPUT_SPEECH=0\" \"ENABLE_MEDIA_CAPTURE=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+
+
 ### Rules for action "StylePropertyShorthand":
 $(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_local_path := $(LOCAL_PATH)
 $(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
@@ -385,6 +395,7 @@ GYP_GENERATED_OUTPUTS := \
 	$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h \
 	$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp \
 	$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp \
 	$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp \
 	$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.h \
 	$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp \
@@ -505,6 +516,7 @@ MY_DEFS_Debug := \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -590,6 +602,7 @@ MY_DEFS_Release := \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

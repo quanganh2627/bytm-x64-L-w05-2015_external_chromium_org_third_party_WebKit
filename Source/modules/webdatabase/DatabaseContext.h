@@ -43,20 +43,21 @@ class DatabaseThread;
 class ExecutionContext;
 class SecurityOrigin;
 
-class DatabaseContext FINAL : public ThreadSafeRefCounted<DatabaseContext>, public ActiveDOMObject {
+class DatabaseContext FINAL : public ThreadSafeRefCountedWillBeGarbageCollectedFinalized<DatabaseContext>, public ActiveDOMObject {
 public:
     friend class DatabaseManager;
 
-    static PassRefPtr<DatabaseContext> create(ExecutionContext*);
+    static PassRefPtrWillBeRawPtr<DatabaseContext> create(ExecutionContext*);
 
     virtual ~DatabaseContext();
+    void trace(Visitor*);
 
     // For life-cycle management (inherited from ActiveDOMObject):
     virtual void contextDestroyed() OVERRIDE;
     virtual void willStop() OVERRIDE;
     virtual void stop() OVERRIDE;
 
-    PassRefPtr<DatabaseContext> backend();
+    DatabaseContext* backend();
     DatabaseThread* databaseThread();
 
     void setHasOpenDatabases() { m_hasOpenDatabases = true; }
@@ -75,12 +76,23 @@ private:
 
     void stopSyncDatabases();
 
-    RefPtrWillBePersistent<DatabaseThread> m_databaseThread;
+    RefPtrWillBeMember<DatabaseThread> m_databaseThread;
+#if ENABLE(OILPAN)
+    class DatabaseCloser {
+    public:
+        explicit DatabaseCloser(DatabaseBackendBase& database) : m_database(database) { }
+        ~DatabaseCloser();
+
+    private:
+        DatabaseBackendBase& m_database;
+    };
+    HeapHashMap<WeakMember<DatabaseBackendBase>, OwnPtr<DatabaseCloser> > m_openSyncDatabases;
+#else
     // The contents of m_openSyncDatabases are raw pointers. It's safe because
     // DatabaseBackendSync is always closed before destruction.
     HashSet<DatabaseBackendBase*> m_openSyncDatabases;
+#endif
     bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
-    bool m_isRegistered;
     bool m_hasRequestedTermination;
 };
 

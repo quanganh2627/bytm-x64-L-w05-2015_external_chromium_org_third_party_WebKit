@@ -44,10 +44,9 @@ WebInspector.ConsolePanel = function()
  */
 WebInspector.ConsolePanel._view = function()
 {
-    if (!WebInspector.ConsolePanel._consoleView) {
+    if (!WebInspector.ConsolePanel._consoleView)
         WebInspector.ConsolePanel._consoleView = new WebInspector.ConsoleView(!Capabilities.isMainFrontend);
-        WebInspector.console.setUIDelegate(WebInspector.ConsolePanel._consoleView);
-    }
+
     return WebInspector.ConsolePanel._consoleView;
 }
 
@@ -84,6 +83,8 @@ WebInspector.ConsolePanel.WrapperView = function()
 {
     WebInspector.VBox.call(this);
     this.element.classList.add("console-view-wrapper");
+
+    WebInspector.ConsolePanel.WrapperView._instance = this;
 
     this._view = WebInspector.ConsolePanel._view();
     // FIXME: this won't be needed once drawer becomes a view.

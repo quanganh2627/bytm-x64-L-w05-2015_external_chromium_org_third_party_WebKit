@@ -211,10 +211,11 @@ MediaQueryExp::MediaQueryExp(const String& mediaFeature, PassRefPtrWillBeRawPtr<
 {
 }
 
-// FIXME - create should not return a null.
-PassOwnPtrWillBeRawPtr<MediaQueryExp> MediaQueryExp::create(const String& mediaFeature, CSSParserValueList* valueList)
+PassOwnPtrWillBeRawPtr<MediaQueryExp> MediaQueryExp::createIfValid(const String& mediaFeature, CSSParserValueList* valueList)
 {
-    RefPtrWillBeRawPtr<CSSValue> cssValue;
+    ASSERT(!mediaFeature.isNull());
+
+    RefPtrWillBeRawPtr<CSSValue> cssValue = nullptr;
     bool isValid = false;
     String lowerMediaFeature = attemptStaticStringCreation(mediaFeature.lower());
 
@@ -222,6 +223,7 @@ PassOwnPtrWillBeRawPtr<MediaQueryExp> MediaQueryExp::create(const String& mediaF
     if (valueList && valueList->size() > 0) {
         if (valueList->size() == 1) {
             CSSParserValue* value = valueList->current();
+            ASSERT(value);
 
             if (featureWithCSSValueID(lowerMediaFeature, value)) {
                 // Media features that use CSSValueIDs.

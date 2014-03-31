@@ -241,40 +241,33 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     LayoutUnit previousHeight = logicalHeight();
     setLogicalHeight(borderAndPaddingLogicalHeight() + scrollbarLogicalHeight());
 
-    LayoutStateMaintainer statePusher(*this, locationOffset());
+    {
+        LayoutStateMaintainer statePusher(*this, locationOffset());
 
-    RenderFlowThread* flowThread = flowThreadContainingBlock();
-    if (updateRegionsAndShapesLogicalSize(flowThread))
-        relayoutChildren = true;
+        m_numberOfInFlowChildrenOnFirstLine = -1;
 
-    m_numberOfInFlowChildrenOnFirstLine = -1;
+        RenderBlock::startDelayUpdateScrollInfo();
 
-    RenderBlock::startDelayUpdateScrollInfo();
+        prepareOrderIteratorAndMargins();
 
-    prepareOrderIteratorAndMargins();
+        ChildFrameRects oldChildRects;
+        appendChildFrameRects(oldChildRects);
 
-    ChildFrameRects oldChildRects;
-    appendChildFrameRects(oldChildRects);
+        layoutFlexItems(relayoutChildren);
 
-    Vector<LineContext> lineContexts;
-    layoutFlexItems(relayoutChildren, lineContexts);
+        RenderBlock::finishDelayUpdateScrollInfo();
 
-    updateLogicalHeight();
-    repositionLogicalHeightDependentFlexItems(lineContexts);
+        if (logicalHeight() != previousHeight)
+            relayoutChildren = true;
 
-    RenderBlock::finishDelayUpdateScrollInfo();
+        layoutPositionedObjects(relayoutChildren || isRoot());
 
-    if (logicalHeight() != previousHeight)
-        relayoutChildren = true;
+        computeRegionRangeForBlock(flowThreadContainingBlock());
 
-    layoutPositionedObjects(relayoutChildren || isRoot());
-
-    computeRegionRangeForBlock(flowThread);
-
-    repaintChildrenDuringLayoutIfMoved(oldChildRects);
-    // FIXME: css3/flexbox/repaint-rtl-column.html seems to repaint more overflow than it needs to.
-    computeOverflow(clientLogicalBottomAfterRepositioning());
-    statePusher.pop();
+        repaintChildrenDuringLayoutIfMoved(oldChildRects);
+        // FIXME: css3/flexbox/repaint-rtl-column.html seems to repaint more overflow than it needs to.
+        computeOverflow(clientLogicalBottomAfterRepositioning());
+    }
 
     updateLayerTransform();
 
@@ -670,8 +663,9 @@ LayoutUnit RenderFlexibleBox::preferredMainAxisContentExtentForChild(RenderBox* 
     return std::max(LayoutUnit(0), computeMainAxisExtentForChild(child, MainOrPreferredSize, flexBasis));
 }
 
-void RenderFlexibleBox::layoutFlexItems(bool relayoutChildren, Vector<LineContext>& lineContexts)
+void RenderFlexibleBox::layoutFlexItems(bool relayoutChildren)
 {
+    Vector<LineContext> lineContexts;
     OrderedFlexItemList orderedChildren;
     LayoutUnit sumFlexBaseSize;
     double totalFlexGrow;
@@ -707,6 +701,9 @@ void RenderFlexibleBox::layoutFlexItems(bool relayoutChildren, Vector<LineContex
         if (height() < minHeight)
             setLogicalHeight(minHeight);
     }
+
+    updateLogicalHeight();
+    repositionLogicalHeightDependentFlexItems(lineContexts);
 }
 
 LayoutUnit RenderFlexibleBox::autoMarginOffsetInMainAxis(const OrderedFlexItemList& children, LayoutUnit& availableFreeSpace)

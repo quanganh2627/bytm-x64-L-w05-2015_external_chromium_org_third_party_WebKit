@@ -67,7 +67,11 @@ static ScriptPromise fulfillImageBitmap(ExecutionContext* context, PassRefPtrWil
 {
     RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(context);
     ScriptPromise promise = resolver->promise();
-    resolver->resolve(imageBitmap);
+    if (imageBitmap) {
+        resolver->resolve(imageBitmap);
+    } else {
+        resolver->reject(ScriptValue::createNull());
+    }
     return promise;
 }
 
@@ -185,8 +189,9 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(EventTarget& eventTarget, 
         exceptionState.throwDOMException(IndexSizeError, String::format("The source %s provided is 0.", sw ? "height" : "width"));
         return ScriptPromise();
     }
+
     // FIXME: make ImageBitmap creation asynchronous crbug.com/258082
-    return fulfillImageBitmap(eventTarget.executionContext(), ImageBitmap::create(canvas, IntRect(sx, sy, sw, sh)));
+    return fulfillImageBitmap(eventTarget.executionContext(), canvas->buffer() ? ImageBitmap::create(canvas, IntRect(sx, sy, sw, sh)) : nullptr);
 }
 
 ScriptPromise ImageBitmapFactories::createImageBitmap(EventTarget& eventTarget, Blob* blob, ExceptionState& exceptionState)
@@ -270,15 +275,16 @@ ImageBitmapFactories& ImageBitmapFactories::from(EventTarget& eventTarget)
         return fromInternal(*window);
 
     ASSERT(eventTarget.executionContext()->isWorkerGlobalScope());
-    return WorkerGlobalScopeImageBitmapFactories::fromInternal(*toWorkerGlobalScope(eventTarget.executionContext()));
+    return ImageBitmapFactories::fromInternal(*toWorkerGlobalScope(eventTarget.executionContext()));
 }
 
-ImageBitmapFactories& ImageBitmapFactories::fromInternal(DOMWindow& object)
+template<class GlobalObject>
+ImageBitmapFactories& ImageBitmapFactories::fromInternal(GlobalObject& object)
 {
-    ImageBitmapFactories* supplement = static_cast<ImageBitmapFactories*>(Supplement<DOMWindow>::from(object, supplementName()));
+    ImageBitmapFactories* supplement = static_cast<ImageBitmapFactories*>(WillBeHeapSupplement<GlobalObject>::from(object, supplementName()));
     if (!supplement) {
         supplement = new ImageBitmapFactories();
-        Supplement<DOMWindow>::provideTo(object, supplementName(), adoptPtr(supplement));
+        WillBeHeapSupplement<GlobalObject>::provideTo(object, supplementName(), adoptPtrWillBeNoop(supplement));
     }
     return *supplement;
 }
@@ -310,9 +316,8 @@ void ImageBitmapFactories::ImageBitmapLoader::loadBlobAsync(ExecutionContext* co
 
 void ImageBitmapFactories::ImageBitmapLoader::rejectPromise()
 {
-    v8::Isolate* isolate = m_scriptState->isolate();
     ScriptScope scope(m_scriptState);
-    m_resolver->reject(ScriptValue(v8::Null(isolate), isolate));
+    m_resolver->reject(ScriptValue::createNull());
     m_factory->didFinishLoading(this);
 }
 
@@ -351,20 +356,6 @@ void ImageBitmapFactories::ImageBitmapLoader::didFinishLoading()
 void ImageBitmapFactories::ImageBitmapLoader::didFail(FileError::ErrorCode)
 {
     rejectPromise();
-}
-
-ImageBitmapFactories& WorkerGlobalScopeImageBitmapFactories::fromInternal(WorkerGlobalScope& object)
-{
-    WorkerGlobalScopeImageBitmapFactories* supplement = static_cast<WorkerGlobalScopeImageBitmapFactories*>(WillBeHeapSupplement<WorkerGlobalScope>::from(object, ImageBitmapFactories::supplementName()));
-    if (!supplement) {
-        supplement = new WorkerGlobalScopeImageBitmapFactories();
-        WillBeHeapSupplement<WorkerGlobalScope>::provideTo(object, ImageBitmapFactories::supplementName(), adoptPtrWillBeNoop(supplement));
-    }
-    return *supplement;
-}
-
-void WorkerGlobalScopeImageBitmapFactories::trace(Visitor*)
-{
 }
 
 } // namespace WebCore

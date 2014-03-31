@@ -109,6 +109,7 @@ void StyleResourceLoader::loadPendingShapeImage(RenderStyle* renderStyle, ShapeV
 
     ResourceLoaderOptions options = ResourceFetcher::defaultResourceOptions();
     options.allowCredentials = DoNotAllowStoredCredentials;
+    options.credentialsRequested  = ClientDidNotRequestCredentials;
     options.corsEnabled = IsCORSEnabled;
 
     shapeValue->setImage(doLoadPendingImage(m_fetcher, toStylePendingImage(image), deviceScaleFactor, options));
@@ -188,9 +189,6 @@ void StyleResourceLoader::loadPendingImages(RenderStyle* style, ElementStyleReso
             }
             break;
         }
-        case CSSPropertyShapeInside:
-            loadPendingShapeImage(style, style->shapeInside(), elementStyleResources.deviceScaleFactor());
-            break;
         case CSSPropertyShapeOutside:
             loadPendingShapeImage(style, style->shapeOutside(), elementStyleResources.deviceScaleFactor());
             break;

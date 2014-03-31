@@ -17,6 +17,10 @@ WebInspector.Target = function(connection, callback)
     this.isMainFrontend = false;
 
     this.pageAgent().canScreencast(this._initializeCapability.bind(this, "canScreencast", null));
+
+    if (WebInspector.experimentsSettings.powerProfiler.isEnabled())
+        this.powerAgent().canProfilePower(this._initializeCapability.bind(this, "canProfilePower", null));
+
     this.workerAgent().canInspectWorkers(this._initializeCapability.bind(this, "isMainFrontend", this._loadedWithCapabilities.bind(this, callback)));
 }
 
@@ -25,7 +29,8 @@ WebInspector.Target.prototype = {
     _initializeCapability: function(name, callback, error, result)
     {
         this[name] = result;
-        Capabilities[name] = result;
+        if (!Capabilities[name])
+            Capabilities[name] = result;
         if (callback)
             callback();
     },
@@ -37,21 +42,35 @@ WebInspector.Target.prototype = {
     {
         this.consoleModel = new WebInspector.ConsoleModel(this);
         //This and similar lines are needed for compatibility
-        WebInspector.console = this.consoleModel;
-        this.networkManager = new WebInspector.NetworkManager(this);
-        WebInspector.networkManager = this.networkManager;
-        this.resourceTreeModel = new WebInspector.ResourceTreeModel(this);
-        WebInspector.resourceTreeModel = this.resourceTreeModel;
-        this.debuggerModel = new WebInspector.DebuggerModel(this);
-        WebInspector.debuggerModel = this.debuggerModel;
-        this.runtimeModel = new WebInspector.RuntimeModel(this);
-        WebInspector.runtimeModel = this.runtimeModel;
+        if (!WebInspector.console)
+            WebInspector.console = this.consoleModel;
 
-        //we can't name it domAgent, because it clashes with function, WebInspector.DOMAgent should be renamed to DOMModel
-        this.domModel = new WebInspector.DOMAgent();
-        WebInspector.domAgent = this.domModel;
-        this.workerManager = new WebInspector.WorkerManager(this.isMainFrontend);
-        WebInspector.workerManager = this.workerManager;
+        this.networkManager = new WebInspector.NetworkManager(this);
+        if (!WebInspector.networkManager)
+            WebInspector.networkManager = this.networkManager;
+
+        this.resourceTreeModel = new WebInspector.ResourceTreeModel(this);
+        if (!WebInspector.resourceTreeModel)
+            WebInspector.resourceTreeModel = this.resourceTreeModel;
+
+        this.debuggerModel = new WebInspector.DebuggerModel(this);
+        if (!WebInspector.debuggerModel)
+            WebInspector.debuggerModel = this.debuggerModel;
+
+        this.runtimeModel = new WebInspector.RuntimeModel(this);
+        if (!WebInspector.runtimeModel)
+            WebInspector.runtimeModel = this.runtimeModel;
+
+        this.domModel = new WebInspector.DOMModel();
+        if (!WebInspector.domModel)
+            WebInspector.domModel = this.domModel;
+
+        this.workerManager = new WebInspector.WorkerManager(this, this.isMainFrontend);
+        if (!WebInspector.workerManager)
+            WebInspector.workerManager = this.workerManager;
+
+        if (this.canProfilePower)
+            WebInspector.powerProfiler = new WebInspector.PowerProfiler();
 
         if (callback)
             callback(this);
@@ -80,11 +99,17 @@ WebInspector.Target.prototype = {
 
 /**
  * @constructor
+ * @extends {WebInspector.Object}
  */
 WebInspector.TargetManager = function()
 {
+    WebInspector.Object.call(this);
     /** @type {!Array.<!WebInspector.Target>} */
     this._targets = [];
+}
+
+WebInspector.TargetManager.Events = {
+    TargetAdded: "TargetAdded",
 }
 
 WebInspector.TargetManager.prototype = {
@@ -95,8 +120,43 @@ WebInspector.TargetManager.prototype = {
      */
     createTarget: function(connection, callback)
     {
-        var newTarget = new WebInspector.Target(connection, callback);
-        this._targets.push(newTarget);
-    }
+        var target = new WebInspector.Target(connection, callbackWrapper.bind(this));
 
+        /**
+         * @this {WebInspector.TargetManager}
+         * @param newTarget
+         */
+        function callbackWrapper(newTarget)
+        {
+            if (callback)
+                callback(newTarget);
+
+            this._targets.push(newTarget);
+            this.dispatchEventToListeners(WebInspector.TargetManager.Events.TargetAdded, newTarget);
+        }
+
+    },
+
+    /**
+     * @return {!Array.<!WebInspector.Target>}
+     */
+    targets: function()
+    {
+        return this._targets;
+    },
+
+    /**
+     * @return {!WebInspector.Target}
+     */
+    mainTarget: function()
+    {
+        return this._targets[0];
+    },
+
+    __proto__: WebInspector.Object.prototype
 }
+
+/**
+ * @type {!WebInspector.TargetManager}
+ */
+WebInspector.targetManager;

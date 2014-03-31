@@ -50,7 +50,8 @@ class SharedBuffer;
 // A data object for holding data that would be in a clipboard or moved
 // during a drag-n-drop operation. This is the data that WebCore is aware
 // of and is not specific to a platform.
-class DataObject : public RefCountedWillBeGarbageCollectedFinalized<DataObject>, public Supplementable<DataObject> {
+class DataObject : public RefCountedWillBeGarbageCollectedFinalized<DataObject>, public WillBeHeapSupplementable<DataObject> {
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(DataObject);
 public:
     static PassRefPtrWillBeRawPtr<DataObject> createFromPasteboard(PasteMode);
     static PassRefPtrWillBeRawPtr<DataObject> create();
@@ -91,7 +92,6 @@ public:
     int modifierKeyState() const { return m_modifierKeyState; }
     void setModifierKeyState(int modifierKeyState) { m_modifierKeyState = modifierKeyState; }
 
-    // FIXME: oilpan: This trace() has to trace Supplementable.
     void trace(Visitor*);
 
 private:

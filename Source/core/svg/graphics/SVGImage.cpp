@@ -116,13 +116,20 @@ bool SVGImage::currentFrameHasSingleSecurityOrigin() const
     return true;
 }
 
+static SVGSVGElement* svgRootElement(Page* page)
+{
+    if (!page)
+        return 0;
+    LocalFrame* frame = page->mainFrame();
+    return toSVGDocument(frame->document())->rootElement();
+}
+
 void SVGImage::setContainerSize(const IntSize& size)
 {
-    if (!m_page || !usesContainerSize())
+    if (!usesContainerSize())
         return;
 
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return;
 
@@ -137,10 +144,7 @@ void SVGImage::setContainerSize(const IntSize& size)
 
 IntSize SVGImage::containerSize() const
 {
-    if (!m_page)
-        return IntSize();
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return IntSize();
 
@@ -282,14 +286,16 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
 
     if (imageObserver())
         imageObserver()->didDraw(this);
+
+    // Start any (SMIL) animations if needed. This will restart or continue
+    // animations if preceded by calls to resetAnimation or stopAnimation
+    // respectively.
+    startAnimation();
 }
 
 RenderBox* SVGImage::embeddedContentBox() const
 {
-    if (!m_page)
-        return 0;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return 0;
     return toRenderBox(rootElement->renderer());
@@ -305,10 +311,7 @@ FrameView* SVGImage::frameView() const
 
 bool SVGImage::hasRelativeWidth() const
 {
-    if (!m_page)
-        return false;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return false;
     return rootElement->intrinsicWidth().isPercent();
@@ -316,10 +319,7 @@ bool SVGImage::hasRelativeWidth() const
 
 bool SVGImage::hasRelativeHeight() const
 {
-    if (!m_page)
-        return false;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return false;
     return rootElement->intrinsicHeight().isPercent();
@@ -327,10 +327,7 @@ bool SVGImage::hasRelativeHeight() const
 
 void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio)
 {
-    if (!m_page)
-        return;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return;
 
@@ -347,22 +344,15 @@ void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrin
 // FIXME: support catchUpIfNecessary.
 void SVGImage::startAnimation(bool /* catchUpIfNecessary */)
 {
-    if (!m_page)
-        return;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
-    if (!rootElement)
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
+    if (!rootElement || !rootElement->animationsPaused())
         return;
     rootElement->unpauseAnimations();
-    rootElement->setCurrentTime(0);
 }
 
 void SVGImage::stopAnimation()
 {
-    if (!m_page)
-        return;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return;
     rootElement->pauseAnimations();
@@ -370,18 +360,19 @@ void SVGImage::stopAnimation()
 
 void SVGImage::resetAnimation()
 {
-    stopAnimation();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
+    if (!rootElement)
+        return;
+    rootElement->pauseAnimations();
+    rootElement->setCurrentTime(0);
 }
 
 bool SVGImage::hasAnimations() const
 {
-    if (!m_page)
-        return false;
-    LocalFrame* frame = m_page->mainFrame();
-    SVGSVGElement* rootElement = toSVGDocument(frame->document())->rootElement();
+    SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return false;
-    return rootElement->timeContainer()->hasAnimations() || frame->document()->timeline().hasPendingUpdates();
+    return rootElement->timeContainer()->hasAnimations() || m_page->mainFrame()->document()->timeline().hasPendingUpdates();
 }
 
 bool SVGImage::dataChanged(bool allDataReceived)

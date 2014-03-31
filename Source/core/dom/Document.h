@@ -439,6 +439,12 @@ public:
     void scheduleUseShadowTreeUpdate(SVGUseElement&);
     void unscheduleUseShadowTreeUpdate(SVGUseElement&);
 
+    // FIXME: This should be eliminated and elements that use it should be made to
+    // always have a layer so they don't need to go about creating one from reasons
+    // external to style.
+    void scheduleLayerUpdate(Element&);
+    void unscheduleLayerUpdate(Element&);
+
     void evaluateMediaQueryList();
 
     FormController& formController();
@@ -468,8 +474,8 @@ public:
 
     void setupFontBuilder(RenderStyle* documentStyle);
 
-    void updateStyleIfNeeded();
-    void updateStyleForNodeIfNeeded(Node*);
+    void updateRenderTreeIfNeeded() { updateRenderTree(NoChange); }
+    void updateRenderTreeForNodeIfNeeded(Node*);
     void updateLayout();
     enum RunPostLayoutTasks {
         RunPostLayoutTasksAsyhnchronously,
@@ -599,7 +605,7 @@ public:
     void setHistoryItemDocumentStateDirty(bool dirty) { m_historyItemDocumentStateDirty = dirty; }
     bool historyItemDocumentStateDirty() const { return m_historyItemDocumentStateDirty; }
 
-    bool shouldScheduleLayout();
+    bool shouldScheduleLayout() const;
     bool shouldParserYieldAgressivelyBeforeScriptExecution();
     int elapsedTime() const;
 
@@ -640,7 +646,7 @@ public:
     void setCSSTarget(Element*);
     Element* cssTarget() const { return m_cssTarget; }
 
-    void scheduleStyleRecalc();
+    void scheduleRenderTreeUpdate();
     bool hasPendingForcedStyleRecalc() const;
 
     void registerNodeList(LiveNodeListBase*);
@@ -676,8 +682,8 @@ public:
     void setWindowAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
     EventListener* getWindowAttributeEventListener(const AtomicString& eventType);
 
-    PassRefPtr<Event> createEvent(const String& eventType, ExceptionState&);
-    PassRefPtr<Event> createEvent(ExceptionState&);
+    PassRefPtrWillBeRawPtr<Event> createEvent(const String& eventType, ExceptionState&);
+    PassRefPtrWillBeRawPtr<Event> createEvent(ExceptionState&);
 
     // keep track of what types of event listeners are registered, so we don't
     // dispatch events unnecessarily
@@ -693,9 +699,8 @@ public:
         ANIMATIONSTART_LISTENER              = 1 << 8,
         ANIMATIONITERATION_LISTENER          = 1 << 9,
         TRANSITIONEND_LISTENER               = 1 << 10,
-        BEFORELOAD_LISTENER                  = 1 << 11,
         SCROLL_LISTENER                      = 1 << 12
-        // 3 bits remaining
+        // 4 bits remaining
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }
@@ -1076,9 +1081,12 @@ private:
 
     void inheritHtmlAndBodyElementStyles(StyleRecalcChange);
 
+    bool dirtyElementsForLayerUpdate();
     void updateDistributionIfNeeded();
     void updateUseShadowTreesIfNeeded();
+    void evaluateMediaQueryListIfNeeded();
 
+    void updateRenderTree(StyleRecalcChange);
     void updateStyle(StyleRecalcChange);
 
     void detachParser();
@@ -1113,8 +1121,6 @@ private:
 
     void executeScriptsWaitingForResourcesIfNeeded();
 
-    void recalcStyleForLayoutIgnoringPendingStylesheets();
-
     PassRefPtr<NodeList> handleZeroPadding(const HitTestRequest&, HitTestResult&) const;
 
     void loadEventDelayTimerFired(Timer<Document>*);
@@ -1145,9 +1151,8 @@ private:
 
     void didRemoveTouchEventHandler(Node*, bool clearAll);
 
-    // Returns true if Document::recalcStyle() needs to be run.
-    bool shouldCallRecalcStyleForDocument();
-    bool shouldScheduleStyleRecalc();
+    bool needsRenderTreeUpdate() const;
+    bool shouldScheduleRenderTreeUpdate() const;
 
     DocumentLifecycle m_lifecycle;
 
@@ -1350,6 +1355,7 @@ private:
     HashSet<RefPtr<Element> > m_associatedFormControls;
 
     HashSet<SVGUseElement*> m_useElementsNeedingUpdate;
+    HashSet<Element*> m_layerUpdateElements;
 
     bool m_hasViewportUnits;
 

@@ -55,7 +55,6 @@
 #include "core/page/scrolling/ScrollingCoordinator.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderLayer.h"
-#include "core/rendering/RenderPart.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/svg/SVGDocument.h"
@@ -103,10 +102,6 @@ inline LocalFrame::LocalFrame(FrameLoaderClient* client, FrameHost* host, HTMLFr
     , m_orientation(0)
     , m_inViewSourceMode(false)
 {
-    if (this->ownerElement()) {
-        page()->incrementSubframeCount();
-        this->ownerElement()->setContentFrame(*this);
-    }
 }
 
 PassRefPtr<LocalFrame> LocalFrame::create(FrameLoaderClient* client, FrameHost* host, HTMLFrameOwnerElement* ownerElement)
@@ -123,8 +118,6 @@ LocalFrame::~LocalFrame()
     setView(nullptr);
     loader().clear();
     setDOMWindow(nullptr);
-
-    disconnectOwnerElement();
 }
 
 bool LocalFrame::inScope(TreeScope* scope) const
@@ -222,28 +215,12 @@ FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize,
     return resultSize;
 }
 
-void LocalFrame::setDOMWindow(PassRefPtr<DOMWindow> domWindow)
+void LocalFrame::setDOMWindow(PassRefPtrWillBeRawPtr<DOMWindow> domWindow)
 {
     InspectorInstrumentation::frameWindowDiscarded(this, m_domWindow.get());
     if (domWindow)
         script().clearWindowShell();
     Frame::setDOMWindow(domWindow);
-}
-
-RenderPart* LocalFrame::ownerRenderer() const
-{
-    if (!ownerElement())
-        return 0;
-    RenderObject* object = ownerElement()->renderer();
-    if (!object)
-        return 0;
-    // FIXME: If <object> is ever fixed to disassociate itself from frames
-    // that it has started but canceled, then this can turn into an ASSERT
-    // since ownerElement() would be 0 when the load is canceled.
-    // https://bugs.webkit.org/show_bug.cgi?id=18585
-    if (!object->isRenderPart())
-        return 0;
-    return toRenderPart(object);
 }
 
 void LocalFrame::didChangeVisibilityState()
@@ -279,18 +256,6 @@ void LocalFrame::detachFromFrameHost()
     // We should never be detatching the page during a Layout.
     RELEASE_ASSERT(!m_view || !m_view->isInPerformLayout());
     Frame::detachFromFrameHost();
-}
-
-void LocalFrame::disconnectOwnerElement()
-{
-    if (ownerElement()) {
-        if (Document* doc = document())
-            doc->topDocument().clearAXObjectCache();
-        ownerElement()->clearContentFrame();
-        if (page())
-            page()->decrementSubframeCount();
-    }
-    m_ownerElement = 0;
 }
 
 String LocalFrame::documentTypeString() const
@@ -554,27 +519,24 @@ struct ScopedFramePaintingState {
     Color backgroundColor;
 };
 
-PassOwnPtr<DragImage> LocalFrame::nodeImage(Node* node)
+PassOwnPtr<DragImage> LocalFrame::nodeImage(Node& node)
 {
-    if (!node->renderer())
+    if (!node.renderer())
         return nullptr;
 
-    const ScopedFramePaintingState state(this, node);
+    const ScopedFramePaintingState state(this, &node);
+
+    m_view->updateLayoutAndStyleForPainting();
 
     m_view->setPaintBehavior(state.paintBehavior | PaintBehaviorFlattenCompositingLayers);
 
     // When generating the drag image for an element, ignore the document background.
     m_view->setBaseBackgroundColor(Color::transparent);
 
-    // Updating layout can tear everything down, so ref the LocalFrame and Node to keep them alive.
-    RefPtr<LocalFrame> frameProtector(this);
-    RefPtr<Node> nodeProtector(node);
-    m_view->updateLayoutAndStyleForPainting();
-
-    m_view->setNodeToDraw(node); // Enable special sub-tree drawing mode.
+    m_view->setNodeToDraw(&node); // Enable special sub-tree drawing mode.
 
     // Document::updateLayout may have blown away the original RenderObject.
-    RenderObject* renderer = node->renderer();
+    RenderObject* renderer = node.renderer();
     if (!renderer)
         return nullptr;
 

@@ -48,7 +48,6 @@
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
 #include "core/events/ScopedEventQueue.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/events/TouchEvent.h"
 #include "core/fileapi/FileList.h"
 #include "core/frame/FrameHost.h"
@@ -857,6 +856,7 @@ void HTMLInputElement::setChecked(bool nowChecked, TextFieldEventBehavior eventB
     if (checked() == nowChecked)
         return;
 
+    RefPtr<HTMLInputElement> protector(this);
     m_reflectsCheckedAttribute = false;
     m_isChecked = nowChecked;
     setNeedsStyleRecalc(SubtreeStyleChange);
@@ -883,6 +883,8 @@ void HTMLInputElement::setChecked(bool nowChecked, TextFieldEventBehavior eventB
     // definitely wrong in practice for these types of elements.
     if (eventBehavior != DispatchNoEvent && inDocument() && m_inputType->shouldSendChangeEventAfterCheckedChanged()) {
         setTextAsOfLastFormControlChangeEvent(String());
+        if (eventBehavior == DispatchInputAndChangeEvent)
+            dispatchFormControlInputEvent();
         dispatchFormControlChangeEvent();
     }
 

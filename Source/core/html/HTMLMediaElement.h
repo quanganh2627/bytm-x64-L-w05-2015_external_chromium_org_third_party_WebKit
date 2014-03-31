@@ -85,7 +85,7 @@ public:
     blink::WebMediaPlayer* webMediaPlayer() const { return m_player ? m_player->webMediaPlayer() : 0; }
 
     virtual bool hasVideo() const { return false; }
-    virtual bool hasAudio() const OVERRIDE FINAL;
+    bool hasAudio() const;
 
     bool supportsSave() const;
 
@@ -126,7 +126,7 @@ public:
     virtual double currentTime() const OVERRIDE FINAL;
     virtual void setCurrentTime(double, ExceptionState&) OVERRIDE FINAL;
     virtual double duration() const OVERRIDE FINAL;
-    virtual bool paused() const OVERRIDE FINAL;
+    bool paused() const;
     double defaultPlaybackRate() const;
     void setDefaultPlaybackRate(double);
     double playbackRate() const;
@@ -138,8 +138,8 @@ public:
     bool autoplay() const;
     bool loop() const;
     void setLoop(bool b);
-    virtual void play() OVERRIDE FINAL;
-    virtual void pause() OVERRIDE FINAL;
+    void play();
+    void pause();
 
     // statistics
     unsigned webkitAudioDecodedByteCount() const;
@@ -152,15 +152,15 @@ public:
     // controls
     bool controls() const;
     void setControls(bool);
-    virtual double volume() const OVERRIDE FINAL;
-    virtual void setVolume(double, ExceptionState&) OVERRIDE FINAL;
-    virtual bool muted() const OVERRIDE FINAL;
-    virtual void setMuted(bool) OVERRIDE FINAL;
+    double volume() const;
+    void setVolume(double, ExceptionState&);
+    bool muted() const;
+    void setMuted(bool);
 
-    virtual void beginScrubbing() OVERRIDE FINAL;
-    virtual void endScrubbing() OVERRIDE FINAL;
-
-    virtual bool canPlay() const OVERRIDE FINAL;
+    // play/pause toggling that uses the media controller if present. togglePlayStateWillPlay() is
+    // true if togglePlayState() will call play() or unpause() on the media element or controller.
+    bool togglePlayStateWillPlay() const;
+    void togglePlayState();
 
     PassRefPtr<TextTrack> addTextTrack(const AtomicString& kind, const AtomicString& label, const AtomicString& language, ExceptionState&);
     PassRefPtr<TextTrack> addTextTrack(const AtomicString& kind, const AtomicString& label, ExceptionState& exceptionState) { return addTextTrack(kind, label, emptyAtom, exceptionState); }
@@ -234,6 +234,7 @@ public:
 
     bool isFullscreen() const;
     void enterFullscreen();
+    void exitFullscreen();
 
     bool hasClosedCaptions() const;
     bool closedCaptionsVisible() const;
@@ -326,9 +327,6 @@ private:
     virtual void mediaPlayerRequestSeek(double) OVERRIDE FINAL;
     virtual void mediaPlayerRepaint() OVERRIDE FINAL;
     virtual void mediaPlayerSizeChanged() OVERRIDE FINAL;
-
-    virtual CORSMode mediaPlayerCORSMode() const OVERRIDE FINAL;
-
     virtual void mediaPlayerSetWebLayer(blink::WebLayer*) OVERRIDE FINAL;
     virtual void mediaPlayerSetOpaque(bool) OVERRIDE FINAL;
     virtual void mediaPlayerMediaSourceOpened(blink::WebMediaSource*) OVERRIDE FINAL;
@@ -353,6 +351,9 @@ private:
     void loadInternal();
     void selectMediaResource();
     void loadResource(const KURL&, ContentType&, const String& keySystem);
+    void setPlayerPreload();
+    void startDelayedLoad();
+    blink::WebMediaPlayer::LoadType loadType() const;
     void scheduleNextSourceChild();
     void loadNextSourceChild();
     void userCancelledLoad();
@@ -403,7 +404,9 @@ private:
     void prepareMediaFragmentURI();
     void applyMediaFragmentURI();
 
+    virtual bool willRespondToMouseClickEvents() OVERRIDE FINAL;
     virtual void* preDispatchEventHandler(Event*) OVERRIDE FINAL;
+    virtual void defaultEventHandler(Event*) OVERRIDE FINAL;
 
     void changeNetworkStateFromLoadingToIdle();
 
@@ -413,6 +416,8 @@ private:
     bool isBlocked() const;
     bool isBlockedOnMediaController() const;
     bool isAutoplaying() const { return m_autoplaying; }
+
+    blink::WebMediaPlayer::CORSMode corsMode() const;
 
     Timer<HTMLMediaElement> m_loadTimer;
     Timer<HTMLMediaElement> m_progressEventTimer;
@@ -492,6 +497,7 @@ private:
 
     bool m_completelyLoaded : 1;
     bool m_havePreparedToPlay : 1;
+    bool m_delayingLoadForPreloadNone : 1;
 
     bool m_tracksAreReady : 1;
     bool m_haveVisibleTextTrack : 1;
@@ -516,6 +522,7 @@ private:
     friend class MediaController;
     RefPtr<MediaController> m_mediaController;
 
+    friend class Internals;
     friend class TrackDisplayUpdateScope;
 
     static URLRegistry* s_mediaStreamRegistry;

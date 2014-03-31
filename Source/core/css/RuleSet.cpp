@@ -35,7 +35,6 @@
 #include "core/css/CSSSelector.h"
 #include "core/css/CSSSelectorList.h"
 #include "core/css/SelectorChecker.h"
-#include "core/css/SelectorCheckerFastPath.h"
 #include "core/css/SelectorFilter.h"
 #include "core/css/StyleRuleImport.h"
 #include "core/css/StyleSheetContents.h"
@@ -127,7 +126,6 @@ RuleData::RuleData(StyleRule* rule, unsigned selectorIndex, unsigned position, A
     , m_selectorIndex(selectorIndex)
     , m_isLastInArray(false)
     , m_position(position)
-    , m_hasFastCheckableSelector((addRuleFlags & RuleCanUseFastCheckSelector) && SelectorCheckerFastPath::canUse(selector()))
     , m_specificity(selector().specificity())
     , m_hasMultipartSelector(!!selector().tagHistory())
     , m_hasRightmostSelectorMatchingHTMLBasedOnRuleHash(isSelectorMatchingHTMLBasedOnRuleHash(selector()))
@@ -276,7 +274,7 @@ void RuleSet::addChildRules(const WillBeHeapVector<RefPtrWillBeMember<StyleRuleB
 
             const CSSSelectorList& selectorList = styleRule->selectorList();
             for (size_t selectorIndex = 0; selectorIndex != kNotFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
-                if (selectorList.hasCombinatorCrossingTreeBoundaryAt(selectorIndex)) {
+                if (selectorList.selectorCrossesTreeScopes(selectorIndex)) {
                     m_treeBoundaryCrossingRules.append(MinimalRuleData(styleRule, selectorIndex, addRuleFlags));
                 } else if (selectorList.hasShadowDistributedAt(selectorIndex)) {
                     m_shadowDistributedRules.append(MinimalRuleData(styleRule, selectorIndex, addRuleFlags));

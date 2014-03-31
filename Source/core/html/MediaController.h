@@ -61,9 +61,9 @@ public:
     virtual double currentTime() const OVERRIDE;
     virtual void setCurrentTime(double, ExceptionState&) OVERRIDE;
 
-    virtual bool paused() const OVERRIDE { return m_paused; }
-    virtual void play() OVERRIDE;
-    virtual void pause() OVERRIDE;
+    bool paused() const { return m_paused; }
+    void play();
+    void pause();
     void unpause();
 
     double defaultPlaybackRate() const { return m_defaultPlaybackRate; }
@@ -72,11 +72,11 @@ public:
     double playbackRate() const;
     void setPlaybackRate(double);
 
-    virtual double volume() const OVERRIDE { return m_volume; }
-    virtual void setVolume(double, ExceptionState&) OVERRIDE;
+    double volume() const { return m_volume; }
+    void setVolume(double, ExceptionState&);
 
-    virtual bool muted() const OVERRIDE { return m_muted; }
-    virtual void setMuted(bool) OVERRIDE;
+    bool muted() const { return m_muted; }
+    void setMuted(bool);
 
     typedef HTMLMediaElement::ReadyState ReadyState;
     ReadyState readyState() const { return m_readyState; }
@@ -84,13 +84,7 @@ public:
     enum PlaybackState { WAITING, PLAYING, ENDED };
     const AtomicString& playbackState() const;
 
-    virtual bool hasAudio() const OVERRIDE;
-
-    virtual void beginScrubbing() OVERRIDE;
-    virtual void endScrubbing() OVERRIDE;
-
-    virtual bool canPlay() const OVERRIDE;
-
+    bool isRestrained() const;
     bool isBlocked() const;
 
     void clearExecutionContext() { m_executionContext = 0; }

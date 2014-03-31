@@ -85,9 +85,15 @@ static void paintGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 
         if (textMode & TextModeFill) {
-            // If we also filled, we don't want to draw shadows twice.
-            // See comment in FontChromiumWin.cpp::paintSkiaText() for more details.
-            // Since we use the looper for shadows, we remove it (if any) now.
+            // If there is a shadow and we filled above, there will already be
+            // a shadow. We don't want to draw it again or it will be too dark
+            // and it will go on top of the fill.
+            //
+            // Note that this isn't strictly correct, since the stroke could be
+            // very thick and the shadow wouldn't account for this. The "right"
+            // thing would be to draw to a new layer and then draw that layer
+            // with a shadow. But this is a lot of extra work for something
+            // that isn't normally an issue.
             paint.setLooper(0);
         }
 
@@ -213,10 +219,10 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
         return 0;
 
     if (glyphOverflow) {
-        glyphOverflow->top = std::max<int>(glyphOverflow->top, ceilf(-shaper.minGlyphBoundingBoxY()) - (glyphOverflow->computeBounds ? 0 : fontMetrics().ascent()));
-        glyphOverflow->bottom = std::max<int>(glyphOverflow->bottom, ceilf(shaper.maxGlyphBoundingBoxY()) - (glyphOverflow->computeBounds ? 0 : fontMetrics().descent()));
-        glyphOverflow->left = std::max<int>(0, ceilf(-shaper.minGlyphBoundingBoxX()));
-        glyphOverflow->right = std::max<int>(0, ceilf(shaper.maxGlyphBoundingBoxX() - shaper.totalWidth()));
+        glyphOverflow->top = std::max<int>(glyphOverflow->top, ceilf(-shaper.glyphBoundingBox().top()) - (glyphOverflow->computeBounds ? 0 : fontMetrics().ascent()));
+        glyphOverflow->bottom = std::max<int>(glyphOverflow->bottom, ceilf(shaper.glyphBoundingBox().bottom()) - (glyphOverflow->computeBounds ? 0 : fontMetrics().descent()));
+        glyphOverflow->left = std::max<int>(0, ceilf(-shaper.glyphBoundingBox().left()));
+        glyphOverflow->right = std::max<int>(0, ceilf(shaper.glyphBoundingBox().right() - shaper.totalWidth()));
     }
     return shaper.totalWidth();
 }

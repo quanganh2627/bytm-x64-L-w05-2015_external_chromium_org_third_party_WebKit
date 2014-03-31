@@ -43,10 +43,6 @@ SharedWorkerPerformance::SharedWorkerPerformance()
 {
 }
 
-SharedWorkerPerformance::~SharedWorkerPerformance()
-{
-}
-
 const char* SharedWorkerPerformance::supplementName()
 {
     return "SharedWorkerPerformance";
@@ -54,10 +50,10 @@ const char* SharedWorkerPerformance::supplementName()
 
 SharedWorkerPerformance& SharedWorkerPerformance::from(SharedWorker& sharedWorker)
 {
-    SharedWorkerPerformance* supplement = static_cast<SharedWorkerPerformance*>(Supplement<SharedWorker>::from(sharedWorker, supplementName()));
+    SharedWorkerPerformance* supplement = static_cast<SharedWorkerPerformance*>(WillBeHeapSupplement<SharedWorker>::from(sharedWorker, supplementName()));
     if (!supplement) {
         supplement = new SharedWorkerPerformance();
-        provideTo(sharedWorker, supplementName(), adoptPtr(supplement));
+        provideTo(sharedWorker, supplementName(), adoptPtrWillBeNoop(supplement));
     }
     return *supplement;
 }

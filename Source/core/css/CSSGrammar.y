@@ -73,10 +73,12 @@ using namespace HTMLNames;
     CSSParserString string;
 
     StyleRuleBase* rule;
-    // The content of the two below HeapVectors are guaranteed to be kept alive by
-    // the corresponding m_parsedRules and m_floatingMediaQueryExpList lists in BisonCSSParser.h.
+    // The content of the three below HeapVectors are guaranteed to be kept alive by
+    // the corresponding m_parsedRules, m_floatingMediaQueryExpList, and m_parsedKeyFrames
+    // lists in BisonCSSParser.h.
     WillBeHeapVector<RefPtrWillBeMember<StyleRuleBase> >* ruleList;
     WillBeHeapVector<OwnPtrWillBeMember<MediaQueryExp> >* mediaQueryExpList;
+    WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> >* keyframeRuleList;
     CSSParserSelector* selector;
     Vector<OwnPtr<CSSParserSelector> >* selectorList;
     CSSSelector::MarginBoxType marginBox;
@@ -88,7 +90,6 @@ using namespace HTMLNames;
     CSSParserValue value;
     CSSParserValueList* valueList;
     StyleKeyframe* keyframe;
-    Vector<RefPtr<StyleKeyframe> >* keyframeRuleList;
     float val;
     CSSPropertyID id;
     CSSParserLocation location;
@@ -116,7 +117,7 @@ static inline bool isCSSTokenAString(int yytype)
     case FUNCTION:
     case ANYFUNCTION:
     case HOSTFUNCTION:
-    case ANCESTORFUNCTION:
+    case HOSTCONTEXTFUNCTION:
     case NOTFUNCTION:
     case CALCFUNCTION:
     case MINFUNCTION:
@@ -267,7 +268,7 @@ inline static CSSParserValue makeIdentValue(CSSParserString string)
 %token <string> MINFUNCTION
 %token <string> MAXFUNCTION
 %token <string> HOSTFUNCTION
-%token <string> ANCESTORFUNCTION
+%token <string> HOSTCONTEXTFUNCTION
 
 %token <string> UNICODERANGE
 
@@ -331,7 +332,6 @@ inline static CSSParserValue makeIdentValue(CSSParserString string)
 %type <selector> specifier_list
 %type <selector> simple_selector
 %type <selector> selector
-%type <selector> relative_selector
 %type <selectorList> selector_list
 %type <selectorList> simple_selector_list
 %type <selector> class
@@ -1046,17 +1046,9 @@ combinator:
     '+' maybe_space { $$ = CSSSelector::DirectAdjacent; }
     | '~' maybe_space { $$ = CSSSelector::IndirectAdjacent; }
     | '>' maybe_space { $$ = CSSSelector::Child; }
-    // FIXME: implement named combinator and replace the following /shadow/, /shadow-child/ and
-    // /shadow-deep/ with named combinator's implementation.
     | '/' IDENT '/' maybe_space {
-        if (!RuntimeEnabledFeatures::shadowDOMEnabled())
-            YYERROR;
-        if ($2.equalIgnoringCase("shadow"))
-            $$ = CSSSelector::Shadow;
-        else if ($2.equalIgnoringCase("shadow-deep"))
+        if ($2.equalIgnoringCase("deep"))
             $$ = CSSSelector::ShadowDeep;
-        else if ($2.equalIgnoringCase("content"))
-            $$ = CSSSelector::ShadowContent;
         else
             YYERROR;
     }
@@ -1120,17 +1112,6 @@ selector_list:
     }
    ;
 
-relative_selector:
-    combinator selector {
-        $$ = $2;
-        CSSParserSelector* end = $$;
-        while (end->tagHistory())
-            end = end->tagHistory();
-        end->setRelation($1);
-    }
-    | selector
-    ;
-
 selector:
     simple_selector
     | selector WHITESPACE
@@ -1141,6 +1122,8 @@ selector:
         while (end->tagHistory())
             end = end->tagHistory();
         end->setRelation(CSSSelector::Descendant);
+        if ($1->isContentPseudoElement())
+            end->setRelationIsAffectedByPseudoContent();
         end->setTagHistory(parser->sinkFloatingSelector($1));
     }
     | selector combinator simple_selector {
@@ -1149,6 +1132,8 @@ selector:
         while (end->tagHistory())
             end = end->tagHistory();
         end->setRelation($2);
+        if ($1->isContentPseudoElement())
+            end->setRelationIsAffectedByPseudoContent();
         end->setTagHistory(parser->sinkFloatingSelector($1));
     }
     ;
@@ -1370,16 +1355,6 @@ pseudo:
     | ':' ':' CUEFUNCTION selector_recovery closing_parenthesis {
         YYERROR;
     }
-    | ':' ':' DISTRIBUTEDFUNCTION maybe_space relative_selector closing_parenthesis {
-        $$ = parser->createFloatingSelector();
-        $$->setMatch(CSSSelector::PseudoElement);
-        $$->setFunctionArgumentSelector($5);
-        parser->tokenToLowerCase($3);
-        $$->setValue($3);
-    }
-    | ':' ':' DISTRIBUTEDFUNCTION selector_recovery closing_parenthesis {
-        YYERROR;
-    }
     // use by :-webkit-any.
     // FIXME: should we support generic selectors here or just simple_selectors?
     // Use simple_selector_list for now to match -moz-any.
@@ -1468,40 +1443,21 @@ pseudo:
         if (type != CSSSelector::PseudoHost)
             YYERROR;
     }
-    //  used by :host()
-    | ':' HOSTFUNCTION maybe_space closing_parenthesis {
-        $$ = parser->createFloatingSelector();
-        $$->setMatch(CSSSelector::PseudoClass);
-        parser->tokenToLowerCase($2);
-        $$->setValue($2.atomicSubstring(0, $2.length() - 1));
-        CSSSelector::PseudoType type = $$->pseudoType();
-        if (type != CSSSelector::PseudoHost)
-            YYERROR;
-    }
     | ':' HOSTFUNCTION selector_recovery closing_parenthesis {
         YYERROR;
     }
-    | ':' ANCESTORFUNCTION maybe_space simple_selector_list maybe_space closing_parenthesis {
+    //  used by :host-context()
+    | ':' HOSTCONTEXTFUNCTION maybe_space simple_selector_list maybe_space closing_parenthesis {
         $$ = parser->createFloatingSelector();
         $$->setMatch(CSSSelector::PseudoClass);
         $$->adoptSelectorVector(*parser->sinkFloatingSelectorVector($4));
         parser->tokenToLowerCase($2);
         $$->setValue($2);
         CSSSelector::PseudoType type = $$->pseudoType();
-        if (type != CSSSelector::PseudoAncestor)
+        if (type != CSSSelector::PseudoHostContext)
             YYERROR;
     }
-    //  used by :ancestor()
-    | ':' ANCESTORFUNCTION maybe_space closing_parenthesis {
-        $$ = parser->createFloatingSelector();
-        $$->setMatch(CSSSelector::PseudoClass);
-        parser->tokenToLowerCase($2);
-        $$->setValue($2.atomicSubstring(0, $2.length() - 1));
-        CSSSelector::PseudoType type = $$->pseudoType();
-        if (type != CSSSelector::PseudoAncestor)
-            YYERROR;
-    }
-    | ':' ANCESTORFUNCTION selector_recovery closing_parenthesis {
+    | ':' HOSTCONTEXTFUNCTION selector_recovery closing_parenthesis {
         YYERROR;
     }
   ;
@@ -1903,4 +1859,3 @@ rule_error_recovery:
     ;
 
 %%
-

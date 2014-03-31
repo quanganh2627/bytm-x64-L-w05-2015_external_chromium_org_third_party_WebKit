@@ -107,11 +107,11 @@ Timing TimingInput::convert(const Dictionary& timingInputDictionary)
     // FIXME: This method needs to be refactored to handle invalid
     // null, NaN, Infinity values better.
     // See: http://www.w3.org/TR/WebIDL/#es-double
-    double startDelay = 0;
+    double startDelay = Timing::defaults().startDelay;
     timingInputDictionary.get("delay", startDelay);
     setStartDelay(result, startDelay);
 
-    double endDelay = 0;
+    double endDelay = Timing::defaults().endDelay;
     timingInputDictionary.get("endDelay", endDelay);
     setEndDelay(result, endDelay);
 
@@ -119,21 +119,20 @@ Timing TimingInput::convert(const Dictionary& timingInputDictionary)
     timingInputDictionary.get("fill", fillMode);
     setFillMode(result, fillMode);
 
-    double iterationStart = 0;
+    double iterationStart = Timing::defaults().iterationStart;
     timingInputDictionary.get("iterationStart", iterationStart);
     setIterationStart(result, iterationStart);
 
-    double iterationCount = 1;
+    double iterationCount = Timing::defaults().iterationCount;
     timingInputDictionary.get("iterations", iterationCount);
     setIterationCount(result, iterationCount);
 
-    v8::Local<v8::Value> iterationDurationValue;
-    if (timingInputDictionary.get("duration", iterationDurationValue)) {
-        double iterationDuration = iterationDurationValue->NumberValue();
+    double iterationDuration = 0;
+    if (timingInputDictionary.get("duration", iterationDuration)) {
         setIterationDuration(result, iterationDuration);
     }
 
-    double playbackRate = 1;
+    double playbackRate = Timing::defaults().playbackRate;
     timingInputDictionary.get("playbackRate", playbackRate);
     setPlaybackRate(result, playbackRate);
 

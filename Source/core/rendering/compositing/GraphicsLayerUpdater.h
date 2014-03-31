@@ -38,7 +38,7 @@ class RenderView;
 
 class GraphicsLayerUpdater {
 public:
-    explicit GraphicsLayerUpdater(RenderView&);
+    GraphicsLayerUpdater();
     ~GraphicsLayerUpdater();
 
     enum UpdateType {
@@ -46,18 +46,12 @@ public:
         ForceUpdate,
     };
 
-    void updateRecursive(RenderLayer&, UpdateType);
-    void rebuildTree(RenderLayer&, UpdateType, GraphicsLayerVector& childLayersOfEnclosingLayer, int depth);
+    void update(RenderLayer&, UpdateType);
+    void rebuildTree(RenderLayer&, GraphicsLayerVector& childLayersOfEnclosingLayer);
 
-private:
-    UpdateType update(RenderLayer&, UpdateType);
-
-    RenderView& m_renderView;
-
-    // Used for gathering UMA data about the effect on memory usage of promoting all layers
-    // that have a webkit-transition on opacity or transform and intersect the viewport.
-    double m_pixelsWithoutPromotingAllTransitions;
-    double m_pixelsAddedByPromotingAllTransitions;
+#if !ASSERT_DISABLED
+    static void assertNeedsToUpdateGraphicsLayerBitsCleared(RenderLayer&);
+#endif
 };
 
 } // namespace WebCore

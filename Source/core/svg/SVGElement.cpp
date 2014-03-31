@@ -58,9 +58,13 @@ using namespace SVGNames;
 void mapAttributeToCSSProperty(HashMap<StringImpl*, CSSPropertyID>* propertyNameToIdMap, const QualifiedName& attrName)
 {
     // FIXME: when CSS supports "transform-origin" the special case for transform_originAttr can be removed.
+    // FIXME: It's not clear the above is strictly true, as -webkit-transform-origin has non-standard behavior.
     CSSPropertyID propertyId = cssPropertyID(attrName.localName());
-    if (!propertyId && attrName == transform_originAttr)
+    if (!propertyId && attrName == transform_originAttr) {
         propertyId = CSSPropertyWebkitTransformOrigin; // cssPropertyID("-webkit-transform-origin")
+    } else if (propertyId == CSSPropertyTransformOrigin) {
+        propertyId = CSSPropertyWebkitTransformOrigin;
+    }
     ASSERT(propertyId > 0);
     propertyNameToIdMap->set(attrName.localName().impl(), propertyId);
 }
@@ -115,11 +119,7 @@ SVGElement::~SVGElement()
 
 void SVGElement::willRecalcStyle(StyleRecalcChange change)
 {
-    // FIXME: This assumes that when shouldNotifyRendererWithIdenticalStyles() is true
-    // the change came from a SMIL animation, but what if there were non-SMIL changes
-    // since then? I think we should remove the shouldNotifyRendererWithIdenticalStyles
-    // check.
-    if (!hasSVGRareData() || shouldNotifyRendererWithIdenticalStyles())
+    if (!hasSVGRareData())
         return;
     // If the style changes because of a regular property change (not induced by SMIL animations themselves)
     // reset the "computed style without SMIL style properties", so the base value change gets reflected.
@@ -259,24 +259,6 @@ String SVGElement::title() const
     // Otherwise return a null/empty string.
     return String();
 }
-
-PassRefPtrWillBeRawPtr<CSSValue> SVGElement::getPresentationAttribute(const AtomicString& name)
-{
-    if (!hasAttributesWithoutUpdate())
-        return nullptr;
-
-    QualifiedName attributeName(nullAtom, name, nullAtom);
-    const Attribute* attr = getAttributeItem(attributeName);
-    if (!attr)
-        return nullptr;
-
-    RefPtrWillBeRawPtr<MutableStylePropertySet> style = MutableStylePropertySet::create(SVGAttributeMode);
-    CSSPropertyID propertyID = SVGElement::cssPropertyIdForSVGAttributeName(attr->name());
-    style->setProperty(propertyID, attr->value());
-    RefPtrWillBeRawPtr<CSSValue> cssValue = style->getPropertyCSSValue(propertyID);
-    return cssValue ? cssValue->cloneForCSSOM() : nullptr;
-}
-
 
 bool SVGElement::instanceUpdatesBlocked() const
 {
@@ -722,14 +704,14 @@ AnimatedPropertyType SVGElement::animatedPropertyTypeForCSSAttribute(const Quali
     return AnimatedUnknown;
 }
 
-void SVGElement::addToPropertyMap(PassRefPtr<NewSVGAnimatedPropertyBase> passProperty)
+void SVGElement::addToPropertyMap(PassRefPtr<SVGAnimatedPropertyBase> passProperty)
 {
-    RefPtr<NewSVGAnimatedPropertyBase> property(passProperty);
+    RefPtr<SVGAnimatedPropertyBase> property(passProperty);
     QualifiedName attributeName = property->attributeName();
     m_newAttributeToPropertyMap.set(attributeName, property.release());
 }
 
-PassRefPtr<NewSVGAnimatedPropertyBase> SVGElement::propertyFromAttribute(const QualifiedName& attributeName)
+PassRefPtr<SVGAnimatedPropertyBase> SVGElement::propertyFromAttribute(const QualifiedName& attributeName)
 {
     return m_newAttributeToPropertyMap.get(attributeName);
 }
@@ -969,7 +951,7 @@ void SVGElement::synchronizeAnimatedSVGAttribute(const QualifiedName& name) cons
 
         elementData()->m_animatedSVGAttributesAreDirty = false;
     } else {
-        RefPtr<NewSVGAnimatedPropertyBase> property = m_newAttributeToPropertyMap.get(name);
+        RefPtr<SVGAnimatedPropertyBase> property = m_newAttributeToPropertyMap.get(name);
         if (property && property->needsSynchronizeAttribute())
             property->synchronizeAttribute();
     }

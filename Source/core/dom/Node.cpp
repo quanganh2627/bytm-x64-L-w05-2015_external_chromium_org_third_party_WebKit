@@ -59,7 +59,7 @@
 #include "core/dom/shadow/InsertionPoint.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/editing/htmlediting.h"
-#include "core/events/BeforeLoadEvent.h"
+#include "core/editing/markup.h"
 #include "core/events/Event.h"
 #include "core/events/EventDispatchMediator.h"
 #include "core/events/EventDispatcher.h"
@@ -69,7 +69,6 @@
 #include "core/events/MouseEvent.h"
 #include "core/events/MutationEvent.h"
 #include "core/events/TextEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/events/TouchEvent.h"
 #include "core/events/UIEvent.h"
 #include "core/events/WheelEvent.h"
@@ -500,13 +499,13 @@ const AtomicString& Node::namespaceURI() const
 
 bool Node::isContentEditable(UserSelectAllTreatment treatment)
 {
-    document().updateStyleIfNeeded();
+    document().updateRenderTreeIfNeeded();
     return rendererIsEditable(Editable, treatment);
 }
 
 bool Node::isContentRichlyEditable()
 {
-    document().updateStyleIfNeeded();
+    document().updateRenderTreeIfNeeded();
     return rendererIsEditable(RichlyEditable, UserSelectAllIsAlwaysNonEditable);
 }
 
@@ -648,11 +647,10 @@ void Node::setNeedsStyleInvalidation()
 
 void Node::markAncestorsWithChildNeedsStyleInvalidation()
 {
-    Node* node = this;
-    for (; node && !node->childNeedsStyleInvalidation(); node = node->parentOrShadowHostNode())
+    for (Node* node = parentOrShadowHostNode(); node && !node->childNeedsStyleInvalidation(); node = node->parentOrShadowHostNode())
         node->setChildNeedsStyleInvalidation();
     if (document().childNeedsStyleInvalidation())
-        document().scheduleStyleRecalc();
+        document().scheduleRenderTreeUpdate();
 }
 
 void Node::markAncestorsWithChildNeedsDistributionRecalc()
@@ -660,7 +658,7 @@ void Node::markAncestorsWithChildNeedsDistributionRecalc()
     for (Node* node = this; node && !node->childNeedsDistributionRecalc(); node = node->parentOrShadowHostNode())
         node->setChildNeedsDistributionRecalc();
     if (document().childNeedsDistributionRecalc())
-        document().scheduleStyleRecalc();
+        document().scheduleRenderTreeUpdate();
 }
 
 namespace {
@@ -747,17 +745,14 @@ void Node::markAncestorsWithChildNeedsStyleRecalc()
         p->setChildNeedsStyleRecalc();
 
     if (document().needsStyleRecalc() || document().childNeedsStyleRecalc())
-        document().scheduleStyleRecalc();
+        document().scheduleRenderTreeUpdate();
 }
 
-void Node::setNeedsStyleRecalc(StyleChangeType changeType, StyleChangeSource source)
+void Node::setNeedsStyleRecalc(StyleChangeType changeType)
 {
     ASSERT(changeType != NoStyleChange);
     if (!inActiveDocument())
         return;
-
-    if (source == StyleChangeFromRenderer)
-        setFlag(NotifyRendererWithIdenticalStyles);
 
     StyleChangeType existingChangeType = styleChangeType();
     if (changeType > existingChangeType) {
@@ -776,7 +771,8 @@ void Node::setNeedsStyleRecalc(StyleChangeType changeType, StyleChangeSource sou
 void Node::clearNeedsStyleRecalc()
 {
     m_nodeFlags &= ~StyleChangeMask;
-    clearFlag(NotifyRendererWithIdenticalStyles);
+
+    clearNeedsLayerUpdate();
 
     if (isElementNode() && hasRareData())
         toElement(*this).setAnimationStyleChange(false);
@@ -1006,6 +1002,7 @@ void Node::detach(const AttachContext& context)
 
     setStyleChange(NeedsReattachStyleChange);
     setChildNeedsStyleRecalc();
+
     if (StyleResolver* resolver = document().styleResolver())
         resolver->ruleFeatureSet().clearStyleInvalidation(this);
 
@@ -1497,9 +1494,15 @@ void Node::setTextContent(const String& text)
         case ELEMENT_NODE:
         case ATTRIBUTE_NODE:
         case DOCUMENT_FRAGMENT_NODE: {
+            // FIXME: Merge this logic into replaceChildrenWithText.
             RefPtr<ContainerNode> container = toContainerNode(this);
+            // No need to do anything if the text is identical.
+            if (container->hasOneTextChild() && toText(container->firstChild())->data() == text)
+                return;
             ChildListMutationScope mutation(*this);
             container->removeChildren();
+            // Note: This API will not insert empty text nodes:
+            // http://dom.spec.whatwg.org/#dom-node-textcontent
             if (!text.isEmpty())
                 container->appendChild(document().createTextNode(text), ASSERT_NO_EXCEPTION);
             return;
@@ -2226,20 +2229,6 @@ bool Node::dispatchTouchEvent(PassRefPtr<TouchEvent> event)
 void Node::dispatchSimulatedClick(Event* underlyingEvent, SimulatedClickMouseEventOptions eventOptions)
 {
     EventDispatcher::dispatchSimulatedClick(this, underlyingEvent, eventOptions);
-}
-
-bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
-{
-    if (!RuntimeEnabledFeatures::beforeLoadEnabled())
-        return true;
-
-    if (!document().hasListenerType(Document::BEFORELOAD_LISTENER))
-        return true;
-
-    RefPtr<Node> protector(this);
-    RefPtr<BeforeLoadEvent> beforeLoadEvent = BeforeLoadEvent::create(sourceURL);
-    dispatchEvent(beforeLoadEvent.get());
-    return !beforeLoadEvent->defaultPrevented();
 }
 
 bool Node::dispatchWheelEvent(const PlatformWheelEvent& event)

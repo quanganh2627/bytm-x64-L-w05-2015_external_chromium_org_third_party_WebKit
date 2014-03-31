@@ -285,10 +285,8 @@ TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent)
 
     // Set canvas background to red with alpha.
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, kWidth, kHeight);
-    bitmap.allocPixels();
-    SkBitmapDevice device(bitmap);
-    SkCanvas canvas(&device);
+    ASSERT_TRUE(bitmap.allocN32Pixels(kWidth, kHeight));
+    SkCanvas canvas(bitmap);
     canvas.clear(kAlphaRed);
     webView->paint(&canvas, WebRect(0, 0, kWidth, kHeight));
 
@@ -512,8 +510,8 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsAndTextInputInfo)
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("input_field_populated.html"));
     WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "input_field_populated.html");
     webView->setInitialFocus(false);
-    webView->setEditableSelectionOffsets(5, 13);
     WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(5, 13);
     EXPECT_EQ("56789abc", frame->selectionAsText());
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ("0123456789abcdefghijklmnopqrstuvwxyz", info.value);
@@ -525,8 +523,8 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsAndTextInputInfo)
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("content_editable_populated.html"));
     webView = m_webViewHelper.initializeAndLoad(m_baseURL + "content_editable_populated.html");
     webView->setInitialFocus(false);
-    webView->setEditableSelectionOffsets(8, 19);
     frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(8, 19);
     EXPECT_EQ("89abcdefghi", frame->selectionAsText());
     info = webView->textInputInfo();
     EXPECT_EQ("0123456789abcdefghijklmnopqrstuvwxyz", info.value);
@@ -586,8 +584,9 @@ TEST_F(WebViewTest, InsertNewLinePlacementAfterConfirmComposition)
 
     WebVector<WebCompositionUnderline> emptyUnderlines;
 
-    webView->setEditableSelectionOffsets(4, 4);
-    webView->setCompositionFromExistingText(8, 12, emptyUnderlines);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(4, 4);
+    frame->setCompositionFromExistingText(8, 12, emptyUnderlines);
 
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ("0123456789abcdefghijklmnopqrstuvwxyz", std::string(info.value.utf8().data()));
@@ -617,14 +616,15 @@ TEST_F(WebViewTest, ExtendSelectionAndDelete)
 {
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("input_field_populated.html"));
     WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "input_field_populated.html");
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
     webView->setInitialFocus(false);
-    webView->setEditableSelectionOffsets(10, 10);
-    webView->extendSelectionAndDelete(5, 8);
+    frame->setEditableSelectionOffsets(10, 10);
+    frame->extendSelectionAndDelete(5, 8);
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ("01234ijklmnopqrstuvwxyz", std::string(info.value.utf8().data()));
     EXPECT_EQ(5, info.selectionStart);
     EXPECT_EQ(5, info.selectionEnd);
-    webView->extendSelectionAndDelete(10, 0);
+    frame->extendSelectionAndDelete(10, 0);
     info = webView->textInputInfo();
     EXPECT_EQ("ijklmnopqrstuvwxyz", std::string(info.value.utf8().data()));
 }
@@ -636,8 +636,9 @@ TEST_F(WebViewTest, SetCompositionFromExistingText)
     webView->setInitialFocus(false);
     WebVector<WebCompositionUnderline> underlines(static_cast<size_t>(1));
     underlines[0] = blink::WebCompositionUnderline(0, 4, 0, false);
-    webView->setEditableSelectionOffsets(4, 10);
-    webView->setCompositionFromExistingText(8, 12, underlines);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(4, 10);
+    frame->setCompositionFromExistingText(8, 12, underlines);
     WebVector<WebCompositionUnderline> underlineResults = toWebViewImpl(webView)->compositionUnderlines();
     EXPECT_EQ(8u, underlineResults[0].startOffset);
     EXPECT_EQ(12u, underlineResults[0].endOffset);
@@ -647,7 +648,7 @@ TEST_F(WebViewTest, SetCompositionFromExistingText)
     EXPECT_EQ(8, info.compositionStart);
     EXPECT_EQ(12, info.compositionEnd);
     WebVector<WebCompositionUnderline> emptyUnderlines;
-    webView->setCompositionFromExistingText(0, 0, emptyUnderlines);
+    frame->setCompositionFromExistingText(0, 0, emptyUnderlines);
     info = webView->textInputInfo();
     EXPECT_EQ(4, info.selectionStart);
     EXPECT_EQ(10, info.selectionEnd);
@@ -662,14 +663,15 @@ TEST_F(WebViewTest, SetCompositionFromExistingTextInTextArea)
     webView->setInitialFocus(false);
     WebVector<WebCompositionUnderline> underlines(static_cast<size_t>(1));
     underlines[0] = blink::WebCompositionUnderline(0, 4, 0, false);
-    webView->setEditableSelectionOffsets(27, 27);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(27, 27);
     std::string newLineText("\n");
     webView->confirmComposition(WebString::fromUTF8(newLineText.c_str()));
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ("0123456789abcdefghijklmnopq\nrstuvwxyz", std::string(info.value.utf8().data()));
 
-    webView->setEditableSelectionOffsets(31, 31);
-    webView->setCompositionFromExistingText(30, 34, underlines);
+    frame->setEditableSelectionOffsets(31, 31);
+    frame->setCompositionFromExistingText(30, 34, underlines);
     WebVector<WebCompositionUnderline> underlineResults = toWebViewImpl(webView)->compositionUnderlines();
     EXPECT_EQ(2u, underlineResults[0].startOffset);
     EXPECT_EQ(6u, underlineResults[0].endOffset);
@@ -710,7 +712,8 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsKeepsComposition)
     EXPECT_EQ(6, info.compositionStart);
     EXPECT_EQ(11, info.compositionEnd);
 
-    webView->setEditableSelectionOffsets(6, 6);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(6, 6);
     info = webView->textInputInfo();
     EXPECT_EQ("hello world", std::string(info.value.utf8().data()));
     EXPECT_EQ(6, info.selectionStart);
@@ -718,7 +721,7 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsKeepsComposition)
     EXPECT_EQ(6, info.compositionStart);
     EXPECT_EQ(11, info.compositionEnd);
 
-    webView->setEditableSelectionOffsets(8, 8);
+    frame->setEditableSelectionOffsets(8, 8);
     info = webView->textInputInfo();
     EXPECT_EQ("hello world", std::string(info.value.utf8().data()));
     EXPECT_EQ(8, info.selectionStart);
@@ -726,7 +729,7 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsKeepsComposition)
     EXPECT_EQ(6, info.compositionStart);
     EXPECT_EQ(11, info.compositionEnd);
 
-    webView->setEditableSelectionOffsets(11, 11);
+    frame->setEditableSelectionOffsets(11, 11);
     info = webView->textInputInfo();
     EXPECT_EQ("hello world", std::string(info.value.utf8().data()));
     EXPECT_EQ(11, info.selectionStart);
@@ -734,7 +737,7 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsKeepsComposition)
     EXPECT_EQ(6, info.compositionStart);
     EXPECT_EQ(11, info.compositionEnd);
 
-    webView->setEditableSelectionOffsets(6, 11);
+    frame->setEditableSelectionOffsets(6, 11);
     info = webView->textInputInfo();
     EXPECT_EQ("hello world", std::string(info.value.utf8().data()));
     EXPECT_EQ(6, info.selectionStart);
@@ -742,7 +745,7 @@ TEST_F(WebViewTest, SetEditableSelectionOffsetsKeepsComposition)
     EXPECT_EQ(6, info.compositionStart);
     EXPECT_EQ(11, info.compositionEnd);
 
-    webView->setEditableSelectionOffsets(2, 2);
+    frame->setEditableSelectionOffsets(2, 2);
     info = webView->textInputInfo();
     EXPECT_EQ("hello world", std::string(info.value.utf8().data()));
     EXPECT_EQ(2, info.selectionStart);
@@ -758,7 +761,7 @@ TEST_F(WebViewTest, IsSelectionAnchorFirst)
     WebFrame* frame = webView->mainFrame();
 
     webView->setInitialFocus(false);
-    webView->setEditableSelectionOffsets(4, 10);
+    frame->setEditableSelectionOffsets(4, 10);
     EXPECT_TRUE(webView->isSelectionAnchorFirst());
     WebRect anchor;
     WebRect focus;
@@ -811,7 +814,6 @@ TEST_F(WebViewTest, EnterFullscreenResetScrollAndScaleState)
     EnterFullscreenWebViewClient client;
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("hello_world.html"));
     WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(m_baseURL + "hello_world.html", true, 0, &client);
-    webViewImpl->settings()->setFullScreenEnabled(true);
     webViewImpl->resize(WebSize(640, 480));
     webViewImpl->layout();
     EXPECT_EQ(0, webViewImpl->mainFrame()->scrollOffset().width);
@@ -1098,7 +1100,6 @@ static void configueCompositingWebView(WebSettings* settings)
     settings->setAcceleratedCompositingForOverflowScrollEnabled(true);
     settings->setAcceleratedCompositingForScrollableFramesEnabled(true);
     settings->setCompositedScrollingForFramesEnabled(true);
-    settings->setFixedPositionCreatesStackingContext(true);
 }
 
 TEST_F(WebViewTest, ShowPressOnTransformedLink)
@@ -1135,15 +1136,6 @@ public:
     virtual ~MockAutofillClient() { }
 
     virtual void setIgnoreTextChanges(bool ignore) OVERRIDE { m_ignoreTextChanges = ignore; }
-    // FIXME: This function is to be removed once both chromium and blink changes
-    // for BUG332557 are in.
-    virtual void textFieldDidChange(const WebInputElement&) OVERRIDE
-    {
-        if (m_ignoreTextChanges)
-            ++m_textChangesWhileIgnored;
-        else
-            ++m_textChangesWhileNotIgnored;
-    }
     virtual void textFieldDidChange(const WebFormControlElement&) OVERRIDE
     {
         if (m_ignoreTextChanges)
@@ -1178,8 +1170,9 @@ TEST_F(WebViewTest, LosingFocusDoesNotTriggerAutofillTextChange)
 
     // Set up a composition that needs to be committed.
     WebVector<WebCompositionUnderline> emptyUnderlines;
-    webView->setEditableSelectionOffsets(4, 10);
-    webView->setCompositionFromExistingText(8, 12, emptyUnderlines);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setEditableSelectionOffsets(4, 10);
+    frame->setCompositionFromExistingText(8, 12, emptyUnderlines);
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ(4, info.selectionStart);
     EXPECT_EQ(10, info.selectionEnd);
@@ -1235,7 +1228,8 @@ TEST_F(WebViewTest, SetCompositionFromExistingTextTriggersAutofillTextChange)
     WebVector<WebCompositionUnderline> emptyUnderlines;
 
     client.clearChangeCounts();
-    webView->setCompositionFromExistingText(8, 12, emptyUnderlines);
+    WebFrameImpl* frame = toWebFrameImpl(webView->mainFrame());
+    frame->setCompositionFromExistingText(8, 12, emptyUnderlines);
 
     WebTextInputInfo info = webView->textInputInfo();
     EXPECT_EQ("0123456789abcdefghijklmnopqrstuvwxyz", std::string(info.value.utf8().data()));

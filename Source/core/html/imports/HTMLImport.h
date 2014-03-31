@@ -80,8 +80,7 @@ class KURL;
 // HTMLImportLoader, and each loader shares HTMLImportLoader with other loader if the URL is same.
 // Check around HTMLImportsController::findLink() for more detail.
 //
-// Note that HTMLImportLoader provides HTMLImportLoaderClient to hook it up.
-// As it can be shared, HTMLImportLoader supports multiple clients.
+// HTMLImportLoader can be shared by multiple imports.
 //
 //    HTMLImportChild (1)-->(*) HTMLImportLoader
 //
@@ -101,6 +100,11 @@ class KURL;
 // This represents the import tree data structure.
 class HTMLImport : public TreeNode<HTMLImport> {
 public:
+    enum SyncMode {
+        Sync  = 0,
+        Async = 1
+    };
+
     static bool isMaster(Document*);
 
     virtual ~HTMLImport() { }
@@ -109,7 +113,7 @@ public:
     Document* master();
     HTMLImportsController* controller();
     bool isRoot() const { return !isChild(); }
-    bool isSync() const { return m_sync; }
+    bool isSync() const { return SyncMode(m_sync) == Sync; }
     const HTMLImportState& state() const { return m_state; }
 
     void appendChild(HTMLImport*);
@@ -129,7 +133,7 @@ public:
 protected:
     // Stating from most conservative state.
     // It will be corrected through state update flow.
-    explicit HTMLImport(bool sync = false)
+    explicit HTMLImport(SyncMode sync)
         : m_sync(sync)
     { }
 
@@ -144,13 +148,13 @@ protected:
 
 private:
     HTMLImportState m_state;
-    bool m_sync : 1;
+    unsigned m_sync : 1;
 };
 
 // An abstract class to decouple its sublcass HTMLImportsController.
 class HTMLImportRoot : public HTMLImport {
 public:
-    HTMLImportRoot() { }
+    HTMLImportRoot() : HTMLImport(Sync) { }
 
     virtual void scheduleRecalcState() = 0;
     virtual HTMLImportsController* toController() = 0;

@@ -162,7 +162,7 @@ void MediaQueryParser::processToken(TokenIterator& token)
     MediaQueryTokenType type = token->type();
 
     // Call the function that handles current state
-    if (type != WhitespaceToken)
+    if (type != WhitespaceToken && type != CommentToken)
         ((this)->*(m_state))(type, token);
 }
 
@@ -207,7 +207,7 @@ PassOwnPtrWillBeRawPtr<MediaQuery> MediaQueryData::takeMediaQuery()
 
 bool MediaQueryData::addExpression()
 {
-    OwnPtrWillBeRawPtr<MediaQueryExp> expression = MediaQueryExp::create(m_mediaFeature, &m_valueList);
+    OwnPtrWillBeRawPtr<MediaQueryExp> expression = MediaQueryExp::createIfValid(m_mediaFeature, &m_valueList);
     bool isValid = !!expression;
     m_expressions->append(expression.release());
     m_valueList.clear();

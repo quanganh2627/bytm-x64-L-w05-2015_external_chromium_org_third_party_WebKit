@@ -328,6 +328,17 @@ void RenderTableSection::distributeExtraRowSpanHeightToPercentRows(RenderTableCe
     }
 }
 
+// Sometimes the multiplication of the 2 values below will overflow an integer.
+// So we convert the parameters to 'long long' instead of 'int' to avoid the
+// problem in this function.
+static void updatePositionIncreasedWithRowHeight(long long extraHeight, long long rowHeight, long long totalHeight, int& accumulatedPositionIncrease, int& remainder)
+{
+    COMPILE_ASSERT(sizeof(long long int) > sizeof(int), int_should_be_less_than_longlong);
+
+    accumulatedPositionIncrease += (extraHeight * rowHeight) / totalHeight;
+    remainder += (extraHeight * rowHeight) % totalHeight;
+}
+
 void RenderTableSection::distributeExtraRowSpanHeightToAutoRows(RenderTableCell* cell, int totalAutoRowsHeight, int& extraRowSpanningHeight, Vector<int>& rowsHeight)
 {
     if (!extraRowSpanningHeight || !totalAutoRowsHeight)
@@ -342,8 +353,7 @@ void RenderTableSection::distributeExtraRowSpanHeightToAutoRows(RenderTableCell*
     // So extra height distributed in auto spanning rows based on their weight in spanning cell.
     for (unsigned row = rowIndex; row < (rowIndex + rowSpan); row++) {
         if (m_grid[row].logicalHeight.isAuto()) {
-            accumulatedPositionIncrease += (extraRowSpanningHeight * rowsHeight[row - rowIndex]) / totalAutoRowsHeight;
-            remainder += (extraRowSpanningHeight * rowsHeight[row - rowIndex]) % totalAutoRowsHeight;
+            updatePositionIncreasedWithRowHeight(extraRowSpanningHeight, rowsHeight[row - rowIndex], totalAutoRowsHeight, accumulatedPositionIncrease, remainder);
 
             // While whole extra spanning height is distributing in auto spanning rows, rational parts remains
             // in every integer division. So accumulating all remainder part in integer division and when total remainder
@@ -376,8 +386,7 @@ void RenderTableSection::distributeExtraRowSpanHeightToRemainingRows(RenderTable
     // So extra height distribution in remaining spanning rows based on their weight in spanning cell.
     for (unsigned row = rowIndex; row < (rowIndex + rowSpan); row++) {
         if (!m_grid[row].logicalHeight.isPercent()) {
-            accumulatedPositionIncrease += (extraRowSpanningHeight * rowsHeight[row - rowIndex]) / totalRemainingRowsHeight;
-            remainder += (extraRowSpanningHeight * rowsHeight[row - rowIndex]) % totalRemainingRowsHeight;
+            updatePositionIncreasedWithRowHeight(extraRowSpanningHeight, rowsHeight[row - rowIndex], totalRemainingRowsHeight, accumulatedPositionIncrease, remainder);
 
             // While whole extra spanning height is distributing in remaining spanning rows, rational parts remains
             // in every integer division. So accumulating all remainder part in integer division and when total remainder
@@ -716,8 +725,6 @@ int RenderTableSection::calcRowLogicalHeight()
 
     ASSERT(!needsLayout());
 
-    statePusher.pop();
-
     return m_rowPos[m_grid.size()];
 }
 
@@ -769,7 +776,6 @@ void RenderTableSection::layout()
         }
     }
 
-    statePusher.pop();
     clearNeedsLayout();
 }
 
@@ -880,6 +886,8 @@ void RenderTableSection::layoutRows()
 
     ASSERT(!needsLayout());
 
+    // FIXME: Changing the height without a layout can change the overflow so it seems wrong.
+
     unsigned totalRows = m_grid.size();
 
     // Set the width of our section now.  The rows will also be this width.
@@ -900,6 +908,8 @@ void RenderTableSection::layoutRows()
             rowRenderer->setLogicalWidth(logicalWidth());
             rowRenderer->setLogicalHeight(m_rowPos[r + 1] - m_rowPos[r] - vspacing);
             rowRenderer->updateLayerTransform();
+            rowRenderer->clearAllOverflows();
+            rowRenderer->addVisualEffectOverflow();
         }
 
         int rowHeightIncreaseForPagination = 0;
@@ -986,9 +996,11 @@ void RenderTableSection::layoutRows()
                 // FIXME: Pagination might have made us change size. For now just shrink or grow the cell to fit without doing a relayout.
                 // We'll also do a basic increase of the row height to accommodate the cell if it's bigger, but this isn't quite right
                 // either. It's at least stable though and won't result in an infinite # of relayouts that may never stabilize.
-                if (cell->logicalHeight() > rHeight)
-                    rowHeightIncreaseForPagination = max<int>(rowHeightIncreaseForPagination, cell->logicalHeight() - rHeight);
+                LayoutUnit oldLogicalHeight = cell->logicalHeight();
+                if (oldLogicalHeight > rHeight)
+                    rowHeightIncreaseForPagination = max<int>(rowHeightIncreaseForPagination, oldLogicalHeight - rHeight);
                 cell->setLogicalHeight(rHeight);
+                cell->computeOverflow(oldLogicalHeight, false);
             }
 
             LayoutSize childOffset(cell->location() - oldCellRect.location());
@@ -1008,8 +1020,11 @@ void RenderTableSection::layoutRows()
                 m_rowPos[rowIndex] += rowHeightIncreaseForPagination;
             for (unsigned c = 0; c < nEffCols; ++c) {
                 Vector<RenderTableCell*, 1>& cells = cellAt(r, c).cells;
-                for (size_t i = 0; i < cells.size(); ++i)
-                    cells[i]->setLogicalHeight(cells[i]->logicalHeight() + rowHeightIncreaseForPagination);
+                for (size_t i = 0; i < cells.size(); ++i) {
+                    LayoutUnit oldLogicalHeight = cells[i]->logicalHeight();
+                    cells[i]->setLogicalHeight(oldLogicalHeight + rowHeightIncreaseForPagination);
+                    cells[i]->computeOverflow(oldLogicalHeight, false);
+                }
             }
         }
     }
@@ -1019,8 +1034,6 @@ void RenderTableSection::layoutRows()
     setLogicalHeight(m_rowPos[totalRows]);
 
     computeOverflowFromCells(totalRows, nEffCols);
-
-    statePusher.pop();
 }
 
 void RenderTableSection::computeOverflowFromCells()
@@ -1380,11 +1393,8 @@ CellSpan RenderTableSection::spannedColumns(const LayoutRect& flippedRect) const
 
 void RenderTableSection::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    PaintPhase paintPhase = paintInfo.phase;
-
     LayoutRect localRepaintRect = paintInfo.rect;
     localRepaintRect.moveBy(-paintOffset);
-    localRepaintRect.inflate(maximalOutlineSize(paintPhase));
 
     LayoutRect tableAlignedRect = logicalRectForWritingModeAndDirection(localRepaintRect);
 

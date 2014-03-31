@@ -179,7 +179,7 @@ PassRefPtrWillBeRawPtr<StyleRuleBase> BisonCSSParser::parseRule(StyleSheetConten
     return m_rule.release();
 }
 
-PassRefPtr<StyleKeyframe> BisonCSSParser::parseKeyframeRule(StyleSheetContents* sheet, const String& string)
+PassRefPtrWillBeRawPtr<StyleKeyframe> BisonCSSParser::parseKeyframeRule(StyleSheetContents* sheet, const String& string)
 {
     setStyleSheet(sheet);
     setupParser("@-internal-keyframe-rule ", string, "");
@@ -551,6 +551,7 @@ bool isValidKeywordPropertyAndValue(CSSPropertyID propertyId, int valueID, const
         if ((valueID >= CSSValueCheckbox && valueID <= CSSValueTextarea) || valueID == CSSValueNone)
             return true;
         break;
+    case CSSPropertyBackfaceVisibility:
     case CSSPropertyWebkitBackfaceVisibility:
         if (valueID == CSSValueVisible || valueID == CSSValueHidden)
             return true;
@@ -687,6 +688,7 @@ bool isValidKeywordPropertyAndValue(CSSPropertyID propertyId, int valueID, const
         if (valueID == CSSValueDisc || valueID == CSSValueCircle || valueID == CSSValueSquare || valueID == CSSValueNone)
             return true;
         break;
+    case CSSPropertyTransformStyle:
     case CSSPropertyWebkitTransformStyle:
         if (valueID == CSSValueFlat || valueID == CSSValuePreserve3d)
             return true;
@@ -783,6 +785,7 @@ bool isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyTouchActionDelay:
     case CSSPropertyVisibility:
     case CSSPropertyWebkitAppearance:
+    case CSSPropertyBackfaceVisibility:
     case CSSPropertyWebkitBackfaceVisibility:
     case CSSPropertyWebkitBorderAfterStyle:
     case CSSPropertyWebkitBorderBeforeStyle:
@@ -821,6 +824,7 @@ bool isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyWebkitTextCombine:
     case CSSPropertyWebkitTextEmphasisPosition:
     case CSSPropertyWebkitTextSecurity:
+    case CSSPropertyTransformStyle:
     case CSSPropertyWebkitTransformStyle:
     case CSSPropertyWebkitUserDrag:
     case CSSPropertyWebkitUserModify:
@@ -862,7 +866,7 @@ static bool parseKeywordValue(MutableStylePropertySet* declaration, CSSPropertyI
     if (!valueID)
         return false;
 
-    RefPtrWillBeRawPtr<CSSValue> value;
+    RefPtrWillBeRawPtr<CSSValue> value = nullptr;
     if (valueID == CSSValueInherit)
         value = cssValuePool().createInheritedValue();
     else if (valueID == CSSValueInitial)
@@ -947,7 +951,7 @@ static PassRefPtrWillBeRawPtr<CSSTransformValue> parseTranslateTransformValue(Ch
 template <typename CharType>
 static PassRefPtrWillBeRawPtr<CSSValueList> parseTranslateTransformList(CharType*& pos, CharType* end)
 {
-    RefPtrWillBeRawPtr<CSSValueList> transformList;
+    RefPtrWillBeRawPtr<CSSValueList> transformList = nullptr;
     while (pos < end) {
         while (pos < end && isCSSSpace(*pos))
             ++pos;
@@ -971,7 +975,7 @@ static bool parseTranslateTransform(MutableStylePropertySet* properties, CSSProp
         return false;
     if (string.isEmpty())
         return false;
-    RefPtrWillBeRawPtr<CSSValueList> transformList;
+    RefPtrWillBeRawPtr<CSSValueList> transformList = nullptr;
     if (string.is8Bit()) {
         const LChar* pos = string.characters8();
         const LChar* end = pos + string.length();
@@ -1206,19 +1210,6 @@ bool BisonCSSParser::parseDeclaration(MutableStylePropertySet* declaration, cons
         m_observer->endRuleBody(string.length(), false);
 
     return ok;
-}
-
-PassRefPtrWillBeRawPtr<MediaQuerySet> BisonCSSParser::parseMediaQueryList(const String& string)
-{
-    ASSERT(!m_mediaList);
-
-    // can't use { because tokenizer state switches from mediaquery to initial state when it sees { token.
-    // instead insert one " " (which is caught by maybe_space in CSSGrammar.y)
-    setupParser("@-internal-medialist ", string, "");
-    cssyyparse(this);
-
-    ASSERT(m_mediaList);
-    return m_mediaList.release();
 }
 
 static inline void filterProperties(bool important, const WillBeHeapVector<CSSProperty, 256>& input, WillBeHeapVector<CSSProperty, 256>& output, size_t& unusedEntries, BitArray<numCSSProperties>& seenProperties)
@@ -1598,7 +1589,7 @@ CSSParserValue& BisonCSSParser::sinkFloatingValue(CSSParserValue& value)
 
 MediaQueryExp* BisonCSSParser::createFloatingMediaQueryExp(const AtomicString& mediaFeature, CSSParserValueList* values)
 {
-    m_floatingMediaQueryExp = MediaQueryExp::create(mediaFeature, values);
+    m_floatingMediaQueryExp = MediaQueryExp::createIfValid(mediaFeature, values);
     return m_floatingMediaQueryExp.get();
 }
 
@@ -1642,13 +1633,13 @@ PassOwnPtrWillBeRawPtr<MediaQuery> BisonCSSParser::sinkFloatingMediaQuery(MediaQ
     return m_floatingMediaQuery.release();
 }
 
-Vector<RefPtr<StyleKeyframe> >* BisonCSSParser::createFloatingKeyframeVector()
+WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> >* BisonCSSParser::createFloatingKeyframeVector()
 {
-    m_floatingKeyframeVector = adoptPtr(new Vector<RefPtr<StyleKeyframe> >());
+    m_floatingKeyframeVector = adoptPtrWillBeNoop(new WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> >());
     return m_floatingKeyframeVector.get();
 }
 
-PassOwnPtr<Vector<RefPtr<StyleKeyframe> > > BisonCSSParser::sinkFloatingKeyframeVector(Vector<RefPtr<StyleKeyframe> >* keyframeVector)
+PassOwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> > > BisonCSSParser::sinkFloatingKeyframeVector(WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> >* keyframeVector)
 {
     ASSERT_UNUSED(keyframeVector, m_floatingKeyframeVector == keyframeVector);
     return m_floatingKeyframeVector.release();
@@ -1675,7 +1666,7 @@ StyleRuleBase* BisonCSSParser::createImportRule(const CSSParserString& url, Medi
 StyleRuleBase* BisonCSSParser::createMediaRule(MediaQuerySet* media, RuleList* rules)
 {
     m_allowImportRules = m_allowNamespaceDeclarations = false;
-    RefPtrWillBeRawPtr<StyleRuleMedia> rule;
+    RefPtrWillBeRawPtr<StyleRuleMedia> rule = nullptr;
     if (rules) {
         rule = StyleRuleMedia::create(media ? media : MediaQuerySet::create().get(), *rules);
     } else {
@@ -1692,7 +1683,7 @@ StyleRuleBase* BisonCSSParser::createSupportsRule(bool conditionIsSupported, Rul
     m_allowImportRules = m_allowNamespaceDeclarations = false;
 
     RefPtr<CSSRuleSourceData> data = popSupportsRuleData();
-    RefPtrWillBeRawPtr<StyleRuleSupports> rule;
+    RefPtrWillBeRawPtr<StyleRuleSupports> rule = nullptr;
     String conditionText;
     unsigned conditionOffset = data->ruleHeaderRange.start + 9;
     unsigned conditionLength = data->ruleHeaderRange.length() - 9;
@@ -1836,9 +1827,9 @@ void BisonCSSParser::logError(const String& message, const CSSParserLocation& lo
     console.addMessage(CSSMessageSource, WarningMessageLevel, message, m_styleSheet->baseURL().string(), lineNumberInStyleSheet + m_startPosition.m_line.zeroBasedInt() + 1, columnNumber + 1);
 }
 
-StyleRuleKeyframes* BisonCSSParser::createKeyframesRule(const String& name, PassOwnPtr<Vector<RefPtr<StyleKeyframe> > > popKeyframes, bool isPrefixed)
+StyleRuleKeyframes* BisonCSSParser::createKeyframesRule(const String& name, PassOwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> > > popKeyframes, bool isPrefixed)
 {
-    OwnPtr<Vector<RefPtr<StyleKeyframe> > > keyframes = popKeyframes;
+    OwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<StyleKeyframe> > > keyframes = popKeyframes;
     m_allowImportRules = m_allowNamespaceDeclarations = false;
     RefPtrWillBeRawPtr<StyleRuleKeyframes> rule = StyleRuleKeyframes::create();
     for (size_t i = 0; i < keyframes->size(); ++i)
@@ -1912,12 +1903,8 @@ QualifiedName BisonCSSParser::determineNameInNamespace(const AtomicString& prefi
 
 CSSParserSelector* BisonCSSParser::rewriteSpecifiersWithNamespaceIfNeeded(CSSParserSelector* specifiers)
 {
-    if (m_defaultNamespace != starAtom || specifiers->needsCrossingTreeScopeBoundary())
+    if (m_defaultNamespace != starAtom || specifiers->crossesTreeScopes())
         return rewriteSpecifiersWithElementName(nullAtom, starAtom, specifiers, /*tagIsForNamespaceRule*/true);
-    if (CSSParserSelector* distributedPseudoElementSelector = specifiers->findDistributedPseudoElementSelector()) {
-        specifiers->prependTagSelector(QualifiedName(nullAtom, starAtom, m_defaultNamespace), /*tagIsForNamespaceRule*/true);
-        return rewriteSpecifiersForShadowDistributed(specifiers, distributedPseudoElementSelector);
-    }
     return specifiers;
 }
 
@@ -1926,17 +1913,17 @@ CSSParserSelector* BisonCSSParser::rewriteSpecifiersWithElementName(const Atomic
     AtomicString determinedNamespace = namespacePrefix != nullAtom && m_styleSheet ? m_styleSheet->determineNamespace(namespacePrefix) : m_defaultNamespace;
     QualifiedName tag(namespacePrefix, elementName, determinedNamespace);
 
-    if (CSSParserSelector* distributedPseudoElementSelector = specifiers->findDistributedPseudoElementSelector()) {
-        specifiers->prependTagSelector(tag, tagIsForNamespaceRule);
-        return rewriteSpecifiersForShadowDistributed(specifiers, distributedPseudoElementSelector);
-    }
-
-    if (specifiers->needsCrossingTreeScopeBoundary())
+    if (specifiers->crossesTreeScopes())
         return rewriteSpecifiersWithElementNameForCustomPseudoElement(tag, elementName, specifiers, tagIsForNamespaceRule);
 
-    if (tag == anyQName())
+    if (specifiers->isContentPseudoElement())
+        return rewriteSpecifiersWithElementNameForContentPseudoElement(tag, elementName, specifiers, tagIsForNamespaceRule);
+
+    // *:host never matches, so we can't discard the * otherwise we can't tell the
+    // difference between *:host and just :host.
+    if (tag == anyQName() && !specifiers->hasHostPseudoSelector())
         return specifiers;
-    if (!(specifiers->pseudoType() == CSSSelector::PseudoCue))
+    if (specifiers->pseudoType() != CSSSelector::PseudoCue)
         specifiers->prependTagSelector(tag, tagIsForNamespaceRule);
     return specifiers;
 }
@@ -1950,7 +1937,7 @@ CSSParserSelector* BisonCSSParser::rewriteSpecifiersWithElementNameForCustomPseu
     CSSParserSelector* history = specifiers;
     while (history->tagHistory()) {
         history = history->tagHistory();
-        if (history->needsCrossingTreeScopeBoundary() || history->hasShadowPseudo())
+        if (history->crossesTreeScopes() || history->hasShadowPseudo())
             lastShadowPseudo = history;
     }
 
@@ -1974,7 +1961,7 @@ CSSParserSelector* BisonCSSParser::rewriteSpecifiersWithElementNameForContentPse
     CSSParserSelector* history = specifiers;
     while (history->tagHistory()) {
         history = history->tagHistory();
-        if (history->relationIsAffectedByPseudoContent())
+        if (history->isContentPseudoElement() || history->relationIsAffectedByPseudoContent())
             last = history;
     }
 
@@ -1992,44 +1979,24 @@ CSSParserSelector* BisonCSSParser::rewriteSpecifiersWithElementNameForContentPse
     return specifiers;
 }
 
-CSSParserSelector* BisonCSSParser::rewriteSpecifiersForShadowDistributed(CSSParserSelector* specifiers, CSSParserSelector* distributedPseudoElementSelector)
-{
-    if (m_context.useCounter())
-        m_context.useCounter()->count(UseCounter::CSSPseudoElementPrefixedDistributed);
-    CSSParserSelector* argumentSelector = distributedPseudoElementSelector->functionArgumentSelector();
-    ASSERT(argumentSelector);
-    ASSERT(!specifiers->isDistributedPseudoElement());
-    for (CSSParserSelector* end = specifiers; end->tagHistory(); end = end->tagHistory()) {
-        if (end->tagHistory()->isDistributedPseudoElement()) {
-            end->clearTagHistory();
-            break;
-        }
-    }
-    CSSParserSelector* end = argumentSelector;
-    while (end->tagHistory())
-        end = end->tagHistory();
-
-    switch (end->relation()) {
-    case CSSSelector::Child:
-    case CSSSelector::Descendant:
-        end->setTagHistory(sinkFloatingSelector(specifiers));
-        end->setRelationIsAffectedByPseudoContent();
-        return argumentSelector;
-    default:
-        return 0;
-    }
-}
-
 CSSParserSelector* BisonCSSParser::rewriteSpecifiers(CSSParserSelector* specifiers, CSSParserSelector* newSpecifier)
 {
-    if (newSpecifier->needsCrossingTreeScopeBoundary()) {
+    if (newSpecifier->crossesTreeScopes()) {
         // Unknown pseudo element always goes at the top of selector chain.
         newSpecifier->appendTagHistory(CSSSelector::ShadowPseudo, sinkFloatingSelector(specifiers));
         return newSpecifier;
     }
-    if (specifiers->needsCrossingTreeScopeBoundary()) {
+    if (newSpecifier->isContentPseudoElement()) {
+        newSpecifier->appendTagHistory(CSSSelector::SubSelector, sinkFloatingSelector(specifiers));
+        return newSpecifier;
+    }
+    if (specifiers->crossesTreeScopes()) {
         // Specifiers for unknown pseudo element go right behind it in the chain.
         specifiers->insertTagHistory(CSSSelector::SubSelector, sinkFloatingSelector(newSpecifier), CSSSelector::ShadowPseudo);
+        return specifiers;
+    }
+    if (specifiers->isContentPseudoElement()) {
+        specifiers->insertTagHistory(CSSSelector::SubSelector, sinkFloatingSelector(newSpecifier), CSSSelector::SubSelector);
         return specifiers;
     }
     specifiers->appendTagHistory(CSSSelector::SubSelector, sinkFloatingSelector(newSpecifier));
@@ -2095,7 +2062,7 @@ StyleKeyframe* BisonCSSParser::createKeyframe(CSSParserValueList* keys)
     if (keyVector->isEmpty())
         return 0;
 
-    RefPtr<StyleKeyframe> keyframe = StyleKeyframe::create();
+    RefPtrWillBeRawPtr<StyleKeyframe> keyframe = StyleKeyframe::create();
     keyframe->setKeys(keyVector.release());
     keyframe->setProperties(createStylePropertySet());
 

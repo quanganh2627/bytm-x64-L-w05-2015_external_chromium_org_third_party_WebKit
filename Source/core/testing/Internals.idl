@@ -25,9 +25,8 @@
  */
 
 [
-    WillBeGarbageCollected,
     DoNotCheckConstants,
-    NoInterfaceObject,  // testing interfaces do not appear on global objects
+    WillBeGarbageCollected,
 ] interface Internals {
     DOMString address(Node node);
 
@@ -228,6 +227,8 @@
     void webkitDidEnterFullScreenForElement(Document document, Element element);
     void webkitWillExitFullScreenForElement(Document document, Element element);
     void webkitDidExitFullScreenForElement(Document document, Element element);
+
+    void mediaPlayerRequestFullscreen(HTMLMediaElement mediaElement);
 
     void registerURLSchemeAsBypassingContentSecurityPolicy(DOMString scheme);
     void removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(DOMString scheme);

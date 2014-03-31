@@ -36,7 +36,6 @@
 #include "core/events/GestureEvent.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/events/TouchEvent.h"
 #include "core/events/WheelEvent.h"
 #include "core/rendering/RenderObject.h"
@@ -156,6 +155,8 @@ PlatformWheelEventBuilder::PlatformWheelEventBuilder(Widget* widget, const WebMo
     m_scrollCount = 0;
     m_unacceleratedScrollingDeltaX = e.deltaX;
     m_unacceleratedScrollingDeltaY = e.deltaY;
+    m_canRubberbandLeft = e.canRubberbandLeft;
+    m_canRubberbandRight = e.canRubberbandRight;
 #endif
 }
 

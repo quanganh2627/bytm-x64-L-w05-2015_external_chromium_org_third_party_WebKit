@@ -82,24 +82,25 @@ static void {{cpp_class}}ConstructorGetter(v8::Local<v8::String>, const v8::Prop
 {% block replaceable_attribute_setter_and_callback %}
 {% if has_replaceable_attributes or has_constructor_attributes %}
 {# FIXME: rename to ForceSetAttributeOnThis, since also used for Constructors #}
-static void {{cpp_class}}ReplaceableAttributeSetter(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info)
+static void {{cpp_class}}ReplaceableAttributeSetter(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     {% if is_check_security %}
     {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
+    v8::Isolate* isolate = info.GetIsolate();
     v8::String::Utf8Value attributeName(name);
-    ExceptionState exceptionState(ExceptionState::SetterContext, *attributeName, "{{interface_name}}", info.Holder(), info.GetIsolate());
-    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), impl->frame(), exceptionState)) {
+    ExceptionState exceptionState(ExceptionState::SetterContext, *attributeName, "{{interface_name}}", info.Holder(), isolate);
+    if (!BindingSecurity::shouldAllowAccessToFrame(isolate, impl->frame(), exceptionState)) {
         exceptionState.throwIfNeeded();
         return;
     }
     {% endif %}
-    info.This()->ForceSet(name, jsValue);
+    info.This()->ForceSet(name, v8Value);
 }
 
 {# FIXME: rename to ForceSetAttributeOnThisCallback, since also used for Constructors #}
-static void {{cpp_class}}ReplaceableAttributeSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info)
+static void {{cpp_class}}ReplaceableAttributeSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
-    {{cpp_class}}V8Internal::{{cpp_class}}ReplaceableAttributeSetter(name, jsValue, info);
+    {{cpp_class}}V8Internal::{{cpp_class}}ReplaceableAttributeSetter(name, v8Value, info);
 }
 
 {% endif %}
@@ -175,7 +176,7 @@ static void indexedPropertyGetterCallback(uint32_t index, const v8::PropertyCall
 {% block indexed_property_setter %}
 {% if indexed_property_setter and not indexed_property_setter.is_custom %}
 {% set setter = indexed_property_setter %}
-static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<v8::Value>& info)
+static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
     {{setter.v8_value_to_local_cpp_value}};
@@ -185,7 +186,7 @@ static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> jsValue, 
     {% if setter.has_strict_type_checking %}
     {# Type checking for interface types (if interface not implemented, throw
        TypeError), per http://www.w3.org/TR/WebIDL/#es-interface #}
-    if (!isUndefinedOrNull(jsValue) && !V8{{setter.idl_type}}::hasInstance(jsValue, info.GetIsolate())) {
+    if (!isUndefinedOrNull(v8Value) && !V8{{setter.idl_type}}::hasInstance(v8Value, info.GetIsolate())) {
         exceptionState.throwTypeError("The provided value is not of type '{{setter.idl_type}}'.");
         exceptionState.throwIfNeeded();
         return;
@@ -201,7 +202,7 @@ static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> jsValue, 
     {% endif %}
     if (!result)
         return;
-    v8SetReturnValue(info, jsValue);
+    v8SetReturnValue(info, v8Value);
 }
 
 {% endif %}
@@ -212,13 +213,13 @@ static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> jsValue, 
 {% block indexed_property_setter_callback %}
 {% if indexed_property_setter %}
 {% set setter = indexed_property_setter %}
-static void indexedPropertySetterCallback(uint32_t index, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<v8::Value>& info)
+static void indexedPropertySetterCallback(uint32_t index, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMIndexedProperty");
     {% if setter.is_custom %}
-    {{v8_class}}::indexedPropertySetterCustom(index, jsValue, info);
+    {{v8_class}}::indexedPropertySetterCustom(index, v8Value, info);
     {% else %}
-    {{cpp_class}}V8Internal::indexedPropertySetter(index, jsValue, info);
+    {{cpp_class}}V8Internal::indexedPropertySetter(index, v8Value, info);
     {% endif %}
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -273,7 +274,7 @@ static void indexedPropertyDeleterCallback(uint32_t index, const v8::PropertyCal
 
 
 {##############################################################################}
-{% from 'methods.cpp' import union_type_method_call %}
+{% from 'methods.cpp' import union_type_method_call_and_set_return_value %}
 {% block named_property_getter %}
 {% if named_property_getter and not named_property_getter.is_custom %}
 {% set getter = named_property_getter %}
@@ -293,7 +294,7 @@ static void namedPropertyGetter(v8::Local<v8::String> name, const v8::PropertyCa
     ExceptionState exceptionState(ExceptionState::GetterContext, *namedProperty, "{{interface_name}}", info.Holder(), info.GetIsolate());
     {% endif %}
     {% if getter.union_arguments %}
-    {{union_type_method_call(getter) | indent}}
+    {{union_type_method_call_and_set_return_value(getter) | indent}}
     {% else %}
     {{getter.cpp_type}} result = {{getter.cpp_value}};
     {% if getter.is_raises_exception %}
@@ -333,7 +334,7 @@ static void namedPropertyGetterCallback(v8::Local<v8::String> name, const v8::Pr
 {% block named_property_setter %}
 {% if named_property_setter and not named_property_setter.is_custom %}
 {% set setter = named_property_setter %}
-static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<v8::Value>& info)
+static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     {% if not is_override_builtins %}
     if (info.Holder()->HasRealNamedProperty(name))
@@ -362,7 +363,7 @@ static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value>
     {% endif %}
     if (!result)
         return;
-    v8SetReturnValue(info, jsValue);
+    v8SetReturnValue(info, v8Value);
 }
 
 {% endif %}
@@ -373,13 +374,13 @@ static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value>
 {% block named_property_setter_callback %}
 {% if named_property_setter %}
 {% set setter = named_property_setter %}
-static void namedPropertySetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<v8::Value>& info)
+static void namedPropertySetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMNamedProperty");
     {% if setter.is_custom %}
-    {{v8_class}}::namedPropertySetterCustom(name, jsValue, info);
+    {{v8_class}}::namedPropertySetterCustom(name, v8Value, info);
     {% else %}
-    {{cpp_class}}V8Internal::namedPropertySetter(name, jsValue, info);
+    {{cpp_class}}V8Internal::namedPropertySetter(name, v8Value, info);
     {% endif %}
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -485,14 +486,15 @@ static void namedPropertyDeleterCallback(v8::Local<v8::String> name, const v8::P
 static void namedPropertyEnumerator(const v8::PropertyCallbackInfo<v8::Array>& info)
 {
     {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
+    v8::Isolate* isolate = info.GetIsolate();
     Vector<String> names;
-    ExceptionState exceptionState(ExceptionState::EnumerationContext, "{{interface_name}}", info.Holder(), info.GetIsolate());
+    ExceptionState exceptionState(ExceptionState::EnumerationContext, "{{interface_name}}", info.Holder(), isolate);
     impl->namedPropertyEnumerator(names, exceptionState);
     if (exceptionState.throwIfNeeded())
         return;
-    v8::Handle<v8::Array> v8names = v8::Array::New(info.GetIsolate(), names.size());
+    v8::Handle<v8::Array> v8names = v8::Array::New(isolate, names.size());
     for (size_t i = 0; i < names.size(); ++i)
-        v8names->Set(v8::Integer::New(info.GetIsolate(), i), v8String(info.GetIsolate(), names[i]));
+        v8names->Set(v8::Integer::New(isolate, i), v8String(isolate, names[i]));
     v8SetReturnValue(info, v8names);
 }
 
@@ -522,27 +524,27 @@ static void namedPropertyEnumeratorCallback(const v8::PropertyCallbackInfo<v8::A
 {##############################################################################}
 {% block origin_safe_method_setter %}
 {% if has_origin_safe_method_setter %}
-static void {{cpp_class}}OriginSafeMethodSetter(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info)
+static void {{cpp_class}}OriginSafeMethodSetter(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
-    {# FIXME: don't call GetIsolate 3 times #}
-    v8::Handle<v8::Object> holder = {{v8_class}}::findInstanceInPrototypeChain(info.This(), info.GetIsolate());
+    v8::Isolate* isolate = info.GetIsolate();
+    v8::Handle<v8::Object> holder = {{v8_class}}::findInstanceInPrototypeChain(info.This(), isolate);
     if (holder.IsEmpty())
         return;
     {{cpp_class}}* impl = {{v8_class}}::toNative(holder);
     v8::String::Utf8Value attributeName(name);
-    ExceptionState exceptionState(ExceptionState::SetterContext, *attributeName, "{{interface_name}}", info.Holder(), info.GetIsolate());
-    if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), impl->frame(), exceptionState)) {
+    ExceptionState exceptionState(ExceptionState::SetterContext, *attributeName, "{{interface_name}}", info.Holder(), isolate);
+    if (!BindingSecurity::shouldAllowAccessToFrame(isolate, impl->frame(), exceptionState)) {
         exceptionState.throwIfNeeded();
         return;
     }
 
-    V8HiddenValue::setHiddenValue(info.GetIsolate(), info.This(), name, jsValue);
+    V8HiddenValue::setHiddenValue(isolate, info.This(), name, v8Value);
 }
 
-static void {{cpp_class}}OriginSafeMethodSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> jsValue, const v8::PropertyCallbackInfo<void>& info)
+static void {{cpp_class}}OriginSafeMethodSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    {{cpp_class}}V8Internal::{{cpp_class}}OriginSafeMethodSetter(name, jsValue, info);
+    {{cpp_class}}V8Internal::{{cpp_class}}OriginSafeMethodSetter(name, v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
 
@@ -616,7 +618,8 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {% if has_event_constructor %}
 static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
-    ExceptionState exceptionState(ExceptionState::ConstructionContext, "{{interface_name}}", info.Holder(), info.GetIsolate());
+    v8::Isolate* isolate = info.GetIsolate();
+    ExceptionState exceptionState(ExceptionState::ConstructionContext, "{{interface_name}}", info.Holder(), isolate);
     if (info.Length() < 1) {
         exceptionState.throwTypeError("An event name must be provided.");
         exceptionState.throwIfNeeded();
@@ -629,7 +632,7 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
     {% endfor %}
     {{cpp_class}}Init eventInit;
     if (info.Length() >= 2) {
-        V8TRYCATCH_VOID(Dictionary, options, Dictionary(info[1], info.GetIsolate()));
+        V8TRYCATCH_VOID(Dictionary, options, Dictionary(info[1], isolate));
         if (!initialize{{cpp_class}}(eventInit, options, exceptionState, info)) {
             exceptionState.throwIfNeeded();
             return;
@@ -639,15 +642,15 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
         {% for attribute in any_type_attributes %}
         options.get("{{attribute.name}}", {{attribute.name}});
         if (!{{attribute.name}}.IsEmpty())
-            V8HiddenValue::setHiddenValue(info.GetIsolate(), info.Holder(), v8AtomicString(info.GetIsolate(), "{{attribute.name}}"), {{attribute.name}});
+            V8HiddenValue::setHiddenValue(isolate, info.Holder(), v8AtomicString(isolate, "{{attribute.name}}"), {{attribute.name}});
         {% endfor %}
     }
     {% if is_constructor_raises_exception %}
-    RefPtr<{{cpp_class}}> event = {{cpp_class}}::create(type, eventInit, exceptionState);
+    RefPtrWillBeRawPtr<{{cpp_class}}> event = {{cpp_class}}::create(type, eventInit, exceptionState);
     if (exceptionState.throwIfNeeded())
         return;
     {% else %}
-    RefPtr<{{cpp_class}}> event = {{cpp_class}}::create(type, eventInit);
+    RefPtrWillBeRawPtr<{{cpp_class}}> event = {{cpp_class}}::create(type, eventInit);
     {% endif %}
     {% if any_type_attributes and not interface_name == 'ErrorEvent' %}
     {# If we're in an isolated world, create a SerializedScriptValue and store
@@ -659,16 +662,16 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
           thus passing it around would cause leakage.
        2) Errors cannot be cloned (or serialized):
        http://www.whatwg.org/specs/web-apps/current-work/multipage/common-dom-interfaces.html#safe-passing-of-structured-data #}
-    if (DOMWrapperWorld::current(info.GetIsolate())->isIsolatedWorld()) {
+    if (DOMWrapperWorld::current(isolate)->isIsolatedWorld()) {
         {% for attribute in any_type_attributes %}
         if (!{{attribute.name}}.IsEmpty())
-            event->setSerialized{{attribute.name | blink_capitalize}}(SerializedScriptValue::createAndSwallowExceptions({{attribute.name}}, info.GetIsolate()));
+            event->setSerialized{{attribute.name | blink_capitalize}}(SerializedScriptValue::createAndSwallowExceptions({{attribute.name}}, isolate));
         {% endfor %}
     }
 
     {% endif %}
     v8::Handle<v8::Object> wrapper = info.Holder();
-    V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(event.release(), &{{v8_class}}::wrapperTypeInfo, wrapper, info.GetIsolate(), WrapperConfiguration::Dependent);
+    V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(event.release(), &{{v8_class}}::wrapperTypeInfo, wrapper, isolate, {{wrapper_configuration}});
     v8SetReturnValue(info, wrapper);
 }
 
@@ -817,7 +820,7 @@ void {{v8_class}}::constructorCallback(const v8::FunctionCallbackInfo<v8::Value>
     UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{measure_as}});
     {% endif %}
     if (!info.IsConstructCall()) {
-        throwTypeError(ExceptionMessages::failedToConstruct("{{interface_name}}", "Please use the 'new' operator, this DOM object constructor cannot be called as a function."), info.GetIsolate());
+        throwTypeError(ExceptionMessages::constructorNotCallableAsFunction("{{interface_name}}"), info.GetIsolate());
         return;
     }
 
@@ -1110,14 +1113,14 @@ v8::Handle<v8::FunctionTemplate> {{v8_class}}::domTemplate(v8::Isolate* isolate)
 
 {##############################################################################}
 {% block has_instance %}
-bool {{v8_class}}::hasInstance(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
+bool {{v8_class}}::hasInstance(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)
 {
-    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, jsValue);
+    return V8PerIsolateData::from(isolate)->hasInstance(&wrapperTypeInfo, v8Value);
 }
 
-v8::Handle<v8::Object> {{v8_class}}::findInstanceInPrototypeChain(v8::Handle<v8::Value> jsValue, v8::Isolate* isolate)
+v8::Handle<v8::Object> {{v8_class}}::findInstanceInPrototypeChain(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)
 {
-    return V8PerIsolateData::from(isolate)->findInstanceInPrototypeChain(&wrapperTypeInfo, jsValue);
+    return V8PerIsolateData::from(isolate)->findInstanceInPrototypeChain(&wrapperTypeInfo, v8Value);
 }
 
 {% endblock %}
@@ -1293,11 +1296,6 @@ v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_ref_ptr}}<{{cpp_class}
     }
     {% endif %}
     installPerContextEnabledProperties(wrapper, impl.get(), isolate);
-    {% set wrapper_configuration = 'WrapperConfiguration::Dependent'
-                                   if (has_visit_dom_wrapper or
-                                       is_active_dom_object or
-                                       is_dependent_lifetime) else
-                                   'WrapperConfiguration::Independent' %}
     V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(impl, &wrapperTypeInfo, wrapper, isolate, {{wrapper_configuration}});
     return wrapper;
 }

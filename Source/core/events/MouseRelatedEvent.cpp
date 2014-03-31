@@ -52,7 +52,7 @@ static LayoutSize contentsScrollOffset(AbstractView* abstractView)
     return LayoutSize(frameView->scrollX() / scaleFactor, frameView->scrollY() / scaleFactor);
 }
 
-MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, PassRefPtr<AbstractView> abstractView,
+MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, PassRefPtrWillBeRawPtr<AbstractView> abstractView,
                                      int detail, const IntPoint& screenLocation, const IntPoint& windowLocation,
                                      const IntPoint& movementDelta,
                                      bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool isSimulated)
@@ -160,11 +160,9 @@ void MouseRelatedEvent::computeRelativePosition()
     while (n && !n->renderer())
         n = n->parentNode();
 
-    RenderLayer* layer;
-    if (n && (layer = n->renderer()->enclosingLayer())) {
-        for (; layer; layer = layer->parent()) {
+    if (n) {
+        for (RenderLayer* layer = n->renderer()->enclosingLayer(); layer; layer = layer->parent())
             m_layerLocation -= toLayoutSize(layer->location());
-        }
     }
 
     m_hasCachedRelativePosition = true;

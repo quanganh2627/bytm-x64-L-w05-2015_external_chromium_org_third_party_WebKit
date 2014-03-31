@@ -27,7 +27,6 @@
 #include "core/editing/Caret.h"
 #include "core/editing/UndoStack.h"
 #include "core/events/Event.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/DOMTimer.h"
 #include "core/frame/DOMWindow.h"
@@ -39,7 +38,6 @@
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/HistoryItem.h"
-#include "core/loader/ProgressTracker.h"
 #include "core/page/AutoscrollController.h"
 #include "core/page/Chrome.h"
 #include "core/page/ChromeClient.h"
@@ -119,7 +117,6 @@ Page::Page(PageClients& pageClients)
     , m_inspectorController(InspectorController::create(this, pageClients.inspectorClient))
     , m_pointerLockController(PointerLockController::create(this))
     , m_historyController(adoptPtr(new HistoryController(this)))
-    , m_progress(ProgressTracker::create())
     , m_undoStack(UndoStack::create())
     , m_backForwardClient(pageClients.backForwardClient)
     , m_editorClient(pageClients.editorClient)
@@ -152,6 +149,9 @@ Page::Page(PageClients& pageClients)
 
 Page::~Page()
 {
+    // Disable all agents prior to resetting the frame view.
+    m_inspectorController->inspectedPageDestroyed();
+
     m_mainFrame->setView(nullptr);
     allPages().remove(this);
     if (ordinaryPages().contains(this))
@@ -220,6 +220,7 @@ void Page::setMainFrame(PassRefPtr<LocalFrame> mainFrame)
 
 void Page::documentDetached(Document* document)
 {
+    m_multisamplingChangedObservers.clear();
     m_pointerLockController->documentDetached(document);
     m_contextMenuController->documentDetached(document);
     if (m_validationMessageClient)

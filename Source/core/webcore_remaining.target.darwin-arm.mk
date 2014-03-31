@@ -191,6 +191,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/MediaQueryList.cpp \
 	third_party/WebKit/Source/core/css/MediaQueryListListener.cpp \
 	third_party/WebKit/Source/core/css/MediaQueryMatcher.cpp \
+	third_party/WebKit/Source/core/css/MediaValues.cpp \
 	third_party/WebKit/Source/core/css/PageRuleCollector.cpp \
 	third_party/WebKit/Source/core/css/Pair.cpp \
 	third_party/WebKit/Source/core/css/PropertySetCSSStyleDeclaration.cpp \
@@ -202,9 +203,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/RuntimeCSSEnabled.cpp \
 	third_party/WebKit/Source/core/css/SVGCSSComputedStyleDeclaration.cpp \
 	third_party/WebKit/Source/core/css/SelectorChecker.cpp \
-	third_party/WebKit/Source/core/css/SelectorCheckerFastPath.cpp \
 	third_party/WebKit/Source/core/css/SelectorFilter.cpp \
-	third_party/WebKit/Source/core/css/StyleInvalidationAnalysis.cpp \
 	third_party/WebKit/Source/core/css/StyleMedia.cpp \
 	third_party/WebKit/Source/core/css/StylePropertySerializer.cpp \
 	third_party/WebKit/Source/core/css/StylePropertySet.cpp \
@@ -215,7 +214,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/StyleSheetContents.cpp \
 	third_party/WebKit/Source/core/css/StyleSheetList.cpp \
 	third_party/WebKit/Source/core/css/TreeBoundaryCrossingRules.cpp \
-	third_party/WebKit/Source/core/css/analyzer/DescendantInvalidationSet.cpp \
+	third_party/WebKit/Source/core/css/invalidation/DescendantInvalidationSet.cpp \
+	third_party/WebKit/Source/core/css/invalidation/StyleSheetInvalidationAnalysis.cpp \
+	third_party/WebKit/Source/core/css/invalidation/StyleInvalidator.cpp \
 	third_party/WebKit/Source/core/css/resolver/AnimatedStyleBuilder.cpp \
 	third_party/WebKit/Source/core/css/resolver/CSSToStyleMap.cpp \
 	third_party/WebKit/Source/core/css/resolver/ElementResolveContext.cpp \
@@ -231,6 +232,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/resolver/StyleBuilderConverter.cpp \
 	third_party/WebKit/Source/core/css/resolver/StyleBuilderCustom.cpp \
 	third_party/WebKit/Source/core/css/resolver/StyleResolver.cpp \
+	third_party/WebKit/Source/core/css/resolver/StyleResolverParentScope.cpp \
 	third_party/WebKit/Source/core/css/resolver/StyleResolverState.cpp \
 	third_party/WebKit/Source/core/css/resolver/StyleResolverStats.cpp \
 	third_party/WebKit/Source/core/css/resolver/StyleResourceLoader.cpp \
@@ -347,6 +349,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/PageConsole.cpp \
 	third_party/WebKit/Source/core/frame/PinchViewport.cpp \
 	third_party/WebKit/Source/core/frame/RemoteFrame.cpp \
+	third_party/WebKit/Source/core/frame/RemoteFrameView.cpp \
 	third_party/WebKit/Source/core/frame/Screen.cpp \
 	third_party/WebKit/Source/core/frame/Settings.cpp \
 	third_party/WebKit/Source/core/frame/SettingsDelegate.cpp \
@@ -629,9 +632,7 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -644,6 +645,7 @@ MY_DEFS_Debug := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \
@@ -783,9 +785,7 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG=1' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_READPIXELSCONFIG' \
 	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
@@ -798,6 +798,7 @@ MY_DEFS_Release := \
 	'-DLIBXML_STATIC' \
 	'-DLIBXSLT_STATIC' \
 	'-DUSE_OPENSSL=1' \
+	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
 	'-D__STDC_FORMAT_MACROS' \
 	'-DANDROID' \

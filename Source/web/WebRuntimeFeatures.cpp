@@ -38,12 +38,6 @@ using namespace WebCore;
 
 namespace blink {
 
-void WebRuntimeFeatures::enableStableFeatures(bool enable)
-{
-    // FIXME: This entire method should be removed once it is no longer called by Chromium.
-    ASSERT(enable);
-}
-
 void WebRuntimeFeatures::enableExperimentalFeatures(bool enable)
 {
     RuntimeEnabledFeatures::setExperimentalFeaturesEnabled(enable);
@@ -55,6 +49,7 @@ void WebRuntimeFeatures::enableBleedingEdgeFastPaths(bool enable)
     RuntimeEnabledFeatures::setBleedingEdgeFastPathsEnabled(enable);
     RuntimeEnabledFeatures::setSubpixelFontScalingEnabled(enable || RuntimeEnabledFeatures::subpixelFontScalingEnabled());
     RuntimeEnabledFeatures::setCSSWillChangeEnabled(enable);
+    RuntimeEnabledFeatures::setWebAnimationsAPIEnabled(enable);
 }
 
 void WebRuntimeFeatures::enableTestOnlyFeatures(bool enable)
@@ -103,12 +98,6 @@ void WebRuntimeFeatures::enablePrefixedEncryptedMedia(bool enable)
 bool WebRuntimeFeatures::isPrefixedEncryptedMediaEnabled()
 {
     return RuntimeEnabledFeatures::prefixedEncryptedMediaEnabled();
-}
-
-void WebRuntimeFeatures::enableDirectWrite(bool enable)
-{
-    RuntimeEnabledFeatures::setDirectWriteEnabled(enable);
-    RuntimeEnabledFeatures::setSubpixelFontScalingEnabled(enable || RuntimeEnabledFeatures::subpixelFontScalingEnabled());
 }
 
 void WebRuntimeFeatures::enableExperimentalCanvasFeatures(bool enable)
@@ -290,6 +279,11 @@ void WebRuntimeFeatures::enableExperimentalWebSocket(bool enable)
 void WebRuntimeFeatures::enableTargetedStyleRecalc(bool enable)
 {
     RuntimeEnabledFeatures::setTargetedStyleRecalcEnabled(enable);
+}
+
+void WebRuntimeFeatures::enablePreciseMemoryInfo(bool enable)
+{
+    RuntimeEnabledFeatures::setPreciseMemoryInfoEnabled(enable);
 }
 
 } // namespace blink

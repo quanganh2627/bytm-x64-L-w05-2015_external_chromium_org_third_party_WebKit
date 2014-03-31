@@ -39,7 +39,7 @@ namespace WebCore {
 
 class AbstractSQLStatement;
 class DatabaseBackend;
-class SQLError;
+class SQLErrorData;
 class SQLTransactionBackend;
 
 class SQLStatementBackend FINAL : public AbstractSQLStatementBackend {
@@ -57,8 +57,8 @@ public:
     void setVersionMismatchedError(DatabaseBackend*);
 
     AbstractSQLStatement* frontend();
-    virtual PassRefPtr<SQLError> sqlError() const OVERRIDE;
-    virtual PassRefPtr<SQLResultSet> sqlResultSet() const OVERRIDE;
+    virtual SQLErrorData* sqlError() const OVERRIDE;
+    virtual SQLResultSet* sqlResultSet() const OVERRIDE;
 
 private:
     SQLStatementBackend(PassOwnPtr<AbstractSQLStatement>, const String& statement,
@@ -73,8 +73,8 @@ private:
     bool m_hasCallback;
     bool m_hasErrorCallback;
 
-    RefPtr<SQLError> m_error;
-    RefPtr<SQLResultSet> m_resultSet;
+    OwnPtr<SQLErrorData> m_error;
+    RefPtrWillBeMember<SQLResultSet> m_resultSet;
 
     int m_permissions;
 };

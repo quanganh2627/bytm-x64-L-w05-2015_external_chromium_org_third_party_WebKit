@@ -629,7 +629,7 @@ ResourcePtr<Resource> ResourceFetcher::requestResource(Resource::Type type, Fetc
         resource = revalidateResource(request, resource.get());
         break;
     case Use:
-        resource->updateForAccess();
+        memoryCache()->updateForAccess(resource.get());
         notifyLoadedFromMemoryCache(resource.get());
         break;
     }
@@ -647,13 +647,13 @@ ResourcePtr<Resource> ResourceFetcher::requestResource(Resource::Type type, Fetc
         ResourceLoadPriority priority = loadPriority(type, request);
         if (priority != resource->resourceRequest().priority()) {
             resource->resourceRequest().setPriority(priority);
-            resource->didChangePriority(priority);
+            resource->didChangePriority(priority, 0);
         }
     }
 
     if (resourceNeedsLoad(resource.get(), request, policy)) {
         if (!shouldLoadNewResource(type)) {
-            if (resource->inCache())
+            if (memoryCache()->contains(resource.get()))
                 memoryCache()->remove(resource.get());
             return 0;
         }
@@ -668,7 +668,7 @@ ResourcePtr<Resource> ResourceFetcher::requestResource(Resource::Type type, Fetc
         // In that case, the requester should have access to the relevant ResourceError, so
         // we need to return a non-null Resource.
         if (resource->errorOccurred()) {
-            if (resource->inCache())
+            if (memoryCache()->contains(resource.get()))
                 memoryCache()->remove(resource.get());
             return request.options().synchronousPolicy == RequestSynchronously ? resource : 0;
         }
@@ -774,7 +774,7 @@ void ResourceFetcher::addAdditionalRequestHeaders(ResourceRequest& request, Reso
 ResourcePtr<Resource> ResourceFetcher::revalidateResource(const FetchRequest& request, Resource* resource)
 {
     ASSERT(resource);
-    ASSERT(resource->inCache());
+    ASSERT(memoryCache()->contains(resource));
     ASSERT(resource->isLoaded());
     ASSERT(resource->canUseCacheValidator());
     ASSERT(!resource->resourceToRevalidate());
@@ -1181,10 +1181,10 @@ void ResourceFetcher::didFinishLoading(const Resource* resource, double finishTi
     context().dispatchDidFinishLoading(m_documentLoader, resource->identifier(), finishTime, encodedDataLength);
 }
 
-void ResourceFetcher::didChangeLoadingPriority(const Resource* resource, ResourceLoadPriority loadPriority)
+void ResourceFetcher::didChangeLoadingPriority(const Resource* resource, ResourceLoadPriority loadPriority, int intraPriorityValue)
 {
     TRACE_EVENT_ASYNC_STEP_INTO1("net", "Resource", resource, "ChangePriority", "priority", loadPriority);
-    context().dispatchDidChangeResourcePriority(resource->identifier(), loadPriority);
+    context().dispatchDidChangeResourcePriority(resource->identifier(), loadPriority, intraPriorityValue);
 }
 
 void ResourceFetcher::didFailLoading(const Resource* resource, const ResourceError& error)
@@ -1205,17 +1205,12 @@ void ResourceFetcher::didReceiveResponse(const Resource* resource, const Resourc
 
 void ResourceFetcher::didReceiveData(const Resource* resource, const char* data, int dataLength, int encodedDataLength)
 {
-    // FIXME: use frame of master document for imported documents.
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(frame(), resource->identifier(), encodedDataLength);
     context().dispatchDidReceiveData(m_documentLoader, resource->identifier(), data, dataLength, encodedDataLength);
-    InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
 void ResourceFetcher::didDownloadData(const Resource* resource, int dataLength, int encodedDataLength)
 {
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(frame(), resource->identifier(), encodedDataLength);
     context().dispatchDidDownloadData(m_documentLoader, resource->identifier(), dataLength, encodedDataLength);
-    InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
 void ResourceFetcher::subresourceLoaderFinishedLoadingOnePart(ResourceLoader* loader)

@@ -73,25 +73,22 @@ WebInspector.FormatterScriptMapping.prototype = {
      */
     _scriptsForUISourceCode: function(uiSourceCode)
     {
-        var isInlineScript;
-        switch (uiSourceCode.contentType()) {
-        case WebInspector.resourceTypes.Document:
-            isInlineScript = true;
-            break;
-        case WebInspector.resourceTypes.Script:
-            isInlineScript = false;
-            break;
-        default:
-            return [];
-        }
-        var scripts = this._debuggerModel.scriptsForSourceURL(uiSourceCode.url);
-
-        function filterOutIncorrectInlineType(script)
+        /**
+         * @param {!WebInspector.Script} script
+         * @return {boolean}
+         */
+        function isInlineScript(script)
         {
-            return script.isInlineScript() === isInlineScript;
+            return script.isInlineScript();
         }
 
-        return scripts.filter(filterOutIncorrectInlineType);
+        if (uiSourceCode.contentType() === WebInspector.resourceTypes.Document)
+            return this._debuggerModel.scriptsForSourceURL(uiSourceCode.url).filter(isInlineScript);
+        if (uiSourceCode.contentType() === WebInspector.resourceTypes.Script) {
+            var rawLocation = uiSourceCode.uiLocationToRawLocation(0, 0);
+            return rawLocation ? [this._debuggerModel.scriptForId(rawLocation.scriptId)] : [];
+        }
+        return [];
     },
 
     _init: function()
@@ -262,7 +259,7 @@ WebInspector.FormatterProjectDelegate.prototype = {
 
 /**
  * @constructor
- * @implements {WebInspector.SourcesPanel.EditorAction}
+ * @implements {WebInspector.SourcesView.EditorAction}
  */
 WebInspector.ScriptFormatterEditorAction = function()
 {
@@ -301,17 +298,17 @@ WebInspector.ScriptFormatterEditorAction.prototype = {
     },
 
     /**
-     * @param {!WebInspector.SourcesPanel} panel
+     * @param {!WebInspector.SourcesView} sourcesView
      * @return {!Element}
      */
-    button: function(panel)
+    button: function(sourcesView)
     {
         if (this._button)
             return this._button.element;
 
-        this._panel = panel;
-        this._panel.addEventListener(WebInspector.SourcesPanel.Events.EditorSelected, this._editorSelected.bind(this));
-        this._panel.addEventListener(WebInspector.SourcesPanel.Events.EditorClosed, this._editorClosed.bind(this));
+        this._sourcesView = sourcesView;
+        this._sourcesView.addEventListener(WebInspector.SourcesView.Events.EditorSelected, this._editorSelected.bind(this));
+        this._sourcesView.addEventListener(WebInspector.SourcesView.Events.EditorClosed, this._editorClosed.bind(this));
 
         this._button = new WebInspector.StatusBarButton(WebInspector.UIString("Pretty print"), "sources-toggle-pretty-print-status-bar-item");
         this._button.toggled = false;
@@ -338,7 +335,7 @@ WebInspector.ScriptFormatterEditorAction.prototype = {
 
     _toggleFormatScriptSource: function()
     {
-        var uiSourceCode = this._panel.selectedUISourceCode();
+        var uiSourceCode = this._sourcesView.currentUISourceCode();
         if (!this._isFormatableScript(uiSourceCode))
             return;
         this._formatUISourceCodeScript(uiSourceCode);
@@ -366,15 +363,15 @@ WebInspector.ScriptFormatterEditorAction.prototype = {
         {
             if (!formattedUISourceCode)
                 return;
-            if (uiSourceCode !== this._panel.selectedUISourceCode())
+            if (uiSourceCode !== this._sourcesView.currentUISourceCode())
                 return;
-            var sourceFrame = this._panel.viewForFile(uiSourceCode);
+            var sourceFrame = this._sourcesView.viewForFile(uiSourceCode);
             var start = [0, 0];
             if (sourceFrame) {
                 var selection = sourceFrame.selection();
                 start = mapping.originalToFormatted(selection.startLine, selection.startColumn);
             }
-            this._panel.showUISourceCode(formattedUISourceCode, start[0], start[1]);
+            this._sourcesView.showSourceLocation(formattedUISourceCode, start[0], start[1]);
             this._updateButton(formattedUISourceCode);
         }
     },

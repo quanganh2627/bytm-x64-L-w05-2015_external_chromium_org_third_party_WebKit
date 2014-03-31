@@ -85,7 +85,6 @@ public:
     virtual void keyMessage(const WebString& keySystem, const WebString& sessionId, const unsigned char* message, unsigned messageLength, const WebURL& defaultURL) OVERRIDE;
     virtual void keyNeeded(const WebString& contentType, const unsigned char* initData, unsigned initDataLength) OVERRIDE;
 
-    virtual bool needsWebLayerForVideo() const OVERRIDE;
     virtual void setWebLayer(WebLayer*) OVERRIDE;
     virtual void addTextTrack(WebInbandTextTrack*) OVERRIDE;
     virtual void removeTextTrack(WebInbandTextTrack*) OVERRIDE;
@@ -95,10 +94,9 @@ public:
 
     // MediaPlayer methods:
     virtual WebMediaPlayer* webMediaPlayer() const OVERRIDE;
-    virtual void load(WebMediaPlayer::LoadType, const WTF::String& url) OVERRIDE;
+    virtual void load(WebMediaPlayer::LoadType, const WTF::String& url, WebMediaPlayer::CORSMode) OVERRIDE;
     virtual void play() OVERRIDE;
     virtual void pause() OVERRIDE;
-    virtual void prepareToPlay() OVERRIDE;
     virtual bool supportsSave() const OVERRIDE;
     virtual WebCore::IntSize naturalSize() const OVERRIDE;
     virtual bool hasVideo() const OVERRIDE;
@@ -138,10 +136,12 @@ public:
 private:
     explicit WebMediaPlayerClientImpl(WebCore::MediaPlayerClient*);
 
-    void startDelayedLoad();
-    void loadInternal();
-
     WebCore::HTMLMediaElement& mediaElement() const;
+
+    WebCore::MediaPlayerClient* m_client;
+    OwnPtr<WebMediaPlayer> m_webMediaPlayer;
+    WebCore::MediaPlayer::Preload m_preload;
+    double m_rate;
 
 #if OS(ANDROID)
     // FIXME: This path "only works" on Android. It is a workaround for the problem that Skia could not handle Android's GL_TEXTURE_EXTERNAL_OES
@@ -149,15 +149,8 @@ private:
     // https://code.google.com/p/skia/issues/detail?id=1189
     void paintOnAndroid(WebCore::GraphicsContext*, const WebCore::IntRect&, uint8_t alpha);
     SkBitmap m_bitmap;
+    bool m_usePaintOnAndroid;
 #endif
-
-    WebCore::MediaPlayerClient* m_client;
-    OwnPtr<WebMediaPlayer> m_webMediaPlayer;
-    WebCore::KURL m_url;
-    bool m_delayingLoad;
-    WebCore::MediaPlayer::Preload m_preload;
-    bool m_needsWebLayerForVideo;
-    double m_rate;
 
 #if ENABLE(WEB_AUDIO)
     // AudioClientImpl wraps an AudioSourceProviderClient.
@@ -206,8 +199,6 @@ private:
 
     AudioSourceProviderImpl m_audioSourceProvider;
 #endif
-
-    WebMediaPlayer::LoadType m_loadType;
 };
 
 } // namespace blink

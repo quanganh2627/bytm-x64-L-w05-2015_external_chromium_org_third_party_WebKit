@@ -150,6 +150,7 @@ public:
 
     // Runs beforeunload handlers for the current page, returning false if
     // any handler suppressed unloading.
+    // OBSOLETE; DO NOT USE. Call it on WebFrame instead.
     virtual bool dispatchBeforeUnloadEvent() = 0;
 
     // Runs unload handlers for the current page.
@@ -460,12 +461,6 @@ public:
 
     // Cancels an active fling, returning true if a fling was active.
     virtual bool endActiveFlingAnimation() = 0;
-
-    virtual bool setEditableSelectionOffsets(int start, int end) = 0;
-    virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) = 0;
-    virtual void extendSelectionAndDelete(int before, int after) = 0;
-
-    virtual bool isSelectionEditable() const = 0;
 
     virtual void setShowPaintRects(bool) = 0;
     virtual void setShowFPSCounter(bool) = 0;

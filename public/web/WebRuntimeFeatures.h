@@ -36,12 +36,9 @@
 namespace blink {
 
 // This class is used to enable runtime features of Blink.
-// All features are disabled by default.
-// Most clients should call enableStableFeatures() to enable
-// features Blink has made API commitments to.
+// Stable features are enabled by default.
 class WebRuntimeFeatures {
 public:
-    BLINK_EXPORT static void enableStableFeatures(bool);
     BLINK_EXPORT static void enableExperimentalFeatures(bool);
     BLINK_EXPORT static void enableTestOnlyFeatures(bool);
 
@@ -58,8 +55,6 @@ public:
     BLINK_EXPORT static bool isPrefixedEncryptedMediaEnabled();
 
     BLINK_EXPORT static void enableBleedingEdgeFastPaths(bool);
-
-    BLINK_EXPORT static void enableDirectWrite(bool);
 
     BLINK_EXPORT static void enableExperimentalCanvasFeatures(bool);
 
@@ -131,6 +126,8 @@ public:
     BLINK_EXPORT static void enableExperimentalWebSocket(bool);
 
     BLINK_EXPORT static void enableTargetedStyleRecalc(bool);
+
+    BLINK_EXPORT static void enablePreciseMemoryInfo(bool);
 
 private:
     WebRuntimeFeatures();

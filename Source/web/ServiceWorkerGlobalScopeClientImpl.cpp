@@ -48,16 +48,18 @@ ServiceWorkerGlobalScopeClientImpl::~ServiceWorkerGlobalScopeClientImpl()
 {
 }
 
-void ServiceWorkerGlobalScopeClientImpl::didHandleInstallEvent(int installEventID)
+void ServiceWorkerGlobalScopeClientImpl::didHandleActivateEvent(int eventID, WebServiceWorkerEventResult result)
 {
-    if (m_client)
-        m_client->didHandleInstallEvent(installEventID);
+    m_client->didHandleActivateEvent(eventID, result);
+}
+
+void ServiceWorkerGlobalScopeClientImpl::didHandleInstallEvent(int installEventID, WebServiceWorkerEventResult result)
+{
+    m_client->didHandleInstallEvent(installEventID, result);
 }
 
 void ServiceWorkerGlobalScopeClientImpl::didHandleFetchEvent(int fetchEventID, PassRefPtr<WebCore::Response> response)
 {
-    if (!m_client)
-        return;
     if (!response) {
         m_client->didHandleFetchEvent(fetchEventID);
         return;
@@ -68,9 +70,15 @@ void ServiceWorkerGlobalScopeClientImpl::didHandleFetchEvent(int fetchEventID, P
     m_client->didHandleFetchEvent(fetchEventID, webResponse);
 }
 
+void ServiceWorkerGlobalScopeClientImpl::didHandleSyncEvent(int syncEventID)
+{
+    m_client->didHandleSyncEvent(syncEventID);
+}
+
 ServiceWorkerGlobalScopeClientImpl::ServiceWorkerGlobalScopeClientImpl(PassOwnPtr<WebServiceWorkerContextClient> client)
     : m_client(client)
 {
+    ASSERT(m_client);
 }
 
 } // namespace blink

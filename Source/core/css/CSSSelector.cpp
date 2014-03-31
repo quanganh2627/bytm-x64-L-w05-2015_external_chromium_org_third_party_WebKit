@@ -100,7 +100,7 @@ inline unsigned CSSSelector::specificityForOneSelector() const
     case Id:
         return 0x10000;
     case PseudoClass:
-        if (pseudoType() == PseudoHost || pseudoType() == PseudoAncestor)
+        if (pseudoType() == PseudoHost || pseudoType() == PseudoHostContext)
             return 0;
         // fall through.
     case Exact:
@@ -250,10 +250,11 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
     case PseudoCue:
     case PseudoFutureCue:
     case PseudoPastCue:
-    case PseudoDistributed:
     case PseudoUnresolved:
+    case PseudoContent:
     case PseudoHost:
-    case PseudoAncestor:
+    case PseudoHostContext:
+    case PseudoShadow:
     case PseudoFullScreen:
     case PseudoFullScreenDocument:
     case PseudoFullScreenAncestor:
@@ -273,89 +274,88 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
 struct NameToPseudoStruct {
     const char* string;
     unsigned type:8;
-    unsigned requirement:8;
 };
 
 const static NameToPseudoStruct pseudoTypeMap[] = {
-{"active",                        CSSSelector::PseudoActive,              0},
-{"after",                         CSSSelector::PseudoAfter,               0},
-{"-webkit-any(",                  CSSSelector::PseudoAny,                 0},
-{"-webkit-any-link",              CSSSelector::PseudoAnyLink,             0},
-{"-webkit-autofill",              CSSSelector::PseudoAutofill,            0},
-{"backdrop",                      CSSSelector::PseudoBackdrop,            0},
-{"before",                        CSSSelector::PseudoBefore,              0},
-{"checked",                       CSSSelector::PseudoChecked,             0},
-{"default",                       CSSSelector::PseudoDefault,             0},
-{"disabled",                      CSSSelector::PseudoDisabled,            0},
-{"read-only",                     CSSSelector::PseudoReadOnly,            0},
-{"read-write",                    CSSSelector::PseudoReadWrite,           0},
-{"valid",                         CSSSelector::PseudoValid,               0},
-{"invalid",                       CSSSelector::PseudoInvalid,             0},
-{"-webkit-drag",                  CSSSelector::PseudoDrag,                0},
-{"empty",                         CSSSelector::PseudoEmpty,               0},
-{"enabled",                       CSSSelector::PseudoEnabled,             0},
-{"first-child",                   CSSSelector::PseudoFirstChild,          0},
-{"first-letter",                  CSSSelector::PseudoFirstLetter,         0},
-{"first-line",                    CSSSelector::PseudoFirstLine,           0},
-{"first-of-type",                 CSSSelector::PseudoFirstOfType,         0},
-{"-webkit-full-page-media",       CSSSelector::PseudoFullPageMedia,       0},
-{"nth-child(",                    CSSSelector::PseudoNthChild,            0},
-{"nth-of-type(",                  CSSSelector::PseudoNthOfType,           0},
-{"nth-last-child(",               CSSSelector::PseudoNthLastChild,        0},
-{"nth-last-of-type(",             CSSSelector::PseudoNthLastOfType,       0},
-{"focus",                         CSSSelector::PseudoFocus,               0},
-{"hover",                         CSSSelector::PseudoHover,               0},
-{"indeterminate",                 CSSSelector::PseudoIndeterminate,       0},
-{"last-child",                    CSSSelector::PseudoLastChild,           0},
-{"last-of-type",                  CSSSelector::PseudoLastOfType,          0},
-{"link",                          CSSSelector::PseudoLink,                0},
-{"lang(",                         CSSSelector::PseudoLang,                0},
-{"not(",                          CSSSelector::PseudoNot,                 0},
-{"only-child",                    CSSSelector::PseudoOnlyChild,           0},
-{"only-of-type",                  CSSSelector::PseudoOnlyOfType,          0},
-{"optional",                      CSSSelector::PseudoOptional,            0},
-{"required",                      CSSSelector::PseudoRequired,            0},
-{"-webkit-resizer",               CSSSelector::PseudoResizer,             0},
-{"root",                          CSSSelector::PseudoRoot,                0},
-{"-webkit-scrollbar",             CSSSelector::PseudoScrollbar,           0},
-{"-webkit-scrollbar-button",      CSSSelector::PseudoScrollbarButton,     0},
-{"-webkit-scrollbar-corner",      CSSSelector::PseudoScrollbarCorner,     0},
-{"-webkit-scrollbar-thumb",       CSSSelector::PseudoScrollbarThumb,      0},
-{"-webkit-scrollbar-track",       CSSSelector::PseudoScrollbarTrack,      0},
-{"-webkit-scrollbar-track-piece", CSSSelector::PseudoScrollbarTrackPiece, 0},
-{"selection",                     CSSSelector::PseudoSelection,           0},
-{"target",                        CSSSelector::PseudoTarget,              0},
-{"visited",                       CSSSelector::PseudoVisited,             0},
-{"window-inactive",               CSSSelector::PseudoWindowInactive,      0},
-{"decrement",                     CSSSelector::PseudoDecrement,           0},
-{"increment",                     CSSSelector::PseudoIncrement,           0},
-{"start",                         CSSSelector::PseudoStart,               0},
-{"end",                           CSSSelector::PseudoEnd,                 0},
-{"horizontal",                    CSSSelector::PseudoHorizontal,          0},
-{"vertical",                      CSSSelector::PseudoVertical,            0},
-{"double-button",                 CSSSelector::PseudoDoubleButton,        0},
-{"single-button",                 CSSSelector::PseudoSingleButton,        0},
-{"no-button",                     CSSSelector::PseudoNoButton,            0},
-{"corner-present",                CSSSelector::PseudoCornerPresent,       0},
-{"first",                         CSSSelector::PseudoFirstPage,           0},
-{"left",                          CSSSelector::PseudoLeftPage,            0},
-{"right",                         CSSSelector::PseudoRightPage,           0},
-{"-webkit-full-screen",           CSSSelector::PseudoFullScreen,          0},
-{"-webkit-full-screen-document",  CSSSelector::PseudoFullScreenDocument,  0},
-{"-webkit-full-screen-ancestor",  CSSSelector::PseudoFullScreenAncestor,  0},
-{"cue(",                          CSSSelector::PseudoCue,                 0},
-{"cue",                           CSSSelector::PseudoWebKitCustomElement, 0},
-{"future",                        CSSSelector::PseudoFutureCue,           0},
-{"past",                          CSSSelector::PseudoPastCue,             0},
-{"-webkit-distributed(",          CSSSelector::PseudoDistributed,         0},
-{"in-range",                      CSSSelector::PseudoInRange,             0},
-{"out-of-range",                  CSSSelector::PseudoOutOfRange,          0},
-{"scope",                         CSSSelector::PseudoScope,               0},
-{"unresolved",                    CSSSelector::PseudoUnresolved,          0},
-{"host",                          CSSSelector::PseudoHost,                CSSSelector::RequiresShadowDOM},
-{"host(",                         CSSSelector::PseudoHost,                CSSSelector::RequiresShadowDOM},
-{"ancestor",                      CSSSelector::PseudoAncestor,            CSSSelector::RequiresShadowDOM},
-{"ancestor(",                     CSSSelector::PseudoAncestor,            CSSSelector::RequiresShadowDOM},
+{"active",                        CSSSelector::PseudoActive},
+{"after",                         CSSSelector::PseudoAfter},
+{"-webkit-any(",                  CSSSelector::PseudoAny},
+{"-webkit-any-link",              CSSSelector::PseudoAnyLink},
+{"-webkit-autofill",              CSSSelector::PseudoAutofill},
+{"backdrop",                      CSSSelector::PseudoBackdrop},
+{"before",                        CSSSelector::PseudoBefore},
+{"checked",                       CSSSelector::PseudoChecked},
+{"default",                       CSSSelector::PseudoDefault},
+{"disabled",                      CSSSelector::PseudoDisabled},
+{"read-only",                     CSSSelector::PseudoReadOnly},
+{"read-write",                    CSSSelector::PseudoReadWrite},
+{"valid",                         CSSSelector::PseudoValid},
+{"invalid",                       CSSSelector::PseudoInvalid},
+{"-webkit-drag",                  CSSSelector::PseudoDrag},
+{"empty",                         CSSSelector::PseudoEmpty},
+{"enabled",                       CSSSelector::PseudoEnabled},
+{"first-child",                   CSSSelector::PseudoFirstChild},
+{"first-letter",                  CSSSelector::PseudoFirstLetter},
+{"first-line",                    CSSSelector::PseudoFirstLine},
+{"first-of-type",                 CSSSelector::PseudoFirstOfType},
+{"-webkit-full-page-media",       CSSSelector::PseudoFullPageMedia},
+{"nth-child(",                    CSSSelector::PseudoNthChild},
+{"nth-of-type(",                  CSSSelector::PseudoNthOfType},
+{"nth-last-child(",               CSSSelector::PseudoNthLastChild},
+{"nth-last-of-type(",             CSSSelector::PseudoNthLastOfType},
+{"focus",                         CSSSelector::PseudoFocus},
+{"hover",                         CSSSelector::PseudoHover},
+{"indeterminate",                 CSSSelector::PseudoIndeterminate},
+{"last-child",                    CSSSelector::PseudoLastChild},
+{"last-of-type",                  CSSSelector::PseudoLastOfType},
+{"link",                          CSSSelector::PseudoLink},
+{"lang(",                         CSSSelector::PseudoLang},
+{"not(",                          CSSSelector::PseudoNot},
+{"only-child",                    CSSSelector::PseudoOnlyChild},
+{"only-of-type",                  CSSSelector::PseudoOnlyOfType},
+{"optional",                      CSSSelector::PseudoOptional},
+{"required",                      CSSSelector::PseudoRequired},
+{"-webkit-resizer",               CSSSelector::PseudoResizer},
+{"root",                          CSSSelector::PseudoRoot},
+{"-webkit-scrollbar",             CSSSelector::PseudoScrollbar},
+{"-webkit-scrollbar-button",      CSSSelector::PseudoScrollbarButton},
+{"-webkit-scrollbar-corner",      CSSSelector::PseudoScrollbarCorner},
+{"-webkit-scrollbar-thumb",       CSSSelector::PseudoScrollbarThumb},
+{"-webkit-scrollbar-track",       CSSSelector::PseudoScrollbarTrack},
+{"-webkit-scrollbar-track-piece", CSSSelector::PseudoScrollbarTrackPiece},
+{"selection",                     CSSSelector::PseudoSelection},
+{"target",                        CSSSelector::PseudoTarget},
+{"visited",                       CSSSelector::PseudoVisited},
+{"window-inactive",               CSSSelector::PseudoWindowInactive},
+{"decrement",                     CSSSelector::PseudoDecrement},
+{"increment",                     CSSSelector::PseudoIncrement},
+{"start",                         CSSSelector::PseudoStart},
+{"end",                           CSSSelector::PseudoEnd},
+{"horizontal",                    CSSSelector::PseudoHorizontal},
+{"vertical",                      CSSSelector::PseudoVertical},
+{"double-button",                 CSSSelector::PseudoDoubleButton},
+{"single-button",                 CSSSelector::PseudoSingleButton},
+{"no-button",                     CSSSelector::PseudoNoButton},
+{"corner-present",                CSSSelector::PseudoCornerPresent},
+{"first",                         CSSSelector::PseudoFirstPage},
+{"left",                          CSSSelector::PseudoLeftPage},
+{"right",                         CSSSelector::PseudoRightPage},
+{"-webkit-full-screen",           CSSSelector::PseudoFullScreen},
+{"-webkit-full-screen-document",  CSSSelector::PseudoFullScreenDocument},
+{"-webkit-full-screen-ancestor",  CSSSelector::PseudoFullScreenAncestor},
+{"cue(",                          CSSSelector::PseudoCue},
+{"cue",                           CSSSelector::PseudoWebKitCustomElement},
+{"future",                        CSSSelector::PseudoFutureCue},
+{"past",                          CSSSelector::PseudoPastCue},
+{"in-range",                      CSSSelector::PseudoInRange},
+{"out-of-range",                  CSSSelector::PseudoOutOfRange},
+{"scope",                         CSSSelector::PseudoScope},
+{"unresolved",                    CSSSelector::PseudoUnresolved},
+{"host",                          CSSSelector::PseudoHost},
+{"host(",                         CSSSelector::PseudoHost},
+{"host-context(",                 CSSSelector::PseudoHostContext},
+{"content",                       CSSSelector::PseudoContent},
+{"shadow",                        CSSSelector::PseudoShadow},
 };
 
 static HashMap<StringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap()
@@ -366,11 +366,6 @@ static HashMap<StringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap()
 
         size_t pseudoCount = WTF_ARRAY_LENGTH(pseudoTypeMap);
         for (size_t i = 0; i < pseudoCount; i++) {
-            if (pseudoTypeMap[i].requirement == CSSSelector::RequiresShadowDOM) {
-                if (!RuntimeEnabledFeatures::shadowDOMEnabled())
-                    continue;
-            }
-
             const char* str = pseudoTypeMap[i].string;
             CSSSelector::PseudoType type;
             type = static_cast<CSSSelector::PseudoType>(pseudoTypeMap[i].type);
@@ -425,7 +420,7 @@ CSSSelector::PseudoType CSSSelector::parsePseudoType(const AtomicString& name)
 
     if (name.startsWith("-webkit-"))
         return PseudoWebKitCustomElement;
-    if (name.startsWith("x-") || name.startsWith("cue"))
+    if (name.startsWith("cue"))
         return PseudoUserAgentCustomElement;
 
     return PseudoUnknown;
@@ -450,7 +445,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoFirstLine:
         compat = true;
     case PseudoBackdrop:
-    case PseudoDistributed:
     case PseudoResizer:
     case PseudoScrollbar:
     case PseudoScrollbarCorner:
@@ -461,6 +455,8 @@ void CSSSelector::extractPseudoType() const
     case PseudoSelection:
     case PseudoUserAgentCustomElement:
     case PseudoWebKitCustomElement:
+    case PseudoContent:
+    case PseudoShadow:
         element = true;
         break;
     case PseudoUnknown:
@@ -523,7 +519,7 @@ void CSSSelector::extractPseudoType() const
     case PseudoFutureCue:
     case PseudoPastCue:
     case PseudoHost:
-    case PseudoAncestor:
+    case PseudoHostContext:
     case PseudoUnresolved:
         break;
     case PseudoFirstPage:
@@ -624,7 +620,7 @@ String CSSSelector::selectorText(const String& rightSide) const
                 break;
             }
             case PseudoHost:
-            case PseudoAncestor: {
+            case PseudoHostContext: {
                 if (cs->selectorList()) {
                     const CSSSelector* firstSubSelector = cs->selectorList()->first();
                     for (const CSSSelector* subSelector = firstSubSelector; subSelector; subSelector = CSSSelectorList::next(*subSelector)) {
@@ -642,6 +638,11 @@ String CSSSelector::selectorText(const String& rightSide) const
         } else if (cs->m_match == CSSSelector::PseudoElement) {
             str.appendLiteral("::");
             str.append(cs->value());
+
+            if (cs->pseudoType() == PseudoContent) {
+                if (cs->relation() == CSSSelector::SubSelector && cs->tagHistory())
+                    return cs->tagHistory()->selectorText() + str.toString() + rightSide;
+            }
         } else if (cs->isAttributeSelector()) {
             str.append('[');
             const AtomicString& prefix = cs->attribute().prefix();
@@ -689,17 +690,11 @@ String CSSSelector::selectorText(const String& rightSide) const
     if (const CSSSelector* tagHistory = cs->tagHistory()) {
         switch (cs->relation()) {
         case CSSSelector::Descendant:
-            if (cs->relationIsAffectedByPseudoContent())
-                return tagHistory->selectorText("::-webkit-distributed(" + str.toString() + rightSide + ")");
             return tagHistory->selectorText(" " + str.toString() + rightSide);
         case CSSSelector::Child:
-            if (cs->relationIsAffectedByPseudoContent())
-                return tagHistory->selectorText("::-webkit-distributed(> " + str.toString() + rightSide + ")");
             return tagHistory->selectorText(" > " + str.toString() + rightSide);
-        case CSSSelector::Shadow:
-            return tagHistory->selectorText(" /shadow/ " + str.toString() + rightSide);
         case CSSSelector::ShadowDeep:
-            return tagHistory->selectorText(" /shadow-deep/ " + str.toString() + rightSide);
+            return tagHistory->selectorText(" /deep/ " + str.toString() + rightSide);
         case CSSSelector::DirectAdjacent:
             return tagHistory->selectorText(" + " + str.toString() + rightSide);
         case CSSSelector::IndirectAdjacent:
@@ -708,8 +703,6 @@ String CSSSelector::selectorText(const String& rightSide) const
             ASSERT_NOT_REACHED();
         case CSSSelector::ShadowPseudo:
             return tagHistory->selectorText(str.toString() + rightSide);
-        case CSSSelector::ShadowContent:
-            return tagHistory->selectorText(" /content/ " + str.toString() + rightSide);
         }
     }
     return str.toString() + rightSide;
@@ -773,7 +766,7 @@ static bool validateSubSelector(const CSSSelector* selector)
     case CSSSelector::PseudoLastOfType:
     case CSSSelector::PseudoOnlyOfType:
     case CSSSelector::PseudoHost:
-    case CSSSelector::PseudoAncestor:
+    case CSSSelector::PseudoHostContext:
         return true;
     default:
         return false;

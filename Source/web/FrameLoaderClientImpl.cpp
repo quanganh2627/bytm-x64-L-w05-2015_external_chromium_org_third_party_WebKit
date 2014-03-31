@@ -64,7 +64,6 @@
 #include "core/loader/FrameLoadRequest.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/HistoryItem.h"
-#include "core/loader/ProgressTracker.h"
 #include "core/page/Chrome.h"
 #include "core/page/EventHandler.h"
 #include "core/frame/FrameView.h"
@@ -74,6 +73,7 @@
 #include "core/rendering/HitTestResult.h"
 #include "modules/device_orientation/DeviceMotionController.h"
 #include "modules/device_orientation/DeviceOrientationController.h"
+#include "modules/gamepad/NavigatorGamepad.h"
 #include "modules/screen_orientation/ScreenOrientationController.h"
 #include "platform/MIMETypeRegistry.h"
 #include "platform/UserGestureIndicator.h"
@@ -123,6 +123,8 @@ void FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*
                 DeviceOrientationController::from(*document);
             if (RuntimeEnabledFeatures::screenOrientationEnabled())
                 ScreenOrientationController::from(*document);
+            if (RuntimeEnabledFeatures::gamepadEnabled())
+                NavigatorGamepad::from(*document);
         }
     }
 }
@@ -336,11 +338,11 @@ void FrameLoaderClientImpl::dispatchDidReceiveResponse(DocumentLoader* loader,
         m_webFrame->client()->didReceiveResponse(m_webFrame, identifier, webresp);
     }
 }
-void FrameLoaderClientImpl::dispatchDidChangeResourcePriority(unsigned long identifier,
-                                                              ResourceLoadPriority priority)
+
+void FrameLoaderClientImpl::dispatchDidChangeResourcePriority(unsigned long identifier, ResourceLoadPriority priority, int intraPriorityValue)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didChangeResourcePriority(m_webFrame, identifier, static_cast<blink::WebURLRequest::Priority>(priority));
+        m_webFrame->client()->didChangeResourcePriority(m_webFrame, identifier, static_cast<blink::WebURLRequest::Priority>(priority), intraPriorityValue);
 }
 
 // Called when a particular resource load completes
@@ -490,28 +492,22 @@ void FrameLoaderClientImpl::dispatchWillSubmitForm(HTMLFormElement* form)
         m_webFrame->client()->willSubmitForm(m_webFrame, WebFormElement(form));
 }
 
-void FrameLoaderClientImpl::postProgressStartedNotification(LoadStartType loadStartType)
+void FrameLoaderClientImpl::didStartLoading(LoadStartType loadStartType)
 {
-    WebViewImpl* webview = m_webFrame->viewImpl();
-    if (webview && webview->client())
-        webview->client()->didStartLoading(loadStartType == NavigationToDifferentDocument);
+    if (m_webFrame->client())
+        m_webFrame->client()->didStartLoading(loadStartType == NavigationToDifferentDocument);
 }
 
-void FrameLoaderClientImpl::postProgressEstimateChangedNotification()
+void FrameLoaderClientImpl::progressEstimateChanged(double progressEstimate)
 {
-    WebViewImpl* webview = m_webFrame->viewImpl();
-    if (webview && webview->client()) {
-        webview->client()->didChangeLoadProgress(
-            m_webFrame, m_webFrame->frame()->page()->progress().estimatedProgress());
-    }
+    if (m_webFrame->client())
+        m_webFrame->client()->didChangeLoadProgress(progressEstimate);
 }
 
-void FrameLoaderClientImpl::postProgressFinishedNotification()
+void FrameLoaderClientImpl::didStopLoading()
 {
-    // FIXME: why might the webview be null?  http://b/1234461
-    WebViewImpl* webview = m_webFrame->viewImpl();
-    if (webview && webview->client())
-        webview->client()->didStopLoading();
+    if (m_webFrame->client())
+        m_webFrame->client()->didStopLoading();
 }
 
 void FrameLoaderClientImpl::loadURLExternally(const ResourceRequest& request, NavigationPolicy policy, const String& suggestedName)
@@ -590,7 +586,7 @@ String FrameLoaderClientImpl::userAgent(const KURL& url)
     if (!override.isEmpty())
         return override;
 
-    return blink::Platform::current()->userAgent(url);
+    return blink::Platform::current()->userAgent();
 }
 
 String FrameLoaderClientImpl::doNotTrackValue()

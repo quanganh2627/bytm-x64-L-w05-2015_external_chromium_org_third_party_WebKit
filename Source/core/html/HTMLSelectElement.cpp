@@ -36,9 +36,9 @@
 #include "core/dom/Attribute.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/NodeTraversal.h"
+#include "core/events/GestureEvent.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
-#include "core/events/ThreadLocalEventNames.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/FormDataList.h"
 #include "core/html/HTMLFormElement.h"
@@ -204,11 +204,17 @@ void HTMLSelectElement::add(HTMLElement* element, HTMLElement* before, Exception
     // Make sure the element is ref'd and deref'd so we don't leak it.
     RefPtr<HTMLElement> protectNewChild(element);
 
-    if (!element || !(isHTMLOptionElement(element) || isHTMLHRElement(element)))
+    if (!element || !(isHTMLOptionElement(element) || isHTMLOptGroupElement(element) || isHTMLHRElement(element)))
         return;
 
     insertBefore(element, before, exceptionState);
     setNeedsValidityCheck();
+}
+
+void HTMLSelectElement::addBeforeOptionAtIndex(HTMLElement* element, int beforeIndex, ExceptionState& exceptionState)
+{
+    HTMLElement* beforeElement = toHTMLElement(options()->item(beforeIndex));
+    add(element, beforeElement, exceptionState);
 }
 
 void HTMLSelectElement::remove(int optionIndex)
@@ -230,28 +236,35 @@ String HTMLSelectElement::value() const
     return "";
 }
 
-void HTMLSelectElement::setValue(const String &value)
+void HTMLSelectElement::setValue(const String &value, bool sendEvents)
 {
     // We clear the previously selected option(s) when needed, to guarantee calling setSelectedIndex() only once.
+    int optionIndex = 0;
     if (value.isNull()) {
-        setSelectedIndex(-1);
-        return;
-    }
-
-    // Find the option with value() matching the given parameter and make it the current selection.
-    const Vector<HTMLElement*>& items = listItems();
-    unsigned optionIndex = 0;
-    for (unsigned i = 0; i < items.size(); i++) {
-        if (isHTMLOptionElement(items[i])) {
-            if (toHTMLOptionElement(items[i])->value() == value) {
-                setSelectedIndex(optionIndex);
-                return;
+        optionIndex = -1;
+    } else {
+        // Find the option with value() matching the given parameter and make it the current selection.
+        const Vector<HTMLElement*>& items = listItems();
+        for (unsigned i = 0; i < items.size(); i++) {
+            if (isHTMLOptionElement(items[i])) {
+                if (toHTMLOptionElement(items[i])->value() == value)
+                    break;
+                optionIndex++;
             }
-            optionIndex++;
         }
+        if (optionIndex >= static_cast<int>(items.size()))
+            optionIndex = -1;
     }
 
-    setSelectedIndex(-1);
+    int previousSelectedIndex = selectedIndex();
+    setSelectedIndex(optionIndex);
+
+    if (sendEvents && previousSelectedIndex != selectedIndex()) {
+        if (usesMenuList())
+            dispatchInputAndChangeEventForMenuList(false);
+        else
+            listBoxOnChange();
+    }
 }
 
 String HTMLSelectElement::suggestedValue() const
@@ -672,12 +685,12 @@ void HTMLSelectElement::listBoxOnChange()
     }
 }
 
-void HTMLSelectElement::dispatchInputAndChangeEventForMenuList()
+void HTMLSelectElement::dispatchInputAndChangeEventForMenuList(bool requiresUserGesture)
 {
     ASSERT(usesMenuList());
 
     int selected = selectedIndex();
-    if (m_lastOnChangeIndex != selected && m_isProcessingUserDrivenChange) {
+    if (m_lastOnChangeIndex != selected && (!requiresUserGesture || m_isProcessingUserDrivenChange)) {
         m_lastOnChangeIndex = selected;
         m_isProcessingUserDrivenChange = false;
         RefPtr<HTMLSelectElement> protector(this);
@@ -1320,7 +1333,22 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event* event)
 {
     const Vector<HTMLElement*>& listItems = this->listItems();
     bool dragSelection = false;
-    if (event->type() == EventTypeNames::mousedown && event->isMouseEvent() && toMouseEvent(event)->button() == LeftButton) {
+    if (event->type() == EventTypeNames::gesturetap && event->isGestureEvent()) {
+        focus();
+        // Calling focus() may cause us to lose our renderer or change the render type, in which case do not want to handle the event.
+        if (!renderer() || !renderer()->isListBox())
+            return;
+
+        // Convert to coords relative to the list box if needed.
+        GestureEvent& gestureEvent = toGestureEvent(*event);
+        IntPoint localOffset = roundedIntPoint(renderer()->absoluteToLocal(gestureEvent.absoluteLocation(), UseTransforms));
+        int listIndex = toRenderListBox(renderer())->listIndexAtOffset(toIntSize(localOffset));
+        if (listIndex >= 0) {
+            if (!isDisabledFormControl())
+                updateSelectedState(listIndex, true, gestureEvent.shiftKey());
+            event->setDefaultHandled();
+        }
+    } else if (event->type() == EventTypeNames::mousedown && event->isMouseEvent() && toMouseEvent(event)->button() == LeftButton) {
         focus();
         // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
         if (!renderer())

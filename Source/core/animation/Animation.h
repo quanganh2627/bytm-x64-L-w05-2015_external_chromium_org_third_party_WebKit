@@ -40,8 +40,9 @@
 
 namespace WebCore {
 
-class Element;
 class Dictionary;
+class Element;
+class ExceptionState;
 
 class Animation FINAL : public TimedItem {
 
@@ -53,9 +54,9 @@ public:
     static PassRefPtr<Animation> create(Element*, PassRefPtrWillBeRawPtr<AnimationEffect>, const Dictionary& timingInputDictionary);
     static PassRefPtr<Animation> create(Element*, PassRefPtrWillBeRawPtr<AnimationEffect>, double duration);
     static PassRefPtr<Animation> create(Element*, PassRefPtrWillBeRawPtr<AnimationEffect>);
-    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, const Dictionary& timingInputDictionary);
-    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, double duration);
-    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector);
+    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, const Dictionary& timingInputDictionary, ExceptionState&);
+    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, double duration, ExceptionState&);
+    static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, ExceptionState&);
 
     // FIXME: Move all of these setter methods out of Animation,
     // possibly into a new class (TimingInput?).
@@ -71,7 +72,7 @@ public:
 
     virtual bool isAnimation() const OVERRIDE { return true; }
 
-    const Vector<RefPtr<Interpolation> >& activeInterpolations() const
+    const WillBeHeapVector<RefPtrWillBeMember<Interpolation> >& activeInterpolations() const
     {
         ASSERT(m_activeInterpolations);
         return *m_activeInterpolations;
@@ -107,7 +108,7 @@ private:
     RefPtrWillBePersistent<AnimationEffect> m_effect;
 
     bool m_activeInAnimationStack;
-    OwnPtr<Vector<RefPtr<Interpolation> > > m_activeInterpolations;
+    OwnPtrWillBePersistent<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > m_activeInterpolations;
 
     Priority m_priority;
 

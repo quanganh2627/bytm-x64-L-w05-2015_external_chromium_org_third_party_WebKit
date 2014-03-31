@@ -42,25 +42,26 @@ namespace WebCore {
 
 class AbstractSQLTransaction;
 class DatabaseBackend;
-class SQLError;
+class SQLErrorData;
 class SQLiteTransaction;
 class SQLStatementBackend;
 class SQLTransactionBackend;
 class SQLValue;
 
-class SQLTransactionWrapper : public ThreadSafeRefCounted<SQLTransactionWrapper> {
+class SQLTransactionWrapper : public ThreadSafeRefCountedWillBeGarbageCollectedFinalized<SQLTransactionWrapper> {
 public:
     virtual ~SQLTransactionWrapper() { }
+    virtual void trace(Visitor*) = 0;
     virtual bool performPreflight(SQLTransactionBackend*) = 0;
     virtual bool performPostflight(SQLTransactionBackend*) = 0;
-    virtual SQLError* sqlError() const = 0;
+    virtual SQLErrorData* sqlError() const = 0;
     virtual void handleCommitFailedAfterPostflight(SQLTransactionBackend*) = 0;
 };
 
 class SQLTransactionBackend FINAL : public AbstractSQLTransactionBackend, public SQLTransactionStateMachine<SQLTransactionBackend> {
 public:
     static PassRefPtrWillBeRawPtr<SQLTransactionBackend> create(DatabaseBackend*,
-        PassRefPtrWillBeRawPtr<AbstractSQLTransaction>, PassRefPtr<SQLTransactionWrapper>, bool readOnly);
+        PassRefPtrWillBeRawPtr<AbstractSQLTransaction>, PassRefPtrWillBeRawPtr<SQLTransactionWrapper>, bool readOnly);
 
     virtual ~SQLTransactionBackend();
     virtual void trace(Visitor*) OVERRIDE;
@@ -74,11 +75,11 @@ public:
 
 private:
     SQLTransactionBackend(DatabaseBackend*, PassRefPtrWillBeRawPtr<AbstractSQLTransaction>,
-        PassRefPtr<SQLTransactionWrapper>, bool readOnly);
+        PassRefPtrWillBeRawPtr<SQLTransactionWrapper>, bool readOnly);
 
     // APIs called from the frontend published via AbstractSQLTransactionBackend:
     virtual void requestTransitToState(SQLTransactionState) OVERRIDE;
-    virtual PassRefPtr<SQLError> transactionError() OVERRIDE;
+    virtual SQLErrorData* transactionError() OVERRIDE;
     virtual AbstractSQLStatement* currentStatement() OVERRIDE;
     virtual void setShouldRetryCurrentStatement(bool) OVERRIDE;
     virtual void executeSQL(PassOwnPtr<AbstractSQLStatement>, const String& statement,
@@ -113,8 +114,8 @@ private:
     RefPtrWillBeMember<SQLStatementBackend> m_currentStatementBackend;
 
     RefPtrWillBeMember<DatabaseBackend> m_database;
-    RefPtr<SQLTransactionWrapper> m_wrapper;
-    RefPtr<SQLError> m_transactionError;
+    RefPtrWillBeMember<SQLTransactionWrapper> m_wrapper;
+    OwnPtr<SQLErrorData> m_transactionError;
 
     bool m_hasCallback;
     bool m_hasSuccessCallback;

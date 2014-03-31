@@ -18,7 +18,7 @@
 ApplicationCache status=stable
 AuthorShadowDOMForAnyElement
 BatteryStatus status=test
-BeforeLoad status=test
+PrefixedVideoFullscreen status=test
 
 // Enable bleeding-edge code to make Blink draw content faster.
 // The changes enabled behind this flag are very likely to break lots of content.
@@ -37,6 +37,7 @@ CSSShapes status=experimental
 CSSStickyPosition status=experimental
 CSSTouchAction status=stable
 CSSTouchActionDelay status=test
+CSSTransformsUnprefixed status=test
 CSSViewport status=experimental
 CSSWillChange status=experimental
 CSS3Text status=experimental
@@ -46,9 +47,8 @@ Database status=stable
 DeviceMotion status=stable
 DeviceOrientation status=stable
 DialogElement status=experimental
-DirectWrite
 EncodingAPI status=experimental
-EncryptedMedia status=experimental
+EncryptedMedia status=test
 EncryptedMediaAnyVersion status=stable
 ExperimentalCanvasFeatures status=test
 ExperimentalContentSecurityPolicyFeatures status=experimental
@@ -62,6 +62,7 @@ Gamepad status=stable
 HTMLImports status=test
 HighResolutionTimeInWorkers status=stable
 IMEAPI status=experimental
+ImageDataConstructor status=experimental
 IndexedDBExperimental status=experimental
 InputModeAttribute status=experimental
 LangAttributeAwareFormControlUI
@@ -80,6 +81,7 @@ OverlayFullscreenVideo
 PagePopup status=stable
 PathOpsSVGClipping
 PeerConnection depends_on=MediaStream, status=stable
+PreciseMemoryInfo
 Quota status=stable
 QuotaPromise status=experimental
 OverlayScrollbars
@@ -99,7 +101,6 @@ ScrollTopLeftInterop status=experimental
 
 ServiceWorker status=experimental
 SessionStorage status=stable
-ShadowDOM status=stable
 SharedWorker status=stable
 SpeechInput status=stable
 SpeechSynthesis status=stable
@@ -107,11 +108,12 @@ Srcset status=stable
 Stream status=experimental
 StyleScoped status=experimental
 SubpixelFontScaling status=experimental
+SubresourceIntegrity status=test
 SVGPaintOrder status=stable
 
 // Enable optimizations to recalculate style on the fewest possible number of
 // elements when updating classes, ids or attributes of DOM elements.
-TargetedStyleRecalc status=experimental
+TargetedStyleRecalc status=stable
 
 // Many websites disable mouse support when touch APIs are available.  We'd
 // like to enable this always but can't until more websites fix this bug.

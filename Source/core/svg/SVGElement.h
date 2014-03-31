@@ -36,7 +36,7 @@ namespace WebCore {
 class AffineTransform;
 class CSSCursorImageValue;
 class Document;
-class NewSVGAnimatedPropertyBase;
+class SVGAnimatedPropertyBase;
 class SubtreeLayoutScope;
 class SVGCursorElement;
 class SVGDocumentExtensions;
@@ -55,7 +55,6 @@ public:
 
     virtual String title() const OVERRIDE;
     bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.isEmpty(); }
-    PassRefPtrWillBeRawPtr<CSSValue> getPresentationAttribute(const AtomicString& name);
     static bool isAnimatableCSSProperty(const QualifiedName&);
     enum CTMScope {
         NearestViewportScope, // Used by SVGGraphicsElement::getCTM()
@@ -93,7 +92,7 @@ public:
 
     virtual void svgAttributeChanged(const QualifiedName&);
 
-    PassRefPtr<NewSVGAnimatedPropertyBase> propertyFromAttribute(const QualifiedName& attributeName);
+    PassRefPtr<SVGAnimatedPropertyBase> propertyFromAttribute(const QualifiedName& attributeName);
     static AnimatedPropertyType animatedPropertyTypeForCSSAttribute(const QualifiedName& attributeName);
 
     void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
@@ -143,7 +142,7 @@ public:
     bool isContextElement() const { return m_isContextElement; }
     void setContextElement() { m_isContextElement = true; }
 
-    void addToPropertyMap(PassRefPtr<NewSVGAnimatedPropertyBase>);
+    void addToPropertyMap(PassRefPtr<SVGAnimatedPropertyBase>);
 
     SVGAnimatedString* className() { return m_className.get(); }
 
@@ -203,7 +202,7 @@ private:
 
     HashSet<SVGElement*> m_elementsWithRelativeLengths;
 
-    typedef HashMap<QualifiedName, RefPtr<NewSVGAnimatedPropertyBase> > AttributeToPropertyMap;
+    typedef HashMap<QualifiedName, RefPtr<SVGAnimatedPropertyBase> > AttributeToPropertyMap;
     AttributeToPropertyMap m_newAttributeToPropertyMap;
 
 #if !ASSERT_DISABLED
@@ -228,6 +227,8 @@ struct SVGAttributeHashTranslator {
 };
 
 DEFINE_ELEMENT_TYPE_CASTS(SVGElement, isSVGElement());
+
+template <> inline bool isElementOfType<const SVGElement>(const Node& node) { return node.isSVGElement(); }
 
 }
 

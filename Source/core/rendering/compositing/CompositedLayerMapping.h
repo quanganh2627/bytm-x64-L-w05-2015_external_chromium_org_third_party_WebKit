@@ -94,9 +94,9 @@ public:
     void updateAfterLayout(UpdateAfterLayoutFlags);
 
     // Returns true if layer configuration changed.
-    bool updateGraphicsLayerConfiguration();
+    bool updateGraphicsLayerConfiguration(GraphicsLayerUpdater::UpdateType);
     // Update graphics layer position and bounds.
-    GraphicsLayerUpdater::UpdateType updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType);
+    void updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType);
     // Update whether layer needs blending.
     void updateContentsOpaque();
 
@@ -161,7 +161,7 @@ public:
     LayoutRect compositedBounds() const { return m_compositedBounds; }
     IntRect pixelSnappedCompositedBounds() const;
     void setCompositedBounds(const LayoutRect&);
-    void updateCompositedBounds();
+    void updateCompositedBounds(GraphicsLayerUpdater::UpdateType);
 
     void updateAfterWidgetResize();
     void positionOverflowControlsLayers(const IntSize& offsetFromRoot);
@@ -197,8 +197,14 @@ public:
 
     void setBlendMode(blink::WebBlendMode);
 
-    void setNeedsGeometryUpdate();
-    void clearNeedsGeometryUpdate();
+    void setNeedsGraphicsLayerUpdate();
+    bool shouldUpdateGraphicsLayer(GraphicsLayerUpdater::UpdateType updateType) const { return m_needToUpdateGraphicsLayer || updateType == GraphicsLayerUpdater::ForceUpdate; }
+    GraphicsLayerUpdater::UpdateType updateTypeForChildren(GraphicsLayerUpdater::UpdateType) const;
+    void clearNeedsGraphicsLayerUpdate();
+
+#if !ASSERT_DISABLED
+    void assertNeedsToUpdateGraphicsLayerBitsCleared();
+#endif
 
     virtual String debugName(const GraphicsLayer*) OVERRIDE;
 
@@ -362,8 +368,8 @@ private:
     bool m_requiresOwnBackingStoreForAncestorReasons : 1;
     bool m_canCompositeFilters : 1;
     bool m_backgroundLayerPaintsFixedRootBackground : 1;
-    bool m_needToUpdateGeometry : 1;
-    bool m_needToUpdateGeometryOfAllDecendants : 1;
+    bool m_needToUpdateGraphicsLayer : 1;
+    bool m_needToUpdateGraphicsLayerOfAllDecendants : 1;
 };
 
 } // namespace WebCore
