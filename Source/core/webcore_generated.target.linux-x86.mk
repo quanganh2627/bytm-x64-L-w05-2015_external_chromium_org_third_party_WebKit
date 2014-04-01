@@ -216,6 +216,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
 	third_party/WebKit/Source/bindings/v8/MIDIAccessResolver.cpp \
 	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
+	third_party/WebKit/Source/bindings/v8/NewScriptState.cpp \
 	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/RetainedDOMInfo.cpp \
 	third_party/WebKit/Source/bindings/v8/ScheduledAction.cpp \
