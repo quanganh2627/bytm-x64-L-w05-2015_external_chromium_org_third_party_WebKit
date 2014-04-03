@@ -101,12 +101,6 @@ private:
 class RenderLayer {
     WTF_MAKE_NONCOPYABLE(RenderLayer);
 public:
-    friend class RenderReplica;
-    // FIXME: Needed until we move all the necessary bits to the new class.
-    friend class RenderLayerStackingNode;
-    // FIXME: Needed until we move all the necessary bits to the new class.
-    friend class RenderLayerScrollableArea;
-
     RenderLayer(RenderLayerModelObject*, LayerType);
     ~RenderLayer();
 
@@ -175,17 +169,16 @@ public:
     enum UpdateLayerPositionsFlag {
         CheckForRepaint = 1 << 0,
         NeedsFullRepaintInBacking = 1 << 1,
-        IsCompositingUpdateRoot = 1 << 2,
-        UpdateCompositingLayers = 1 << 3,
-        UpdatePagination = 1 << 4
+        UpdatePagination = 1 << 2,
     };
     typedef unsigned UpdateLayerPositionsFlags;
-    static const UpdateLayerPositionsFlags defaultFlags = CheckForRepaint | IsCompositingUpdateRoot | UpdateCompositingLayers;
 
     void updateLayerPositionsAfterLayout(const RenderLayer* rootLayer, UpdateLayerPositionsFlags);
-
     void updateLayerPositionsAfterOverflowScroll();
     void updateLayerPositionsAfterDocumentScroll();
+
+    // FIXME: Should updateLayerPositions be private?
+    void updateLayerPositions(RenderGeometryMap*, UpdateLayerPositionsFlags = CheckForRepaint);
 
     bool isPaginated() const { return m_isPaginated; }
     RenderLayer* enclosingPaginationLayer() const { return m_enclosingPaginationLayer; }
@@ -237,6 +230,8 @@ public:
 
     bool hasVisibleNonLayerContent() const { return m_hasVisibleNonLayerContent; }
     void updateHasVisibleNonLayerContent();
+
+    bool usedTransparency() const { return m_usedTransparency; }
 
     // Gets the nearest enclosing positioned ancestor layer (also includes
     // the <html> layer and the root layer).
@@ -494,6 +489,33 @@ public:
 
     const AncestorDependentProperties& ancestorDependentProperties() { ASSERT(!m_needsToUpdateAncestorDependentProperties); return m_ancestorDependentProperties; }
 
+    bool lostGroupedMapping() const { return m_compositingProperties.lostGroupedMapping; }
+    void setLostGroupedMapping(bool b) { m_compositingProperties.lostGroupedMapping = b; }
+
+    CompositingReasons compositingReasons() const { return m_compositingProperties.compositingReasons; }
+    void setCompositingReasons(CompositingReasons, CompositingReasons mask = CompositingReasonAll);
+
+    bool hasCompositingDescendant() const { return m_compositingProperties.hasCompositingDescendant; }
+    void setHasCompositingDescendant(bool b)  { m_compositingProperties.hasCompositingDescendant = b; }
+
+    bool hasNonCompositedChild() const { return m_compositingProperties.hasNonCompositedChild; }
+    void setHasNonCompositedChild(bool b)  { m_compositingProperties.hasNonCompositedChild = b; }
+
+    bool shouldIsolateCompositedDescendants() const { return m_compositingProperties.shouldIsolateCompositedDescendants; }
+    void setShouldIsolateCompositedDescendants(bool b)  { m_compositingProperties.shouldIsolateCompositedDescendants = b; }
+
+    void updateDescendantDependentFlags();
+
+    void updateOrRemoveFilterEffectRenderer();
+
+    void updateSelfPaintingLayer();
+
+    void paintLayerContents(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
+
+    RenderLayer* enclosingTransformedAncestor() const;
+
+    void didUpdateNeedsCompositedScrolling();
+
 private:
     // FIXME: Merge with AncestorDependentProperties.
     class AncestorDependentPropertyCache {
@@ -536,16 +558,10 @@ private:
     void clipToRect(const LayerPaintingInfo&, GraphicsContext*, const ClipRect&, BorderRadiusClippingRule = IncludeSelfForBorderRadius);
     void restoreClip(GraphicsContext*, const LayoutRect& paintDirtyRect, const ClipRect&);
 
-    void updateSelfPaintingLayer();
-
     void updateOutOfFlowPositioned(const RenderStyle* oldStyle);
-
-    void didUpdateNeedsCompositedScrolling();
 
     // Returns true if the position changed.
     bool updateLayerPosition();
-
-    void updateLayerPositions(RenderGeometryMap* = 0, UpdateLayerPositionsFlags = defaultFlags);
 
     enum UpdateLayerPositionsAfterScrollFlag {
         NoFlag = 0,
@@ -567,7 +583,6 @@ private:
 
     void paintLayerContentsAndReflection(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
     void paintLayerByApplyingTransform(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags, const LayoutPoint& translationOffset = LayoutPoint());
-    void paintLayerContents(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
     void paintChildren(unsigned childrenToVisit, GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
     void paintPaginatedChildLayer(RenderLayer* childLayer, GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
     void paintChildLayerIntoColumns(RenderLayer* childLayer, GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags, const Vector<RenderLayer*>& columnLayers, size_t columnIndex);
@@ -635,42 +650,18 @@ private:
     void dirtyAncestorChainVisibleDescendantStatus();
     void setAncestorChainHasVisibleDescendant();
 
-    void updateDescendantDependentFlags();
-
     void dirty3DTransformedDescendantStatus();
     // Both updates the status, and returns true if descendants of this have 3d.
     bool update3DTransformedDescendantStatus();
 
     void updateOrRemoveFilterClients();
-    void updateOrRemoveFilterEffectRenderer();
 
     LayoutRect paintingExtent(const RenderLayer* rootLayer, const LayoutRect& paintDirtyRect, const LayoutSize& subPixelAccumulation, PaintBehavior);
-
-    RenderLayer* enclosingTransformedAncestor() const;
 
     void updatePagination();
 
     // FIXME: Temporary. Remove when new columns come online.
     bool useRegionBasedColumns() const;
-
-    bool hasCompositingDescendant() const { return m_compositingProperties.hasCompositingDescendant; }
-    void setHasCompositingDescendant(bool b)  { m_compositingProperties.hasCompositingDescendant = b; }
-
-    bool hasNonCompositedChild() const { return m_compositingProperties.hasNonCompositedChild; }
-    void setHasNonCompositedChild(bool b)  { m_compositingProperties.hasNonCompositedChild = b; }
-
-    bool shouldIsolateCompositedDescendants() const { return m_compositingProperties.shouldIsolateCompositedDescendants; }
-    void setShouldIsolateCompositedDescendants(bool b)  { m_compositingProperties.shouldIsolateCompositedDescendants = b; }
-
-    bool lostGroupedMapping() const { return m_compositingProperties.lostGroupedMapping; }
-    void setLostGroupedMapping(bool b) { m_compositingProperties.lostGroupedMapping = b; }
-
-    CompositingReasons compositingReasons() const { return m_compositingProperties.compositingReasons; }
-    void setCompositingReasons(CompositingReasons, CompositingReasons mask = CompositingReasonAll);
-
-    friend class CompositedLayerMapping;
-    friend class RenderLayerCompositor;
-    friend class RenderLayerModelObject;
 
     LayerType m_layerType;
 

@@ -71,6 +71,14 @@ WebInspector.TimelineView = function(delegate, model)
 }
 
 WebInspector.TimelineView.prototype = {
+    timelineStarted: function()
+    {
+    },
+
+    timelineStopped: function()
+    {
+    },
+
     /**
      * @param {?WebInspector.TimelineFrameModel} frameModel
      */
@@ -323,7 +331,8 @@ WebInspector.TimelineView.prototype = {
             for (var category in aggregatedStats)
                 idle -= aggregatedStats[category];
             aggregatedStats["idle"] = idle;
-            this._delegate.showAggregatedStatsInDetails(WebInspector.TimelineUIUtils.recordStyle(presentationRecord.record()).title, aggregatedStats);
+            var pieChart = WebInspector.TimelineUIUtils.generatePieChart(aggregatedStats);
+            this._delegate.showInDetails(WebInspector.TimelineUIUtils.recordStyle(presentationRecord.record()).title, pieChart);
             return;
         }
         this._delegate.selectRecord(presentationRecord ? presentationRecord.record() : null);
@@ -530,7 +539,7 @@ WebInspector.TimelineView.prototype = {
                     this._graphRowsElement.appendChild(graphRowElement);
                 }
 
-                listRowElement.row.update(record, visibleTop);
+                listRowElement.row.update(record, visibleTop, this._model.loadedFromFile());
                 graphRowElement.row.update(record, this._calculator, this._expandOffset, i);
                 if (this._lastSelectedRecord === record) {
                     listRowElement.row.renderAsSelected(true);
@@ -996,8 +1005,9 @@ WebInspector.TimelineRecordListRow.prototype = {
     /**
      * @param {!WebInspector.TimelinePresentationModel.Record} presentationRecord
      * @param {number} offset
+     * @param {boolean} loadedFromFile
      */
-    update: function(presentationRecord, offset)
+    update: function(presentationRecord, offset, loadedFromFile)
     {
         this._record = presentationRecord;
         var record = presentationRecord.record();
@@ -1023,7 +1033,7 @@ WebInspector.TimelineRecordListRow.prototype = {
         if (presentationRecord.coalesced()) {
             this._dataElement.createTextChild(WebInspector.UIString("× %d", presentationRecord.presentationChildren().length));
         } else {
-            var detailsNode = WebInspector.TimelineUIUtils.buildDetailsNode(record, this._linkifier);
+            var detailsNode = WebInspector.TimelineUIUtils.buildDetailsNode(record, this._linkifier, loadedFromFile);
             if (detailsNode) {
                 this._dataElement.appendChild(document.createTextNode("("));
                 this._dataElement.appendChild(detailsNode);

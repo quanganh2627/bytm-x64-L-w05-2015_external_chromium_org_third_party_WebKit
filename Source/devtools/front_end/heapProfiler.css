@@ -64,43 +64,7 @@
     color: inherit;
 }
 
-.heap-snapshot-view .data-grid td.count-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.addedCount-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.removedCount-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.countDelta-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.addedSize-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.removedSize-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.sizeDelta-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.shallowSize-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.retainedSize-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid td.distanceToWindow-column {
+.heap-snapshot-view .data-grid td.numeric-column {
     text-align: right;
 }
 
@@ -150,7 +114,7 @@
     overflow: hidden;
 }
 
-.heap-snapshot-view .retainers-view-header {
+.heap-snapshot-view .heap-snapshot-view-resizer {
     background-image: url(Images/statusbarResizerVertical.png);
     background-color: rgb(236, 236, 236);
     border-bottom: 1px solid rgb(179, 179, 179);
@@ -159,7 +123,7 @@
     flex: 0 0 21px;
 }
 
-.heap-snapshot-view .retainers-view-header .title > span {
+.heap-snapshot-view .heap-snapshot-view-resizer .title > span {
     display: inline-block;
     padding-top: 3px;
     vertical-align: middle;
@@ -167,7 +131,7 @@
     margin-right: 8px;
 }
 
-.heap-snapshot-view .retainers-view-header * {
+.heap-snapshot-view .heap-snapshot-view-resizer * {
     pointer-events: none;
 }
 

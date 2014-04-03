@@ -109,7 +109,7 @@ BisonCSSParser::BisonCSSParser(const CSSParserContext& context)
     : m_context(context)
     , m_important(false)
     , m_id(CSSPropertyInvalid)
-    , m_styleSheet(0)
+    , m_styleSheet(nullptr)
     , m_supportsCondition(false)
     , m_selectorListForParseSelector(0)
     , m_numParsedPropertiesBeforeMarginBox(INVALID_NUM_PARSED_PROPERTIES)
@@ -129,7 +129,6 @@ BisonCSSParser::BisonCSSParser(const CSSParserContext& context)
 #if YYDEBUG > 0
     cssyydebug = 1;
 #endif
-    CSSPropertySourceData::init();
 }
 
 BisonCSSParser::~BisonCSSParser()
@@ -287,7 +286,6 @@ static inline bool isSimpleLengthPropertyID(CSSPropertyID propertyId, bool& acce
         acceptsNegativeNumbers = false;
         return true;
     case CSSPropertyShapeMargin:
-    case CSSPropertyShapePadding:
         acceptsNegativeNumbers = false;
         return RuntimeEnabledFeatures::cssShapesEnabled();
     case CSSPropertyBottom:
@@ -331,7 +329,7 @@ static inline bool parseSimpleLength(const CharacterType* characters, unsigned l
 static bool parseSimpleLengthValue(MutableStylePropertySet* declaration, CSSPropertyID propertyId, const String& string, bool important, CSSParserMode cssParserMode)
 {
     ASSERT(!string.isEmpty());
-    bool acceptsNegativeNumbers;
+    bool acceptsNegativeNumbers = false;
 
     // In @viewport, width and height are shorthands, not simple length values.
     if (isCSSViewportParsingEnabledForMode(cssParserMode) || !isSimpleLengthPropertyID(propertyId, acceptsNegativeNumbers))
@@ -971,7 +969,7 @@ static PassRefPtrWillBeRawPtr<CSSValueList> parseTranslateTransformList(CharType
 
 static bool parseTranslateTransform(MutableStylePropertySet* properties, CSSPropertyID propertyID, const String& string, bool important)
 {
-    if (propertyID != CSSPropertyWebkitTransform)
+    if (propertyID != CSSPropertyTransform && propertyID != CSSPropertyWebkitTransform)
         return false;
     if (string.isEmpty())
         return false;
@@ -989,7 +987,7 @@ static bool parseTranslateTransform(MutableStylePropertySet* properties, CSSProp
         if (!transformList)
             return false;
     }
-    properties->addParsedProperty(CSSProperty(CSSPropertyWebkitTransform, transformList.release(), important));
+    properties->addParsedProperty(CSSProperty(propertyID, transformList.release(), important));
     return true;
 }
 
@@ -1212,6 +1210,19 @@ bool BisonCSSParser::parseDeclaration(MutableStylePropertySet* declaration, cons
     return ok;
 }
 
+PassRefPtrWillBeRawPtr<MediaQuerySet> BisonCSSParser::parseMediaQueryList(const String& string)
+{
+    ASSERT(!m_mediaList);
+
+    // can't use { because tokenizer state switches from mediaquery to initial state when it sees { token.
+    // instead insert one " " (which is caught by maybe_space in CSSGrammar.y)
+    setupParser("@-internal-medialist ", string, "");
+    cssyyparse(this);
+
+    ASSERT(m_mediaList);
+    return m_mediaList.release();
+}
+
 static inline void filterProperties(bool important, const WillBeHeapVector<CSSProperty, 256>& input, WillBeHeapVector<CSSProperty, 256>& output, size_t& unusedEntries, BitArray<numCSSProperties>& seenProperties)
 {
     // Add properties in reverse order so that highest priority definitions are reached first. Duplicate definitions can then be ignored when found.
@@ -1405,14 +1416,14 @@ private:
     CSSPropertyParser::Units m_unit;
 };
 
-PassRefPtrWillBeRawPtr<CSSValueList> CSSPropertyParser::parseTransform()
+PassRefPtrWillBeRawPtr<CSSValueList> CSSPropertyParser::parseTransform(CSSPropertyID propId)
 {
     if (!m_valueList)
         return nullptr;
 
     RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
-        RefPtrWillBeRawPtr<CSSValue> parsedTransformValue = parseTransformValue(value);
+        RefPtrWillBeRawPtr<CSSValue> parsedTransformValue = parseTransformValue(propId, value);
         if (!parsedTransformValue)
             return nullptr;
 
@@ -1422,7 +1433,7 @@ PassRefPtrWillBeRawPtr<CSSValueList> CSSPropertyParser::parseTransform()
     return list.release();
 }
 
-PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseTransformValue(CSSParserValue *value)
+PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseTransformValue(CSSPropertyID propId, CSSParserValue *value)
 {
     if (value->unit != CSSParserValue::Function || !value->function)
         return nullptr;
@@ -1466,7 +1477,8 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseTransformValue(CSSParse
                 return nullptr;
         } else if (info.type() == CSSTransformValue::PerspectiveTransformOperation && !argNumber) {
             // 1st param of perspective() must be a non-negative number (deprecated) or length.
-            if (!validUnit(a, FNumber | FLength | FNonNeg, HTMLStandardMode))
+            if ((propId == CSSPropertyWebkitTransform && !validUnit(a, FNumber | FLength | FNonNeg, HTMLStandardMode))
+                || (propId == CSSPropertyTransform && !validUnit(a, FLength | FNonNeg, HTMLStandardMode)))
                 return nullptr;
         } else if (!validUnit(a, unit, HTMLStandardMode)) {
             return nullptr;
@@ -1682,7 +1694,7 @@ StyleRuleBase* BisonCSSParser::createSupportsRule(bool conditionIsSupported, Rul
 {
     m_allowImportRules = m_allowNamespaceDeclarations = false;
 
-    RefPtr<CSSRuleSourceData> data = popSupportsRuleData();
+    RefPtrWillBeRawPtr<CSSRuleSourceData> data = popSupportsRuleData();
     RefPtrWillBeRawPtr<StyleRuleSupports> rule = nullptr;
     String conditionText;
     unsigned conditionOffset = data->ruleHeaderRange.start + 9;
@@ -1709,9 +1721,9 @@ StyleRuleBase* BisonCSSParser::createSupportsRule(bool conditionIsSupported, Rul
 void BisonCSSParser::markSupportsRuleHeaderStart()
 {
     if (!m_supportsRuleDataStack)
-        m_supportsRuleDataStack = adoptPtr(new RuleSourceDataList());
+        m_supportsRuleDataStack = adoptPtrWillBeNoop(new RuleSourceDataList());
 
-    RefPtr<CSSRuleSourceData> data = CSSRuleSourceData::create(CSSRuleSourceData::SUPPORTS_RULE);
+    RefPtrWillBeRawPtr<CSSRuleSourceData> data = CSSRuleSourceData::create(CSSRuleSourceData::SUPPORTS_RULE);
     data->ruleHeaderRange.start = m_tokenizer.tokenStartOffset();
     m_supportsRuleDataStack->append(data);
 }
@@ -1726,10 +1738,10 @@ void BisonCSSParser::markSupportsRuleHeaderEnd()
         m_supportsRuleDataStack->last()->ruleHeaderRange.end = m_tokenizer.tokenStart<UChar>() - m_tokenizer.m_dataStart16.get();
 }
 
-PassRefPtr<CSSRuleSourceData> BisonCSSParser::popSupportsRuleData()
+PassRefPtrWillBeRawPtr<CSSRuleSourceData> BisonCSSParser::popSupportsRuleData()
 {
     ASSERT(m_supportsRuleDataStack && !m_supportsRuleDataStack->isEmpty());
-    RefPtr<CSSRuleSourceData> data = m_supportsRuleDataStack->last();
+    RefPtrWillBeRawPtr<CSSRuleSourceData> data = m_supportsRuleDataStack->last();
     m_supportsRuleDataStack->removeLast();
     return data.release();
 }

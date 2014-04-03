@@ -113,6 +113,7 @@
 #include "core/page/PointerLockController.h"
 #include "core/page/ScopedPageLoadDeferrer.h"
 #include "core/page/TouchDisambiguation.h"
+#include "core/rendering/FastTextAutosizer.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/RenderWidget.h"
 #include "core/rendering/TextAutosizer.h"
@@ -358,14 +359,10 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_layerTreeViewCommitsDeferred(false)
     , m_compositorCreationFailed(false)
     , m_recreatingGraphicsContext(false)
-#if ENABLE(INPUT_SPEECH)
-    , m_speechInputClient(SpeechInputClientImpl::create(client))
-#endif
     , m_speechRecognitionClient(SpeechRecognitionClientProxy::create(client ? client->speechRecognizer() : 0))
     , m_geolocationClientProxy(adoptPtr(new GeolocationClientProxy(client ? client->geolocationClient() : 0)))
     , m_userMediaClientImpl(this)
     , m_midiClientProxy(adoptPtr(new MIDIClientProxy(client ? client->webMIDIClient() : 0)))
-    , m_navigatorContentUtilsClient(NavigatorContentUtilsClientImpl::create(this))
     , m_flingModifier(0)
     , m_flingSourceDevice(false)
     , m_fullscreenController(FullscreenController::create(this))
@@ -393,11 +390,11 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     MediaKeysController::provideMediaKeysTo(*m_page, &m_mediaKeysClientImpl);
     provideMIDITo(*m_page, m_midiClientProxy.get());
 #if ENABLE(INPUT_SPEECH)
-    provideSpeechInputTo(*m_page, m_speechInputClient.get());
+    provideSpeechInputTo(*m_page, SpeechInputClientImpl::create(client));
 #endif
     provideSpeechRecognitionTo(*m_page, m_speechRecognitionClient.get());
     provideNotification(*m_page, notificationPresenterImpl());
-    provideNavigatorContentUtilsTo(*m_page, m_navigatorContentUtilsClient.get());
+    provideNavigatorContentUtilsTo(*m_page, NavigatorContentUtilsClientImpl::create(this));
 
     provideContextFeaturesTo(*m_page, m_featureSwitchClient.get());
     if (RuntimeEnabledFeatures::deviceOrientationEnabled())
@@ -1566,17 +1563,22 @@ void WebViewImpl::resize(const WebSize& newSize)
                                  FloatSize(viewportAnchorXCoord, viewportAnchorYCoord));
     }
 
-    updatePageDefinedViewportConstraints(mainFrameImpl()->frame()->document()->viewportDescription());
-    updateMainFrameLayoutSize();
+    {
+        // Avoids unnecessary invalidations while various bits of state in FastTextAutosizer are updated.
+        FastTextAutosizer::DeferUpdatePageInfo deferUpdatePageInfo(page());
 
-    WebDevToolsAgentPrivate* agentPrivate = devToolsAgentPrivate();
-    if (agentPrivate)
-        agentPrivate->webViewResized(newSize);
-    WebFrameImpl* webFrame = mainFrameImpl();
-    if (webFrame->frameView()) {
-        webFrame->frameView()->resize(m_size);
-        if (page()->settings().pinchVirtualViewportEnabled())
-            page()->frameHost().pinchViewport().setSize(m_size);
+        updatePageDefinedViewportConstraints(mainFrameImpl()->frame()->document()->viewportDescription());
+        updateMainFrameLayoutSize();
+
+        WebDevToolsAgentPrivate* agentPrivate = devToolsAgentPrivate();
+        if (agentPrivate)
+            agentPrivate->webViewResized(newSize);
+        WebFrameImpl* webFrame = mainFrameImpl();
+        if (webFrame->frameView()) {
+            webFrame->frameView()->resize(m_size);
+            if (page()->settings().pinchVirtualViewportEnabled())
+                page()->frameHost().pinchViewport().setSize(m_size);
+        }
     }
 
     if (settings()->viewportEnabled() && !m_fixedLayoutSizeLock) {
@@ -2401,21 +2403,6 @@ void WebViewImpl::setPageEncoding(const WebString& encodingName)
     m_page->mainFrame()->loader().reload(NormalReload, KURL(), newEncodingName);
 }
 
-bool WebViewImpl::dispatchBeforeUnloadEvent()
-{
-    WebFrame* frame = mainFrame();
-    if (!frame)
-        return true;
-
-    return frame->dispatchBeforeUnloadEvent();
-}
-
-void WebViewImpl::dispatchUnloadEvent()
-{
-    // Run unload handlers.
-    m_page->mainFrame()->loader().closeURL();
-}
-
 WebFrame* WebViewImpl::mainFrame()
 {
     return mainFrameImpl();
@@ -2810,10 +2797,14 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
     if (!settings()->viewportEnabled() || !page() || (!m_size.width && !m_size.height))
         return;
 
+    Document* document = page()->mainFrame()->document();
+
+    Length defaultMinWidth = document->viewportDefaultMinWidth();
+    if (defaultMinWidth.isAuto())
+        defaultMinWidth = Length(ExtendToZoom);
+
     ViewportDescription adjustedDescription = description;
     if (settingsImpl()->viewportMetaLayoutSizeQuirk() && adjustedDescription.type == ViewportDescription::ViewportMeta) {
-        if (adjustedDescription.maxWidth.type() == ExtendToZoom)
-            adjustedDescription.maxWidth = Length(); // auto
         const int legacyWidthSnappingMagicNumber = 320;
         if (adjustedDescription.maxWidth.isFixed() && adjustedDescription.maxWidth.value() <= legacyWidthSnappingMagicNumber)
             adjustedDescription.maxWidth = Length(DeviceWidth);
@@ -2822,17 +2813,19 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
         adjustedDescription.minWidth = adjustedDescription.maxWidth;
         adjustedDescription.minHeight = adjustedDescription.maxHeight;
     }
+
     float oldInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
-    m_pageScaleConstraintsSet.updatePageDefinedConstraints(adjustedDescription, m_size);
+    m_pageScaleConstraintsSet.updatePageDefinedConstraints(adjustedDescription, m_size, defaultMinWidth);
 
     if (settingsImpl()->clobberUserAgentInitialScaleQuirk()
         && m_pageScaleConstraintsSet.userAgentConstraints().initialScale != -1
         && m_pageScaleConstraintsSet.userAgentConstraints().initialScale * deviceScaleFactor() <= 1) {
         if (description.maxWidth == Length(DeviceWidth)
-            || (description.maxWidth.type() == ExtendToZoom && m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale == 1.0f))
+            || (description.maxWidth.type() == Auto && m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale == 1.0f))
             setInitialPageScaleOverride(-1);
     }
-    m_pageScaleConstraintsSet.adjustForAndroidWebViewQuirks(adjustedDescription, m_size, page()->settings().layoutFallbackWidth(), deviceScaleFactor(), settingsImpl()->supportDeprecatedTargetDensityDPI(), page()->settings().wideViewportQuirkEnabled(), page()->settings().useWideViewport(), page()->settings().loadWithOverviewMode(), settingsImpl()->viewportMetaNonUserScalableQuirk());
+
+    m_pageScaleConstraintsSet.adjustForAndroidWebViewQuirks(adjustedDescription, m_size, defaultMinWidth.intValue(), deviceScaleFactor(), settingsImpl()->supportDeprecatedTargetDensityDPI(), page()->settings().wideViewportQuirkEnabled(), page()->settings().useWideViewport(), page()->settings().loadWithOverviewMode(), settingsImpl()->viewportMetaNonUserScalableQuirk());
     float newInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
     if (oldInitialScale != newInitialScale && newInitialScale != -1) {
         m_pageScaleConstraintsSet.setNeedsReset(true);
@@ -2841,6 +2834,11 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
     }
 
     updateMainFrameLayoutSize();
+
+    if (LocalFrame* frame = page()->mainFrame()) {
+        if (FastTextAutosizer* textAutosizer = frame->document()->fastTextAutosizer())
+            textAutosizer->updatePageInfoInAllFrames();
+    }
 }
 
 void WebViewImpl::updateMainFrameLayoutSize()
@@ -2859,8 +2857,7 @@ void WebViewImpl::updateMainFrameLayoutSize()
 
         bool textAutosizingEnabled = page()->settings().textAutosizingEnabled();
         if (textAutosizingEnabled && layoutSize.width != view->layoutSize().width()) {
-            TextAutosizer* textAutosizer = page()->mainFrame()->document()->textAutosizer();
-            if (textAutosizer)
+            if (TextAutosizer* textAutosizer = page()->mainFrame()->document()->textAutosizer())
                 textAutosizer->recalculateMultipliers();
         }
     }
@@ -3739,7 +3736,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         if (m_pageOverlays)
             m_pageOverlays->update();
 
-        m_client->didActivateCompositor(0);
+        m_client->didActivateCompositor();
     } else {
         TRACE_EVENT0("webkit", "WebViewImpl::setIsAcceleratedCompositingActive(true)");
 
@@ -3760,7 +3757,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
                 m_layerTreeView->setOverhangBitmap(overhangImage->nativeImageForCurrentFrame()->bitmap());
 #endif
             updateLayerTreeViewport();
-            m_client->didActivateCompositor(0);
+            m_client->didActivateCompositor();
             m_isAcceleratedCompositingActive = true;
             m_compositorCreationFailed = false;
             if (m_pageOverlays)

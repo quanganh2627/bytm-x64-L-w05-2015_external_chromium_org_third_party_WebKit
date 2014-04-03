@@ -95,7 +95,7 @@ static String initiatorFor(const StringImpl* tagImpl)
 
 static bool mediaAttributeMatches(const MediaValues& mediaValues, const String& attributeValue)
 {
-    RefPtrWillBeRawPtr<MediaQuerySet> mediaQueries = MediaQuerySet::create(attributeValue);
+    RefPtrWillBeRawPtr<MediaQuerySet> mediaQueries = MediaQuerySet::createOffMainThread(attributeValue);
     MediaQueryEvaluator mediaQueryEvaluator("screen", mediaValues);
     return mediaQueryEvaluator.eval(mediaQueries.get());
 }
@@ -403,6 +403,8 @@ void HTMLPreloadScanner::appendToEnd(const SegmentedString& source)
 void HTMLPreloadScanner::scan(HTMLResourcePreloader* preloader, const KURL& startingBaseElementURL)
 {
     ASSERT(isMainThread()); // HTMLTokenizer::updateStateFor only works on the main thread.
+
+    TRACE_EVENT1("webkit", "HTMLPreloadScanner::scan", "source_length", m_source.length());
 
     // When we start scanning, our best prediction of the baseElementURL is the real one!
     if (!startingBaseElementURL.isEmpty())

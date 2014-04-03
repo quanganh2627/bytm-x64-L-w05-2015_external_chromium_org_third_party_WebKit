@@ -50,6 +50,7 @@
 #include "core/page/PageVisibilityState.h"
 #include "core/rendering/HitTestRequest.h"
 #include "heap/Handle.h"
+#include "platform/Length.h"
 #include "platform/Timer.h"
 #include "platform/weborigin/KURL.h"
 #include "platform/weborigin/ReferrerPolicy.h"
@@ -282,6 +283,8 @@ public:
     bool shouldOverrideLegacyDescription(ViewportDescription::Type);
     void setViewportDescription(const ViewportDescription&);
     const ViewportDescription& viewportDescription() const { return m_viewportDescription; }
+    Length viewportDefaultMinWidth() const { return m_viewportDefaultMinWidth; }
+
 #ifndef NDEBUG
     bool didDispatchViewportPropertiesChanged() const { return m_didDispatchViewportPropertiesChanged; }
 #endif
@@ -353,6 +356,8 @@ public:
     void setContent(const String&);
 
     String suggestedMIMEType() const;
+    void setMimeType(const AtomicString&);
+    AtomicString contentType() const; // DOM 4 document.contentType
 
     const AtomicString& contentLanguage() const { return m_contentLanguage; }
     void setContentLanguage(const AtomicString&);
@@ -648,6 +653,7 @@ public:
 
     void scheduleRenderTreeUpdate();
     bool hasPendingForcedStyleRecalc() const;
+    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::StyleRecalcPending; }
 
     void registerNodeList(LiveNodeListBase*);
     void unregisterNodeList(LiveNodeListBase*);
@@ -1117,8 +1123,6 @@ private:
     void updateFocusAppearanceTimerFired(Timer<Document>*);
     void updateBaseURL();
 
-    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::StyleRecalcPending; }
-
     void executeScriptsWaitingForResourcesIfNeeded();
 
     PassRefPtr<NodeList> handleZeroPadding(const HitTestRequest&, HitTestResult&) const;
@@ -1184,6 +1188,9 @@ private:
     KURL m_cookieURL; // The URL to use for cookie access.
 
     AtomicString m_baseTarget;
+
+    // Mime-type of the document in case it was cloned or created by XHR.
+    AtomicString m_mimeType;
 
     RefPtr<DocumentType> m_docType;
     OwnPtr<DOMImplementation> m_implementation;
@@ -1309,6 +1316,7 @@ private:
 
     ViewportDescription m_viewportDescription;
     ViewportDescription m_legacyViewportDescription;
+    Length m_viewportDefaultMinWidth;
 
     bool m_didSetReferrerPolicy;
     ReferrerPolicy m_referrerPolicy;

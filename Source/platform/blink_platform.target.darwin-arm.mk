@@ -307,9 +307,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/graphics/GraphicsTypes.cpp \
 	third_party/WebKit/Source/platform/graphics/Image.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageBuffer.cpp \
+	third_party/WebKit/Source/platform/graphics/ImageBufferSurface.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageDecodingStore.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageFrameGenerator.cpp \
-	third_party/WebKit/Source/platform/graphics/ImageBufferSurface.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageObserver.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageOrientation.cpp \
 	third_party/WebKit/Source/platform/graphics/ImageSource.cpp \
@@ -461,6 +461,7 @@ MY_DEFS_Debug := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
@@ -607,6 +608,7 @@ MY_DEFS_Release := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \

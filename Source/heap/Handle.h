@@ -806,6 +806,18 @@ template <typename T> struct VectorTraits<WebCore::WeakMember<T> > : VectorTrait
     static const bool canMoveWithMemcpy = true;
 };
 
+template <typename T> struct VectorTraits<WebCore::HeapVector<T, 0> > : VectorTraitsBase<WebCore::HeapVector<T, 0> > {
+    static const bool needsDestruction = false;
+    static const bool canInitializeWithMemset = true;
+    static const bool canMoveWithMemcpy = true;
+};
+
+template <typename T, size_t inlineCapacity> struct VectorTraits<WebCore::HeapVector<T, inlineCapacity> > : VectorTraitsBase<WebCore::HeapVector<T, inlineCapacity> > {
+    static const bool needsDestruction = VectorTraits<T>::needsDestruction;
+    static const bool canInitializeWithMemset = VectorTraits<T>::canInitializeWithMemset;
+    static const bool canMoveWithMemcpy = VectorTraits<T>::canMoveWithMemcpy;
+};
+
 template<typename T> struct HashTraits<WebCore::Member<T> > : SimpleClassHashTraits<WebCore::Member<T> > {
     static const bool needsDestruction = false;
     // FIXME: The distinction between PeekInType and PassInType is there for
@@ -891,9 +903,9 @@ struct IsWeak<WebCore::WeakMember<T> > {
     static const bool value = true;
 };
 
-template<typename Key, typename Value, typename Extractor, typename Traits, typename KeyTraits>
-struct IsWeak<WebCore::HeapHashTableBacking<Key, Value, Extractor, Traits, KeyTraits> > {
-    static const bool value = Traits::isWeak;
+template<typename Table>
+struct IsWeak<WebCore::HeapHashTableBacking<Table> > {
+    static const bool value = Table::ValueTraits::isWeak;
 };
 
 template<typename T> inline T* getPtr(const WebCore::Member<T>& p)
@@ -908,8 +920,8 @@ struct NeedsTracing<std::pair<T, U> > {
 
 // We define specialization of the NeedsTracing trait for off heap collections
 // since we don't support tracing them.
-template<typename T>
-struct NeedsTracing<Vector<T> > {
+template<typename T, size_t N>
+struct NeedsTracing<Vector<T, N> > {
     static const bool value = false;
 };
 

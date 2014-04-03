@@ -1108,11 +1108,12 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
         else
             validPrimitive = validUnit(value, FTime | FInteger | FNonNeg);
         break;
+    case CSSPropertyTransform:
     case CSSPropertyWebkitTransform:
         if (id == CSSValueNone)
             validPrimitive = true;
         else {
-            RefPtrWillBeRawPtr<CSSValue> transformValue = parseTransform();
+            RefPtrWillBeRawPtr<CSSValue> transformValue = parseTransform(propId);
             if (transformValue) {
                 addProperty(propId, transformValue.release(), important);
                 return true;
@@ -1120,6 +1121,18 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
             return false;
         }
         break;
+    case CSSPropertyTransformOrigin: {
+        RefPtrWillBeRawPtr<CSSValueList> list = parseTransformOrigin();
+        if (!list)
+            return false;
+        // These values are added to match gecko serialization.
+        if (list->length() == 1)
+            list->append(cssValuePool().createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE));
+        if (list->length() == 2)
+            list->append(cssValuePool().createValue(0, CSSPrimitiveValue::CSS_PX));
+        addProperty(propId, list.release(), important);
+        return true;
+    }
     case CSSPropertyWebkitTransformOrigin:
     case CSSPropertyWebkitTransformOriginX:
     case CSSPropertyWebkitTransformOriginY:
@@ -1128,7 +1141,7 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
         RefPtrWillBeRawPtr<CSSValue> val2 = nullptr;
         RefPtrWillBeRawPtr<CSSValue> val3 = nullptr;
         CSSPropertyID propId1, propId2, propId3;
-        if (parseTransformOrigin(propId, propId1, propId2, propId3, val1, val2, val3)) {
+        if (parseWebkitTransformOrigin(propId, propId1, propId2, propId3, val1, val2, val3)) {
             addProperty(propId1, val1.release(), important);
             if (val2)
                 addProperty(propId2, val2.release(), important);
@@ -1138,28 +1151,40 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
         }
         return false;
     }
-    case CSSPropertyWebkitPerspective:
-        if (id == CSSValueNone)
+    case CSSPropertyPerspective:
+        if (id == CSSValueNone) {
             validPrimitive = true;
-        else {
-            // Accepting valueless numbers is a quirk of the -webkit prefixed version of the property.
-            if (validUnit(value, FNumber | FLength | FNonNeg)) {
-                RefPtrWillBeRawPtr<CSSValue> val = createPrimitiveNumericValue(value);
-                if (val) {
-                    addProperty(propId, val.release(), important);
-                    return true;
-                }
-                return false;
-            }
+        } else if (validUnit(value, FLength | FNonNeg)) {
+            addProperty(propId, createPrimitiveNumericValue(value), important);
+            return true;
         }
         break;
+    case CSSPropertyWebkitPerspective:
+        if (id == CSSValueNone) {
+            validPrimitive = true;
+        } else if (validUnit(value, FNumber | FLength | FNonNeg)) {
+            // Accepting valueless numbers is a quirk of the -webkit prefixed version of the property.
+            addProperty(propId, createPrimitiveNumericValue(value), important);
+            return true;
+        }
+        break;
+    case CSSPropertyPerspectiveOrigin: {
+        RefPtrWillBeRawPtr<CSSValueList> list = parseTransformOrigin();
+        if (!list || list->length() == 3)
+            return false;
+        // This values are added to match gecko serialization.
+        if (list->length() == 1)
+            list->append(cssValuePool().createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE));
+        addProperty(propId, list.release(), important);
+        return true;
+    }
     case CSSPropertyWebkitPerspectiveOrigin:
     case CSSPropertyWebkitPerspectiveOriginX:
     case CSSPropertyWebkitPerspectiveOriginY: {
         RefPtrWillBeRawPtr<CSSValue> val1 = nullptr;
         RefPtrWillBeRawPtr<CSSValue> val2 = nullptr;
         CSSPropertyID propId1, propId2;
-        if (parsePerspectiveOrigin(propId, propId1, propId2, val1, val2)) {
+        if (parseWebkitPerspectiveOrigin(propId, propId1, propId2, val1, val2)) {
             addProperty(propId1, val1.release(), important);
             if (val2)
                 addProperty(propId2, val2.release(), important);
@@ -1218,7 +1243,8 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyGridTemplateRows:
         if (!RuntimeEnabledFeatures::cssGridLayoutEnabled())
             return false;
-        return parseGridTrackList(propId, important);
+        parsedValue = parseGridTrackList(important);
+        break;
 
     case CSSPropertyGridColumnEnd:
     case CSSPropertyGridColumnStart:
@@ -1245,6 +1271,11 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
             return false;
         parsedValue = parseGridTemplateAreas();
         break;
+
+    case CSSPropertyGridTemplate:
+        if (!RuntimeEnabledFeatures::cssGridLayoutEnabled())
+            return false;
+        return parseGridTemplateShorthand(important);
 
     case CSSPropertyWebkitMarginCollapse: {
         if (num == 1) {
@@ -1483,7 +1514,6 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
         parsedValue = parseShapeProperty(propId);
         break;
     case CSSPropertyShapeMargin:
-    case CSSPropertyShapePadding:
         validPrimitive = (RuntimeEnabledFeatures::cssShapesEnabled() && !id && validUnit(value, FLength | FNonNeg));
         break;
     case CSSPropertyShapeImageThreshold:
@@ -1609,12 +1639,6 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyUserZoom:
         validPrimitive = false;
         break;
-    // FIXME: crbug.com/154772 Unimplemented css-transforms properties
-    case CSSPropertyPerspective:
-    case CSSPropertyPerspectiveOrigin:
-    case CSSPropertyTransform:
-    case CSSPropertyTransformOrigin:
-        return false;
     default:
         return parseSVGValue(propId, important);
     }
@@ -3103,7 +3127,7 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseAnimationProperty(Anima
     return nullptr;
 }
 
-bool CSSPropertyParser::parseTransformOriginShorthand(RefPtrWillBeRawPtr<CSSValue>& value1, RefPtrWillBeRawPtr<CSSValue>& value2, RefPtrWillBeRawPtr<CSSValue>& value3)
+bool CSSPropertyParser::parseWebkitTransformOriginShorthand(RefPtrWillBeRawPtr<CSSValue>& value1, RefPtrWillBeRawPtr<CSSValue>& value2, RefPtrWillBeRawPtr<CSSValue>& value3)
 {
     parse2ValuesFillPosition(m_valueList.get(), value1, value2);
 
@@ -3458,6 +3482,122 @@ bool CSSPropertyParser::parseGridItemPositionShorthand(CSSPropertyID shorthandId
     return true;
 }
 
+bool CSSPropertyParser::parseGridTemplateRowsAndAreas(PassRefPtrWillBeRawPtr<CSSValue> templateColumns, bool important)
+{
+    NamedGridAreaMap gridAreaMap;
+    size_t rowCount = 0;
+    size_t columnCount = 0;
+    bool trailingIdentWasAdded = false;
+    RefPtrWillBeRawPtr<CSSValueList> templateRows = CSSValueList::createSpaceSeparated();
+
+    // At least template-areas strings must be defined.
+    if (!m_valueList->current())
+        return false;
+
+    while (m_valueList->current()) {
+        // Handle leading <custom-ident>*.
+        if (m_valueList->current()->unit == CSSParserValue::ValueList) {
+            if (trailingIdentWasAdded) {
+                // A row's trailing ident must be concatenated with the next row's leading one.
+                parseGridLineNames(*m_valueList, *templateRows, static_cast<CSSGridLineNamesValue*>(templateRows->item(templateRows->length() - 1)));
+            } else {
+                parseGridLineNames(*m_valueList, *templateRows);
+            }
+        }
+
+        // Handle a template-area's row.
+        if (!parseGridTemplateAreasRow(gridAreaMap, rowCount, columnCount))
+            return false;
+        ++rowCount;
+
+        // Handle template-rows's track-size.
+        if (m_valueList->current() && m_valueList->current()->unit != CSSParserValue::ValueList && m_valueList->current()->unit != CSSPrimitiveValue::CSS_STRING) {
+            RefPtrWillBeRawPtr<CSSValue> value = parseGridTrackSize(*m_valueList);
+            if (!value)
+                return false;
+            templateRows->append(value);
+        } else {
+            templateRows->append(cssValuePool().createIdentifierValue(CSSValueAuto));
+        }
+
+        // This will handle the trailing/leading <custom-ident>* in the grammar.
+        trailingIdentWasAdded = false;
+        if (m_valueList->current() && m_valueList->current()->unit == CSSParserValue::ValueList) {
+            parseGridLineNames(*m_valueList, *templateRows);
+            trailingIdentWasAdded = true;
+        }
+    }
+
+    // [<track-list> /]?
+    if (templateColumns)
+        addProperty(CSSPropertyGridTemplateColumns, templateColumns, important);
+    else
+        addProperty(CSSPropertyGridTemplateColumns,  cssValuePool().createIdentifierValue(CSSValueNone), important);
+
+    // [<line-names>? <string> [<track-size> <line-names>]? ]+
+    RefPtrWillBeRawPtr<CSSValue> templateAreas = CSSGridTemplateAreasValue::create(gridAreaMap, rowCount, columnCount);
+    addProperty(CSSPropertyGridTemplateAreas, templateAreas.release(), important);
+    addProperty(CSSPropertyGridTemplateRows, templateRows.release(), important);
+
+
+    return true;
+}
+
+
+bool CSSPropertyParser::parseGridTemplateShorthand(bool important)
+{
+    ASSERT(RuntimeEnabledFeatures::cssGridLayoutEnabled());
+
+    ShorthandScope scope(this, CSSPropertyGridTemplate);
+    ASSERT(gridTemplateShorthand().length() == 3);
+
+    // At least "none" must be defined.
+    if (!m_valueList->current())
+        return false;
+
+    bool firstValueIsNone = m_valueList->current()->id == CSSValueNone;
+
+    // 1- 'none' case.
+    if (firstValueIsNone && !m_valueList->next()) {
+        addProperty(CSSPropertyGridTemplateColumns, cssValuePool().createIdentifierValue(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateRows, cssValuePool().createIdentifierValue(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateAreas, cssValuePool().createIdentifierValue(CSSValueNone), important);
+        return true;
+    }
+
+    unsigned index = 0;
+    RefPtrWillBeRawPtr<CSSValue> columnsValue = nullptr;
+    if (firstValueIsNone) {
+        columnsValue = cssValuePool().createIdentifierValue(CSSValueNone);
+    } else {
+        columnsValue = parseGridTrackList(important);
+    }
+
+    // 2- <grid-template-columns> / <grid-template-columns> syntax.
+    if (columnsValue) {
+        if (!(m_valueList->current() && isForwardSlashOperator(m_valueList->current()) && m_valueList->next()))
+            return false;
+        index = m_valueList->currentIndex();
+        if (RefPtrWillBeRawPtr<CSSValue> rowsValue = parseGridTrackList(important)) {
+            if (m_valueList->current())
+                return false;
+            addProperty(CSSPropertyGridTemplateColumns, columnsValue, important);
+            addProperty(CSSPropertyGridTemplateRows, rowsValue, important);
+            addProperty(CSSPropertyGridTemplateAreas, cssValuePool().createIdentifierValue(CSSValueNone), important);
+            return true;
+        }
+    }
+
+
+    // 3- [<track-list> /]? [<line-names>? <string> [<track-size> <line-names>]? ]+ syntax.
+    // The template-columns <track-list> can't be 'none'.
+    if (firstValueIsNone)
+        return false;
+    // It requires to rewind parsing due to previous syntax failures.
+    m_valueList->setCurrentIndex(index);
+    return parseGridTemplateRowsAndAreas(columnsValue, important);
+}
+
 bool CSSPropertyParser::parseGridAreaShorthand(bool important)
 {
     ASSERT(RuntimeEnabledFeatures::cssGridLayoutEnabled());
@@ -3513,72 +3653,76 @@ bool CSSPropertyParser::parseSingleGridAreaLonghand(RefPtrWillBeRawPtr<CSSValue>
     return true;
 }
 
-void CSSPropertyParser::parseGridLineNames(CSSParserValueList* parserValueList, CSSValueList& valueList)
+void CSSPropertyParser::parseGridLineNames(CSSParserValueList& inputList, CSSValueList& valueList, CSSGridLineNamesValue* previousNamedAreaTrailingLineNames)
 {
-    ASSERT(parserValueList->current() && parserValueList->current()->unit == CSSParserValue::ValueList);
+    ASSERT(inputList.current() && inputList.current()->unit == CSSParserValue::ValueList);
 
-    CSSParserValueList* identList = parserValueList->current()->valueList;
+    CSSParserValueList* identList = inputList.current()->valueList;
     if (!identList->size()) {
-        parserValueList->next();
+        inputList.next();
         return;
     }
 
-    RefPtrWillBeRawPtr<CSSGridLineNamesValue> lineNames = CSSGridLineNamesValue::create();
+    // Need to ensure the identList is at the heading index, since the parserList might have been rewound.
+    identList->setCurrentIndex(0);
+
+    RefPtrWillBeRawPtr<CSSGridLineNamesValue> lineNames = previousNamedAreaTrailingLineNames;
+    if (!lineNames)
+        lineNames = CSSGridLineNamesValue::create();
     while (CSSParserValue* identValue = identList->current()) {
         ASSERT(identValue->unit == CSSPrimitiveValue::CSS_IDENT);
         RefPtrWillBeRawPtr<CSSPrimitiveValue> lineName = createPrimitiveStringValue(identValue);
         lineNames->append(lineName.release());
         identList->next();
     }
-    valueList.append(lineNames.release());
+    if (!previousNamedAreaTrailingLineNames)
+        valueList.append(lineNames.release());
 
-    parserValueList->next();
+    inputList.next();
 }
 
-bool CSSPropertyParser::parseGridTrackList(CSSPropertyID propId, bool important)
+PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseGridTrackList(bool important)
 {
     ASSERT(RuntimeEnabledFeatures::cssGridLayoutEnabled());
 
     CSSParserValue* value = m_valueList->current();
     if (value->id == CSSValueNone) {
-        if (m_valueList->next())
-            return false;
-
-        addProperty(propId, cssValuePool().createIdentifierValue(value->id), important);
-        return true;
+        m_valueList->next();
+        return cssValuePool().createIdentifierValue(CSSValueNone);
     }
 
     RefPtrWillBeRawPtr<CSSValueList> values = CSSValueList::createSpaceSeparated();
     // Handle leading  <ident>*.
     value = m_valueList->current();
     if (value && value->unit == CSSParserValue::ValueList)
-        parseGridLineNames(m_valueList.get(), *values);
+        parseGridLineNames(*m_valueList, *values);
 
     bool seenTrackSizeOrRepeatFunction = false;
     while (CSSParserValue* currentValue = m_valueList->current()) {
+        if (isForwardSlashOperator(currentValue))
+            break;
         if (currentValue->unit == CSSParserValue::Function && equalIgnoringCase(currentValue->function->name, "repeat(")) {
             if (!parseGridTrackRepeatFunction(*values))
-                return false;
+                return nullptr;
             seenTrackSizeOrRepeatFunction = true;
         } else {
             RefPtrWillBeRawPtr<CSSValue> value = parseGridTrackSize(*m_valueList);
             if (!value)
-                return false;
+                return nullptr;
             values->append(value);
             seenTrackSizeOrRepeatFunction = true;
         }
         // This will handle the trailing <ident>* in the grammar.
         value = m_valueList->current();
         if (value && value->unit == CSSParserValue::ValueList)
-            parseGridLineNames(m_valueList.get(), *values);
+            parseGridLineNames(*m_valueList, *values);
     }
 
     // We should have found a <track-size> or else it is not a valid <track-list>
     if (!seenTrackSizeOrRepeatFunction)
-        return false;
+        return nullptr;
 
-    addProperty(propId, values.release(), important);
-    return true;
+    return values;
 }
 
 bool CSSPropertyParser::parseGridTrackRepeatFunction(CSSValueList& list)
@@ -3596,7 +3740,7 @@ bool CSSPropertyParser::parseGridTrackRepeatFunction(CSSValueList& list)
     // Handle leading <ident>*.
     CSSParserValue* currentValue = arguments->current();
     if (currentValue && currentValue->unit == CSSParserValue::ValueList)
-        parseGridLineNames(arguments, *repeatedValues);
+        parseGridLineNames(*arguments, *repeatedValues);
 
     while (arguments->current()) {
         RefPtrWillBeRawPtr<CSSValue> trackSize = parseGridTrackSize(*arguments);
@@ -3608,7 +3752,7 @@ bool CSSPropertyParser::parseGridTrackRepeatFunction(CSSValueList& list)
         // This takes care of any trailing <ident>* in the grammar.
         currentValue = arguments->current();
         if (currentValue && currentValue->unit == CSSParserValue::ValueList)
-            parseGridLineNames(arguments, *repeatedValues);
+            parseGridLineNames(*arguments, *repeatedValues);
     }
 
     for (size_t i = 0; i < repetitions; ++i) {
@@ -3676,71 +3820,79 @@ PassRefPtrWillBeRawPtr<CSSPrimitiveValue> CSSPropertyParser::parseGridBreadth(CS
     return createPrimitiveNumericValue(currentValue);
 }
 
+bool CSSPropertyParser::parseGridTemplateAreasRow(NamedGridAreaMap& gridAreaMap, const size_t rowCount, size_t& columnCount)
+{
+    CSSParserValue* currentValue = m_valueList->current();
+    if (!currentValue || currentValue->unit != CSSPrimitiveValue::CSS_STRING)
+        return false;
+
+    String gridRowNames = currentValue->string;
+    if (!gridRowNames.length())
+        return false;
+
+    Vector<String> columnNames;
+    gridRowNames.split(' ', columnNames);
+
+    if (!columnCount) {
+        columnCount = columnNames.size();
+        ASSERT(columnCount);
+    } else if (columnCount != columnNames.size()) {
+        // The declaration is invalid is all the rows don't have the number of columns.
+        return false;
+    }
+
+    for (size_t currentCol = 0; currentCol < columnCount; ++currentCol) {
+        const String& gridAreaName = columnNames[currentCol];
+
+        // Unamed areas are always valid (we consider them to be 1x1).
+        if (gridAreaName == ".")
+            continue;
+
+        // We handle several grid areas with the same name at once to simplify the validation code.
+        size_t lookAheadCol;
+        for (lookAheadCol = currentCol; lookAheadCol < (columnCount - 1); ++lookAheadCol) {
+            if (columnNames[lookAheadCol + 1] != gridAreaName)
+                break;
+        }
+
+        NamedGridAreaMap::iterator gridAreaIt = gridAreaMap.find(gridAreaName);
+        if (gridAreaIt == gridAreaMap.end()) {
+            gridAreaMap.add(gridAreaName, GridCoordinate(GridSpan(rowCount, rowCount), GridSpan(currentCol, lookAheadCol)));
+        } else {
+            GridCoordinate& gridCoordinate = gridAreaIt->value;
+
+            // The following checks test that the grid area is a single filled-in rectangle.
+            // 1. The new row is adjacent to the previously parsed row.
+            if (rowCount != gridCoordinate.rows.finalPositionIndex + 1)
+                return false;
+
+            // 2. The new area starts at the same position as the previously parsed area.
+            if (currentCol != gridCoordinate.columns.initialPositionIndex)
+                return false;
+
+            // 3. The new area ends at the same position as the previously parsed area.
+            if (lookAheadCol != gridCoordinate.columns.finalPositionIndex)
+                return false;
+
+            ++gridCoordinate.rows.finalPositionIndex;
+        }
+        currentCol = lookAheadCol;
+    }
+
+    m_valueList->next();
+    return true;
+}
+
 PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseGridTemplateAreas()
 {
     NamedGridAreaMap gridAreaMap;
     size_t rowCount = 0;
     size_t columnCount = 0;
 
-    while (CSSParserValue* currentValue = m_valueList->current()) {
-        if (currentValue->unit != CSSPrimitiveValue::CSS_STRING)
+    while (m_valueList->current()) {
+        if (!parseGridTemplateAreasRow(gridAreaMap, rowCount, columnCount))
             return nullptr;
-
-        String gridRowNames = currentValue->string;
-        if (!gridRowNames.length())
-            return nullptr;
-
-        Vector<String> columnNames;
-        gridRowNames.split(' ', columnNames);
-
-        if (!columnCount) {
-            columnCount = columnNames.size();
-            ASSERT(columnCount);
-        } else if (columnCount != columnNames.size()) {
-            // The declaration is invalid is all the rows don't have the number of columns.
-            return nullptr;
-        }
-
-        for (size_t currentCol = 0; currentCol < columnCount; ++currentCol) {
-            const String& gridAreaName = columnNames[currentCol];
-
-            // Unamed areas are always valid (we consider them to be 1x1).
-            if (gridAreaName == ".")
-                continue;
-
-            // We handle several grid areas with the same name at once to simplify the validation code.
-            size_t lookAheadCol;
-            for (lookAheadCol = currentCol; lookAheadCol < (columnCount - 1); ++lookAheadCol) {
-                if (columnNames[lookAheadCol + 1] != gridAreaName)
-                    break;
-            }
-
-            NamedGridAreaMap::iterator gridAreaIt = gridAreaMap.find(gridAreaName);
-            if (gridAreaIt == gridAreaMap.end()) {
-                gridAreaMap.add(gridAreaName, GridCoordinate(GridSpan(rowCount, rowCount), GridSpan(currentCol, lookAheadCol)));
-            } else {
-                GridCoordinate& gridCoordinate = gridAreaIt->value;
-
-                // The following checks test that the grid area is a single filled-in rectangle.
-                // 1. The new row is adjacent to the previously parsed row.
-                if (rowCount != gridCoordinate.rows.finalPositionIndex + 1)
-                    return nullptr;
-
-                // 2. The new area starts at the same position as the previously parsed area.
-                if (currentCol != gridCoordinate.columns.initialPositionIndex)
-                    return nullptr;
-
-                // 3. The new area ends at the same position as the previously parsed area.
-                if (lookAheadCol != gridCoordinate.columns.finalPositionIndex)
-                    return nullptr;
-
-                ++gridCoordinate.rows.finalPositionIndex;
-            }
-            currentCol = lookAheadCol;
-        }
-
         ++rowCount;
-        m_valueList->next();
     }
 
     if (!rowCount || !columnCount)
@@ -7232,8 +7384,71 @@ PassRefPtrWillBeRawPtr<CSSValueList> CSSPropertyParser::parseFilter()
 
     return list.release();
 }
+PassRefPtrWillBeRawPtr<CSSValueList> CSSPropertyParser::parseTransformOrigin()
+{
+    CSSParserValue* value = m_valueList->current();
+    CSSValueID id = value->id;
+    RefPtrWillBeRawPtr<CSSValue> xValue = nullptr;
+    RefPtrWillBeRawPtr<CSSValue> yValue = nullptr;
+    RefPtrWillBeRawPtr<CSSValue> zValue = nullptr;
+    if (id == CSSValueLeft || id == CSSValueRight) {
+        xValue = cssValuePool().createIdentifierValue(id);
+    } else if (id == CSSValueTop || id == CSSValueBottom) {
+        yValue = cssValuePool().createIdentifierValue(id);
+    } else if (id == CSSValueCenter) {
+        // Unresolved as to whether this is X or Y.
+    } else if (validUnit(value, FPercent | FLength)) {
+        xValue = createPrimitiveNumericValue(value);
+    } else {
+        return nullptr;
+    }
 
-bool CSSPropertyParser::parseTransformOrigin(CSSPropertyID propId, CSSPropertyID& propId1, CSSPropertyID& propId2, CSSPropertyID& propId3, RefPtrWillBeRawPtr<CSSValue>& value, RefPtrWillBeRawPtr<CSSValue>& value2, RefPtrWillBeRawPtr<CSSValue>& value3)
+    if ((value = m_valueList->next())) {
+        id = value->id;
+        if (!xValue && (id == CSSValueLeft || id == CSSValueRight)) {
+            xValue = cssValuePool().createIdentifierValue(id);
+        } else if (!yValue && (id == CSSValueTop || id == CSSValueBottom)) {
+            yValue = cssValuePool().createIdentifierValue(id);
+        } else if (id == CSSValueCenter) {
+            // Resolved below.
+        } else if (!yValue && validUnit(value, FPercent | FLength)) {
+            yValue = createPrimitiveNumericValue(value);
+        } else {
+            return nullptr;
+        }
+
+        // If X or Y have not been resolved, they must be center.
+        if (!xValue)
+            xValue = cssValuePool().createIdentifierValue(CSSValueCenter);
+        if (!yValue)
+            yValue = cssValuePool().createIdentifierValue(CSSValueCenter);
+
+        if ((value = m_valueList->next())) {
+            if (!validUnit(value, FLength))
+                return nullptr;
+            zValue = createPrimitiveNumericValue(value);
+
+            if ((value = m_valueList->next()))
+                return nullptr;
+        }
+    } else if (!xValue) {
+        if (yValue) {
+            xValue = cssValuePool().createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE);
+        } else {
+            xValue = cssValuePool().createIdentifierValue(CSSValueCenter);
+        }
+    }
+
+    RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+    list->append(xValue.release());
+    if (yValue)
+        list->append(yValue.release());
+    if (zValue)
+        list->append(zValue.release());
+    return list.release();
+}
+
+bool CSSPropertyParser::parseWebkitTransformOrigin(CSSPropertyID propId, CSSPropertyID& propId1, CSSPropertyID& propId2, CSSPropertyID& propId3, RefPtrWillBeRawPtr<CSSValue>& value, RefPtrWillBeRawPtr<CSSValue>& value2, RefPtrWillBeRawPtr<CSSValue>& value3)
 {
     propId1 = propId;
     propId2 = propId;
@@ -7246,9 +7461,9 @@ bool CSSPropertyParser::parseTransformOrigin(CSSPropertyID propId, CSSPropertyID
 
     switch (propId) {
         case CSSPropertyWebkitTransformOrigin:
-            if (!parseTransformOriginShorthand(value, value2, value3))
+            if (!parseWebkitTransformOriginShorthand(value, value2, value3))
                 return false;
-            // parseTransformOriginShorthand advances the m_valueList pointer
+            // parseWebkitTransformOriginShorthand advances the m_valueList pointer
             break;
         case CSSPropertyWebkitTransformOriginX: {
             value = parseFillPositionX(m_valueList.get());
@@ -7277,7 +7492,7 @@ bool CSSPropertyParser::parseTransformOrigin(CSSPropertyID propId, CSSPropertyID
     return value;
 }
 
-bool CSSPropertyParser::parsePerspectiveOrigin(CSSPropertyID propId, CSSPropertyID& propId1, CSSPropertyID& propId2, RefPtrWillBeRawPtr<CSSValue>& value, RefPtrWillBeRawPtr<CSSValue>& value2)
+bool CSSPropertyParser::parseWebkitPerspectiveOrigin(CSSPropertyID propId, CSSPropertyID& propId1, CSSPropertyID& propId2, RefPtrWillBeRawPtr<CSSValue>& value, RefPtrWillBeRawPtr<CSSValue>& value2)
 {
     propId1 = propId;
     propId2 = propId;

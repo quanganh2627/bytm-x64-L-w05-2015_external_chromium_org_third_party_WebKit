@@ -90,15 +90,18 @@ WebInspector.DOMPresentationUtils.createSpansForNodeTitle = function(container, 
         container.createChild("span", "webkit-html-attribute-name").textContent = match[3];
 }
 
+/**
+ * @param {!WebInspector.DOMNode} node
+ */
 WebInspector.DOMPresentationUtils.linkifyNodeReference = function(node)
 {
     var link = document.createElement("span");
     link.className = "node-link";
     WebInspector.DOMPresentationUtils.decorateNodeLabel(node, link);
 
-    link.addEventListener("click", WebInspector.domModel.inspectElement.bind(WebInspector.domModel, node.id), false);
-    link.addEventListener("mouseover", WebInspector.domModel.highlightDOMNode.bind(WebInspector.domModel, node.id, "", undefined), false);
-    link.addEventListener("mouseout", WebInspector.domModel.hideDOMNodeHighlight.bind(WebInspector.domModel), false);
+    link.addEventListener("click", node.reveal.bind(node), false);
+    link.addEventListener("mouseover", node.highlight.bind(node, undefined, undefined), false);
+    link.addEventListener("mouseout", node.domModel().hideDOMNodeHighlight.bind(node.domModel()), false);
 
     return link;
 }

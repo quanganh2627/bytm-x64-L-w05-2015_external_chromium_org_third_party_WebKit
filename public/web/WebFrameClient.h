@@ -34,6 +34,7 @@
 #include "WebDOMMessageEvent.h"
 #include "WebDataSource.h"
 #include "WebFrame.h"
+#include "WebHistoryItem.h"
 #include "WebIconURL.h"
 #include "WebNavigationPolicy.h"
 #include "WebNavigationType.h"
@@ -74,6 +75,7 @@ class WebURL;
 class WebURLLoader;
 class WebURLResponse;
 class WebWorkerPermissionClientProxy;
+struct WebConsoleMessage;
 struct WebContextMenuData;
 struct WebPluginParams;
 struct WebRect;
@@ -147,6 +149,14 @@ public:
     // Called when a watched CSS selector matches or stops matching.
     virtual void didMatchCSS(WebLocalFrame*, const WebVector<WebString>& newlyMatchingSelectors, const WebVector<WebString>& stoppedMatchingSelectors) { }
 
+    // Console messages ----------------------------------------------------
+
+    // Whether or not we should report a detailed message for the given source.
+    virtual bool shouldReportDetailedMessageForSource(const WebString& source) { return false; }
+
+    // A new message was added to the console.
+    virtual void didAddMessageToConsole(const WebConsoleMessage&, const WebString& sourceName, unsigned sourceLine, const WebString& stackTrace) { }
+
     // Load commands -------------------------------------------------------
 
     // The client should handle the navigation externally.
@@ -163,6 +173,10 @@ public:
     virtual WebNavigationPolicy decidePolicyForNavigation(
         WebLocalFrame*, WebDataSource::ExtraData*, const WebURLRequest&, WebNavigationType,
         WebNavigationPolicy defaultPolicy, bool isRedirect) { return defaultPolicy; }
+
+    // During a history navigation, we may choose to load new subframes from history as well.
+    // This returns such a history item if appropriate.
+    virtual WebHistoryItem historyItemForNewChildFrame(WebFrame*) { return WebHistoryItem(); }
 
 
     // Navigational notifications ------------------------------------------

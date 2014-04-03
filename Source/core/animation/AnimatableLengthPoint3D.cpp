@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Google Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,31 +29,39 @@
  */
 
 #include "config.h"
-#include "V8HTMLFrameElement.h"
-
-#include "HTMLNames.h"
-#include "bindings/v8/BindingSecurity.h"
-#include "bindings/v8/ExceptionState.h"
-#include "bindings/v8/V8Binding.h"
-#include "core/html/HTMLFrameElement.h"
-#include "core/html/parser/HTMLParserIdioms.h"
+#include "core/animation/AnimatableLengthPoint3D.h"
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
-void V8HTMLFrameElement::locationAttributeSetterCustom(v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info)
+PassRefPtrWillBeRawPtr<AnimatableValue> AnimatableLengthPoint3D::interpolateTo(const AnimatableValue* value, double fraction) const
 {
-    HTMLFrameElement* frame = V8HTMLFrameElement::toNative(info.Holder());
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<WithNullCheck>, locationValue, value);
-
-    ExceptionState exceptionState(ExceptionState::SetterContext, "location", "HTMLFrameElement", info.Holder(), info.GetIsolate());
-    if (protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(locationValue)) && !BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), frame->contentFrame(), exceptionState)) {
-        exceptionState.throwIfNeeded();
-        return;
-    }
-
-    frame->setLocation(locationValue);
+    const AnimatableLengthPoint3D* lengthPoint = toAnimatableLengthPoint3D(value);
+    return AnimatableLengthPoint3D::create(
+        AnimatableValue::interpolate(this->x(), lengthPoint->x(), fraction),
+        AnimatableValue::interpolate(this->y(), lengthPoint->y(), fraction),
+        AnimatableValue::interpolate(this->z(), lengthPoint->z(), fraction));
 }
 
-} // namespace WebCore
+PassRefPtrWillBeRawPtr<AnimatableValue> AnimatableLengthPoint3D::addWith(const AnimatableValue* value) const
+{
+    const AnimatableLengthPoint3D* lengthPoint = toAnimatableLengthPoint3D(value);
+    return AnimatableLengthPoint3D::create(
+        AnimatableValue::add(this->x(), lengthPoint->x()),
+        AnimatableValue::add(this->y(), lengthPoint->y()),
+        AnimatableValue::add(this->z(), lengthPoint->z()));
+}
+
+bool AnimatableLengthPoint3D::equalTo(const AnimatableValue* value) const
+{
+    const AnimatableLengthPoint3D* lengthPoint = toAnimatableLengthPoint3D(value);
+    return x()->equals(lengthPoint->x()) && y()->equals(lengthPoint->y()) && z()->equals(lengthPoint->z());
+}
+
+void AnimatableLengthPoint3D::trace(Visitor* visitor)
+{
+    visitor->trace(m_x);
+    visitor->trace(m_y);
+    visitor->trace(m_z);
+}
+
+}

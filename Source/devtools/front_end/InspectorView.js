@@ -293,8 +293,6 @@ WebInspector.InspectorView.prototype = {
     {
         if (!WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event))
             return;
-        if (WebInspector.Dialog.currentInstance())
-            return;
 
         var keyboardEvent = /** @type {!KeyboardEvent} */ (event);
         // Ctrl/Cmd + 1-9 should show corresponding panel.
@@ -308,7 +306,8 @@ WebInspector.InspectorView.prototype = {
             if (panelIndex !== -1) {
                 var panelName = this._tabbedPane.allTabs()[panelIndex];
                 if (panelName) {
-                    this.showPanel(panelName);
+                    if (!WebInspector.Dialog.currentInstance())
+                        this.showPanel(panelName);
                     event.consume(true);
                 }
                 return;
@@ -340,7 +339,8 @@ WebInspector.InspectorView.prototype = {
             return;
 
         if (!event.shiftKey && !event.altKey) {
-            this._changePanelInDirection(direction);
+            if (!WebInspector.Dialog.currentInstance())
+                this._changePanelInDirection(direction);
             event.consume(true);
             return;
         }
@@ -365,7 +365,8 @@ WebInspector.InspectorView.prototype = {
 
         this._inHistory = true;
         this._historyIterator = newIndex;
-        this.setCurrentPanel(WebInspector.panels[this._history[this._historyIterator]]);
+        if (!WebInspector.Dialog.currentInstance())
+            this.setCurrentPanel(WebInspector.panels[this._history[this._historyIterator]]);
         delete this._inHistory;
 
         return true;
@@ -495,7 +496,7 @@ WebInspector.RootView.prototype = {
 
     doResize: function()
     {
-        var size = this.minimumSize();
+        var size = this.constraints().minimum;
         var right = Math.min(0, window.innerWidth - size.width);
         this.element.style.right = right + "px";
         var bottom = Math.min(0, window.innerHeight - size.height);

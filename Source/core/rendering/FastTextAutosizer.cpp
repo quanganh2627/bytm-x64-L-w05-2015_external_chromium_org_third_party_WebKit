@@ -234,10 +234,11 @@ FastTextAutosizer::FastTextAutosizer(const Document* document)
     , m_frameWidth(0)
     , m_layoutWidth(0)
     , m_baseMultiplier(0)
-    , m_pageAutosizingStatus(PageAutosizingStatusUnknown)
+    , m_pageNeedsAutosizing(false)
+    , m_previouslyAutosized(false)
+    , m_updatePageInfoDeferred(false)
     , m_firstBlock(0)
 #ifndef NDEBUG
-    , m_renderViewInfoPrepared(false)
     , m_blocksThatHaveBegunLayout()
 #endif
     , m_superclusters()
@@ -290,7 +291,7 @@ void FastTextAutosizer::prepareClusterStack(const RenderObject* renderer)
 
 void FastTextAutosizer::beginLayout(RenderBlock* block)
 {
-    ASSERT(enabled() && m_pageAutosizingStatus == PageNeedsAutosizing);
+    ASSERT(enabled() && shouldHandleLayout());
 #ifndef NDEBUG
     m_blocksThatHaveBegunLayout.add(block);
 #endif
@@ -316,7 +317,7 @@ void FastTextAutosizer::beginLayout(RenderBlock* block)
 
 void FastTextAutosizer::inflateListItem(RenderListItem* listItem, RenderListMarker* listItemMarker)
 {
-    if (!enabled() || m_pageAutosizingStatus != PageNeedsAutosizing)
+    if (!enabled() || !shouldHandleLayout())
         return;
     ASSERT(listItem && listItemMarker);
 #ifndef NDEBUG
@@ -379,11 +380,10 @@ void FastTextAutosizer::inflateTable(RenderTable* table)
 
 void FastTextAutosizer::endLayout(RenderBlock* block)
 {
-    ASSERT(enabled() && m_pageAutosizingStatus == PageNeedsAutosizing);
+    ASSERT(enabled() && shouldHandleLayout());
 
     if (block == m_firstBlock) {
         m_firstBlock = 0;
-        m_pageAutosizingStatus = PageAutosizingStatusUnknown;
         m_clusterStack.clear();
         m_superclusters.clear();
 #ifndef NDEBUG
@@ -412,12 +412,15 @@ void FastTextAutosizer::inflate(RenderBlock* block)
                 multiplier = cluster->m_autosize ? clusterMultiplier(cluster) : 1.0f;
             applyMultiplier(descendant, multiplier);
             applyMultiplier(descendant->parent(), multiplier); // Parent handles line spacing.
+            // FIXME: Investigate why MarkOnlyThis is sufficient.
+            if (descendant->parent()->isRenderInline())
+                descendant->setPreferredLogicalWidthsDirty(MarkOnlyThis);
         }
         descendant = descendant->nextInPreOrder(block);
     }
 }
 
-bool FastTextAutosizer::enabled()
+bool FastTextAutosizer::enabled() const
 {
     if (!m_document->settings() || !m_document->page() || m_document->printing())
         return false;
@@ -425,8 +428,36 @@ bool FastTextAutosizer::enabled()
     return m_document->settings()->textAutosizingEnabled();
 }
 
-void FastTextAutosizer::updateRenderViewInfo()
+bool FastTextAutosizer::shouldHandleLayout() const
 {
+    return m_pageNeedsAutosizing && !m_updatePageInfoDeferred;
+}
+
+void FastTextAutosizer::updatePageInfoInAllFrames()
+{
+    ASSERT(!enabled() || m_document->frame()->isMainFrame());
+
+    for (LocalFrame* frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
+        if (FastTextAutosizer* textAutosizer = frame->document()->fastTextAutosizer())
+            textAutosizer->updatePageInfo();
+    }
+}
+
+void FastTextAutosizer::updatePageInfo()
+{
+    if (!enabled()) {
+        if (m_previouslyAutosized)
+            resetMultipliers();
+        return;
+    }
+
+    if (m_updatePageInfoDeferred)
+        return;
+
+    int previousFrameWidth = m_frameWidth;
+    int previousLayoutWidth = m_layoutWidth;
+    float previousBaseMultiplier = m_baseMultiplier;
+
     RenderView* renderView = toRenderView(m_document->renderer());
     bool horizontalWritingMode = isHorizontalWritingMode(renderView->style()->writingMode());
 
@@ -448,12 +479,43 @@ void FastTextAutosizer::updateRenderViewInfo()
         m_baseMultiplier *= deviceScaleAdjustment;
     }
 
-    m_pageAutosizingStatus = m_frameWidth && (m_baseMultiplier * (static_cast<float>(m_layoutWidth) / m_frameWidth) > 1.0f)
-        ? PageNeedsAutosizing : PageDoesNotNeedAutosizing;
+    m_pageNeedsAutosizing = !!m_frameWidth
+        && (m_baseMultiplier * (static_cast<float>(m_layoutWidth) / m_frameWidth) > 1.0f);
 
-#ifndef NDEBUG
-    m_renderViewInfoPrepared = true;
-#endif
+    // If we are no longer autosizing the page, we won't do anything during the next layout.
+    // Set all the multipliers back to 1 now.
+    if (!m_pageNeedsAutosizing && m_previouslyAutosized)
+        resetMultipliers();
+
+    // If page info has changed, multipliers may have changed. Force a layout to recompute them.
+    if (m_pageNeedsAutosizing
+        && (m_frameWidth != previousFrameWidth
+            || m_layoutWidth != previousLayoutWidth
+            || m_baseMultiplier != previousBaseMultiplier))
+        setAllTextNeedsLayout();
+}
+
+void FastTextAutosizer::resetMultipliers()
+{
+    RenderObject* renderer = m_document->renderer();
+    while (renderer) {
+        if (RenderStyle* style = renderer->style()) {
+            if (style->textAutosizingMultiplier() != 1)
+                applyMultiplier(renderer, 1, LayoutNeeded);
+        }
+        renderer = renderer->nextInPreOrder();
+    }
+    m_previouslyAutosized = false;
+}
+
+void FastTextAutosizer::setAllTextNeedsLayout()
+{
+    RenderObject* renderer = m_document->renderer();
+    while (renderer) {
+        if (renderer->isText())
+            renderer->setNeedsLayout();
+        renderer = renderer->nextInPreOrder();
+    }
 }
 
 bool FastTextAutosizer::clusterWouldHaveEnoughTextToAutosize(const RenderBlock* root, const RenderBlock* widthProvider)
@@ -621,7 +683,6 @@ const RenderBlock* FastTextAutosizer::deepestCommonAncestor(BlockSet& blocks)
 
 float FastTextAutosizer::clusterMultiplier(Cluster* cluster)
 {
-    ASSERT(m_renderViewInfoPrepared);
     if (!cluster->m_multiplier) {
         if (cluster->m_root->isTable()
             || isIndependentDescendant(cluster->m_root)
@@ -790,7 +851,7 @@ const RenderObject* FastTextAutosizer::findTextLeaf(const RenderObject* parent, 
     return 0;
 }
 
-void FastTextAutosizer::applyMultiplier(RenderObject* renderer, float multiplier)
+void FastTextAutosizer::applyMultiplier(RenderObject* renderer, float multiplier, RelayoutBehavior relayoutBehavior)
 {
     ASSERT(renderer);
     RenderStyle* currentStyle = renderer->style();
@@ -801,7 +862,21 @@ void FastTextAutosizer::applyMultiplier(RenderObject* renderer, float multiplier
     RefPtr<RenderStyle> style = RenderStyle::clone(currentStyle);
     style->setTextAutosizingMultiplier(multiplier);
     style->setUnique();
-    renderer->setStyleInternal(style.release());
+
+    switch (relayoutBehavior) {
+    case AlreadyInLayout:
+        renderer->setStyleInternal(style.release());
+        if (renderer->isRenderBlock())
+            toRenderBlock(renderer)->invalidateLineHeight();
+        break;
+
+    case LayoutNeeded:
+        renderer->setStyle(style.release());
+        break;
+    }
+
+    if (multiplier != 1)
+        m_previouslyAutosized = true;
 }
 
 bool FastTextAutosizer::isWiderOrNarrowerDescendant(Cluster* cluster)
@@ -912,15 +987,7 @@ FastTextAutosizer::LayoutScope::LayoutScope(RenderBlock* block)
     if (!m_textAutosizer)
         return;
 
-    if (!m_textAutosizer->enabled()) {
-        m_textAutosizer = 0;
-        return;
-    }
-
-    if (m_textAutosizer->m_pageAutosizingStatus == PageAutosizingStatusUnknown)
-        m_textAutosizer->updateRenderViewInfo();
-
-    if (m_textAutosizer->m_pageAutosizingStatus == PageNeedsAutosizing)
+    if (m_textAutosizer->enabled() && m_textAutosizer->shouldHandleLayout())
         m_textAutosizer->beginLayout(m_block);
     else
         m_textAutosizer = 0;
@@ -930,6 +997,24 @@ FastTextAutosizer::LayoutScope::~LayoutScope()
 {
     if (m_textAutosizer)
         m_textAutosizer->endLayout(m_block);
+}
+
+FastTextAutosizer::DeferUpdatePageInfo::DeferUpdatePageInfo(Page* page)
+    : m_mainFrame(page->mainFrame())
+{
+    if (FastTextAutosizer* textAutosizer = m_mainFrame->document()->fastTextAutosizer()) {
+        ASSERT(!textAutosizer->m_updatePageInfoDeferred);
+        textAutosizer->m_updatePageInfoDeferred = true;
+    }
+}
+
+FastTextAutosizer::DeferUpdatePageInfo::~DeferUpdatePageInfo()
+{
+    if (FastTextAutosizer* textAutosizer = m_mainFrame->document()->fastTextAutosizer()) {
+        ASSERT(textAutosizer->m_updatePageInfoDeferred);
+        textAutosizer->m_updatePageInfoDeferred = false;
+        textAutosizer->updatePageInfoInAllFrames();
+    }
 }
 
 } // namespace WebCore

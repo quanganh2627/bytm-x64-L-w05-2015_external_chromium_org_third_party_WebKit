@@ -171,6 +171,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/performance/SharedWorkerPerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerGlobalScopePerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerPerformance.cpp \
+	third_party/WebKit/Source/modules/push_messaging/NavigatorPushManager.cpp \
+	third_party/WebKit/Source/modules/push_messaging/PushManager.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageInfo.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuota.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuotaCallbacksImpl.cpp \
@@ -364,6 +366,7 @@ MY_DEFS_Debug := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
@@ -503,6 +506,7 @@ MY_DEFS_Release := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \

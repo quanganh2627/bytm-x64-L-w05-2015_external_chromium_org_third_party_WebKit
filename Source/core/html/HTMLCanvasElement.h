@@ -30,10 +30,12 @@
 
 #include "core/html/HTMLElement.h"
 #include "core/html/canvas/CanvasImageSource.h"
+#include "heap/Handle.h"
 #include "platform/geometry/FloatRect.h"
 #include "platform/geometry/IntSize.h"
 #include "platform/graphics/Canvas2DLayerBridge.h"
 #include "platform/graphics/GraphicsTypes.h"
+#include "platform/graphics/ImageBufferClient.h"
 #include "wtf/Forward.h"
 
 #define CanvasDefaultInterpolationQuality InterpolationLow
@@ -61,7 +63,7 @@ public:
     virtual void canvasDestroyed(HTMLCanvasElement*) = 0;
 };
 
-class HTMLCanvasElement FINAL : public HTMLElement, public DocumentVisibilityObserver, public CanvasImageSource {
+class HTMLCanvasElement FINAL : public HTMLElement, public DocumentVisibilityObserver, public CanvasImageSource, public ImageBufferClient {
 public:
     static PassRefPtr<HTMLCanvasElement> create(Document&);
     virtual ~HTMLCanvasElement();
@@ -112,7 +114,7 @@ public:
     ImageBuffer* buffer() const;
     Image* copiedImage() const;
     void clearCopiedImage();
-    PassRefPtr<ImageData> getImageData();
+    PassRefPtrWillBeRawPtr<ImageData> getImageData();
     void makePresentationCopy();
     void clearPresentationCopy();
 
@@ -124,7 +126,9 @@ public:
 
     bool is3D() const;
 
-    bool hasImageBuffer() const { return m_imageBuffer.get(); }
+    bool hasImageBuffer() const { return m_imageBuffer; }
+    bool hasValidImageBuffer() const;
+    void discardImageBuffer();
 
     bool shouldAccelerate(const IntSize&) const;
 
@@ -137,6 +141,9 @@ public:
     virtual PassRefPtr<Image> getSourceImageForCanvas(SourceImageMode, SourceImageStatus*) const OVERRIDE;
     virtual bool wouldTaintOrigin(SecurityOrigin*) const OVERRIDE;
     virtual FloatSize sourceSize() const OVERRIDE;
+
+    // ImageBufferClient implementation
+    virtual void notifySurfaceInvalid() OVERRIDE;
 
 protected:
     virtual void didMoveToNewDocument(Document& oldDocument) OVERRIDE;
@@ -152,8 +159,8 @@ private:
 
     PassOwnPtr<ImageBufferSurface> createImageBufferSurface(const IntSize& deviceSize, int* msaaSampleCount);
     void createImageBuffer();
+    void createImageBufferInternal();
     void clearImageBuffer();
-    void discardImageBuffer();
 
     void setSurfaceSize(const IntSize&);
 

@@ -46,6 +46,7 @@ class ScrollingCoordinator;
 class StickyPositionViewportConstraints;
 
 enum CompositingUpdateType {
+    CompositingUpdateNone,
     CompositingUpdateAfterStyleChange,
     CompositingUpdateAfterLayout,
     CompositingUpdateOnScroll,
@@ -110,9 +111,6 @@ public:
     // Update the compositing dirty bits, based on the compositing-impacting properties of the layer.
     // (At the moment, it also has some legacy compatibility hacks.)
     void updateLayerCompositingState(RenderLayer*, UpdateLayerCompositingStateOptions = Normal);
-
-    // Update the geometry for compositing children of compositingAncestor.
-    void updateCompositingDescendantGeometry(RenderLayerStackingNode* compositingAncestor, RenderLayer*, bool compositedChildrenOnly);
 
     // Whether layer's compositedLayerMapping needs a GraphicsLayer to do clipping by an ancestor (non-stacking-context parent with overflow).
     bool clippedByAncestor(const RenderLayer*) const;
@@ -321,16 +319,12 @@ private:
 
     CompositingReasonFinder m_compositingReasonFinder;
 
+    CompositingUpdateType m_pendingUpdateType;
+
     bool m_hasAcceleratedCompositing;
     bool m_showRepaintCounter;
 
-    // FIXME: This should absolutely not be mutable.
-    mutable bool m_needsToRecomputeCompositingRequirements;
-    bool m_needsToUpdateLayerTreeGeometry;
-
-    // FIXME: We should remove m_pendingUpdateType and propagate the bits with CompositingPropertyUpdater instead.
-    GraphicsLayerUpdater::UpdateType m_pendingUpdateType;
-    CompositingPropertyUpdater::UpdateType m_pendingPropertyUpdateType;
+    bool m_needsToRecomputeCompositingRequirements;
 
     bool m_compositing;
     bool m_compositingLayersNeedRebuild;

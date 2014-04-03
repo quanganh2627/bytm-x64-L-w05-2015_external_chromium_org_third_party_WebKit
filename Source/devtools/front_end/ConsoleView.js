@@ -31,6 +31,7 @@
  * @extends {WebInspector.VBox}
  * @implements {WebInspector.Searchable}
  * @constructor
+ * @implements {WebInspector.TargetManager.Observer}
  * @param {boolean} hideContextSelector
  */
 WebInspector.ConsoleView = function(hideContextSelector)
@@ -112,8 +113,7 @@ WebInspector.ConsoleView = function(hideContextSelector)
     this.prompt.proxyElement.addEventListener("keydown", this._promptKeyDown.bind(this), false);
     this.prompt.setHistoryData(WebInspector.settings.consoleHistory.get());
 
-    WebInspector.targetManager.targets().forEach(this._targetAdded, this);
-    WebInspector.targetManager.addEventListener(WebInspector.TargetManager.Events.TargetAdded, this._onTargetAdded, this);
+    WebInspector.targetManager.observeTargets(this);
 
     this._filterStatusMessageElement = document.createElement("div");
     this._filterStatusMessageElement.classList.add("console-message");
@@ -131,22 +131,14 @@ WebInspector.ConsoleView = function(hideContextSelector)
 
 WebInspector.ConsoleView.prototype = {
     /**
-     * @param {!WebInspector.Event} event
-     */
-    _onTargetAdded: function(event)
-    {
-        this._targetAdded(/**@type {!WebInspector.Target} */(event.data));
-    },
-
-    /**
      * @param {!WebInspector.Target} target
      */
-    _targetAdded: function(target)
+    targetAdded: function(target)
     {
-        target.consoleModel.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, this._onConsoleMessageAdded.bind(this, target), this);
+        target.consoleModel.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, this._onConsoleMessageAdded, this);
         target.consoleModel.addEventListener(WebInspector.ConsoleModel.Events.ConsoleCleared, this._consoleCleared, this);
         target.consoleModel.addEventListener(WebInspector.ConsoleModel.Events.CommandEvaluated, this._commandEvaluated, this);
-        target.consoleModel.messages.forEach(this._consoleMessageAdded.bind(this, target));
+        target.consoleModel.messages.forEach(this._consoleMessageAdded, this);
 
         /**
          * @param {!WebInspector.ExecutionContextList} contextList
@@ -161,6 +153,20 @@ WebInspector.ConsoleView.prototype = {
         target.runtimeModel.addEventListener(WebInspector.RuntimeModel.Events.ExecutionContextListAdded, this._executionContextListAdded.bind(this, target));
         target.runtimeModel.addEventListener(WebInspector.RuntimeModel.Events.ExecutionContextListRemoved, this._executionContextListRemoved, this);
 
+    },
+
+    /**
+     * @param {!WebInspector.Target} target
+     */
+    targetRemoved: function(target)
+    {
+    },
+
+    /**
+     * @param {?WebInspector.Target} target
+     */
+    activeTargetChanged: function(target)
+    {
     },
 
     _consoleTimestampsSettingChanged: function(event)
@@ -266,7 +272,7 @@ WebInspector.ConsoleView.prototype = {
     _currentTarget: function()
     {
         var option = this._executionContextSelector.selectedOption();
-        return option ? option._target : WebInspector.targetManager.mainTarget();
+        return option ? option._target : WebInspector.targetManager.activeTarget();
     },
 
     /**
@@ -423,7 +429,7 @@ WebInspector.ConsoleView.prototype = {
     /**
      * @param {!WebInspector.ConsoleMessage} message
      */
-    _consoleMessageAdded: function(target, message)
+    _consoleMessageAdded: function(message)
     {
         if (this._urlToMessageCount[message.url])
             this._urlToMessageCount[message.url]++;
@@ -438,7 +444,7 @@ WebInspector.ConsoleView.prototype = {
         }
 
         this._consoleMessages.push(message);
-        var viewMessage = this._createViewMessage(target, message);
+        var viewMessage = this._createViewMessage(message);
 
         if (this._filter.shouldBeVisible(viewMessage))
             this._showConsoleMessage(viewMessage);
@@ -449,10 +455,10 @@ WebInspector.ConsoleView.prototype = {
     /**
      * @param {!WebInspector.Event} event
      */
-    _onConsoleMessageAdded: function(target, event)
+    _onConsoleMessageAdded: function(event)
     {
         var message = /** @type {!WebInspector.ConsoleMessage} */ (event.data);
-        this._consoleMessageAdded(target, message);
+        this._consoleMessageAdded(message);
     },
 
     /**
@@ -493,15 +499,15 @@ WebInspector.ConsoleView.prototype = {
      * @param {!WebInspector.ConsoleMessage} message
      * @return {!WebInspector.ConsoleViewMessage}
      */
-    _createViewMessage: function(target, message)
+    _createViewMessage: function(message)
     {
         var viewMessage = this._messageToViewMessage.get(message);
         if (viewMessage)
             return viewMessage;
         if (message.type === WebInspector.ConsoleMessage.MessageType.Command)
-            viewMessage = new WebInspector.ConsoleCommand(target, message);
+            viewMessage = new WebInspector.ConsoleCommand(message);
         else
-            viewMessage = new WebInspector.ConsoleViewMessage(target, message, this._linkifier);
+            viewMessage = new WebInspector.ConsoleViewMessage(message, this._linkifier);
         this._messageToViewMessage.put(message, viewMessage);
         return viewMessage;
     },
@@ -750,17 +756,15 @@ WebInspector.ConsoleView.prototype = {
             return;
         }
 
-        target.debuggerAgent().getFunctionDetails(result.objectId, didGetDetails.bind(this));
+        result.functionDetails(didGetDetails.bind(this));
 
         /**
-         * @param {?Protocol.Error} error
-         * @param {!DebuggerAgent.FunctionDetails} response
+         * @param {?DebuggerAgent.FunctionDetails} response
          * @this {WebInspector.ConsoleView}
          */
-        function didGetDetails(error, response)
+        function didGetDetails(response)
         {
-            if (error) {
-                console.error(error);
+            if (!response) {
                 addMessage.call(this);
                 return;
             }
@@ -768,12 +772,13 @@ WebInspector.ConsoleView.prototype = {
             var url;
             var lineNumber;
             var columnNumber;
-            var script = WebInspector.debuggerModel.scriptForId(response.location.scriptId);
+            var script = target.debuggerModel.scriptForId(response.location.scriptId);
             if (script && script.sourceURL) {
                 url = script.sourceURL;
                 lineNumber = response.location.lineNumber + 1;
                 columnNumber = response.location.columnNumber + 1;
             }
+            // FIXME: this should be using live location.
             addMessage.call(this, url, lineNumber, columnNumber);
         }
     },
@@ -995,9 +1000,9 @@ WebInspector.ConsoleViewFilter.prototype = {
  * @extends {WebInspector.ConsoleViewMessage}
  * @param {!WebInspector.ConsoleMessage} message
  */
-WebInspector.ConsoleCommand = function(target, message)
+WebInspector.ConsoleCommand = function(message)
 {
-    WebInspector.ConsoleViewMessage.call(this, target, message, null);
+    WebInspector.ConsoleViewMessage.call(this, message, null);
 }
 
 WebInspector.ConsoleCommand.prototype = {
@@ -1070,8 +1075,8 @@ WebInspector.ConsoleCommand.prototype = {
 }
 
 /**
- * @extends {WebInspector.ConsoleViewMessage}
  * @constructor
+ * @extends {WebInspector.ConsoleViewMessage}
  * @param {!WebInspector.RemoteObject} result
  * @param {boolean} wasThrown
  * @param {?WebInspector.ConsoleCommand} originatingCommand
@@ -1084,9 +1089,8 @@ WebInspector.ConsoleCommandResult = function(result, wasThrown, originatingComma
 {
     this.originatingCommand = originatingCommand;
     var level = wasThrown ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log;
-
-    var message = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.JS, level, "", WebInspector.ConsoleMessage.MessageType.Result, url, lineNumber, columnNumber, undefined, [result]);
-    WebInspector.ConsoleViewMessage.call(this, result.target(), message, linkifier);
+    var message = new WebInspector.ConsoleMessage(/** @type {!WebInspector.Target} */ (result.target()), WebInspector.ConsoleMessage.MessageSource.JS, level, "", WebInspector.ConsoleMessage.MessageType.Result, url, lineNumber, columnNumber, undefined, [result]);
+    WebInspector.ConsoleViewMessage.call(this, message, linkifier);
 }
 
 WebInspector.ConsoleCommandResult.prototype = {

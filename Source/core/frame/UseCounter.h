@@ -220,7 +220,6 @@ public:
         SVGInstanceRoot = 194,
         ShowModalDialog = 195,
         PrefixedPageVisibility = 196,
-        HTMLFrameElementLocation = 197,
         CSSStyleSheetInsertRuleOptionalArg = 198, // Inconsistent with the specification and other browsers.
         DocumentBeforeUnloadRegistered = 200,
         DocumentBeforeUnloadFired = 201,
@@ -342,6 +341,9 @@ public:
         PrefixedDocumentFullscreenEnabled = 322,
         PrefixedDocumentFullscreenElement = 323,
         PrefixedDocumentExitFullscreen = 324,
+        // The above items are available in M35 branch.
+
+        SVGForeignObjectElement = 325,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         NumberOfFeatures, // This enum value must be last.

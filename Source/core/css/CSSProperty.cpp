@@ -588,6 +588,7 @@ bool CSSProperty::isInheritedProperty(CSSPropertyID propertyID)
     case CSSPropertyGridColumn:
     case CSSPropertyGridColumnEnd:
     case CSSPropertyGridColumnStart:
+    case CSSPropertyGridTemplate:
     case CSSPropertyGridTemplateColumns:
     case CSSPropertyGridTemplateRows:
     case CSSPropertyGridRow:
@@ -663,7 +664,6 @@ bool CSSProperty::isInheritedProperty(CSSPropertyID propertyID)
     case CSSPropertyWebkitWrapFlow:
     case CSSPropertyShapeMargin:
     case CSSPropertyShapeImageThreshold:
-    case CSSPropertyShapePadding:
     case CSSPropertyShapeOutside:
     case CSSPropertyWebkitWrapThrough:
     case CSSPropertyWebkitAppRegion:

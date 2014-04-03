@@ -408,9 +408,9 @@ void RenderLayerScrollableArea::setScrollOffset(const IntPoint& newScrollOffset)
             if (m_box->frameView()->isInPerformLayout())
                 m_box->setShouldDoFullRepaintAfterLayout(true);
             else
-                m_box->repaintUsingContainer(repaintContainer, pixelSnappedIntRect(layer()->renderer()->newRepaintRect()));
+                m_box->repaintUsingContainer(repaintContainer, pixelSnappedIntRect(layer()->renderer()->newRepaintRect()), InvalidationScroll);
         } else {
-            m_box->repaintUsingContainer(repaintContainer, pixelSnappedIntRect(layer()->repainter().repaintRect()));
+            m_box->repaintUsingContainer(repaintContainer, pixelSnappedIntRect(layer()->repainter().repaintRect()), InvalidationScroll);
         }
     }
 
@@ -747,6 +747,13 @@ void RenderLayerScrollableArea::updateAfterStyleChange(const RenderStyle* oldSty
     updateScrollCornerStyle();
     updateResizerAreaSet();
     updateResizerStyle();
+
+    // FIXME: Remove incremental compositing updates after fixing the chicken/egg issues
+    // https://code.google.com/p/chromium/issues/detail?id=343756
+    DisableCompositingQueryAsserts disabler;
+    RenderLayer* layer = this->layer();
+    if (layer->hasCompositedLayerMapping() && layer->compositedLayerMapping()->updateGraphicsLayerConfiguration(GraphicsLayerUpdater::ForceUpdate))
+        layer->compositor()->setCompositingLayersNeedRebuild();
 }
 
 IntSize RenderLayerScrollableArea::clampScrollOffset(const IntSize& scrollOffset) const

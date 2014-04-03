@@ -187,8 +187,6 @@ public:
     virtual void setIsActive(bool value) OVERRIDE;
     virtual void setDomainRelaxationForbidden(bool, const WebString& scheme) OVERRIDE;
     virtual void setWindowFeatures(const WebWindowFeatures&) OVERRIDE;
-    virtual bool dispatchBeforeUnloadEvent() OVERRIDE;
-    virtual void dispatchUnloadEvent() OVERRIDE;
     virtual WebFrame* mainFrame() OVERRIDE;
     virtual WebFrame* findFrameByName(
         const WebString& name, WebFrame* relativeToFrame) OVERRIDE;
@@ -737,9 +735,6 @@ private:
     bool m_recreatingGraphicsContext;
     static const WebInputEvent* m_currentInputEvent;
 
-#if ENABLE(INPUT_SPEECH)
-    OwnPtr<SpeechInputClientImpl> m_speechInputClient;
-#endif
     OwnPtr<SpeechRecognitionClientProxy> m_speechRecognitionClient;
 
     OwnPtr<GeolocationClientProxy> m_geolocationClientProxy;
@@ -747,7 +742,6 @@ private:
     UserMediaClientImpl m_userMediaClientImpl;
     MediaKeysClientImpl m_mediaKeysClientImpl;
     OwnPtr<MIDIClientProxy> m_midiClientProxy;
-    OwnPtr<NavigatorContentUtilsClientImpl> m_navigatorContentUtilsClient;
     OwnPtr<WebActiveGestureAnimation> m_gestureAnimation;
     WebPoint m_positionOnFlingStart;
     WebPoint m_globalPositionOnFlingStart;

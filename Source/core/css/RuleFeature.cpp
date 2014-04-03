@@ -54,7 +54,7 @@ static bool isSkippableComponentForInvalidation(const CSSSelector& selector)
         case CSSSelector::PseudoShadow:
             return true;
         default:
-            return false;
+            return selector.isCustomPseudoElement();
         }
     }
     if (selector.m_match != CSSSelector::PseudoClass)
@@ -103,23 +103,23 @@ static bool isSkippableComponentForInvalidation(const CSSSelector& selector)
 }
 
 // This method is somewhat conservative in what it accepts.
-RuleFeatureSet::InvalidationSetMode RuleFeatureSet::supportsClassDescendantInvalidation(const CSSSelector& selector)
+RuleFeatureSet::InvalidationSetMode RuleFeatureSet::invalidationSetModeForSelector(const CSSSelector& selector)
 {
     bool foundDescendantRelation = false;
     bool foundIdent = false;
     for (const CSSSelector* component = &selector; component; component = component->tagHistory()) {
 
         // FIXME: next up: Tag and Id.
-        if (component->m_match == CSSSelector::Class || component->isAttributeSelector()) {
+        if (component->m_match == CSSSelector::Class || component->isAttributeSelector() || component->isCustomPseudoElement()) {
             if (!foundDescendantRelation)
                 foundIdent = true;
         } else if (component->pseudoType() == CSSSelector::PseudoHost || component->pseudoType() == CSSSelector::PseudoAny) {
             if (const CSSSelectorList* selectorList = component->selectorList()) {
                 for (const CSSSelector* selector = selectorList->first(); selector; selector = CSSSelectorList::next(*selector)) {
-                    InvalidationSetMode hostMode = supportsClassDescendantInvalidation(*selector);
+                    InvalidationSetMode hostMode = invalidationSetModeForSelector(*selector);
                     if (hostMode == UseSubtreeStyleChange)
                         return foundDescendantRelation ? UseLocalStyleChange : UseSubtreeStyleChange;
-                    if (hostMode == AddFeatures)
+                    if (!foundDescendantRelation && hostMode == AddFeatures)
                         foundIdent = true;
                 }
             }
@@ -152,6 +152,8 @@ void RuleFeatureSet::extractInvalidationSetFeature(const CSSSelector& selector, 
         features.classes.append(selector.value());
     else if (selector.isAttributeSelector())
         features.attributes.append(selector.attribute().localName());
+    else if (selector.isCustomPseudoElement())
+        features.customPseudoElement = true;
 }
 
 RuleFeatureSet::RuleFeatureSet()
@@ -170,7 +172,7 @@ DescendantInvalidationSet* RuleFeatureSet::invalidationSetForSelector(const CSSS
 
 RuleFeatureSet::InvalidationSetMode RuleFeatureSet::updateInvalidationSets(const CSSSelector& selector)
 {
-    InvalidationSetMode mode = supportsClassDescendantInvalidation(selector);
+    InvalidationSetMode mode = invalidationSetModeForSelector(selector);
     if (mode != AddFeatures)
         return mode;
 
@@ -216,6 +218,8 @@ void RuleFeatureSet::addFeaturesToInvalidationSets(const CSSSelector& selector, 
                 invalidationSet->addClass(*it);
             for (Vector<AtomicString>::const_iterator it = features.attributes.begin(); it != features.attributes.end(); ++it)
                 invalidationSet->addAttribute(*it);
+            if (features.customPseudoElement)
+                invalidationSet->setCustomPseudoInvalid();
         } else if (current->pseudoType() == CSSSelector::PseudoHost || current->pseudoType() == CSSSelector::PseudoAny) {
             if (const CSSSelectorList* selectorList = current->selectorList()) {
                 for (const CSSSelector* selector = selectorList->first(); selector; selector = CSSSelectorList::next(*selector))
@@ -348,10 +352,10 @@ void RuleFeatureSet::clear()
     m_metadata.clear();
     m_classInvalidationSets.clear();
     m_attributeInvalidationSets.clear();
-    m_pendingInvalidationMap.clear();
+    m_styleInvalidator.clearPendingInvalidations();
 }
 
-void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitString& changedClasses, Element* element)
+void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitString& changedClasses, Element& element)
 {
     unsigned changedSize = changedClasses.size();
     for (unsigned i = 0; i < changedSize; ++i) {
@@ -359,7 +363,7 @@ void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitStr
     }
 }
 
-void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses, Element* element)
+void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses, Element& element)
 {
     if (!oldClasses.size())
         scheduleStyleInvalidationForClassChange(newClasses, element);
@@ -392,41 +396,21 @@ void RuleFeatureSet::scheduleStyleInvalidationForClassChange(const SpaceSplitStr
     }
 }
 
-void RuleFeatureSet::scheduleStyleInvalidationForAttributeChange(const QualifiedName& attributeName, Element* element)
+void RuleFeatureSet::scheduleStyleInvalidationForAttributeChange(const QualifiedName& attributeName, Element& element)
 {
-    if (RefPtr<DescendantInvalidationSet> invalidationSet = m_attributeInvalidationSets.get(attributeName.localName())) {
-        ensurePendingInvalidationList(element).append(invalidationSet);
-        element->setNeedsStyleInvalidation();
-    }
+    if (RefPtr<DescendantInvalidationSet> invalidationSet = m_attributeInvalidationSets.get(attributeName.localName()))
+        m_styleInvalidator.scheduleInvalidation(invalidationSet, element);
 }
 
-void RuleFeatureSet::addClassToInvalidationSet(const AtomicString& className, Element* element)
+void RuleFeatureSet::addClassToInvalidationSet(const AtomicString& className, Element& element)
 {
-    if (RefPtr<DescendantInvalidationSet> invalidationSet = m_classInvalidationSets.get(className)) {
-        ensurePendingInvalidationList(element).append(invalidationSet);
-        element->setNeedsStyleInvalidation();
-    }
+    if (RefPtr<DescendantInvalidationSet> invalidationSet = m_classInvalidationSets.get(className))
+        m_styleInvalidator.scheduleInvalidation(invalidationSet, element);
 }
 
-RuleFeatureSet::InvalidationList& RuleFeatureSet::ensurePendingInvalidationList(Element* element)
+StyleInvalidator& RuleFeatureSet::styleInvalidator()
 {
-    PendingInvalidationMap::AddResult addResult = m_pendingInvalidationMap.add(element, nullptr);
-    if (addResult.isNewEntry)
-        addResult.storedValue->value = adoptPtr(new InvalidationList);
-    return *addResult.storedValue->value;
-}
-
-void RuleFeatureSet::clearStyleInvalidation(Node* node)
-{
-    node->clearChildNeedsStyleInvalidation();
-    node->clearNeedsStyleInvalidation();
-    if (node->isElementNode())
-        m_pendingInvalidationMap.remove(toElement(node));
-}
-
-RuleFeatureSet::PendingInvalidationMap& RuleFeatureSet::pendingInvalidationMap()
-{
-    return m_pendingInvalidationMap;
+    return m_styleInvalidator;
 }
 
 } // namespace WebCore

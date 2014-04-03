@@ -137,7 +137,7 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
         RenderBlock::removePositionedObject(this);
 }
 
-void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
+void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
 {
     RenderStyle* oldStyle = style();
     if (oldStyle) {
@@ -149,22 +149,24 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle* newStyl
             if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled() || diff != StyleDifferenceLayout)
                 view()->repaint();
 
-            if (oldStyle->hasEntirelyFixedBackground() != newStyle->hasEntirelyFixedBackground())
+            if (oldStyle->hasEntirelyFixedBackground() != newStyle.hasEntirelyFixedBackground())
                 view()->compositor()->rootFixedBackgroundsChanged();
         }
 
         // When a layout hint happens and an object's position style changes, we have to do a layout
         // to dirty the render tree using the old position value now.
-        if (diff == StyleDifferenceLayout && parent() && oldStyle->position() != newStyle->position()) {
+        if (diff == StyleDifferenceLayout && parent() && oldStyle->position() != newStyle.position()) {
             markContainingBlocksForLayout();
             if (oldStyle->position() == StaticPosition)
                 repaint();
-            else if (newStyle->hasOutOfFlowPosition())
+            else if (newStyle.hasOutOfFlowPosition())
                 parent()->setChildNeedsLayout();
-            if (isFloating() && !isOutOfFlowPositioned() && newStyle->hasOutOfFlowPosition())
+            if (isFloating() && !isOutOfFlowPositioned() && newStyle.hasOutOfFlowPosition())
                 removeFloatingOrPositionedChildFromBlockLists();
         }
-    } else if (newStyle && isBody())
+    // FIXME: This branch runs when !oldStyle, which means that layout was never called
+    // so what's the point in invalidating the whole view that we never painted?
+    } else if (isBody())
         view()->repaint();
 
     RenderBoxModelObject::styleWillChange(diff, newStyle);
@@ -1243,19 +1245,28 @@ void RenderBox::paintBackground(const PaintInfo& paintInfo, const LayoutRect& pa
     paintFillLayers(paintInfo, resolveColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), paintRect, bleedAvoidance);
 }
 
-LayoutRect RenderBox::backgroundPaintedExtent() const
+bool RenderBox::getBackgroundPaintedExtent(LayoutRect& paintedExtent) const
 {
     ASSERT(hasBackground());
     LayoutRect backgroundRect = pixelSnappedIntRect(borderBoxRect());
 
     Color backgroundColor = resolveColor(CSSPropertyBackgroundColor);
-    if (backgroundColor.alpha())
-        return backgroundRect;
-    if (!style()->backgroundLayers()->image() || style()->backgroundLayers()->next())
-        return backgroundRect;
+    if (backgroundColor.alpha()) {
+        paintedExtent = backgroundRect;
+        return true;
+    }
+
+    if (!style()->backgroundLayers()->image() || style()->backgroundLayers()->next()) {
+        paintedExtent =  backgroundRect;
+        return true;
+    }
+
     BackgroundImageGeometry geometry;
-    const_cast<RenderBox*>(this)->calculateBackgroundImageGeometry(style()->backgroundLayers(), backgroundRect, geometry);
-    return geometry.destRect();
+    calculateBackgroundImageGeometry(0, style()->backgroundLayers(), backgroundRect, geometry);
+    if (geometry.hasNonLocalGeometry())
+        return false;
+    paintedExtent = geometry.destRect();
+    return true;
 }
 
 bool RenderBox::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect) const
@@ -1365,7 +1376,9 @@ bool RenderBox::computeBackgroundIsKnownToBeObscured()
     // FIXME: box-shadow is painted while background painting.
     if (style()->boxShadow())
         return false;
-    LayoutRect backgroundRect = backgroundPaintedExtent();
+    LayoutRect backgroundRect;
+    if (!getBackgroundPaintedExtent(backgroundRect))
+        return false;
     return foregroundIsKnownToBeOpaqueInRect(backgroundRect, backgroundObscurationTestMaxDepth);
 }
 
@@ -1469,7 +1482,8 @@ LayoutRect RenderBox::maskClipRect()
     for (const FillLayer* maskLayer = style()->maskLayers(); maskLayer; maskLayer = maskLayer->next()) {
         if (maskLayer->image()) {
             BackgroundImageGeometry geometry;
-            calculateBackgroundImageGeometry(maskLayer, borderBox, geometry);
+            // Masks should never have fixed attachment, so it's OK for paintContainer to be null.
+            calculateBackgroundImageGeometry(0, maskLayer, borderBox, geometry);
             result.unite(geometry.destRect());
         }
     }
@@ -1565,8 +1579,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
 
     for (const FillLayer* curLayer = layers; curLayer; curLayer = curLayer->next()) {
         if (curLayer->image() && image == curLayer->image()->data() && curLayer->image()->canRender(this, style()->effectiveZoom())) {
-            // Now that we know this image is being used, compute the renderer and the rect
-            // if we haven't already
+            // Now that we know this image is being used, compute the renderer and the rect if we haven't already.
             if (!layerRenderer) {
                 bool drawingRootBackground = drawingBackground && (isRoot() || (isBody() && !document().documentElement()->renderer()->hasBackground()));
                 if (drawingRootBackground) {
@@ -1593,7 +1606,14 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
             }
 
             BackgroundImageGeometry geometry;
-            layerRenderer->calculateBackgroundImageGeometry(curLayer, rendererRect, geometry);
+            layerRenderer->calculateBackgroundImageGeometry(0, curLayer, rendererRect, geometry);
+            if (geometry.hasNonLocalGeometry()) {
+                // Rather than incur the costs of computing the paintContainer for renderers with fixed backgrounds
+                // in order to get the right destRect, just repaint the entire renderer.
+                layerRenderer->repaint();
+                return true;
+            }
+
             layerRenderer->repaintRectangle(geometry.destRect());
             if (geometry.destRect() == rendererRect)
                 return true;
@@ -2290,7 +2310,7 @@ LayoutUnit RenderBox::computeLogicalWidthUsing(SizeType widthType, Length logica
     if (shrinkToAvoidFloats() && cb->containsFloats())
         logicalWidthResult = min(logicalWidthResult, shrinkLogicalWidthToAvoidFloats(marginStart, marginEnd, toRenderBlockFlow(cb)));
 
-    if (widthType == MainOrPreferredSize && sizesLogicalWidthToFitContent(widthType))
+    if (widthType == MainOrPreferredSize && sizesLogicalWidthToFitContent(logicalWidth))
         return max(minPreferredLogicalWidth(), min(maxPreferredLogicalWidth(), logicalWidthResult));
     return logicalWidthResult;
 }
@@ -2318,16 +2338,13 @@ static bool isStretchingColumnFlexItem(const RenderObject* flexitem)
     return false;
 }
 
-bool RenderBox::sizesLogicalWidthToFitContent(SizeType widthType) const
+bool RenderBox::sizesLogicalWidthToFitContent(const Length& logicalWidth) const
 {
     // Marquees in WinIE are like a mixture of blocks and inline-blocks.  They size as though they're blocks,
     // but they allow text to sit on the same line as the marquee.
     if (isFloating() || (isInlineBlockOrInlineTable() && !isMarquee()))
         return true;
 
-    // This code may look a bit strange.  Basically width:intrinsic should clamp the size when testing both
-    // min-width and width.  max-width is only clamped if it is also intrinsic.
-    Length logicalWidth = (widthType == MaxSize) ? style()->logicalMaxWidth() : style()->logicalWidth();
     if (logicalWidth.type() == Intrinsic)
         return true;
 
@@ -2364,7 +2381,7 @@ bool RenderBox::sizesLogicalWidthToFitContent(SizeType widthType) const
     // stretching column flexbox.
     // FIXME: Think about block-flow here.
     // https://bugs.webkit.org/show_bug.cgi?id=46473
-    if (logicalWidth.type() == Auto && !isStretchingColumnFlexItem(this) && autoWidthShouldFitContent())
+    if (logicalWidth.isAuto() && !isStretchingColumnFlexItem(this) && autoWidthShouldFitContent())
         return true;
 
     if (isHorizontalWritingMode() != containingBlock()->isHorizontalWritingMode())

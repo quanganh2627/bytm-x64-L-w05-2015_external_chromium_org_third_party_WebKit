@@ -273,7 +273,6 @@ WebInspector.Main.prototype = {
         WebInspector.isolatedFileSystemDispatcher = new WebInspector.IsolatedFileSystemDispatcher(WebInspector.isolatedFileSystemManager);
         WebInspector.workspace = new WebInspector.Workspace(WebInspector.isolatedFileSystemManager.mapping());
 
-        WebInspector.cssModel = new WebInspector.CSSStyleModel(WebInspector.workspace);
         WebInspector.timelineManager = new WebInspector.TimelineManager();
         WebInspector.tracingAgent = new WebInspector.TracingAgent();
 
@@ -368,7 +367,7 @@ WebInspector.Main.prototype = {
 
         WebInspector.databaseModel = new WebInspector.DatabaseModel();
         WebInspector.domStorageModel = new WebInspector.DOMStorageModel();
-        WebInspector.cpuProfilerModel = new WebInspector.CPUProfilerModel();
+        WebInspector.cpuProfilerModel = new WebInspector.CPUProfilerModel(mainTarget);
 
         InspectorAgent.enable(inspectorAgentEnableCallback.bind(this));
 
@@ -520,10 +519,8 @@ WebInspector.Main.prototype = {
     {
         if (event.handled)
             return;
-        if (WebInspector.Dialog.currentInstance())
-            return;
 
-        if (WebInspector.inspectorView.currentPanel()) {
+        if (!WebInspector.Dialog.currentInstance() && WebInspector.inspectorView.currentPanel()) {
             WebInspector.inspectorView.currentPanel().handleShortcut(event);
             if (event.handled) {
                 event.consume(true);
@@ -531,15 +528,15 @@ WebInspector.Main.prototype = {
             }
         }
 
-        if (WebInspector.advancedSearchController.handleShortcut(event))
+        if (!WebInspector.Dialog.currentInstance() && WebInspector.advancedSearchController.handleShortcut(event))
             return;
-        if (WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.handleShortcut(event))
+        if (!WebInspector.Dialog.currentInstance() && WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.handleShortcut(event))
             return;
 
         var isValidZoomShortcut = WebInspector.KeyboardShortcut.eventHasCtrlOrMeta(event) &&
             !event.altKey &&
             !InspectorFrontendHost.isStub;
-        if (isValidZoomShortcut && this._handleZoomEvent(event)) {
+        if (!WebInspector.Dialog.currentInstance() && isValidZoomShortcut && this._handleZoomEvent(event)) {
             event.consume(true);
             return;
         }
@@ -592,7 +589,7 @@ WebInspector.Main.prototype = {
      */
     inspect: function(payload, hints)
     {
-        var object = WebInspector.RemoteObject.fromPayload(payload);
+        var object = WebInspector.runtimeModel.createRemoteObject(payload);
         if (object.subtype === "node") {
             object.pushNodeToFrontend(callback);
             var elementsPanel = /** @type {!WebInspector.ElementsPanel} */ (WebInspector.inspectorView.panel("elements"));
@@ -616,25 +613,21 @@ WebInspector.Main.prototype = {
              * @param {?Protocol.Error} error
              * @param {!DebuggerAgent.FunctionDetails} response
              */
-            DebuggerAgent.getFunctionDetails(object.objectId, didGetDetails);
+            object.functionDetails(didGetDetails);
             return;
         }
 
-        function didGetDetails(error, response)
+        /**
+         * @param {?DebuggerAgent.FunctionDetails} response
+         */
+        function didGetDetails(response)
         {
             object.release();
 
-            if (error) {
-                console.error(error);
-                return;
-            }
-
-            var uiLocation = WebInspector.debuggerModel.rawLocationToUILocation(response.location);
-            if (!uiLocation)
+            if (!response)
                 return;
 
-            // FIXME: Dependency violation.
-            /** @type {!WebInspector.SourcesPanel} */ (WebInspector.inspectorView.panel("sources")).showUILocation(uiLocation, true);
+            WebInspector.Revealer.reveal(WebInspector.DebuggerModel.Location.fromPayload(object.target(), response.location).toUILocation());
         }
 
         if (hints.copyToClipboard)
@@ -693,8 +686,10 @@ WebInspector.Main.ReloadActionDelegate.prototype = {
      */
     handleAction: function()
     {
-        WebInspector.debuggerModel.skipAllPauses(true, true);
-        WebInspector.resourceTreeModel.reloadPage(false);
+        if (!WebInspector.Dialog.currentInstance()) {
+            WebInspector.debuggerModel.skipAllPauses(true, true);
+            WebInspector.resourceTreeModel.reloadPage(false);
+        }
         return true;
     }
 }
@@ -713,8 +708,10 @@ WebInspector.Main.HardReloadActionDelegate.prototype = {
      */
     handleAction: function()
     {
-        WebInspector.debuggerModel.skipAllPauses(true, true);
-        WebInspector.resourceTreeModel.reloadPage(true);
+        if (!WebInspector.Dialog.currentInstance()) {
+            WebInspector.debuggerModel.skipAllPauses(true, true);
+            WebInspector.resourceTreeModel.reloadPage(true);
+        }
         return true;
     }
 }
@@ -736,6 +733,29 @@ WebInspector.Main.DebugReloadActionDelegate.prototype = {
         WebInspector.reload();
         return true;
     }
+}
+
+/**
+ * @constructor
+ * @extends {WebInspector.UISettingDelegate}
+ */
+WebInspector.Main.ShortcutPanelSwitchSettingDelegate = function()
+{
+    WebInspector.UISettingDelegate.call(this);
+}
+
+WebInspector.Main.ShortcutPanelSwitchSettingDelegate.prototype = {
+    /**
+     * @override
+     * @return {!Element}
+     */
+    settingElement: function()
+    {
+        var modifier = WebInspector.platform() === "mac" ? "Cmd" : "Ctrl";
+        return WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Enable %s + 1-9 shortcut to switch panels", modifier), WebInspector.settings.shortcutPanelSwitch);
+    },
+
+    __proto__: WebInspector.UISettingDelegate.prototype
 }
 
 new WebInspector.Main();

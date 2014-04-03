@@ -34,6 +34,7 @@
 #include "core/dom/ContainerNode.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
+#include "core/dom/NodeRenderStyle.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLTableCellElement.h"
@@ -166,9 +167,11 @@ static bool hasWillChangeThatCreatesStackingContext(const RenderStyle* style, El
     for (size_t i = 0; i < style->willChangeProperties().size(); ++i) {
         switch (style->willChangeProperties()[i]) {
         case CSSPropertyOpacity:
+        case CSSPropertyTransform:
         case CSSPropertyWebkitTransform:
         case CSSPropertyTransformStyle:
         case CSSPropertyWebkitTransformStyle:
+        case CSSPropertyPerspective:
         case CSSPropertyWebkitPerspective:
         case CSSPropertyWebkitMask:
         case CSSPropertyWebkitMaskBoxImage:
@@ -236,7 +239,7 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
 
     // will-change:transform should result in the same rendering behavior as having a transform,
     // including the creation of a containing block for fixed position descendants.
-    if (!style->hasTransform() && style->willChangeProperties().contains(CSSPropertyWebkitTransform)) {
+    if (!style->hasTransform() && (style->willChangeProperties().contains(CSSPropertyWebkitTransform) || style->willChangeProperties().contains(CSSPropertyTransform))) {
         bool makeIdentity = true;
         style->setTransform(TransformOperations(makeIdentity));
     }
@@ -280,6 +283,13 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
         // SVG text layout code expects us to be a block-level style element.
         if ((isSVGForeignObjectElement(*e) || isSVGTextElement(*e)) && style->isDisplayInlineType())
             style->setDisplay(BLOCK);
+    }
+
+    if (e && e->renderStyle() && e->renderStyle()->textAutosizingMultiplier() != 1) {
+        // Preserve the text autosizing multiplier on style recalc.
+        // (The autosizer will update it during layout if it needs to be changed.)
+        style->setTextAutosizingMultiplier(e->renderStyle()->textAutosizingMultiplier());
+        style->setUnique();
     }
 }
 

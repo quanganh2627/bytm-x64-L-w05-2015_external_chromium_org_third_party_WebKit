@@ -744,6 +744,9 @@ void Node::markAncestorsWithChildNeedsStyleRecalc()
     for (ContainerNode* p = parentOrShadowHostNode(); p && !p->childNeedsStyleRecalc(); p = p->parentOrShadowHostNode())
         p->setChildNeedsStyleRecalc();
 
+    if (document().hasPendingStyleRecalc())
+        return;
+
     if (document().needsStyleRecalc() || document().childNeedsStyleRecalc())
         document().scheduleRenderTreeUpdate();
 }
@@ -1004,7 +1007,7 @@ void Node::detach(const AttachContext& context)
     setChildNeedsStyleRecalc();
 
     if (StyleResolver* resolver = document().styleResolver())
-        resolver->ruleFeatureSet().clearStyleInvalidation(this);
+        resolver->ruleFeatureSet().styleInvalidator().clearInvalidation(*this);
 
 #ifndef NDEBUG
     detachingNode = 0;

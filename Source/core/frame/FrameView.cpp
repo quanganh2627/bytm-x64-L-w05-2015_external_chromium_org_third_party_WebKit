@@ -93,14 +93,11 @@ static const double resourcePriorityUpdateDelayAfterScroll = 0.250;
 
 static RenderLayer::UpdateLayerPositionsFlags updateLayerPositionFlags(RenderLayer* layer, bool isRelayoutingSubtree, bool didFullRepaint)
 {
-    RenderLayer::UpdateLayerPositionsFlags flags = RenderLayer::defaultFlags;
+    RenderLayer::UpdateLayerPositionsFlags flags = didFullRepaint ? RenderLayer::NeedsFullRepaintInBacking : RenderLayer::CheckForRepaint;
 
-    if (didFullRepaint) {
-        flags &= ~RenderLayer::CheckForRepaint;
-        flags |= RenderLayer::NeedsFullRepaintInBacking;
-    }
     if (isRelayoutingSubtree && layer->isPaginated())
         flags |= RenderLayer::UpdatePagination;
+
     return flags;
 }
 
@@ -370,8 +367,10 @@ void FrameView::setFrameRect(const IntRect& newRect)
         return;
 
     // Autosized font sizes depend on the width of the viewing area.
+    bool autosizerNeedsUpdating = false;
     if (newRect.width() != oldRect.width()) {
         if (isMainFrame() && m_frame->settings()->textAutosizingEnabled()) {
+            autosizerNeedsUpdating = true;
             for (LocalFrame* frame = m_frame.get(); frame; frame = frame->tree().traverseNext()) {
                 if (TextAutosizer* textAutosizer = frame->document()->textAutosizer())
                     textAutosizer->recalculateMultipliers();
@@ -382,6 +381,12 @@ void FrameView::setFrameRect(const IntRect& newRect)
     ScrollView::setFrameRect(newRect);
 
     updateScrollableAreaSet();
+
+    if (autosizerNeedsUpdating) {
+        // This needs to be after the call to ScrollView::setFrameRect, because it reads the new width.
+        if (FastTextAutosizer* textAutosizer = m_frame->document()->fastTextAutosizer())
+            textAutosizer->updatePageInfoInAllFrames();
+    }
 
     if (RenderView* renderView = this->renderView()) {
         if (renderView->usesCompositing())
@@ -999,9 +1004,6 @@ void FrameView::layout(bool allowSubtree)
         return;
 
     if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
-        if (m_doFullRepaint)
-            renderView()->setShouldDoFullRepaintAfterLayout(true);
-
         repaintTree(rootForThisLayout);
 
     } else if (m_doFullRepaint) {
@@ -1040,14 +1042,29 @@ void FrameView::repaintTree(RenderObject* root)
     // we continue to track repaint rects until this function is called.
     ASSERT(!m_nestedLayoutCount);
 
+    TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"), "FrameView::repaintTree");
+
     // FIXME: really, we're in the repaint phase here, and the compositing queries are legal.
     // Until those states are fully fledged, I'll just disable the ASSERTS.
     DisableCompositingQueryAsserts disabler;
 
-    for (RenderObject* renderer = root; renderer; renderer = renderer->nextInPreOrder()) {
-        const LayoutRect& oldRepaintRect = renderer->oldRepaintRect();
-        const LayoutRect& newRepaintRect = renderer->newRepaintRect();
+    // If we are set to do a full repaint that means the RenderView will be
+    // invalidated. We can then skip issuing of invalidations for the child
+    // renderers as they'll be covered by the RenderView.
+    if (m_doFullRepaint) {
+        RenderView* view = renderView();
+        view->repaintAfterLayoutIfNeeded(view->containerForRepaint(), true, view->oldRepaintRect(), &(view->newRepaintRect()));
 
+        // Clear the invalidation flags for the root and child renderers.
+        for (RenderObject* renderer = root; renderer; renderer = renderer->nextInPreOrder()) {
+            renderer->clearRepaintState();
+        }
+        return;
+    }
+
+    ASSERT(!m_doFullRepaint);
+
+    for (RenderObject* renderer = root; renderer; renderer = renderer->nextInPreOrder()) {
         if ((renderer->onlyNeededPositionedMovementLayout() && renderer->compositingState() != PaintsIntoOwnBacking)
             || (renderer->shouldDoFullRepaintIfSelfPaintingLayer()
                 && renderer->hasLayer()
@@ -1067,7 +1084,7 @@ void FrameView::repaintTree(RenderObject* root)
 
         } else {
             didFullRepaint = renderer->repaintAfterLayoutIfNeeded(renderer->containerForRepaint(),
-                renderer->shouldDoFullRepaintAfterLayout(), oldRepaintRect, &newRepaintRect);
+                renderer->shouldDoFullRepaintAfterLayout(), renderer->oldRepaintRect(), &(renderer->newRepaintRect()));
         }
 
         if (!didFullRepaint)
@@ -1215,6 +1232,10 @@ void FrameView::adjustMediaTypeForPrinting(bool printing)
 
 bool FrameView::useSlowRepaints(bool considerOverlap) const
 {
+    // FIXME: It is incorrect to determine blit-scrolling eligibility using dirty compositing state.
+    // https://code.google.com/p/chromium/issues/detail?id=357345
+    DisableCompositingQueryAsserts disabler;
+
     if (m_slowRepaintObjectCount > 0)
         return true;
 
@@ -1727,7 +1748,7 @@ void FrameView::updateFixedElementRepaintRectsAfterScroll()
             || layer->viewportConstrainedNotCompositedReason() == RenderLayer::NotCompositedForNoVisibleContent)
             continue;
 
-        layer->repainter().computeRepaintRects(renderer->containerForRepaint());
+        layer->repainter().computeRepaintRectsIncludingDescendants();
     }
 }
 
@@ -1776,6 +1797,11 @@ void FrameView::repaintContentRectangle(const IntRect& r)
 
 void FrameView::contentsResized()
 {
+    if (isMainFrame() && m_frame->document()) {
+        if (FastTextAutosizer* textAutosizer = m_frame->document()->fastTextAutosizer())
+            textAutosizer->updatePageInfoInAllFrames();
+    }
+
     ScrollView::contentsResized();
     if (RenderView* renderView = this->renderView()) {
         // Don't directly repaint layer in setNeedsLayout. We'll handle repaint in layout().
@@ -3094,6 +3120,9 @@ void FrameView::setTracksRepaints(bool trackRepaints)
         if (RenderView* renderView = frame->contentRenderer())
             renderView->compositor()->setTracksRepaints(trackRepaints);
     }
+
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"),
+        "FrameView::setTracksRepaints", "enabled", trackRepaints);
 
     resetTrackedRepaints();
     m_isTrackingRepaints = trackRepaints;

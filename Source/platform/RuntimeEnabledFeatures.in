@@ -37,7 +37,7 @@ CSSShapes status=experimental
 CSSStickyPosition status=experimental
 CSSTouchAction status=stable
 CSSTouchActionDelay status=test
-CSSTransformsUnprefixed status=test
+CSSTransformsUnprefixed status=experimental
 CSSViewport status=experimental
 CSSWillChange status=experimental
 CSS3Text status=experimental
@@ -82,6 +82,7 @@ PagePopup status=stable
 PathOpsSVGClipping
 PeerConnection depends_on=MediaStream, status=stable
 PreciseMemoryInfo
+PushMessaging status=test
 Quota status=stable
 QuotaPromise status=experimental
 OverlayScrollbars
@@ -89,7 +90,7 @@ RegionBasedColumns status=experimental
 
 // This is implementation flag for the re-write of the layout/paint system to
 // do painting after we have completed layout, instead of piecemeal during layout.
-RepaintAfterLayout
+RepaintAfterLayout status=stable
 
 RequestAutocomplete status=test
 ScreenOrientation status=experimental
@@ -124,13 +125,12 @@ Touch status=stable
 TouchIconLoading
 UserSelectAll status=experimental
 ScriptPromiseOnV8Promise
-VideoTrack depends_on=Media, status=stable
 WebAnimationsSVG
 WebAnimationsAPI status=experimental
 WebAudio condition=WEB_AUDIO, status=stable
 WebGLDraftExtensions status=experimental
 WebMIDI status=test
 WebKitMediaSource status=stable
-WebVTTRegions depends_on=VideoTrack, status=experimental
+WebVTTRegions depends_on=Media, status=experimental
 WOFF2 status=stable
 XSLT status=stable

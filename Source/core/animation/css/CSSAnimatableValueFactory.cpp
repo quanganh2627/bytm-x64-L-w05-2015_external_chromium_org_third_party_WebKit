@@ -41,6 +41,7 @@
 #include "core/animation/AnimatableLengthBox.h"
 #include "core/animation/AnimatableLengthBoxAndBool.h"
 #include "core/animation/AnimatableLengthPoint.h"
+#include "core/animation/AnimatableLengthPoint3D.h"
 #include "core/animation/AnimatableLengthSize.h"
 #include "core/animation/AnimatableRepeatable.h"
 #include "core/animation/AnimatableSVGLength.h"
@@ -457,11 +458,18 @@ PassRefPtrWillBeRawPtr<AnimatableValue> CSSAnimatableValueFactory::create(CSSPro
         return createFromFillLayers<CSSPropertyWebkitMaskPositionY>(style.maskLayers(), style);
     case CSSPropertyWebkitMaskSize:
         return createFromFillLayers<CSSPropertyWebkitMaskSize>(style.maskLayers(), style);
-    case CSSPropertyWebkitPerspective:
+    case CSSPropertyPerspective:
         return createFromDouble(style.perspective());
+    case CSSPropertyPerspectiveOrigin:
+        ASSERT(RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
+        return AnimatableLengthPoint::create(
+            createFromLength(style.perspectiveOriginX(), style),
+            createFromLength(style.perspectiveOriginY(), style));
     case CSSPropertyWebkitPerspectiveOriginX:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         return createFromLength(style.perspectiveOriginX(), style);
     case CSSPropertyWebkitPerspectiveOriginY:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         return createFromLength(style.perspectiveOriginY(), style);
     case CSSPropertyShapeOutside:
         return createFromShapeValue(style.shapeOutside());
@@ -471,13 +479,22 @@ PassRefPtrWillBeRawPtr<AnimatableValue> CSSAnimatableValueFactory::create(CSSPro
         return createFromDouble(style.shapeImageThreshold());
     case CSSPropertyWebkitTextStrokeColor:
         return createFromColor(property, style);
-    case CSSPropertyWebkitTransform:
+    case CSSPropertyTransform:
         return AnimatableTransform::create(style.transform());
+    case CSSPropertyTransformOrigin:
+        ASSERT(RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
+        return AnimatableLengthPoint3D::create(
+            createFromLength(style.transformOriginX(), style),
+            createFromLength(style.transformOriginY(), style),
+            createFromDouble(style.transformOriginZ()));
     case CSSPropertyWebkitTransformOriginX:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         return createFromLength(style.transformOriginX(), style);
     case CSSPropertyWebkitTransformOriginY:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         return createFromLength(style.transformOriginY(), style);
     case CSSPropertyWebkitTransformOriginZ:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         return createFromDouble(style.transformOriginZ());
     case CSSPropertyWidows:
         return createFromDouble(style.widows());

@@ -230,9 +230,6 @@ public:
     // Returns the child frame identified by the given name.
     virtual WebFrame* findChildByName(const WebString& name) const = 0;
 
-    // Returns the child frame identified by the given xpath expression.
-    virtual WebFrame* findChildByExpression(const WebString& xpath) const = 0;
-
 
     // Content ------------------------------------------------------------
 
@@ -246,6 +243,9 @@ public:
     // Runs beforeunload handlers for this frame, returning false if a
     // handler suppressed unloading.
     virtual bool dispatchBeforeUnloadEvent() = 0;
+
+    // Runs unload handlers for this frame.
+    virtual void dispatchUnloadEvent() = 0;
 
 
     // Scripting ----------------------------------------------------------

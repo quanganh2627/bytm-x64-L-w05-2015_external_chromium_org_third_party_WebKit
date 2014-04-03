@@ -53,6 +53,7 @@ public:
     };
 
     virtual bool mainFrameResizesAreOrientationChanges() const = 0;
+    virtual bool shrinksViewportContentToFit() const = 0;
     virtual bool scrollAnimatorEnabled() const = 0;
     virtual bool touchEditingEnabled() const = 0;
     virtual bool viewportEnabled() const = 0;
@@ -124,7 +125,6 @@ public:
     virtual void setJavaScriptCanOpenWindowsAutomatically(bool) = 0;
     virtual void setJavaScriptEnabled(bool) = 0;
     virtual void setLayerSquashingEnabled(bool) = 0;
-    virtual void setLayoutFallbackWidth(int) = 0;
     virtual void setLoadsImagesAutomatically(bool) = 0;
     virtual void setLoadWithOverviewMode(bool) = 0;
     virtual void setLocalStorageEnabled(bool) = 0;
@@ -159,6 +159,7 @@ public:
     virtual void setShowFPSCounter(bool) = 0;
     virtual void setShowPaintRects(bool) = 0;
     virtual void setShrinksStandaloneImagesToFit(bool) = 0;
+    virtual void setShrinksViewportContentToFit(bool) = 0;
     virtual void setSmartInsertDeleteEnabled(bool) = 0;
     // Spatial navigation feature, when enabled, improves the experience
     // of keyboard-controlling the web pages which originally were not designed
@@ -200,7 +201,6 @@ public:
 
     // FIXME: Remove these unused settings.
     virtual void setFixedPositionCreatesStackingContext(bool) { }
-    virtual void setFullScreenEnabled(bool) { }
 
 protected:
     ~WebSettings() { }

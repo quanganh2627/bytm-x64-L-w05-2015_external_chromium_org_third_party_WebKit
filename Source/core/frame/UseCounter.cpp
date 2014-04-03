@@ -395,7 +395,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     // case CSSPropertyShapeInside: return 346;
     case CSSPropertyShapeOutside: return 347;
     case CSSPropertyShapeMargin: return 348;
-    case CSSPropertyShapePadding: return 349;
+    // case CSSPropertyShapePadding: return 349;
     case CSSPropertyWebkitWrapFlow: return 350;
     case CSSPropertyWebkitWrapThrough: return 351;
     // CSSPropertyWebkitWrap was 352.
@@ -506,6 +506,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyPerspective: return 449;
     case CSSPropertyPerspectiveOrigin: return 450;
     case CSSPropertyBackfaceVisibility: return 451;
+    case CSSPropertyGridTemplate: return 452;
 
     // Add new features above this line (don't change the assigned numbers of the existing
     // items) and update maximumCSSSampleId() with the new maximum value.

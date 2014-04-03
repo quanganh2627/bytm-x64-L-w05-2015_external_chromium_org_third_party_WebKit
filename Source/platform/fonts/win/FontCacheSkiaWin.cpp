@@ -42,17 +42,13 @@
 
 namespace WebCore {
 
-// Minimum size, in pixels, at which anti alias is enabled for certain
-// scripts. Only applies to the Direct Write backend for now.
-static const unsigned s_minSizeForComplexScriptsAntiAlias = 32;
-
 FontCache::FontCache()
     : m_purgePreventCount(0)
 {
     SkFontMgr* fontManager;
 
     if (s_useDirectWrite) {
-        fontManager = SkFontMgr_New_DirectWrite();
+        fontManager = SkFontMgr_New_DirectWrite(s_directWriteFactory);
     } else {
         fontManager = SkFontMgr_New_GDI();
         // Subpixel text positioning is not supported by the GDI backend.
@@ -72,6 +68,49 @@ static bool fontContainsCharacter(const FontPlatformData* fontData, const wchar_
     uint16_t glyph;
     paint.textToGlyphs(&character, sizeof(character), &glyph);
     return glyph;
+}
+
+// Minimum size, in pixels, at which anti alias is enabled for certain
+// scripts. Only applies to the Direct Write backend for now.
+static unsigned minSizeForAntiAlias(UScriptCode script)
+{
+    switch (script) {
+    case USCRIPT_TRADITIONAL_HAN:
+        return 24;
+    case USCRIPT_SIMPLIFIED_HAN:
+    case USCRIPT_HIRAGANA:
+    case USCRIPT_KATAKANA:
+    case USCRIPT_KATAKANA_OR_HIRAGANA:
+    case USCRIPT_HANGUL:
+    case USCRIPT_BENGALI:
+        return 16;
+    case USCRIPT_THAI:
+    case USCRIPT_HEBREW:
+    case USCRIPT_ARABIC:
+    case USCRIPT_DEVANAGARI:
+    case USCRIPT_GURMUKHI:
+    case USCRIPT_GUJARATI:
+    case USCRIPT_TAMIL:
+    case USCRIPT_TELUGU:
+    case USCRIPT_KANNADA:
+    case USCRIPT_GEORGIAN:
+    case USCRIPT_ARMENIAN:
+    case USCRIPT_THAANA:
+    case USCRIPT_CANADIAN_ABORIGINAL:
+    case USCRIPT_CHEROKEE:
+    case USCRIPT_MONGOLIAN:
+    default:
+        return 0;
+    }
+}
+
+static bool fontRequiresFullHinting(const AtomicString& familyName)
+{
+    DEFINE_STATIC_LOCAL(AtomicString, courierNew, ("Courier New", AtomicString::ConstructFromLiteral));
+    if (equalIgnoringCase(familyName, courierNew))
+        return true;
+
+    return false;
 }
 
 // Given the desired base font, this will create a SimpleFontData for a specific
@@ -153,8 +192,11 @@ PassRefPtr<SimpleFontData> FontCache::platformFallbackForCharacter(const FontDes
     // last font in the array covers the character, |i| will be numFonts.
     // So, we have to use '<=" rather than '<' to see if we found a font
     // covering the character.
-    if (i <= numFonts)
+    if (i <= numFonts) {
+        if (s_useDirectWrite)
+            data->setMinSizeForAntiAlias(minSizeForAntiAlias(script));
         return fontDataFromFontPlatformData(data, DoNotRetain);
+    }
 
     return nullptr;
 }
@@ -215,31 +257,13 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
         fontDescription.orientation(),
         s_useSubpixelPositioning);
 
-    // FIXME: Turn this into a script to min-size table.
-    if (s_useDirectWrite
-        && (fontDescription.script() == USCRIPT_SIMPLIFIED_HAN
-            || fontDescription.script() == USCRIPT_TRADITIONAL_HAN
-            || fontDescription.script() == USCRIPT_HIRAGANA
-            || fontDescription.script() == USCRIPT_KATAKANA
-            || fontDescription.script() == USCRIPT_KATAKANA_OR_HIRAGANA
-            || fontDescription.script() == USCRIPT_HANGUL
-            || fontDescription.script() == USCRIPT_THAI
-            || fontDescription.script() == USCRIPT_HEBREW
-            || fontDescription.script() == USCRIPT_ARABIC
-            || fontDescription.script() == USCRIPT_DEVANAGARI
-            || fontDescription.script() == USCRIPT_BENGALI
-            || fontDescription.script() == USCRIPT_GURMUKHI
-            || fontDescription.script() == USCRIPT_GUJARATI
-            || fontDescription.script() == USCRIPT_TAMIL
-            || fontDescription.script() == USCRIPT_TELUGU
-            || fontDescription.script() == USCRIPT_KANNADA
-            || fontDescription.script() == USCRIPT_GEORGIAN
-            || fontDescription.script() == USCRIPT_ARMENIAN
-            || fontDescription.script() == USCRIPT_THAANA
-            || fontDescription.script() == USCRIPT_CANADIAN_ABORIGINAL
-            || fontDescription.script() == USCRIPT_CHEROKEE
-            || fontDescription.script() == USCRIPT_MONGOLIAN)) {
-        result->setMinSizeForAntiAlias(s_minSizeForComplexScriptsAntiAlias);
+    // FIXME: It might be sufficient to set the "full hinting" flag for
+    // CJK instead of forcing aliased rendering.
+    if (s_useDirectWrite) {
+        result->setMinSizeForAntiAlias(
+            minSizeForAntiAlias(fontDescription.script()));
+        if (fontRequiresFullHinting(family))
+            result->setHinting(SkPaint::kFull_Hinting);
     }
 
     return result;

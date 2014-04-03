@@ -428,33 +428,6 @@ void CompositedLayerMapping::updateCompositingReasons()
     m_graphicsLayer->setCompositingReasons(m_owningLayer.compositingReasons());
 }
 
-void CompositedLayerMapping::updateAfterLayout(UpdateAfterLayoutFlags flags)
-{
-    RenderLayerCompositor* layerCompositor = compositor();
-    if (!layerCompositor->compositingLayersNeedRebuild()) {
-        // Calling updateGraphicsLayerGeometry() here gives incorrect results, because the
-        // position of this layer's GraphicsLayer depends on the position of our compositing
-        // ancestor's GraphicsLayer. That cannot be determined until all the descendant
-        // RenderLayers of that ancestor have been processed via updateLayerPositions().
-        //
-        // The solution is to update compositing children of this layer here,
-        // via updateCompositingChildrenGeometry().
-        updateCompositedBounds(GraphicsLayerUpdater::ForceUpdate);
-        layerCompositor->updateCompositingDescendantGeometry(m_owningLayer.stackingNode(), &m_owningLayer, flags & CompositingChildrenOnly);
-
-        if (flags & IsUpdateRoot) {
-            updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate);
-            layerCompositor->updateRootLayerPosition();
-            RenderLayerStackingNode* stackingContainer = m_owningLayer.stackingNode()->enclosingStackingContainerNode();
-            if (!layerCompositor->compositingLayersNeedRebuild() && stackingContainer && (stackingContainer != m_owningLayer.stackingNode()))
-                layerCompositor->updateCompositingDescendantGeometry(stackingContainer, stackingContainer->layer(), flags & CompositingChildrenOnly);
-        }
-    }
-
-    if (flags & NeedsFullRepaint && !paintsIntoCompositedAncestor())
-        setContentsNeedDisplay();
-}
-
 bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdater::UpdateType updateType)
 {
     if (!shouldUpdateGraphicsLayer(updateType))
@@ -667,7 +640,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
-    if (!hasActiveAnimationsOnCompositor(*renderer(), CSSPropertyWebkitTransform))
+    if (!hasActiveAnimationsOnCompositor(*renderer(), CSSPropertyTransform))
         updateTransform(renderer()->style());
 
     // Set opacity, if it is not animating.
@@ -878,7 +851,11 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
         }
     }
 
-    updateSquashingLayerGeometry(delta);
+    {
+        IntPoint squashingDelta(delta);
+        squashingDelta.moveBy(-graphicsLayerParentLocation);
+        updateSquashingLayerGeometry(squashingDelta);
+    }
 
     if (m_owningLayer.scrollableArea() && m_owningLayer.scrollableArea()->scrollsOverflow())
         m_owningLayer.scrollableArea()->positionOverflowControls();
@@ -968,16 +945,16 @@ void CompositedLayerMapping::updateInternalHierarchy()
     // The squashing containment layer, if it exists, becomes a no-op parent.
     if (m_squashingLayer) {
         ASSERT(compositor()->layerSquashingEnabled());
-        ASSERT(m_squashingContainmentLayer);
+        ASSERT((m_ancestorClippingLayer && !m_squashingContainmentLayer) || (!m_ancestorClippingLayer && m_squashingContainmentLayer));
 
-        m_squashingContainmentLayer->removeAllChildren();
-
-        if (m_ancestorClippingLayer)
-            m_squashingContainmentLayer->addChild(m_ancestorClippingLayer.get());
-        else
+        if (m_squashingContainmentLayer) {
+            m_squashingContainmentLayer->removeAllChildren();
             m_squashingContainmentLayer->addChild(m_graphicsLayer.get());
-
-        m_squashingContainmentLayer->addChild(m_squashingLayer.get());
+            m_squashingContainmentLayer->addChild(m_squashingLayer.get());
+        } else {
+            // The ancestor clipping layer is already set up and has m_graphicsLayer under it.
+            m_ancestorClippingLayer->addChild(m_squashingLayer.get());
+        }
     }
 }
 
@@ -1457,23 +1434,23 @@ bool CompositedLayerMapping::updateSquashingLayers(bool needsSquashingLayers)
             m_squashingLayer->setDrawsContent(true);
 
             // FIXME: containment layer needs a new CompositingReason, CompositingReasonOverlap is not appropriate.
-            m_squashingContainmentLayer = createGraphicsLayer(CompositingReasonLayerForSquashingContainer);
+            if (!m_ancestorClippingLayer)
+                m_squashingContainmentLayer = createGraphicsLayer(CompositingReasonLayerForSquashingContainer);
             layersChanged = true;
         }
 
-        ASSERT(m_squashingLayer && m_squashingContainmentLayer);
+        ASSERT(m_squashingLayer);
     } else {
         if (m_squashingLayer) {
             m_squashingLayer->removeFromParent();
             m_squashingLayer = nullptr;
-            // FIXME: do we need to invalidate something here?
-
-            ASSERT(m_squashingContainmentLayer);
+            layersChanged = true;
+        }
+        if (m_squashingContainmentLayer) {
             m_squashingContainmentLayer->removeFromParent();
             m_squashingContainmentLayer = nullptr;
             layersChanged = true;
         }
-
         ASSERT(!m_squashingLayer && !m_squashingContainmentLayer);
     }
 
@@ -1970,7 +1947,7 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
         paintInfo.renderLayer->paintLayer(context, paintingInfo, paintFlags);
     }
 
-    ASSERT(!paintInfo.renderLayer->m_usedTransparency);
+    ASSERT(!paintInfo.renderLayer->usedTransparency());
 
     // Manually restore the context to its original state by applying the opposite translation.
     context->translate(offset);

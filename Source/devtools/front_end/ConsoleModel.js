@@ -30,16 +30,17 @@
 
 /**
  * @constructor
- * @extends {WebInspector.Object}
+ * @extends {WebInspector.TargetAwareObject}
  * @param {!WebInspector.Target} target
  */
 WebInspector.ConsoleModel = function(target)
 {
+    WebInspector.TargetAwareObject.call(this, target);
+
     /** @type {!Array.<!WebInspector.ConsoleMessage>} */
     this.messages = [];
     this.warnings = 0;
     this.errors = 0;
-    this._target = target;
     this._consoleAgent = target.consoleAgent();
     target.registerConsoleDispatcher(new WebInspector.ConsoleDispatcher(this));
     this._enableAgent();
@@ -101,7 +102,7 @@ WebInspector.ConsoleModel.prototype = {
     {
         this.show();
 
-        var commandMessage = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.JS, null, text, WebInspector.ConsoleMessage.MessageType.Command);
+        var commandMessage = new WebInspector.ConsoleMessage(this.target(), WebInspector.ConsoleMessage.MessageSource.JS, null, text, WebInspector.ConsoleMessage.MessageType.Command);
         this.addMessage(commandMessage);
 
         /**
@@ -117,7 +118,7 @@ WebInspector.ConsoleModel.prototype = {
 
             this.dispatchEventToListeners(WebInspector.ConsoleModel.Events.CommandEvaluated, {result: result, wasThrown: wasThrown, text: text, commandMessage: commandMessage});
         }
-        this._target.runtimeModel.evaluate(text, "console", useCommandLineAPI, false, false, true, printResult.bind(this));
+        this.target().runtimeModel.evaluate(text, "console", useCommandLineAPI, false, false, true, printResult.bind(this));
 
         WebInspector.userMetrics.ConsoleEvaluated.record();
     },
@@ -143,6 +144,7 @@ WebInspector.ConsoleModel.prototype = {
     log: function(messageText, messageLevel, showConsole)
     {
         var message = new WebInspector.ConsoleMessage(
+            this.target(),
             WebInspector.ConsoleMessage.MessageSource.Other,
             messageLevel || WebInspector.ConsoleMessage.MessageLevel.Debug,
             messageText);
@@ -190,11 +192,13 @@ WebInspector.ConsoleModel.prototype = {
         this.warnings = 0;
     },
 
-    __proto__: WebInspector.Object.prototype
+    __proto__: WebInspector.TargetAwareObject.prototype
 }
 
 /**
  * @constructor
+ * @extends {WebInspector.TargetAware}
+ * @param {!WebInspector.Target} target
  * @param {string} source
  * @param {?string} level
  * @param {string} messageText
@@ -207,10 +211,11 @@ WebInspector.ConsoleModel.prototype = {
  * @param {!Array.<!ConsoleAgent.CallFrame>=} stackTrace
  * @param {number=} timestamp
  * @param {boolean=} isOutdated
+ * @param {!RuntimeAgent.ExecutionContextId=} executionContextId
  */
-
-WebInspector.ConsoleMessage = function(source, level, messageText, type, url, line, column, requestId, parameters, stackTrace, timestamp, isOutdated)
+WebInspector.ConsoleMessage = function(target, source, level, messageText, type, url, line, column, requestId, parameters, stackTrace, timestamp, isOutdated, executionContextId)
 {
+    WebInspector.TargetAware.call(this, target);
     this.source = source;
     this.level = level;
     this.messageText = messageText;
@@ -222,6 +227,7 @@ WebInspector.ConsoleMessage = function(source, level, messageText, type, url, li
     this.stackTrace = stackTrace;
     this.timestamp = timestamp || Date.now();
     this.isOutdated = isOutdated;
+    this.executionContextId = executionContextId;
 
     this.request = requestId ? WebInspector.networkLog.requestForId(requestId) : null;
 }
@@ -252,6 +258,7 @@ WebInspector.ConsoleMessage.prototype = {
     clone: function()
     {
         return new WebInspector.ConsoleMessage(
+            this.target(),
             this.source,
             this.level,
             this.messageText,
@@ -263,7 +270,8 @@ WebInspector.ConsoleMessage.prototype = {
             this.parameters,
             this.stackTrace,
             this.timestamp,
-            this.isOutdated);
+            this.isOutdated,
+            this.executionContextId);
     },
 
     /**
@@ -306,7 +314,9 @@ WebInspector.ConsoleMessage.prototype = {
             && (this.url === msg.url)
             && (this.messageText === msg.messageText)
             && (this.request === msg.request);
-    }
+    },
+
+    __proto__: WebInspector.TargetAware.prototype
 }
 
 // Note: Keep these constants in sync with the ones in Console.h
@@ -375,6 +385,7 @@ WebInspector.ConsoleDispatcher.prototype = {
     messageAdded: function(payload)
     {
         var consoleMessage = new WebInspector.ConsoleMessage(
+            this._console.target(),
             payload.source,
             payload.level,
             payload.text,
@@ -386,7 +397,8 @@ WebInspector.ConsoleDispatcher.prototype = {
             payload.parameters,
             payload.stackTrace,
             payload.timestamp * 1000, // Convert to ms.
-            this._console._enablingConsole);
+            this._console._enablingConsole,
+            payload.executionContextId);
         this._console.addMessage(consoleMessage, true);
     },
 

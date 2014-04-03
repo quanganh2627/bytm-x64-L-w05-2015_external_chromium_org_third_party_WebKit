@@ -90,12 +90,19 @@ interface CanvasRenderingContext2D {
     boolean isPointInStroke(float x, float y);
     [RuntimeEnabled=ExperimentalCanvasFeatures, RaisesException] boolean isPointInStroke(Path2D? path, float x, float y);
 
+    [RuntimeEnabled=ExperimentalCanvasFeatures] void scrollPathIntoView();
+    [RuntimeEnabled=ExperimentalCanvasFeatures, RaisesException] void scrollPathIntoView(Path2D? path);
+
     // text
     attribute DOMString font;
     attribute DOMString textAlign;
     attribute DOMString textBaseline;
 
     TextMetrics measureText(DOMString text);
+
+    // Context state
+    // Should be merged with WebGL counterpart in CanvasRenderingContext, once no-longer experimental
+    [RuntimeEnabled=ExperimentalCanvasFeatures] boolean isContextLost();
 
     // other
 

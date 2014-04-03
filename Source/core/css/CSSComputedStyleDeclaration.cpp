@@ -296,12 +296,13 @@ static const CSSPropertyID staticComputableProperties[] = {
     CSSPropertyWebkitMaskRepeat,
     CSSPropertyWebkitMaskSize,
     CSSPropertyOrder,
+    CSSPropertyPerspective,
     CSSPropertyWebkitPerspective,
+    CSSPropertyPerspectiveOrigin,
     CSSPropertyWebkitPerspectiveOrigin,
     CSSPropertyWebkitPrintColorAdjust,
     CSSPropertyWebkitRtlOrdering,
     CSSPropertyShapeOutside,
-    CSSPropertyShapePadding,
     CSSPropertyShapeImageThreshold,
     CSSPropertyShapeMargin,
     CSSPropertyWebkitTapHighlightColor,
@@ -315,7 +316,9 @@ static const CSSPropertyID staticComputableProperties[] = {
     CSSPropertyWebkitTextSecurity,
     CSSPropertyWebkitTextStrokeColor,
     CSSPropertyWebkitTextStrokeWidth,
+    CSSPropertyTransform,
     CSSPropertyWebkitTransform,
+    CSSPropertyTransformOrigin,
     CSSPropertyWebkitTransformOrigin,
     CSSPropertyTransformStyle,
     CSSPropertyWebkitTransformStyle,
@@ -1438,7 +1441,7 @@ static PassRefPtrWillBeRawPtr<CSSValue> valueForShape(const RenderStyle& style, 
     if (shapeValue->type() == ShapeValue::Outside)
         return cssValuePool().createIdentifierValue(CSSValueOutsideShape);
     if (shapeValue->type() == ShapeValue::Box)
-        return cssValuePool().createValue(shapeValue->layoutBox());
+        return cssValuePool().createValue(shapeValue->cssBox());
     if (shapeValue->type() == ShapeValue::Image) {
         if (shapeValue->image())
             return shapeValue->image()->cssValue();
@@ -1449,8 +1452,8 @@ static PassRefPtrWillBeRawPtr<CSSValue> valueForShape(const RenderStyle& style, 
 
     RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     list->append(valueForBasicShape(style, shapeValue->shape()));
-    if (shapeValue->layoutBox() != BoxMissing)
-        list->append(cssValuePool().createValue(shapeValue->layoutBox()));
+    if (shapeValue->cssBox() != BoxMissing)
+        list->append(cssValuePool().createValue(shapeValue->cssBox()));
     return list.release();
 }
 
@@ -1490,8 +1493,11 @@ static bool isLayoutDependent(CSSPropertyID propertyID, PassRefPtr<RenderStyle> 
     case CSSPropertyLeft:
     case CSSPropertyRight:
     case CSSPropertyTop:
+    case CSSPropertyPerspectiveOrigin:
     case CSSPropertyWebkitPerspectiveOrigin:
+    case CSSPropertyTransform:
     case CSSPropertyWebkitTransform:
+    case CSSPropertyTransformOrigin:
     case CSSPropertyWebkitTransformOrigin:
     case CSSPropertyWidth:
     case CSSPropertyWebkitFilter:
@@ -1976,7 +1982,8 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
             return valuesForGridShorthand(gridRowShorthand());
         case CSSPropertyGridArea:
             return valuesForGridShorthand(gridAreaShorthand());
-
+        case CSSPropertyGridTemplate:
+            return valuesForGridShorthand(gridTemplateShorthand());
         case CSSPropertyGridTemplateAreas:
             if (!style->namedGridAreaRowCount()) {
                 ASSERT(!style->namedGridAreaColumnCount());
@@ -2502,10 +2509,12 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
         case CSSPropertyWebkitMarginTopCollapse:
         case CSSPropertyWebkitMarginBeforeCollapse:
             return cssValuePool().createValue(style->marginBeforeCollapse());
+        case CSSPropertyPerspective:
         case CSSPropertyWebkitPerspective:
             if (!style->hasPerspective())
                 return cssValuePool().createIdentifierValue(CSSValueNone);
             return zoomAdjustedPixelValue(style->perspective(), *style);
+        case CSSPropertyPerspectiveOrigin:
         case CSSPropertyWebkitPerspectiveOrigin: {
             RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
             if (renderer) {
@@ -2551,8 +2560,10 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
         }
         case CSSPropertySpeak:
             return cssValuePool().createValue(style->speak());
+        case CSSPropertyTransform:
         case CSSPropertyWebkitTransform:
             return computedTransform(renderer, *style);
+        case CSSPropertyTransformOrigin:
         case CSSPropertyWebkitTransformOrigin: {
             RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
             if (renderer) {
@@ -2640,8 +2651,6 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
             return cssValuePool().createValue(style->wrapFlow());
         case CSSPropertyShapeMargin:
             return cssValuePool().createValue(style->shapeMargin());
-        case CSSPropertyShapePadding:
-            return cssValuePool().createValue(style->shapePadding());
         case CSSPropertyShapeImageThreshold:
             return cssValuePool().createValue(style->shapeImageThreshold(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyShapeOutside:
@@ -2762,13 +2771,6 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
         case CSSPropertyWebkitMaxLogicalWidth:
         case CSSPropertyWebkitMaxLogicalHeight:
             ASSERT_NOT_REACHED();
-            break;
-
-        // FIXME: crbug.com/154772 Unimplemented css-transforms properties
-        case CSSPropertyPerspective:
-        case CSSPropertyPerspectiveOrigin:
-        case CSSPropertyTransform:
-        case CSSPropertyTransformOrigin:
             break;
 
         /* Unimplemented @font-face properties */

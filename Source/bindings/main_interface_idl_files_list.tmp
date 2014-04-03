@@ -80,6 +80,7 @@
 ../core/dom/URL.idl
 ../core/dom/XMLDocument.idl
 ../core/dom/shadow/ShadowRoot.idl
+../core/events/AnimationPlayerEvent.idl
 ../core/events/ApplicationCacheErrorEvent.idl
 ../core/events/AutocompleteErrorEvent.idl
 ../core/events/BeforeUnloadEvent.idl
@@ -534,6 +535,7 @@
 ../modules/notifications/Notification.idl
 ../modules/notifications/NotificationPermissionCallback.idl
 ../modules/performance/WorkerPerformance.idl
+../modules/push_messaging/PushManager.idl
 ../modules/quota/DeprecatedStorageInfo.idl
 ../modules/quota/DeprecatedStorageQuota.idl
 ../modules/quota/StorageErrorCallback.idl

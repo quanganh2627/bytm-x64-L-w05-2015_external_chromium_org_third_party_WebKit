@@ -79,6 +79,8 @@ AnimationPlayer* DocumentTimeline::createAnimationPlayer(TimedItem* child)
 
 AnimationPlayer* DocumentTimeline::play(TimedItem* child)
 {
+    if (!m_document)
+        return 0;
     AnimationPlayer* player = createAnimationPlayer(child);
     player->setStartTime(effectiveTime());
     return player;
@@ -144,11 +146,21 @@ void DocumentTimeline::DocumentTimelineTiming::serviceOnNextFrame()
         m_timeline->m_document->view()->scheduleAnimation();
 }
 
+double DocumentTimeline::currentTime(bool& isNull)
+{
+    if (!m_document) {
+        isNull = true;
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    double result = m_document->animationClock().currentTime() - m_zeroTime;
+    isNull = std::isnan(result);
+    return result;
+}
+
 double DocumentTimeline::currentTime()
 {
-    if (!m_document)
-        return std::numeric_limits<double>::quiet_NaN();
-    return m_document->animationClock().currentTime() - m_zeroTime;
+    bool isNull;
+    return currentTime(isNull);
 }
 
 double DocumentTimeline::effectiveTime()
@@ -190,6 +202,7 @@ size_t DocumentTimeline::numberOfActiveAnimationsForTesting() const
 }
 
 void DocumentTimeline::detachFromDocument() {
+    // FIXME: DocumentTimeline should keep Document alive.
     m_document = 0;
 }
 

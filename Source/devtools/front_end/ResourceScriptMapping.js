@@ -52,7 +52,7 @@ WebInspector.ResourceScriptMapping.prototype = {
     rawLocationToUILocation: function(rawLocation)
     {
         var debuggerModelLocation = /** @type {!WebInspector.DebuggerModel.Location} */ (rawLocation);
-        var script = this._debuggerModel.scriptForId(debuggerModelLocation.scriptId);
+        var script = debuggerModelLocation.script();
         var uiSourceCode = this._workspaceUISourceCodeForScript(script);
         if (!uiSourceCode)
             return null;
@@ -172,7 +172,7 @@ WebInspector.ResourceScriptMapping.prototype = {
         for (var i = 0; i < scripts.length; ++i)
             scripts[i].updateLocations();
         uiSourceCode.setSourceMapping(this);
-        this._boundURLs.put(uiSourceCode.url);
+        this._boundURLs.add(uiSourceCode.url);
     },
 
     /**

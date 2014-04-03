@@ -76,11 +76,25 @@ namespace WebCore {
 static const int defaultFontSize = 10;
 static const char defaultFontFamily[] = "sans-serif";
 static const char defaultFont[] = "10px sans-serif";
+static const double TryRestoreContextInterval = 0.5;
+static const unsigned MaxTryRestoreContextAttempts = 4;
+
+static bool contextLostRestoredEventsEnabled()
+{
+    return RuntimeEnabledFeatures::experimentalCanvasFeaturesEnabled();
+}
 
 CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, const Canvas2DContextAttributes* attrs, bool usesCSSCompatibilityParseMode)
     : CanvasRenderingContext(canvas)
     , m_usesCSSCompatibilityParseMode(usesCSSCompatibilityParseMode)
     , m_hasAlpha(!attrs || attrs->alpha())
+    , m_isContextLost(false)
+    , m_contextRestorable(true)
+    , m_storageMode(!attrs ? PersistentStorage : attrs->parsedStorage())
+    , m_tryRestoreContextAttemptCount(0)
+    , m_dispatchContextLostEventTimer(this, &CanvasRenderingContext2D::dispatchContextLostEvent)
+    , m_dispatchContextRestoredEventTimer(this, &CanvasRenderingContext2D::dispatchContextRestoredEvent)
+    , m_tryRestoreContextEventTimer(this, &CanvasRenderingContext2D::tryRestoreContextEvent)
 {
     m_stateStack.append(adoptPtrWillBeNoop(new State()));
     ScriptWrappable::init(this);
@@ -112,6 +126,91 @@ bool CanvasRenderingContext2D::isAccelerated() const
         return false;
     GraphicsContext* context = drawingContext();
     return context && context->isAccelerated();
+}
+
+bool CanvasRenderingContext2D::isContextLost() const
+{
+    return m_isContextLost;
+}
+
+void CanvasRenderingContext2D::loseContext()
+{
+    if (m_isContextLost)
+        return;
+    m_isContextLost = true;
+    m_dispatchContextLostEventTimer.startOneShot(0, FROM_HERE);
+}
+
+void CanvasRenderingContext2D::restoreContext()
+{
+    if (!m_contextRestorable)
+        return;
+    // This code path is for restoring from an eviction
+    // Restoring from surface failure is handled internally
+    ASSERT(m_isContextLost && !canvas()->hasImageBuffer());
+
+    if (canvas()->buffer()) {
+        if (contextLostRestoredEventsEnabled()) {
+            m_dispatchContextRestoredEventTimer.startOneShot(0, FROM_HERE);
+        } else {
+            // legacy synchronous context restoration.
+            reset();
+            m_isContextLost = false;
+        }
+    }
+}
+
+void CanvasRenderingContext2D::dispatchContextLostEvent(Timer<CanvasRenderingContext2D>*)
+{
+    if (contextLostRestoredEventsEnabled()) {
+        RefPtr<Event> event(Event::createCancelable(EventTypeNames::contextlost));
+        canvas()->dispatchEvent(event);
+        if (event->defaultPrevented()) {
+            m_contextRestorable = false;
+        }
+    }
+
+    // If an image buffer is present, it means the context was not lost due to
+    // an eviction, but rather due to a surface failure (gpu context lost?)
+    if (m_contextRestorable && canvas()->hasImageBuffer()) {
+        m_tryRestoreContextAttemptCount = 0;
+        m_tryRestoreContextEventTimer.startRepeating(TryRestoreContextInterval, FROM_HERE);
+    }
+}
+
+void CanvasRenderingContext2D::tryRestoreContextEvent(Timer<CanvasRenderingContext2D>* timer)
+{
+    if (!m_isContextLost) {
+        // Canvas was already restored (possibly thanks to a resize), so stop trying.
+        m_tryRestoreContextEventTimer.stop();
+        return;
+    }
+    if (canvas()->hasImageBuffer() && canvas()->buffer()->restoreSurface()) {
+        m_tryRestoreContextEventTimer.stop();
+        dispatchContextRestoredEvent(0);
+    }
+
+    if (++m_tryRestoreContextAttemptCount > MaxTryRestoreContextAttempts)
+        canvas()->discardImageBuffer();
+
+    if (!canvas()->hasImageBuffer()) {
+        // final attempt: allocate a brand new image buffer instead of restoring
+        timer->stop();
+        if (canvas()->buffer())
+            dispatchContextRestoredEvent(0);
+    }
+}
+
+void CanvasRenderingContext2D::dispatchContextRestoredEvent(Timer<CanvasRenderingContext2D>*)
+{
+    if (!m_isContextLost)
+        return;
+    reset();
+    m_isContextLost = false;
+    if (contextLostRestoredEventsEnabled()) {
+        RefPtr<Event> event(Event::create(EventTypeNames::contextrestored));
+        canvas()->dispatchEvent(event);
+    }
 }
 
 void CanvasRenderingContext2D::reset()
@@ -1113,6 +1212,50 @@ bool CanvasRenderingContext2D::isPointInStrokeInternal(const Path& path, const f
     return path.strokeContains(transformedPoint, strokeData);
 }
 
+void CanvasRenderingContext2D::scrollPathIntoView()
+{
+    scrollPathIntoViewInternal(m_path);
+}
+
+void CanvasRenderingContext2D::scrollPathIntoView(Path2D* path2d, ExceptionState& exceptionState)
+{
+    if (!path2d) {
+        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path2D"));
+        return;
+    }
+
+    scrollPathIntoViewInternal(path2d->path());
+}
+
+void CanvasRenderingContext2D::scrollPathIntoViewInternal(const Path& path)
+{
+    if (!state().m_invertibleCTM || path.isEmpty())
+        return;
+
+    canvas()->document().updateLayoutIgnorePendingStylesheets();
+
+    // Apply transformation and get the bounding rect
+    Path transformedPath = path;
+    transformedPath.transform(state().m_transform);
+    FloatRect boundingRect = transformedPath.boundingRect();
+
+    // Offset by the canvas rect (We should take border and padding into account).
+    RenderBoxModelObject* rbmo = canvas()->renderBoxModelObject();
+    IntRect canvasRect = canvas()->renderer()->absoluteBoundingBoxRect();
+    canvasRect.move(rbmo->borderLeft() + rbmo->paddingLeft(),
+        rbmo->borderTop() + rbmo->paddingTop());
+    LayoutRect pathRect = enclosingLayoutRect(boundingRect);
+    pathRect.moveBy(canvasRect.location());
+
+    if (canvas()->renderer()) {
+        canvas()->renderer()->scrollRectToVisible(
+            pathRect, ScrollAlignment::alignCenterAlways, ScrollAlignment::alignTopAlways);
+    }
+
+    // TODO: should implement "inform the user" that the caret and/or
+    // selection the specified rectangle of the canvas. See http://crbug.com/357987
+}
+
 void CanvasRenderingContext2D::clearRect(float x, float y, float width, float height)
 {
     if (!validateRectForCanvas(x, y, width, height))
@@ -1664,12 +1807,14 @@ void CanvasRenderingContext2D::didDraw(const FloatRect& dirtyRect)
 
 GraphicsContext* CanvasRenderingContext2D::drawingContext() const
 {
+    if (isContextLost())
+        return 0;
     return canvas()->drawingContext();
 }
 
-static PassRefPtr<ImageData> createEmptyImageData(const IntSize& size)
+static PassRefPtrWillBeRawPtr<ImageData> createEmptyImageData(const IntSize& size)
 {
-    if (RefPtr<ImageData> data = ImageData::create(size)) {
+    if (RefPtrWillBeRawPtr<ImageData> data = ImageData::create(size)) {
         data->data()->zeroFill();
         return data.release();
     }
@@ -1677,7 +1822,7 @@ static PassRefPtr<ImageData> createEmptyImageData(const IntSize& size)
     return nullptr;
 }
 
-PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtr<ImageData> imageData, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtrWillBeRawPtr<ImageData> imageData, ExceptionState& exceptionState) const
 {
     if (!imageData) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "ImageData"));
@@ -1687,7 +1832,7 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtr<Image
     return createEmptyImageData(imageData->size());
 }
 
-PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh, ExceptionState& exceptionState) const
 {
     if (!sw || !sh)
         exceptionState.throwDOMException(IndexSizeError, String::format("The source %s is 0.", sw ? "height" : "width"));
@@ -1712,7 +1857,7 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float 
     return createEmptyImageData(size);
 }
 
-PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy, float sw, float sh, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy, float sw, float sh, ExceptionState& exceptionState) const
 {
     if (!canvas()->originClean())
         exceptionState.throwSecurityError("The canvas has been tainted by cross-origin data.");
@@ -1749,7 +1894,7 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy,
 
     IntRect imageDataRect = enclosingIntRect(logicalRect);
     ImageBuffer* buffer = canvas()->buffer();
-    if (!buffer)
+    if (!buffer || isContextLost())
         return createEmptyImageData(imageDataRect.size());
 
     RefPtr<Uint8ClampedArray> byteArray = buffer->getUnmultipliedImageData(imageDataRect);

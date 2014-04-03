@@ -175,6 +175,13 @@ public:
     static SimpleObject* create() { return new SimpleObject(); }
     void trace(Visitor*) { }
     char getPayload(int i) { return payload[i]; }
+    // This virtual method is unused but it is here to make sure
+    // that this object has a vtable. This object is used
+    // as the super class for objects that also have garbage
+    // collected mixins and having a virtual here makes sure
+    // that adjustment is needed both for marking and for isAlive
+    // checks.
+    virtual void virtualMethod() { }
 protected:
     SimpleObject() { }
     char payload[64];
@@ -708,6 +715,11 @@ public:
         ++s_destructorCalls;
     }
 
+    // These are here with their default implementations so you can break in
+    // them in the debugger.
+    void ref() { RefCountedGarbageCollected<RefCountedAndGarbageCollected>::ref(); }
+    void deref() { RefCountedGarbageCollected<RefCountedAndGarbageCollected>::deref(); }
+
     void trace(Visitor*) { }
 
     static int s_destructorCalls;
@@ -1132,10 +1144,9 @@ class Mixin : public GarbageCollectedMixin {
 public:
     virtual void trace(Visitor* visitor) { }
 
-    char getPayload(int i) { return m_padding[i]; }
+    virtual char getPayload(int i) { return m_padding[i]; }
 
 protected:
-    // This is to force ptr diff for SimpleObject, Mixin, and UseMixin.
     int m_padding[8];
 };
 
@@ -2220,7 +2231,8 @@ void SetIteratorCheck(T& it, const T& end, int expected)
 
 TEST(HeapTest, HeapWeakCollectionSimple)
 {
-
+    HeapStats initialHeapStats;
+    clearOutOldGarbage(&initialHeapStats);
     IntWrapper::s_destructorCalls = 0;
 
     PersistentHeapVector<Member<IntWrapper> > keepNumbersAlive;
@@ -2263,6 +2275,133 @@ TEST(HeapTest, HeapWeakCollectionSimple)
     EXPECT_EQ(0u, strongWeak->size());
     EXPECT_EQ(0u, weakWeak->size());
     EXPECT_EQ(2u, weakSet->size());
+}
+
+class ThingWithDestructor {
+public:
+    ThingWithDestructor()
+        : m_x(emptyValue)
+    {
+        s_liveThingsWithDestructor++;
+    }
+
+    ThingWithDestructor(int x)
+        : m_x(x)
+    {
+        s_liveThingsWithDestructor++;
+    }
+
+    ThingWithDestructor(const ThingWithDestructor&other)
+    {
+        *this = other;
+        s_liveThingsWithDestructor++;
+    }
+
+    ~ThingWithDestructor()
+    {
+        s_liveThingsWithDestructor--;
+    }
+
+    int value() { return m_x; }
+
+    static int s_liveThingsWithDestructor;
+
+    unsigned hash() { return IntHash<int>::hash(m_x); }
+
+private:
+    static const int emptyValue = 0;
+    int m_x;
+};
+
+int ThingWithDestructor::s_liveThingsWithDestructor;
+
+struct ThingWithDestructorTraits : public HashTraits<ThingWithDestructor> {
+    static const bool needsDestruction = true;
+};
+
+static void heapMapDestructorHelper(bool clearMaps)
+{
+    HeapStats initialHeapStats;
+    clearOutOldGarbage(&initialHeapStats);
+    ThingWithDestructor::s_liveThingsWithDestructor = 0;
+
+    typedef HeapHashMap<WeakMember<IntWrapper>, RefPtr<RefCountedAndGarbageCollected> > RefMap;
+
+    typedef HeapHashMap<
+        WeakMember<IntWrapper>,
+        ThingWithDestructor,
+        DefaultHash<WeakMember<IntWrapper> >::Hash,
+        HashTraits<WeakMember<IntWrapper> >,
+        ThingWithDestructorTraits> Map;
+
+    Persistent<Map> map(new Map());
+    Persistent<RefMap> refMap(new RefMap());
+
+    Persistent<IntWrapper> luck(IntWrapper::create(103));
+
+    int baseLine, refBaseLine;
+
+    {
+        Map stackMap;
+        RefMap stackRefMap;
+
+        Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+        Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+
+        stackMap.add(IntWrapper::create(42), ThingWithDestructor(1729));
+        stackMap.add(luck, ThingWithDestructor(8128));
+        stackRefMap.add(IntWrapper::create(42), RefCountedAndGarbageCollected::create());
+        stackRefMap.add(luck, RefCountedAndGarbageCollected::create());
+
+        baseLine = ThingWithDestructor::s_liveThingsWithDestructor;
+        refBaseLine = RefCountedAndGarbageCollected::s_destructorCalls;
+
+        // Although the heap maps are on-stack, we can't expect prompt
+        // finalization of the elements, so when they go out of scope here we
+        // will not necessarily have called the relevant destructors.
+    }
+
+    // The RefCountedAndGarbageCollected things need an extra GC to discover
+    // that they are no longer ref counted.
+    Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    EXPECT_EQ(baseLine - 2, ThingWithDestructor::s_liveThingsWithDestructor);
+    EXPECT_EQ(refBaseLine + 2, RefCountedAndGarbageCollected::s_destructorCalls);
+
+    // Now use maps kept alive with persistents. Here we don't expect any
+    // destructors to be called before there have been GCs.
+
+    map->add(IntWrapper::create(42), ThingWithDestructor(1729));
+    map->add(luck, ThingWithDestructor(8128));
+    refMap->add(IntWrapper::create(42), RefCountedAndGarbageCollected::create());
+    refMap->add(luck, RefCountedAndGarbageCollected::create());
+
+    baseLine  =  ThingWithDestructor::s_liveThingsWithDestructor;
+    refBaseLine = RefCountedAndGarbageCollected::s_destructorCalls;
+
+    luck.clear();
+    if (clearMaps) {
+        map->clear(); // Clear map.
+        refMap->clear(); // Clear map.
+    } else {
+        map.clear(); // Clear Persistent handle, not map.
+        refMap.clear(); // Clear Persistent handle, not map.
+        Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+        Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    }
+
+    EXPECT_EQ(baseLine - 2, ThingWithDestructor::s_liveThingsWithDestructor);
+
+    // Need a GC to make sure that the RefCountedAndGarbageCollected thing
+    // noticies it's been decremented to zero.
+    Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    EXPECT_EQ(refBaseLine + 2, RefCountedAndGarbageCollected::s_destructorCalls);
+}
+
+TEST(HeapTest, HeapMapDestructor)
+{
+    heapMapDestructorHelper(true);
+    heapMapDestructorHelper(false);
 }
 
 typedef HeapHashSet<PairWeakStrong> WeakStrongSet;
@@ -2844,22 +2983,31 @@ TEST(HeapTest, CollectionNesting)
     Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
     EXPECT_EQ(1u, map->get(key).size());
     EXPECT_EQ(0, IntWrapper::s_destructorCalls);
+
+    keepAlive = nullptr;
+    Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    EXPECT_EQ(1, IntWrapper::s_destructorCalls);
 }
 
-TEST(heap, GarbageCollectedMixin)
+TEST(HeapTest, GarbageCollectedMixin)
 {
     HeapStats initialHeapStats;
     clearOutOldGarbage(&initialHeapStats);
 
     Persistent<UseMixin> usemixin = UseMixin::create();
-    ASSERT_EQ(0, UseMixin::s_traceCount);
+    EXPECT_EQ(0, UseMixin::s_traceCount);
     Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
-    ASSERT_EQ(1, UseMixin::s_traceCount);
+    EXPECT_EQ(1, UseMixin::s_traceCount);
 
     Persistent<Mixin> mixin = usemixin;
     usemixin = nullptr;
     Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
-    ASSERT_EQ(2, UseMixin::s_traceCount);
+    EXPECT_EQ(2, UseMixin::s_traceCount);
+
+    PersistentHeapHashSet<WeakMember<Mixin> > weakMap;
+    weakMap.add(UseMixin::create());
+    Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
+    EXPECT_EQ(0u, weakMap.size());
 }
 
 TEST(HeapTest, CollectionNesting2)
@@ -3060,6 +3208,29 @@ TEST(HeapTest, AllocationDuringFinalization)
     Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
     EXPECT_EQ(10, IntWrapper::s_destructorCalls);
     EXPECT_EQ(512, OneKiloByteObject::s_destructorCalls);
+}
+
+class SimpleClassWithDestructor {
+public:
+    SimpleClassWithDestructor() { }
+    ~SimpleClassWithDestructor()
+    {
+        ASSERT(!s_wasDestructed);
+        s_wasDestructed = true;
+    }
+    static bool s_wasDestructed;
+};
+
+bool SimpleClassWithDestructor::s_wasDestructed;
+
+TEST(HeapTest, DestructorsCalledOnMapClear)
+{
+    HeapHashMap<SimpleClassWithDestructor*, OwnPtr<SimpleClassWithDestructor> > map;
+    SimpleClassWithDestructor* hasDestructor = new SimpleClassWithDestructor();
+    map.add(hasDestructor, adoptPtr(hasDestructor));
+    SimpleClassWithDestructor::s_wasDestructed = false;
+    map.clear();
+    ASSERT(SimpleClassWithDestructor::s_wasDestructed);
 }
 
 } // WebCore namespace

@@ -230,7 +230,7 @@ WebInspector.HeapSnapshotGridNode.prototype = {
     _createValueCell: function(columnIdentifier)
     {
         var cell = document.createElement("td");
-        cell.className = columnIdentifier + "-column";
+        cell.className = "numeric-column";
         if (this.dataGrid.snapshot.totalSize !== 0) {
             var div = document.createElement("div");
             var valueSpan = document.createElement("span");
@@ -619,13 +619,13 @@ WebInspector.HeapSnapshotGenericObjectNode.prototype = {
         function formatResult(error, object)
         {
             if (!error && object.type)
-                callback(WebInspector.RemoteObject.fromPayload(object), !!error);
+                callback(WebInspector.runtimeModel.createRemoteObject(object), !!error);
             else
-                callback(WebInspector.RemoteObject.fromPrimitiveValue(WebInspector.UIString("Preview is not available")));
+                callback(WebInspector.runtimeModel.createRemoteObjectFromPrimitiveValue(WebInspector.UIString("Preview is not available")));
         }
 
         if (this._type === "string")
-            callback(WebInspector.RemoteObject.fromPrimitiveValue(this._name));
+            callback(WebInspector.runtimeModel.createRemoteObjectFromPrimitiveValue(this._name));
         else
             HeapProfilerAgent.getObjectByHeapObjectId(String(this.snapshotNodeId), objectGroupName, formatResult);
     },
@@ -1185,6 +1185,18 @@ WebInspector.HeapSnapshotDiffNode.prototype = {
             this._removedCount);
     },
 
+    /**
+     * @param {string} columnIdentifier
+     * @return {!Element}
+     */
+    createCell: function(columnIdentifier)
+    {
+        var cell = WebInspector.HeapSnapshotGridNode.prototype.createCell.call(this, columnIdentifier);
+        if (columnIdentifier !== "object")
+            cell.classList.add("numeric-column");
+        return cell;
+    },
+
     _createChildNode: function(item)
     {
         if (item.isAddedNotRemoved)
@@ -1342,15 +1354,22 @@ WebInspector.HeapSnapshotDominatorObjectNode.prototype = {
 
 /**
  * @constructor
- * @extends {WebInspector.DataGridNode}
+ * @extends {WebInspector.HeapSnapshotGridNode}
  * @param {!WebInspector.AllocationDataGrid} dataGrid
  * @param {!WebInspector.HeapSnapshotCommon.SerializedAllocationNode} data
  */
 WebInspector.AllocationGridNode = function(dataGrid, data)
 {
-    WebInspector.DataGridNode.call(this, data, data.hasChildren);
-    this._dataGrid = dataGrid;
+    WebInspector.HeapSnapshotGridNode.call(this, dataGrid, data.hasChildren);
     this._populated = false;
+    this._allocationNode = data;
+    this.data = {
+        "liveCount": Number.withThousandsSeparator(data.liveCount),
+        "count": Number.withThousandsSeparator(data.count),
+        "liveSize": Number.withThousandsSeparator(data.liveSize),
+        "size": Number.withThousandsSeparator(data.size),
+        "name": data.name
+    };
 }
 
 WebInspector.AllocationGridNode.prototype = {
@@ -1359,7 +1378,7 @@ WebInspector.AllocationGridNode.prototype = {
         if (this._populated)
             return;
         this._populated = true;
-        this._dataGrid.snapshot.allocationNodeCallers(this.data.id, didReceiveCallers.bind(this));
+        this._dataGrid.snapshot.allocationNodeCallers(this._allocationNode.id, didReceiveCallers.bind(this));
 
         /**
          * @param {!WebInspector.HeapSnapshotCommon.AllocationNodeCallers} callers
@@ -1369,9 +1388,10 @@ WebInspector.AllocationGridNode.prototype = {
         {
             var callersChain = callers.nodesWithSingleCaller;
             var parentNode = this;
+            var dataGrid = /** @type {!WebInspector.AllocationDataGrid} */ (this._dataGrid);
             for (var i = 0; i < callersChain.length; i++) {
-                var child = new WebInspector.AllocationGridNode(this._dataGrid, callersChain[i]);
-                parentNode.appendChild(child);
+                var child = new WebInspector.AllocationGridNode(dataGrid, callersChain[i]);
+                dataGrid.appendNode(parentNode, child);
                 parentNode = child;
                 parentNode._populated = true;
                 if (this.expanded)
@@ -1381,7 +1401,8 @@ WebInspector.AllocationGridNode.prototype = {
             var callersBranch = callers.branchingCallers;
             callersBranch.sort(this._dataGrid._createComparator());
             for (var i = 0; i < callersBranch.length; i++)
-                parentNode.appendChild(new WebInspector.AllocationGridNode(this._dataGrid, callersBranch[i]));
+                dataGrid.appendNode(parentNode, new WebInspector.AllocationGridNode(dataGrid, callersBranch[i]));
+            dataGrid.updateVisibleNodes(true);
         }
     },
 
@@ -1390,7 +1411,7 @@ WebInspector.AllocationGridNode.prototype = {
      */
     expand: function()
     {
-        WebInspector.DataGridNode.prototype.expand.call(this);
+        WebInspector.HeapSnapshotGridNode.prototype.expand.call(this);
         if (this.children.length === 1)
             this.children[0].expand();
     },
@@ -1402,14 +1423,13 @@ WebInspector.AllocationGridNode.prototype = {
      */
     createCell: function(columnIdentifier)
     {
-        var cell = WebInspector.DataGridNode.prototype.createCell.call(this, columnIdentifier);
-
         if (columnIdentifier !== "name")
-            return cell;
+            return this._createValueCell(columnIdentifier);
 
-        var functionInfo = this.data;
-        if (functionInfo.scriptName) {
-            var urlElement = this._dataGrid._linkifier.linkifyLocation(functionInfo.scriptName, functionInfo.line - 1, functionInfo.column - 1, "profile-node-file");
+        var cell = WebInspector.HeapSnapshotGridNode.prototype.createCell.call(this, columnIdentifier);
+        var allocationNode = this._allocationNode;
+        if (allocationNode.scriptName) {
+            var urlElement = this._dataGrid._linkifier.linkifyLocation(allocationNode.scriptName, allocationNode.line - 1, allocationNode.column - 1, "profile-node-file");
             urlElement.style.maxWidth = "75%";
             cell.insertBefore(urlElement, cell.firstChild);
         }
@@ -1425,5 +1445,5 @@ WebInspector.AllocationGridNode.prototype = {
         return this.data.id;
     },
 
-    __proto__: WebInspector.DataGridNode.prototype
+    __proto__: WebInspector.HeapSnapshotGridNode.prototype
 }

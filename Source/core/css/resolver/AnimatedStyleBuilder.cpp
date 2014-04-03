@@ -40,6 +40,7 @@
 #include "core/animation/AnimatableLengthBox.h"
 #include "core/animation/AnimatableLengthBoxAndBool.h"
 #include "core/animation/AnimatableLengthPoint.h"
+#include "core/animation/AnimatableLengthPoint3D.h"
 #include "core/animation/AnimatableLengthSize.h"
 #include "core/animation/AnimatableRepeatable.h"
 #include "core/animation/AnimatableSVGLength.h"
@@ -553,13 +554,22 @@ void AnimatedStyleBuilder::applyProperty(CSSPropertyID property, StyleResolverSt
     case CSSPropertyWebkitMaskSize:
         setOnFillLayers<CSSPropertyWebkitMaskSize>(style->accessMaskLayers(), value, state);
         return;
-    case CSSPropertyWebkitPerspective:
+    case CSSPropertyPerspective:
         style->setPerspective(clampTo<float>(toAnimatableDouble(value)->toDouble()));
         return;
+    case CSSPropertyPerspectiveOrigin: {
+        ASSERT(RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
+        const AnimatableLengthPoint* animatableLengthPoint = toAnimatableLengthPoint(value);
+        style->setPerspectiveOriginX(animatableValueToLength(animatableLengthPoint->x(), state));
+        style->setPerspectiveOriginY(animatableValueToLength(animatableLengthPoint->y(), state));
+        return;
+    }
     case CSSPropertyWebkitPerspectiveOriginX:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         style->setPerspectiveOriginX(animatableValueToLength(value, state));
         return;
     case CSSPropertyWebkitPerspectiveOriginY:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         style->setPerspectiveOriginY(animatableValueToLength(value, state));
         return;
     case CSSPropertyShapeOutside:
@@ -575,19 +585,30 @@ void AnimatedStyleBuilder::applyProperty(CSSPropertyID property, StyleResolverSt
         style->setTextStrokeColor(toAnimatableColor(value)->color());
         style->setVisitedLinkTextStrokeColor(toAnimatableColor(value)->visitedLinkColor());
         return;
-    case CSSPropertyWebkitTransform: {
+    case CSSPropertyTransform: {
         const TransformOperations& operations = toAnimatableTransform(value)->transformOperations();
         // FIXME: This normalization (handling of 'none') should be performed at input in AnimatableValueFactory.
         style->setTransform(operations.size() ? operations : TransformOperations(true));
         return;
     }
+    case CSSPropertyTransformOrigin: {
+        ASSERT(RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
+        const AnimatableLengthPoint3D* animatableLengthPoint3D = toAnimatableLengthPoint3D(value);
+        style->setTransformOriginX(animatableValueToLength(animatableLengthPoint3D->x(), state));
+        style->setTransformOriginY(animatableValueToLength(animatableLengthPoint3D->y(), state));
+        style->setTransformOriginZ(clampTo<float>(toAnimatableDouble(animatableLengthPoint3D->z())->toDouble()));
+        return;
+    }
     case CSSPropertyWebkitTransformOriginX:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         style->setTransformOriginX(animatableValueToLength(value, state));
         return;
     case CSSPropertyWebkitTransformOriginY:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         style->setTransformOriginY(animatableValueToLength(value, state));
         return;
     case CSSPropertyWebkitTransformOriginZ:
+        ASSERT(!RuntimeEnabledFeatures::cssTransformsUnprefixedEnabled());
         style->setTransformOriginZ(toAnimatableDouble(value)->toDouble());
         return;
     case CSSPropertyWidows:

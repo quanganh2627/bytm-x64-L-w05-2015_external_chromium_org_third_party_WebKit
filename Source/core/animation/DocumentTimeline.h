@@ -80,6 +80,7 @@ public:
     bool hasStarted() const { return !isNull(m_zeroTime); }
     bool hasPendingUpdates() const { return !m_playersNeedingUpdate.isEmpty(); }
     double zeroTime() const { return m_zeroTime; }
+    double currentTime(bool& isNull);
     double currentTime();
     double effectiveTime();
     void pauseAnimationsForTesting(double);
@@ -88,6 +89,7 @@ public:
     void setOutdatedAnimationPlayer(AnimationPlayer*);
     bool hasOutdatedAnimationPlayer() const { return m_hasOutdatedAnimationPlayer; }
 
+    Document* document() { return m_document; }
     void detachFromDocument();
 
 protected:

@@ -604,16 +604,13 @@ WebInspector.FunctionScopeMainTreeElement.prototype = {
             return;
 
         /**
-         * @param {?Protocol.Error} error
-         * @param {!DebuggerAgent.FunctionDetails} response
+         * @param {?DebuggerAgent.FunctionDetails} response
          * @this {WebInspector.FunctionScopeMainTreeElement}
          */
-        function didGetDetails(error, response)
+        function didGetDetails(response)
         {
-            if (error) {
-                console.error(error);
+            if (!response)
                 return;
-            }
             this.removeChildren();
 
             var scopeChain = response.scopeChain;
@@ -651,10 +648,11 @@ WebInspector.FunctionScopeMainTreeElement.prototype = {
                     continue;
                 }
 
+                var runtimeModel = this._remoteObject.target().runtimeModel;
                 var scopeRef = isTrueObject ? undefined : new WebInspector.ScopeRef(i, undefined, this._remoteObject.objectId);
-                var remoteObject = WebInspector.ScopeRemoteObject.fromPayload(scope.object, scopeRef);
+                var remoteObject = runtimeModel.createScopedObject(scope.object, scopeRef);
                 if (isTrueObject) {
-                    var property = WebInspector.RemoteObjectProperty.fromScopeValue(title, remoteObject);
+                    var property = runtimeModel.createScopedObject(title, remoteObject);
                     property.parentObject = null;
                     this.appendChild(new this.treeOutline.section.treeElementConstructor(property));
                 } else {
@@ -664,7 +662,7 @@ WebInspector.FunctionScopeMainTreeElement.prototype = {
             }
 
         }
-        DebuggerAgent.getFunctionDetails(this._remoteObject.objectId, didGetDetails.bind(this));
+        this._remoteObject.functionDetails(didGetDetails.bind(this));
     },
 
     __proto__: TreeElement.prototype

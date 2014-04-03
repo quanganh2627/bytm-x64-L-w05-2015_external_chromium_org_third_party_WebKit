@@ -198,12 +198,10 @@ struct CompositingRecursionData {
 RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
     : m_renderView(renderView)
     , m_compositingReasonFinder(renderView)
+    , m_pendingUpdateType(CompositingUpdateNone)
     , m_hasAcceleratedCompositing(true)
     , m_showRepaintCounter(false)
     , m_needsToRecomputeCompositingRequirements(false)
-    , m_needsToUpdateLayerTreeGeometry(false)
-    , m_pendingUpdateType(GraphicsLayerUpdater::DoNotForceUpdate)
-    , m_pendingPropertyUpdateType(CompositingPropertyUpdater::DoNotForceUpdate)
     , m_compositing(false)
     , m_compositingLayersNeedRebuild(false)
     , m_forceCompositingMode(false)
@@ -344,6 +342,7 @@ void RenderLayerCompositor::finishCompositingUpdateForFrameTree(LocalFrame* fram
 
 void RenderLayerCompositor::setNeedsCompositingUpdate(CompositingUpdateType updateType)
 {
+    ASSERT(updateType != CompositingUpdateNone);
     // FIXME: this code was historically part of updateCompositingLayers, and
     // for now is kept totally equivalent to the previous implementation. We
     // should carefully clean up the awkward early-exit semantics, balancing between
@@ -360,34 +359,23 @@ void RenderLayerCompositor::setNeedsCompositingUpdate(CompositingUpdateType upda
     if (!m_needsToRecomputeCompositingRequirements && !m_compositing)
         return;
 
+    m_pendingUpdateType = std::max(m_pendingUpdateType, updateType);
+
     switch (updateType) {
+    case CompositingUpdateNone:
+        ASSERT_NOT_REACHED();
+        break;
     case CompositingUpdateAfterStyleChange:
         m_needsToRecomputeCompositingRequirements = true;
         break;
     case CompositingUpdateAfterLayout:
         m_needsToRecomputeCompositingRequirements = true;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingUpdateType = GraphicsLayerUpdater::ForceUpdate;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingPropertyUpdateType = CompositingPropertyUpdater::ForceUpdate;
         break;
     case CompositingUpdateOnScroll:
         m_needsToRecomputeCompositingRequirements = true; // Overlap can change with scrolling, so need to check for hierarchy updates.
-        m_needsToUpdateLayerTreeGeometry = true;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingUpdateType = GraphicsLayerUpdater::ForceUpdate;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingPropertyUpdateType = CompositingPropertyUpdater::ForceUpdate;
         break;
     case CompositingUpdateOnCompositedScroll:
-        m_needsToUpdateLayerTreeGeometry = true;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingUpdateType = GraphicsLayerUpdater::ForceUpdate;
-        // FIXME: Ideally we'd be smarter about tracking dirtiness and wouldn't need a ForceUpdate here.
-        m_pendingPropertyUpdateType = CompositingPropertyUpdater::ForceUpdate;
-        break;
     case CompositingUpdateAfterCanvasContextChange:
-        m_needsToUpdateLayerTreeGeometry = true;
         break;
     }
 
@@ -444,7 +432,7 @@ void RenderLayerCompositor::scheduleAnimationIfNeeded()
 
 bool RenderLayerCompositor::hasUnresolvedDirtyBits()
 {
-    return m_needsToRecomputeCompositingRequirements || m_compositingLayersNeedRebuild || m_needsToUpdateLayerTreeGeometry || m_needsUpdateCompositingRequirementsState || m_pendingUpdateType != GraphicsLayerUpdater::DoNotForceUpdate;
+    return m_needsToRecomputeCompositingRequirements || m_compositingLayersNeedRebuild || m_needsUpdateCompositingRequirementsState || m_pendingUpdateType > CompositingUpdateNone;
 }
 
 void RenderLayerCompositor::updateCompositingLayersInternal()
@@ -458,21 +446,29 @@ void RenderLayerCompositor::updateCompositingLayersInternal()
     if (!m_needsToRecomputeCompositingRequirements && !m_compositing)
         return;
 
+    CompositingUpdateType updateType = m_pendingUpdateType;
+
     bool needCompositingRequirementsUpdate = m_needsToRecomputeCompositingRequirements;
     bool needHierarchyAndGeometryUpdate = m_compositingLayersNeedRebuild;
-    bool needGeometryUpdate = m_needsToUpdateLayerTreeGeometry;
     bool needsToUpdateScrollingCoordinator = scrollingCoordinator() ? scrollingCoordinator()->needsToUpdateAfterCompositingChange() : false;
 
-    if (!needCompositingRequirementsUpdate && !needHierarchyAndGeometryUpdate && !needGeometryUpdate && !needsToUpdateScrollingCoordinator)
+    if (updateType == CompositingUpdateNone && !needCompositingRequirementsUpdate && !needHierarchyAndGeometryUpdate && !needsToUpdateScrollingCoordinator)
         return;
 
-    GraphicsLayerUpdater::UpdateType updateType = m_pendingUpdateType;
+    m_pendingUpdateType = CompositingUpdateNone;
+
+    GraphicsLayerUpdater::UpdateType graphicsLayerUpdateType = GraphicsLayerUpdater::DoNotForceUpdate;
+    CompositingPropertyUpdater::UpdateType compositingPropertyUpdateType = CompositingPropertyUpdater::DoNotForceUpdate;
+
+    // FIXME: Teach non-style compositing updates how to do partial tree walks.
+    if (updateType >= CompositingUpdateAfterLayout) {
+        graphicsLayerUpdateType = GraphicsLayerUpdater::ForceUpdate;
+        compositingPropertyUpdateType = CompositingPropertyUpdater::ForceUpdate;
+    }
 
     // Only clear the flags if we're updating the entire hierarchy.
     m_compositingLayersNeedRebuild = false;
-    m_needsToUpdateLayerTreeGeometry = false;
     m_needsToRecomputeCompositingRequirements = false;
-    m_pendingUpdateType = GraphicsLayerUpdater::DoNotForceUpdate;
 
     RenderLayer* updateRoot = rootRenderLayer();
 
@@ -485,8 +481,7 @@ void RenderLayerCompositor::updateCompositingLayersInternal()
 
         {
             TRACE_EVENT0("blink_rendering", "CompositingPropertyUpdater::updateAncestorDependentProperties");
-            CompositingPropertyUpdater(updateRoot).updateAncestorDependentProperties(updateRoot, m_pendingPropertyUpdateType, 0);
-            m_pendingPropertyUpdateType = CompositingPropertyUpdater::DoNotForceUpdate;
+            CompositingPropertyUpdater(updateRoot).updateAncestorDependentProperties(updateRoot, compositingPropertyUpdateType, 0);
 #if !ASSERT_DISABLED
             CompositingPropertyUpdater::assertNeedsToUpdateAncestorDependantPropertiesBitsCleared(updateRoot);
 #endif
@@ -523,9 +518,9 @@ void RenderLayerCompositor::updateCompositingLayersInternal()
             needHierarchyAndGeometryUpdate = true;
     }
 
-    if (needGeometryUpdate || needHierarchyAndGeometryUpdate) {
+    if (updateType >= CompositingUpdateAfterStyleChange || needHierarchyAndGeometryUpdate) {
         TRACE_EVENT0("blink_rendering", "GraphicsLayerUpdater::updateRecursive");
-        GraphicsLayerUpdater().update(*updateRoot, updateType);
+        GraphicsLayerUpdater().update(*updateRoot, graphicsLayerUpdateType);
 #if !ASSERT_DISABLED
         // FIXME: Move this check to the end of the compositing update.
         GraphicsLayerUpdater::assertNeedsToUpdateGraphicsLayerBitsCleared(*updateRoot);
@@ -815,17 +810,8 @@ RenderLayerCompositor::CompositingStateTransitionType RenderLayerCompositor::com
 // See crbug.com/339892 for a list of tests that fail if this method is removed.
 void RenderLayerCompositor::applyUpdateLayerCompositingStateChickenEggHacks(RenderLayer* layer, CompositingStateTransitionType compositedLayerUpdate)
 {
-    // See if we need content or clipping layers. Methods called here should assume
-    // that the compositing state of descendant layers has not been updated yet.
-    if (layer->hasCompositedLayerMapping() && layer->compositedLayerMapping()->updateGraphicsLayerConfiguration(GraphicsLayerUpdater::ForceUpdate)) {
-        setCompositingLayersNeedRebuild();
-    } else if (compositedLayerUpdate == NoCompositingStateChange) {
-        if (layer->compositingState() == PaintsIntoOwnBacking || layer->compositingState() == HasOwnBackingButPaintsIntoAncestor)
-            setCompositingLayersNeedRebuild();
-    }
-
     if (compositedLayerUpdate != NoCompositingStateChange)
-        allocateOrClearCompositedLayerMapping(layer, computeCompositedLayerUpdate(layer));
+        allocateOrClearCompositedLayerMapping(layer, compositedLayerUpdate);
 }
 
 void RenderLayerCompositor::updateLayerCompositingState(RenderLayer* layer, UpdateLayerCompositingStateOptions options)
@@ -1412,42 +1398,6 @@ bool RenderLayerCompositor::parentFrameContentLayers(RenderPart* renderer)
     return true;
 }
 
-// Recurs down the RenderLayer tree until its finds the compositing descendants of compositingAncestor and updates their geometry.
-void RenderLayerCompositor::updateCompositingDescendantGeometry(RenderLayerStackingNode* compositingAncestor, RenderLayer* layer, bool compositedChildrenOnly)
-{
-    if (layer->stackingNode() != compositingAncestor) {
-        if (layer->hasCompositedLayerMapping()) {
-            CompositedLayerMappingPtr compositedLayerMapping = layer->compositedLayerMapping();
-            compositedLayerMapping->updateCompositedBounds(GraphicsLayerUpdater::ForceUpdate);
-
-            if (layer->reflectionInfo()) {
-                RenderLayer* reflectionLayer = layer->reflectionInfo()->reflectionLayer();
-                if (reflectionLayer->hasCompositedLayerMapping())
-                    reflectionLayer->compositedLayerMapping()->updateCompositedBounds(GraphicsLayerUpdater::ForceUpdate);
-            }
-
-            compositedLayerMapping->updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate);
-            if (compositedChildrenOnly)
-                return;
-        }
-    }
-
-    if (layer->reflectionInfo())
-        updateCompositingDescendantGeometry(compositingAncestor, layer->reflectionInfo()->reflectionLayer(), compositedChildrenOnly);
-
-    if (!layer->hasCompositingDescendant())
-        return;
-
-#if !ASSERT_DISABLED
-    LayerListMutationDetector mutationChecker(layer->stackingNode());
-#endif
-
-    RenderLayerStackingNodeIterator iterator(*layer->stackingNode(), AllChildren);
-    while (RenderLayerStackingNode* curNode = iterator.next())
-        updateCompositingDescendantGeometry(compositingAncestor, curNode->layer(), compositedChildrenOnly);
-}
-
-
 void RenderLayerCompositor::repaintCompositedLayers()
 {
     recursiveRepaintLayer(rootRenderLayer());
@@ -1659,7 +1609,7 @@ bool RenderLayerCompositor::isRunningAcceleratedTransformAnimation(RenderObject*
 {
     if (!m_compositingReasonFinder.hasAnimationTrigger())
         return false;
-    return hasActiveAnimations(*renderer, CSSPropertyWebkitTransform);
+    return hasActiveAnimations(*renderer, CSSPropertyTransform);
 }
 
 // If an element has negative z-index children, those children render in front of the

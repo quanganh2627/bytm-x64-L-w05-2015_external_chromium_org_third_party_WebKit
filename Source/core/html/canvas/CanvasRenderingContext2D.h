@@ -112,6 +112,8 @@ public:
     float globalAlpha() const;
     void setGlobalAlpha(float);
 
+    bool isContextLost() const;
+
     String globalCompositeOperation() const;
     void setGlobalCompositeOperation(const String&);
 
@@ -164,6 +166,9 @@ public:
     bool isPointInStroke(const float x, const float y);
     bool isPointInStroke(Path2D*, const float x, const float y, ExceptionState&);
 
+    void scrollPathIntoView();
+    void scrollPathIntoView(Path2D*, ExceptionState&);
+
     void clearRect(float x, float y, float width, float height);
     void fillRect(float x, float y, float width, float height);
     void strokeRect(float x, float y, float width, float height);
@@ -193,9 +198,9 @@ public:
     PassRefPtr<CanvasGradient> createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1, ExceptionState&);
     PassRefPtr<CanvasPattern> createPattern(CanvasImageSource*, const String& repetitionType, ExceptionState&);
 
-    PassRefPtr<ImageData> createImageData(PassRefPtr<ImageData>, ExceptionState&) const;
-    PassRefPtr<ImageData> createImageData(float width, float height, ExceptionState&) const;
-    PassRefPtr<ImageData> getImageData(float sx, float sy, float sw, float sh, ExceptionState&) const;
+    PassRefPtrWillBeRawPtr<ImageData> createImageData(PassRefPtrWillBeRawPtr<ImageData>, ExceptionState&) const;
+    PassRefPtrWillBeRawPtr<ImageData> createImageData(float width, float height, ExceptionState&) const;
+    PassRefPtrWillBeRawPtr<ImageData> getImageData(float sx, float sy, float sw, float sh, ExceptionState&) const;
     void putImageData(ImageData*, float dx, float dy, ExceptionState&);
     void putImageData(ImageData*, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionState&);
 
@@ -226,6 +231,9 @@ public:
 
     void drawFocusIfNeeded(Element*);
     bool drawCustomFocusRing(Element*);
+
+    void loseContext();
+    void restoreContext();
 
 private:
     class State FINAL : public CSSFontSelectorClient {
@@ -282,6 +290,10 @@ private:
     void applyShadow();
     bool shouldDrawShadows() const;
 
+    void dispatchContextLostEvent(Timer<CanvasRenderingContext2D>*);
+    void dispatchContextRestoredEvent(Timer<CanvasRenderingContext2D>*);
+    void tryRestoreContextEvent(Timer<CanvasRenderingContext2D>*);
+
     bool computeDirtyRect(const FloatRect& localBounds, FloatRect*);
     bool computeDirtyRect(const FloatRect& localBounds, const FloatRect& transformedClipBounds, FloatRect*);
     void didDraw(const FloatRect&);
@@ -303,6 +315,8 @@ private:
 
     bool isPointInPathInternal(const Path&, const float x, const float y, const String& windingRuleString);
     bool isPointInStrokeInternal(const Path&, const float x, const float y);
+
+    void scrollPathIntoViewInternal(const Path&);
 
     void drawTextInternal(const String& text, float x, float y, bool fill, float maxWidth = 0, bool useMaxWidth = false);
 
@@ -334,7 +348,14 @@ private:
     WillBePersistentHeapVector<OwnPtrWillBeMember<State> > m_stateStack;
     bool m_usesCSSCompatibilityParseMode;
     bool m_hasAlpha;
+    bool m_isContextLost;
+    bool m_contextRestorable;
+    Canvas2DContextStorage m_storageMode;
     MutableStylePropertyMap m_fetchedFonts;
+    unsigned m_tryRestoreContextAttemptCount;
+    Timer<CanvasRenderingContext2D> m_dispatchContextLostEventTimer;
+    Timer<CanvasRenderingContext2D> m_dispatchContextRestoredEventTimer;
+    Timer<CanvasRenderingContext2D> m_tryRestoreContextEventTimer;
 };
 
 DEFINE_TYPE_CASTS(CanvasRenderingContext2D, CanvasRenderingContext, context, context->is2d(), context.is2d());

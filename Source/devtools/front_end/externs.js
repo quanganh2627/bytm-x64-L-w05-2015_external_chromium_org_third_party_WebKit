@@ -350,6 +350,7 @@ CodeMirror.prototype = {
     getScrollInfo: function() { },
     getScrollerElement: function() { },
     getSelection: function() { },
+    getSelections: function() { },
     getStateAfter: function(line) { },
     getTokenAt: function(pos) { },
     getValue: function(lineSep) { },
@@ -371,6 +372,7 @@ CodeMirror.prototype = {
      */
     lineAtHeight: function(height, mode) { },
     linkedDoc: function(options) { },
+    listSelections: function() { },
     markClean: function() { },
     markText: function(from, to, options) { },
     moveH: function(dir, unit) { },
@@ -398,6 +400,7 @@ CodeMirror.prototype = {
     setLine: function(line, text) { },
     setOption: function(option, value) { },
     setSelection: function(anchor, head) { },
+    setSelections: function(selections) { },
     setSize: function(width, height) { },
     setValue: function(code) { },
     somethingSelected: function() { },
@@ -405,8 +408,8 @@ CodeMirror.prototype = {
     undo: function() { },
     unlinkDoc: function(other) { }
 }
-/** @type {number} */
-CodeMirror.prototype.lineCount;
+/** @type {!{cursorDiv: Element}} */
+CodeMirror.prototype.display;
 CodeMirror.Pass;
 CodeMirror.showHint = function(codeMirror, hintintFunction) { };
 CodeMirror.commands = {};

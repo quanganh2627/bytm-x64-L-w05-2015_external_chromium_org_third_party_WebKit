@@ -63,6 +63,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/animation/AnimatableLengthBox.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableLengthBoxAndBool.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableLengthPoint.cpp \
+	third_party/WebKit/Source/core/animation/AnimatableLengthPoint3D.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableLengthSize.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableRepeatable.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableSVGLength.cpp \
@@ -605,6 +606,7 @@ MY_DEFS_Debug := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
@@ -757,6 +759,7 @@ MY_DEFS_Release := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \

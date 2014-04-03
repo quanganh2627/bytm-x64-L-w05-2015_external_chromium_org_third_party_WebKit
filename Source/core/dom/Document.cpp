@@ -1204,6 +1204,26 @@ String Document::suggestedMIMEType() const
     return String();
 }
 
+void Document::setMimeType(const AtomicString& mimeType)
+{
+    m_mimeType = mimeType;
+}
+
+AtomicString Document::contentType() const
+{
+    if (!m_mimeType.isEmpty())
+        return m_mimeType;
+
+    if (DocumentLoader* documentLoader = loader())
+        return documentLoader->mimeType();
+
+    String mimeType = suggestedMIMEType();
+    if (!mimeType.isEmpty())
+        return AtomicString(mimeType);
+
+    return AtomicString("application/xml");
+}
+
 Element* Document::elementFromPoint(int x, int y) const
 {
     if (!renderView())
@@ -1590,7 +1610,7 @@ void Document::updateStyleInvalidationIfNeeded()
     TRACE_EVENT0("webkit", "Document::computeNeedsStyleRecalcState");
     ASSERT(styleResolver());
 
-    StyleInvalidator(*this).invalidate();
+    styleResolver()->ruleFeatureSet().styleInvalidator().invalidate(*this);
 }
 
 void Document::updateDistributionForNodeIfNeeded(Node* node)
@@ -2069,6 +2089,10 @@ void Document::attach(const AttachContext& context)
     view()->updateCompositingLayersAfterStyleChange();
 
     ContainerNode::attach(context);
+
+    // FastTextAutosizer can't update render view info while the Document is detached, so update now in case anything changed.
+    if (FastTextAutosizer* textAutosizer = fastTextAutosizer())
+        textAutosizer->updatePageInfo();
 
     m_lifecycle.advanceTo(DocumentLifecycle::StyleClean);
 }
@@ -3031,6 +3055,10 @@ bool Document::shouldMergeWithLegacyDescription(ViewportDescription::Type origin
 
 void Document::setViewportDescription(const ViewportDescription& viewportDescription)
 {
+    // The UA-defined min-width is used by the processing of legacy meta tags.
+    if (!viewportDescription.isSpecifiedByAuthor())
+        m_viewportDefaultMinWidth = viewportDescription.minWidth;
+
     if (viewportDescription.isLegacyViewportType()) {
         if (settings() && !settings()->viewportMetaEnabled())
             return;
@@ -3260,6 +3288,7 @@ void Document::cloneDataFromDocument(const Document& other)
     setEncodingData(other.m_encodingData);
     setContextFeatures(other.contextFeatures());
     setSecurityOrigin(other.securityOrigin()->isolatedCopy());
+    setMimeType(other.contentType());
 }
 
 StyleSheetList* Document::styleSheets()
@@ -5444,10 +5473,11 @@ bool Document::hasFocus() const
     Page* page = this->page();
     if (!page)
         return false;
-    if (!page->focusController().isActive() || !page->focusController().isFocused() || !page->focusController().focusedFrame()->isLocalFrame())
+    if (!page->focusController().isActive() || !page->focusController().isFocused())
         return false;
-    if (LocalFrame* focusedFrame = toLocalFrame(page->focusController().focusedFrame())) {
-        if (focusedFrame->tree().isDescendantOf(frame()))
+    Frame* focusedFrame = page->focusController().focusedFrame();
+    if (focusedFrame && focusedFrame->isLocalFrame()) {
+        if (toLocalFrame(focusedFrame)->tree().isDescendantOf(frame()))
             return true;
     }
     return false;

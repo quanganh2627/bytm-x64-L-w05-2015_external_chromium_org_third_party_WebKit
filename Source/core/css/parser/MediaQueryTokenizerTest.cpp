@@ -19,6 +19,7 @@ TEST(MediaQueryTokenizerTest, Basic)
 {
     TestCase testCases[] = {
         { "(max-width: 50px)", "(max-width: 50px)" },
+        { "(max-width: 50\\70\\78)", "(max-width: 50px)" },
         { "(max-width: /* comment */50px)", "(max-width: 50px)" },
         { "(max-width: /** *commen*t */60px)", "(max-width: 60px)" },
         { "(max-width: /** *commen*t **/70px)", "(max-width: 70px)" },
@@ -66,6 +67,14 @@ TEST(MediaQueryTokenizerCodepointsTest, Basic)
             testToken(c, LeftParenthesisToken);
         else if (c == ')')
             testToken(c, RightParenthesisToken);
+        else if (c == '[')
+            testToken(c, LeftBracketToken);
+        else if (c == ']')
+            testToken(c, RightBracketToken);
+        else if (c == '{')
+            testToken(c, LeftBraceToken);
+        else if (c == '}')
+            testToken(c, RightBraceToken);
         else if (c == '.' || c == '+' || c == '-' || c == '/' || c == '\\')
             testToken(c, DelimiterToken);
         else if (c == ',')

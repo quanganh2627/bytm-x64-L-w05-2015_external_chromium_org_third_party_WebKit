@@ -272,8 +272,10 @@ bool CSSPropertyEquality::propertiesEqual(CSSPropertyID prop, const RenderStyle&
         return fillLayersEqual<CSSPropertyWebkitMaskPositionY>(a.maskLayers(), b.maskLayers());
     case CSSPropertyWebkitMaskSize:
         return fillLayersEqual<CSSPropertyWebkitMaskSize>(a.maskLayers(), b.maskLayers());
-    case CSSPropertyWebkitPerspective:
+    case CSSPropertyPerspective:
         return a.perspective() == b.perspective();
+    case CSSPropertyPerspectiveOrigin:
+        return a.perspectiveOriginX() == b.perspectiveOriginX() && a.perspectiveOriginY() == b.perspectiveOriginY();
     case CSSPropertyWebkitPerspectiveOriginX:
         return a.perspectiveOriginX() == b.perspectiveOriginX();
     case CSSPropertyWebkitPerspectiveOriginY:
@@ -281,8 +283,10 @@ bool CSSPropertyEquality::propertiesEqual(CSSPropertyID prop, const RenderStyle&
     case CSSPropertyWebkitTextStrokeColor:
         return a.textStrokeColor().resolve(a.color()) == b.textStrokeColor().resolve(b.color())
             && a.visitedLinkTextStrokeColor().resolve(a.color()) == b.visitedLinkTextStrokeColor().resolve(b.color());
-    case CSSPropertyWebkitTransform:
+    case CSSPropertyTransform:
         return a.transform() == b.transform();
+    case CSSPropertyTransformOrigin:
+        return a.transformOriginX() == b.transformOriginX() && a.transformOriginY() == b.transformOriginY() && a.transformOriginZ() == b.transformOriginZ();
     case CSSPropertyWebkitTransformOriginX:
         return a.transformOriginX() == b.transformOriginX();
     case CSSPropertyWebkitTransformOriginY:

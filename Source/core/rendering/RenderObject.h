@@ -117,6 +117,20 @@ enum MapCoordinatesMode {
 };
 typedef unsigned MapCoordinatesFlags;
 
+enum InvalidationReason {
+    InvalidationIncremental,
+    InvalidationSelfLayout,
+    InvalidationBorderFitLines,
+    InvalidationBorderRadius,
+    InvalidationBoundsChangeWithBackground,
+    InvalidationBoundsChange,
+    InvalidationScroll,
+    InvalidationSelection,
+    InvalidationLayer,
+    InvalidationRepaint,
+    InvalidationRepaintRectangle
+};
+
 const int caretWidth = 1;
 
 struct AnnotatedRegionValue {
@@ -801,9 +815,10 @@ public:
     // if painting is root-relative. This is the container that should be passed to the 'forRepaint'
     // methods.
     RenderLayerModelObject* containerForRepaint() const;
+
     // Actually do the repaint of rect r for this object which has been computed in the coordinate space
     // of repaintContainer. If repaintContainer is 0, repaint via the view.
-    void repaintUsingContainer(const RenderLayerModelObject* repaintContainer, const IntRect&) const;
+    void repaintUsingContainer(const RenderLayerModelObject* repaintContainer, const IntRect&, InvalidationReason) const;
 
     // Repaint the entire object.  Called when, e.g., the color of a border changes, or when a border
     // style changes.
@@ -1002,9 +1017,11 @@ public:
 protected:
     inline bool layerCreationAllowedForSubtree() const;
 
-    // Overrides should call the superclass at the end
-    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
-    // Overrides should call the superclass at the start
+    // Overrides should call the superclass at the end. m_style will be 0 the first time
+    // this function will be called.
+    virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle);
+    // Overrides should call the superclass at the start. |oldStyle| will be 0 the first
+    // time this function is called.
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     void propagateStyleToAnonymousChildren(bool blockChildrenOnly = false);
 
@@ -1068,6 +1085,7 @@ private:
 #ifndef NDEBUG
     void checkBlockPositionedObjectsNeedLayout();
 #endif
+    const char* invalidationReasonToString(InvalidationReason) const;
 
     RefPtr<RenderStyle> m_style;
 

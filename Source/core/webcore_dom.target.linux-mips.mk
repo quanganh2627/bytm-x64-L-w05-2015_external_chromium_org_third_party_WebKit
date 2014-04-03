@@ -162,6 +162,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/ViewportDescription.cpp \
 	third_party/WebKit/Source/core/dom/VisitedLinkState.cpp \
 	third_party/WebKit/Source/core/dom/WheelController.cpp \
+	third_party/WebKit/Source/core/events/AnimationPlayerEvent.cpp \
 	third_party/WebKit/Source/core/events/ApplicationCacheErrorEvent.cpp \
 	third_party/WebKit/Source/core/events/BeforeTextInsertedEvent.cpp \
 	third_party/WebKit/Source/core/events/BeforeUnloadEvent.cpp \
@@ -246,6 +247,7 @@ MY_DEFS_Debug := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
@@ -397,6 +399,7 @@ MY_DEFS_Release := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \

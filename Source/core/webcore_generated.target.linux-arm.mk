@@ -12,7 +12,6 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp)/webcore_prerequisites.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_generated_bindings_gyp)/generated_bindings.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_make_core_generated_gyp)/make_core_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_inspector_overlay_page_gyp)/inspector_overlay_page.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_inspector_protocol_sources_gyp)/inspector_protocol_sources.stamp \
@@ -20,6 +19,7 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_canvas_script_source_gyp)/injected_canvas_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_script_source_gyp)/injected_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_debugger_script_source_gyp)/debugger_script_source.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_generated_bindings_gyp)/generated_bindings.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_platform_make_platform_generated_gyp)/make_platform_generated.stamp \
 	$(call intermediates-dir-for,GYP,skia_skia_gyp)/skia.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a \
@@ -302,7 +302,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLCollectionCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLDocumentCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLElementCustom.cpp \
-	third_party/WebKit/Source/bindings/v8/custom/V8HTMLFrameElementCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8HistoryCustom.cpp \
@@ -386,6 +385,7 @@ MY_DEFS_Debug := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
@@ -543,6 +543,7 @@ MY_DEFS_Release := \
 	'-DDISABLE_NACL' \
 	'-DCHROMIUM_BUILD' \
 	'-DUSE_LIBJPEG_TURBO=1' \
+	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
