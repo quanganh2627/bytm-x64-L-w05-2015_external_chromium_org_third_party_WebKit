@@ -7,8 +7,9 @@ LOCAL_MODULE := third_party_WebKit_Source_devtools_concatenated_devtools_scripts
 LOCAL_MODULE_STEM := concatenated_devtools_scripts_js
 LOCAL_MODULE_SUFFIX := .stamp
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES :=
@@ -18,7 +19,7 @@ $(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: gyp_local_pa
 $(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: $(LOCAL_PATH)/third_party/WebKit/Source/devtools/scripts/inline_js_imports.py $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/BreakpointsSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/CSSSourceFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/CallStackSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/EditingLocationHistoryManager.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FilePathScoreFunction.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FilteredItemSelectionDialog.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/JavaScriptSourceFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/NavigatorView.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/RevisionHistoryView.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/ScopeChainSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SimpleHistoryManager.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesNavigator.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesPanel.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesSearchScope.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/StyleSheetOutlineDialog.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/TabbedEditorContainer.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/UISourceCodeFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/WatchExpressionsSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/WorkersSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/ThreadsToolbar.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js: $(LOCAL_PATH)/third_party/WebKit/Source/devtools/scripts/inline_js_imports.py $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/BreakpointsSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/CSSSourceFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/CallStackSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/EditingLocationHistoryManager.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FilePathScoreFunction.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FilteredItemSelectionDialog.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/JavaScriptSourceFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/NavigatorView.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/RevisionHistoryView.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/ScopeChainSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SimpleHistoryManager.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesNavigator.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesPanel.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/StyleSheetOutlineDialog.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/TabbedEditorContainer.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/UISourceCodeFrame.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/WatchExpressionsSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/WorkersSidebarPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/ThreadsToolbar.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_devtools_devtools_gyp_concatenated_devtools_scripts_js_target_concatenate_devtools_scripts_js ($@)"
 	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/devtools; mkdir -p $(gyp_shared_intermediate_dir)/resources/inspector; python scripts/inline_js_imports.py front_end/SourcesPanel.js front_end "$(gyp_shared_intermediate_dir)/resources/inspector/SourcesPanel.js"
 
@@ -41,6 +42,7 @@ concatenated_devtools_scripts_js: third_party_WebKit_Source_devtools_concatenate
 
 LOCAL_MODULE_PATH := $(PRODUCT_OUT)/gyp_stamp
 LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_2ND_ARCH_VAR_PREFIX := $(GYP_VAR_PREFIX)
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -48,3 +50,5 @@ $(LOCAL_BUILT_MODULE): $(LOCAL_ADDITIONAL_DEPENDENCIES)
 	$(hide) echo "Gyp timestamp: $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) touch $@
+
+LOCAL_2ND_ARCH_VAR_PREFIX :=

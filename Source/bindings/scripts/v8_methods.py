@@ -64,6 +64,9 @@ def generate_method(interface, method):
     is_call_with_script_state = has_extended_attribute_value(method, 'CallWith', 'ScriptState')
     if is_call_with_script_state:
         includes.add('bindings/v8/ScriptState.h')
+    is_call_with_new_script_state = has_extended_attribute_value(method, 'CallWith', 'NewScriptState')
+    if is_call_with_new_script_state:
+        includes.add('bindings/v8/NewScriptState.h')
     is_check_security_for_node = 'CheckSecurity' in extended_attributes
     if is_check_security_for_node:
         includes.add('bindings/v8/BindingSecurity.h')
@@ -104,13 +107,15 @@ def generate_method(interface, method):
         'is_call_with_execution_context': has_extended_attribute_value(method, 'CallWith', 'ExecutionContext'),
         'is_call_with_script_arguments': is_call_with_script_arguments,
         'is_call_with_script_state': is_call_with_script_state,
+        'is_call_with_new_script_state': is_call_with_new_script_state,
         'is_check_security_for_frame': is_check_security_for_frame,
         'is_check_security_for_node': is_check_security_for_node,
         'is_custom': 'Custom' in extended_attributes,
         'is_custom_element_callbacks': is_custom_element_callbacks,
         'is_do_not_check_security': 'DoNotCheckSecurity' in extended_attributes,
         'is_do_not_check_signature': 'DoNotCheckSignature' in extended_attributes,
-        'is_implemented_by': 'ImplementedBy' in extended_attributes,
+        'is_partial_interface_member':
+            'PartialInterfaceImplementedAs' in extended_attributes,
         'is_per_world_bindings': 'PerWorldBindings' in extended_attributes,
         'is_raises_exception': is_raises_exception,
         'is_read_only': 'ReadOnly' in extended_attributes,
@@ -144,9 +149,8 @@ def generate_argument(interface, method, argument, index):
     idl_type = argument.idl_type
     this_cpp_value = cpp_value(interface, method, index)
     is_variadic_wrapper_type = argument.is_variadic and idl_type.is_wrapper_type
-    use_heap_vector_type = is_variadic_wrapper_type and idl_type.is_will_be_garbage_collected
     return {
-        'cpp_type': idl_type.cpp_type_args(will_be_in_heap_object=use_heap_vector_type),
+        'cpp_type': idl_type.cpp_type_args(used_in_cpp_sequence=is_variadic_wrapper_type),
         'cpp_value': this_cpp_value,
         'enum_validation_expression': idl_type.enum_validation_expression,
         'has_default': 'Default' in extended_attributes,
@@ -163,7 +167,7 @@ def generate_argument(interface, method, argument, index):
         'is_optional': argument.is_optional,
         'is_strict_type_checking': 'StrictTypeChecking' in extended_attributes,
         'is_variadic_wrapper_type': is_variadic_wrapper_type,
-        'vector_type': 'WillBeHeapVector' if use_heap_vector_type else 'Vector',
+        'vector_type': v8_types.cpp_ptr_type('Vector', 'HeapVector', idl_type.gc_type),
         'is_wrapper_type': idl_type.is_wrapper_type,
         'name': argument.name,
         'v8_set_return_value_for_main_world': v8_set_return_value(interface.name, method, this_cpp_value, for_main_world=True),
@@ -195,7 +199,10 @@ def cpp_value(interface, method, number_of_arguments):
     # Truncate omitted optional arguments
     arguments = method.arguments[:number_of_arguments]
     cpp_arguments = v8_utilities.call_with_arguments(method)
-    if ('ImplementedBy' in method.extended_attributes and
+    # Members of IDL partial interface definitions are implemented in C++ as
+    # static member functions, which for instance members (non-static members)
+    # take *impl as their first argument
+    if ('PartialInterfaceImplementedAs' in method.extended_attributes and
         not method.is_static):
         cpp_arguments.append('*impl')
     cpp_arguments.extend(cpp_argument(argument) for argument in arguments)
@@ -217,8 +224,9 @@ def v8_set_return_value(interface_name, method, cpp_value, for_main_world=False)
         return None
 
     release = False
-    # [CallWith=ScriptState], [RaisesException]
+    # [CallWith=ScriptState|NewScriptState], [RaisesException]
     if (has_extended_attribute_value(method, 'CallWith', 'ScriptState') or
+        has_extended_attribute_value(method, 'CallWith', 'NewScriptState') or
         'RaisesException' in extended_attributes or
         idl_type.is_union_type):
         cpp_value = 'result'  # use local variable for value
@@ -233,7 +241,7 @@ def v8_value_to_local_cpp_value(argument, index):
     idl_type = argument.idl_type
     name = argument.name
     if argument.is_variadic:
-        vector_type = 'WillBeHeapVector' if idl_type.is_will_be_garbage_collected else 'Vector'
+        vector_type = v8_types.cpp_ptr_type('Vector', 'HeapVector', idl_type.gc_type)
         return 'V8TRYCATCH_VOID({vector_type}<{cpp_type}>, {name}, toNativeArguments<{cpp_type}>(info, {index}))'.format(
                 cpp_type=idl_type.cpp_type, name=name, index=index, vector_type=vector_type)
     # [Default=NullString]

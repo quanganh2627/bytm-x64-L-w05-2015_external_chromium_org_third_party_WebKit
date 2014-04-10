@@ -74,10 +74,11 @@ public:
 
     void load(ExecutionContext* loadingContext, const KURL& scriptURL, const Closure& callback)
     {
+        ASSERT(loadingContext);
         m_callback = callback;
         m_scriptLoader->setTargetType(ResourceRequest::TargetIsServiceWorker);
         m_scriptLoader->loadAsynchronously(
-            loadingContext, scriptURL, DenyCrossOriginRequests, this);
+            *loadingContext, scriptURL, DenyCrossOriginRequests, this);
     }
 
     virtual void notifyFinished() OVERRIDE
@@ -206,14 +207,14 @@ void WebEmbeddedWorkerImpl::prepareShadowPageForLoader()
 }
 
 void WebEmbeddedWorkerImpl::willSendRequest(
-    WebFrame* frame, unsigned, WebURLRequest& request,
+    WebLocalFrame* frame, unsigned, WebURLRequest& request,
     const WebURLResponse& redirectResponse)
 {
     if (m_networkProvider)
         m_networkProvider->willSendRequest(frame->dataSource(), request);
 }
 
-void WebEmbeddedWorkerImpl::didFinishDocumentLoad(WebFrame* frame)
+void WebEmbeddedWorkerImpl::didFinishDocumentLoad(WebLocalFrame* frame)
 {
     ASSERT(!m_mainScriptLoader);
     ASSERT(!m_networkProvider);

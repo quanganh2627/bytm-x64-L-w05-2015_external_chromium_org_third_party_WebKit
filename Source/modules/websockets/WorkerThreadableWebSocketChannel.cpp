@@ -110,7 +110,7 @@ private:
     unsigned long m_bufferedAmount;
 };
 
-WorkerThreadableWebSocketChannel::WorkerThreadableWebSocketChannel(WorkerGlobalScope* context, WebSocketChannelClient* client, const String& sourceURL, unsigned lineNumber)
+WorkerThreadableWebSocketChannel::WorkerThreadableWebSocketChannel(WorkerGlobalScope& context, WebSocketChannelClient* client, const String& sourceURL, unsigned lineNumber)
     : m_workerGlobalScope(context)
     , m_workerClientWrapper(ThreadableWebSocketChannelClientWrapper::create(client))
     , m_bridge(Bridge::create(m_workerClientWrapper, m_workerGlobalScope))
@@ -569,6 +569,7 @@ bool WorkerThreadableWebSocketChannel::Bridge::waitForMethodCompletion()
     events.append(shutdownEvent);
     events.append(m_syncHelper->event());
 
+    ThreadState::SafePointScope scope(ThreadState::HeapPointersOnStack);
     blink::WebWaitableEvent* signalled = blink::Platform::current()->waitMultipleEvents(events);
     return signalled != shutdownEvent;
 }

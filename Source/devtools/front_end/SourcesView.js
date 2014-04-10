@@ -251,11 +251,11 @@ WebInspector.SourcesView.prototype = {
      */
     _removeUISourceCodes: function(uiSourceCodes)
     {
+        this._editorContainer.removeUISourceCodes(uiSourceCodes);
         for (var i = 0; i < uiSourceCodes.length; ++i) {
             this._removeSourceFrame(uiSourceCodes[i]);
             this._historyManager.removeHistoryForSourceCode(uiSourceCodes[i]);
         }
-        this._editorContainer.removeUISourceCodes(uiSourceCodes);
     },
 
     _projectWillReset: function(event)
@@ -484,8 +484,9 @@ WebInspector.SourcesView.prototype = {
     /**
      * @param {string} query
      * @param {boolean} shouldJump
+     * @param {boolean=} jumpBackwards
      */
-    performSearch: function(query, shouldJump)
+    performSearch: function(query, shouldJump, jumpBackwards)
     {
         this._searchableView.updateSearchMatchesCount(0);
 
@@ -526,7 +527,7 @@ WebInspector.SourcesView.prototype = {
             this._searchableView.cancelSearch();
         }
 
-        this._searchView.performSearch(query, shouldJump, finishedCallback.bind(this), currentMatchChanged.bind(this), searchResultsChanged.bind(this));
+        this._searchView.performSearch(query, shouldJump, !!jumpBackwards, finishedCallback.bind(this), currentMatchChanged.bind(this), searchResultsChanged.bind(this));
     },
 
     jumpToNextSearchResult: function()

@@ -1277,6 +1277,11 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
             return false;
         return parseGridTemplateShorthand(important);
 
+    case CSSPropertyGrid:
+        if (!RuntimeEnabledFeatures::cssGridLayoutEnabled())
+            return false;
+        return parseGridShorthand(important);
+
     case CSSPropertyWebkitMarginCollapse: {
         if (num == 1) {
             ShorthandScope scope(this, CSSPropertyWebkitMarginCollapse);
@@ -3598,6 +3603,69 @@ bool CSSPropertyParser::parseGridTemplateShorthand(bool important)
     return parseGridTemplateRowsAndAreas(columnsValue, important);
 }
 
+bool CSSPropertyParser::parseGridShorthand(bool important)
+{
+    ShorthandScope scope(this, CSSPropertyGrid);
+    ASSERT(shorthandForProperty(CSSPropertyGrid).length() == 4);
+
+    // 1- <grid-template>
+    if (parseGridTemplateShorthand(important)) {
+        // It can only be specified the explicit or the implicit grid properties in a single grid declaration.
+        // The sub-properties not specified are set to their initial value, as normal for shorthands.
+        addProperty(CSSPropertyGridAutoFlow, cssValuePool().createImplicitInitialValue(), important);
+        addProperty(CSSPropertyGridAutoColumns, cssValuePool().createImplicitInitialValue(), important);
+        addProperty(CSSPropertyGridAutoRows, cssValuePool().createImplicitInitialValue(), important);
+        return true;
+    }
+
+    // Need to rewind parsing to explore the alternative syntax of this shorthand.
+    m_valueList->setCurrentIndex(0);
+
+    // 2- <grid-auto-flow> [ <grid-auto-columns> [ / <grid-auto-rows> ]? ]
+    CSSValueID id = m_valueList->current()->id;
+    if (id != CSSValueRow && id != CSSValueColumn && id != CSSValueNone)
+        return false;
+
+    RefPtrWillBeRawPtr<CSSValue> autoFlowValue = cssValuePool().createIdentifierValue(id);
+    RefPtrWillBeRawPtr<CSSValue> autoColumnsValue = nullptr;
+    RefPtrWillBeRawPtr<CSSValue> autoRowsValue = nullptr;
+
+    if (m_valueList->next()) {
+        autoColumnsValue = parseGridTrackSize(*m_valueList);
+        if (!autoColumnsValue)
+            return false;
+        if (m_valueList->current()) {
+            if (!isForwardSlashOperator(m_valueList->current()) || !m_valueList->next())
+                return false;
+            autoRowsValue = parseGridTrackSize(*m_valueList);
+            if (!autoRowsValue)
+                return false;
+        }
+        if (m_valueList->current())
+            return false;
+    } else {
+        // Other omitted values are set to their initial values.
+        autoColumnsValue = cssValuePool().createImplicitInitialValue();
+        autoRowsValue = cssValuePool().createImplicitInitialValue();
+    }
+
+    // if <grid-auto-rows> value is omitted, it is set to the value specified for grid-auto-columns.
+    if (!autoRowsValue)
+        autoRowsValue = autoColumnsValue;
+
+    addProperty(CSSPropertyGridAutoFlow, autoFlowValue, important);
+    addProperty(CSSPropertyGridAutoColumns, autoColumnsValue, important);
+    addProperty(CSSPropertyGridAutoRows, autoRowsValue, important);
+
+    // It can only be specified the explicit or the implicit grid properties in a single grid declaration.
+    // The sub-properties not specified are set to their initial value, as normal for shorthands.
+    addProperty(CSSPropertyGridTemplateColumns, cssValuePool().createImplicitInitialValue(), important);
+    addProperty(CSSPropertyGridTemplateRows, cssValuePool().createImplicitInitialValue(), important);
+    addProperty(CSSPropertyGridTemplateAreas, cssValuePool().createImplicitInitialValue(), important);
+
+    return true;
+}
+
 bool CSSPropertyParser::parseGridAreaShorthand(bool important)
 {
     ASSERT(RuntimeEnabledFeatures::cssGridLayoutEnabled());
@@ -3863,18 +3931,18 @@ bool CSSPropertyParser::parseGridTemplateAreasRow(NamedGridAreaMap& gridAreaMap,
 
             // The following checks test that the grid area is a single filled-in rectangle.
             // 1. The new row is adjacent to the previously parsed row.
-            if (rowCount != gridCoordinate.rows.finalPositionIndex + 1)
+            if (rowCount != gridCoordinate.rows.resolvedFinalPosition.toInt() + 1)
                 return false;
 
             // 2. The new area starts at the same position as the previously parsed area.
-            if (currentCol != gridCoordinate.columns.initialPositionIndex)
+            if (currentCol != gridCoordinate.columns.resolvedInitialPosition.toInt())
                 return false;
 
             // 3. The new area ends at the same position as the previously parsed area.
-            if (lookAheadCol != gridCoordinate.columns.finalPositionIndex)
+            if (lookAheadCol != gridCoordinate.columns.resolvedFinalPosition.toInt())
                 return false;
 
-            ++gridCoordinate.rows.finalPositionIndex;
+            ++gridCoordinate.rows.resolvedFinalPosition;
         }
         currentCol = lookAheadCol;
     }
@@ -4023,9 +4091,9 @@ PassRefPtrWillBeRawPtr<CSSBasicShape> CSSPropertyParser::parseInsetRoundedCorner
     if (!argument)
         return nullptr;
 
-    CSSParserValueList radiusArguments;
+    Vector<CSSParserValue*> radiusArguments;
     while (argument) {
-        radiusArguments.addValue(*argument);
+        radiusArguments.append(argument);
         argument = args->next();
     }
 
@@ -4042,7 +4110,7 @@ PassRefPtrWillBeRawPtr<CSSBasicShape> CSSPropertyParser::parseInsetRoundedCorner
 
     unsigned indexAfterSlash = 0;
     for (unsigned i = 0; i < num; ++i) {
-        CSSParserValue* value = radiusArguments.valueAt(i);
+        CSSParserValue* value = radiusArguments.at(i);
         if (value->unit == CSSParserValue::Operator) {
             if (value->iValue != '/')
                 return nullptr;

@@ -153,6 +153,22 @@ void DescendantInvalidationSet::getAttributes(Vector<AtomicString>& attributes) 
         attributes.append(*it);
 }
 
+void DescendantInvalidationSet::getIds(Vector<AtomicString>& ids) const
+{
+    if (!m_ids)
+        return;
+    for (HashSet<AtomicString>::const_iterator it = m_ids->begin(); it != m_ids->end(); ++it)
+        ids.append(*it);
+}
+
+void DescendantInvalidationSet::getTagNames(Vector<AtomicString>& tagNames) const
+{
+    if (!m_tagNames)
+        return;
+    for (HashSet<AtomicString>::const_iterator it = m_tagNames->begin(); it != m_tagNames->end(); ++it)
+        tagNames.append(*it);
+}
+
 void DescendantInvalidationSet::setWholeSubtreeInvalid()
 {
     if (m_allDescendantsMightBeInvalid)

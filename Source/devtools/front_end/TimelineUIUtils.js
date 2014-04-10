@@ -381,7 +381,7 @@ WebInspector.TimelineUIUtils.generatePopupContentForFrameStatistics = function(s
         return WebInspector.UIString("%s (%.0f FPS)", Number.millisToString(time, true), 1 / time);
     }
 
-    var contentHelper = new WebInspector.TimelineDetailsContentHelper(new WebInspector.Linkifier(), false);
+    var contentHelper = new WebInspector.TimelineDetailsContentHelper(null, null, false);
     contentHelper.appendTextRow(WebInspector.UIString("Minimum Time"), formatTimeAndFPS(statistics.minDuration));
     contentHelper.appendTextRow(WebInspector.UIString("Average Time"), formatTimeAndFPS(statistics.average));
     contentHelper.appendTextRow(WebInspector.UIString("Maximum Time"), formatTimeAndFPS(statistics.maxDuration));
@@ -449,9 +449,9 @@ WebInspector.TimelineUIUtils.generatePopupContent = function(record, linkifier, 
 
     var barrier = new CallbackBarrier();
     if (!imageElement && WebInspector.TimelineUIUtils.needsPreviewElement(record.type))
-        WebInspector.DOMPresentationUtils.buildImagePreviewContents(record.url, false, barrier.createCallback(saveImage));
+        WebInspector.DOMPresentationUtils.buildImagePreviewContents(record.target(), record.url, false, barrier.createCallback(saveImage));
     if (record.relatedBackendNodeId())
-        WebInspector.domModel.pushNodesByBackendIdsToFrontend([record.relatedBackendNodeId()], barrier.createCallback(setRelatedNode));
+        record.target().domModel.pushNodesByBackendIdsToFrontend([record.relatedBackendNodeId()], barrier.createCallback(setRelatedNode));
     barrier.callWhenDone(callbackWrapper);
 
     /**
@@ -469,7 +469,7 @@ WebInspector.TimelineUIUtils.generatePopupContent = function(record, linkifier, 
     function setRelatedNode(nodeIds)
     {
         if (nodeIds)
-            relatedNode = WebInspector.domModel.nodeForId(nodeIds[0]);
+            relatedNode = record.target().domModel.nodeForId(nodeIds[0]);
     }
 
     function callbackWrapper()
@@ -501,7 +501,7 @@ WebInspector.TimelineUIUtils._generatePopupContentSynchronously = function(recor
     var callStackLabel;
     var relatedNodeLabel;
 
-    var contentHelper = new WebInspector.TimelineDetailsContentHelper(linkifier, true);
+    var contentHelper = new WebInspector.TimelineDetailsContentHelper(record.target(), linkifier, true);
     contentHelper.appendTextRow(WebInspector.UIString("Self Time"), Number.millisToString(record.selfTime, true));
     contentHelper.appendTextRow(WebInspector.UIString("Start Time"), Number.millisToString(record.startTimeOffset));
 
@@ -757,7 +757,7 @@ WebInspector.TimelineUIUtils.buildDetailsNode = function(record, linkifier, load
     {
         if (!loadedFromFile && scriptId !== "0") {
             var location = new WebInspector.DebuggerModel.Location(
-                /** @type {!WebInspector.Target} */ (WebInspector.targetManager.activeTarget()),
+                record.target(),
                 scriptId,
                 lineNumber - 1,
                 (columnNumber || 1) - 1);
@@ -769,7 +769,7 @@ WebInspector.TimelineUIUtils.buildDetailsNode = function(record, linkifier, load
 
         // FIXME(62725): stack trace line/column numbers are one-based.
         columnNumber = columnNumber ? columnNumber - 1 : 0;
-        return linkifier.linkifyLocation(url, lineNumber - 1, columnNumber, "timeline-details");
+        return linkifier.linkifyLocation(record.target(), url, lineNumber - 1, columnNumber, "timeline-details");
     }
 
     /**
@@ -910,12 +910,14 @@ WebInspector.TimelinePopupContentHelper.prototype = {
 
 /**
  * @constructor
- * @param {!WebInspector.Linkifier} linkifier
+ * @param {?WebInspector.Target} target
+ * @param {?WebInspector.Linkifier} linkifier
  * @param {boolean} monospaceValues
  */
-WebInspector.TimelineDetailsContentHelper = function(linkifier, monospaceValues)
+WebInspector.TimelineDetailsContentHelper = function(target, linkifier, monospaceValues)
 {
     this._linkifier = linkifier;
+    this._target = target;
     this.element = document.createElement("div");
     this.element.className = "timeline-details-view-block";
     this._monospaceValues = monospaceValues;
@@ -955,7 +957,9 @@ WebInspector.TimelineDetailsContentHelper.prototype = {
      */
     appendLocationRow: function(title, url, line)
     {
-        this.appendElementRow(title, this._linkifier.linkifyLocation(url, line - 1) || "");
+        if (!this._linkifier || !this._target)
+            return;
+        this.appendElementRow(title, this._linkifier.linkifyLocation(this._target, url, line - 1) || "");
     },
 
     /**
@@ -964,6 +968,9 @@ WebInspector.TimelineDetailsContentHelper.prototype = {
      */
     appendStackTrace: function(title, stackTrace)
     {
+        if (!this._linkifier || !this._target)
+            return;
+
         var rowElement = this.element.createChild("div", "timeline-details-view-row");
         rowElement.createChild("span", "timeline-details-view-row-title").textContent = WebInspector.UIString("%s: ", title);
         var stackTraceElement = rowElement.createChild("div", "timeline-details-view-row-stack-trace monospace");
@@ -973,7 +980,7 @@ WebInspector.TimelineDetailsContentHelper.prototype = {
             var row = stackTraceElement.createChild("div");
             row.createTextChild(stackFrame.functionName || WebInspector.UIString("(anonymous function)"));
             row.createTextChild(" @ ");
-            var urlElement = this._linkifier.linkifyLocation(stackFrame.url, stackFrame.lineNumber - 1);
+            var urlElement = this._linkifier.linkifyLocation(this._target, stackFrame.url, stackFrame.lineNumber - 1);
             row.appendChild(urlElement);
         }
     }

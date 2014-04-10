@@ -147,6 +147,10 @@ public:
     // WebWindowFeatures are ignored.
     virtual void setWindowFeatures(const WebWindowFeatures&) = 0;
 
+    // Marks the WebView as being opened by a DOM call. This is relevant
+    // for whether window.close() may be called.
+    virtual void setOpenedByDOM() = 0;
+
 
     // Frames --------------------------------------------------------------
 
@@ -319,11 +323,6 @@ public:
 
     // Notifies the WebView that a drag has terminated.
     virtual void dragSourceEndedAt(
-        const WebPoint& clientPoint, const WebPoint& screenPoint,
-        WebDragOperation operation) = 0;
-
-    // Notifies the WebView that a drag is going on.
-    virtual void dragSourceMovedTo(
         const WebPoint& clientPoint, const WebPoint& screenPoint,
         WebDragOperation operation) = 0;
 

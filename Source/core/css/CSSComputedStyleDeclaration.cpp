@@ -1438,8 +1438,6 @@ static PassRefPtrWillBeRawPtr<CSSValue> valueForShape(const RenderStyle& style, 
 {
     if (!shapeValue)
         return cssValuePool().createIdentifierValue(CSSValueNone);
-    if (shapeValue->type() == ShapeValue::Outside)
-        return cssValuePool().createIdentifierValue(CSSValueOutsideShape);
     if (shapeValue->type() == ShapeValue::Box)
         return cssValuePool().createValue(shapeValue->cssBox());
     if (shapeValue->type() == ShapeValue::Image) {
@@ -1984,6 +1982,8 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValu
             return valuesForGridShorthand(gridAreaShorthand());
         case CSSPropertyGridTemplate:
             return valuesForGridShorthand(gridTemplateShorthand());
+        case CSSPropertyGrid:
+            return valuesForGridShorthand(gridShorthand());
         case CSSPropertyGridTemplateAreas:
             if (!style->namedGridAreaRowCount()) {
                 ASSERT(!style->namedGridAreaColumnCount());

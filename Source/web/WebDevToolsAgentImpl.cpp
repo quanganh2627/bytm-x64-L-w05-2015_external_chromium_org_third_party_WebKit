@@ -37,6 +37,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "WebDataSource.h"
 #include "WebDevToolsAgentClient.h"
+#include "WebDeviceEmulationParams.h"
 #include "WebFrameImpl.h"
 #include "WebInputEventConversion.h"
 #include "WebMemoryUsageInfo.h"
@@ -328,7 +329,6 @@ void WebDevToolsAgentImpl::overrideDeviceMetrics(int width, int height, float de
         if (m_deviceMetricsEnabled) {
             m_deviceMetricsEnabled = false;
             m_webViewImpl->setBackgroundColorOverride(Color::transparent);
-            RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(m_isOverlayScrollbarsEnabled);
             disableViewportEmulation();
             m_client->disableDeviceEmulation();
         }
@@ -336,14 +336,19 @@ void WebDevToolsAgentImpl::overrideDeviceMetrics(int width, int height, float de
         if (!m_deviceMetricsEnabled) {
             m_deviceMetricsEnabled = true;
             m_webViewImpl->setBackgroundColorOverride(Color::darkGray);
-            m_isOverlayScrollbarsEnabled = RuntimeEnabledFeatures::overlayScrollbarsEnabled();
-            RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(true);
         }
         if (emulateViewport)
             enableViewportEmulation();
         else
             disableViewportEmulation();
-        m_client->enableDeviceEmulation(IntRect(10, 10, width, height), IntRect(0, 0, width, height), deviceScaleFactor, fitWindow);
+
+        WebDeviceEmulationParams params;
+        params.screenPosition = emulateViewport ? WebDeviceEmulationParams::Mobile : WebDeviceEmulationParams::Desktop;
+        params.deviceScaleFactor = deviceScaleFactor;
+        params.viewSize = WebSize(width, height);
+        params.fitToView = fitWindow;
+        params.viewInsets = WebSize(10, 10);
+        m_client->enableDeviceEmulation(params);
     }
 }
 
@@ -352,10 +357,13 @@ void WebDevToolsAgentImpl::enableViewportEmulation()
     if (m_emulateViewportEnabled)
         return;
     m_emulateViewportEnabled = true;
+    m_isOverlayScrollbarsEnabled = RuntimeEnabledFeatures::overlayScrollbarsEnabled();
+    RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(true);
     m_originalViewportEnabled = RuntimeEnabledFeatures::cssViewportEnabled();
     RuntimeEnabledFeatures::setCSSViewportEnabled(true);
     m_webViewImpl->settings()->setViewportEnabled(true);
     m_webViewImpl->settings()->setViewportMetaEnabled(true);
+    m_webViewImpl->settings()->setShrinksViewportContentToFit(true);
     m_webViewImpl->setIgnoreViewportTagScaleLimits(true);
     m_webViewImpl->setPageScaleFactorLimits(-1, -1);
     m_webViewImpl->setZoomFactorOverride(1);
@@ -365,9 +373,11 @@ void WebDevToolsAgentImpl::disableViewportEmulation()
 {
     if (!m_emulateViewportEnabled)
         return;
+    RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(m_isOverlayScrollbarsEnabled);
     RuntimeEnabledFeatures::setCSSViewportEnabled(m_originalViewportEnabled);
     m_webViewImpl->settings()->setViewportEnabled(false);
     m_webViewImpl->settings()->setViewportMetaEnabled(false);
+    m_webViewImpl->settings()->setShrinksViewportContentToFit(false);
     m_webViewImpl->setIgnoreViewportTagScaleLimits(false);
     m_webViewImpl->setPageScaleFactorLimits(1, 1);
     m_webViewImpl->setZoomFactorOverride(0);
@@ -490,16 +500,10 @@ void WebDevToolsAgentImpl::stopGPUEventsRecording()
     m_client->stopGPUEventsRecording();
 }
 
-void WebDevToolsAgentImpl::processGPUEvent(double timestamp, int phase, bool foreign)
-{
-    if (InspectorController* ic = inspectorController())
-        ic->processGPUEvent(timestamp, phase, foreign, 0);
-}
-
 void WebDevToolsAgentImpl::processGPUEvent(const GPUEvent& event)
 {
     if (InspectorController* ic = inspectorController())
-        ic->processGPUEvent(event.timestamp, event.phase, event.foreign, event.usedGPUMemoryBytes);
+        ic->processGPUEvent(event.timestamp, event.phase, event.foreign, event.usedGPUMemoryBytes, event.limitGPUMemoryBytes);
 }
 
 void WebDevToolsAgentImpl::dispatchKeyEvent(const PlatformKeyboardEvent& event)
@@ -648,7 +652,7 @@ void WebDevToolsAgent::interruptAndDispatch(MessageDescriptor* rawDescriptor)
     // rawDescriptor can't be a PassOwnPtr because interruptAndDispatch is a WebKit API function.
     OwnPtr<MessageDescriptor> descriptor = adoptPtr(rawDescriptor);
     OwnPtr<DebuggerTask> task = adoptPtr(new DebuggerTask(descriptor.release()));
-    PageScriptDebugServer::interruptAndRun(task.release(), v8::Isolate::GetCurrent());
+    PageScriptDebugServer::interruptAndRun(task.release());
 }
 
 bool WebDevToolsAgent::shouldInterruptForMessage(const WebString& message)

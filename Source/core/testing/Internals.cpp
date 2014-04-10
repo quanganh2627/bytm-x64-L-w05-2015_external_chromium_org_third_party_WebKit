@@ -765,7 +765,7 @@ PassRefPtrWillBeRawPtr<PagePopupController> Internals::pagePopupController()
     return s_pagePopupDriver ? s_pagePopupDriver->pagePopupController() : 0;
 }
 
-PassRefPtr<ClientRect> Internals::unscaledViewportRect(ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRect> Internals::unscaledViewportRect(ExceptionState& exceptionState)
 {
     Document* document = contextDocument();
     if (!document || !document->view()) {
@@ -776,7 +776,7 @@ PassRefPtr<ClientRect> Internals::unscaledViewportRect(ExceptionState& exception
     return ClientRect::create(document->view()->visibleContentRect());
 }
 
-PassRefPtr<ClientRect> Internals::absoluteCaretBounds(ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRect> Internals::absoluteCaretBounds(ExceptionState& exceptionState)
 {
     Document* document = contextDocument();
     if (!document || !document->frame()) {
@@ -787,7 +787,7 @@ PassRefPtr<ClientRect> Internals::absoluteCaretBounds(ExceptionState& exceptionS
     return ClientRect::create(document->frame()->selection().absoluteCaretBounds());
 }
 
-PassRefPtr<ClientRect> Internals::boundingBox(Element* element, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRect> Internals::boundingBox(Element* element, ExceptionState& exceptionState)
 {
     if (!element) {
         exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
@@ -801,7 +801,7 @@ PassRefPtr<ClientRect> Internals::boundingBox(Element* element, ExceptionState& 
     return ClientRect::create(renderer->absoluteBoundingBoxRectIgnoringTransforms());
 }
 
-PassRefPtr<ClientRectList> Internals::inspectorHighlightRects(Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::inspectorHighlightRects(Document* document, ExceptionState& exceptionState)
 {
     if (!document || !document->page()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's Page cannot be retrieved." : "No context document can be obtained.");
@@ -868,7 +868,7 @@ DocumentMarker* Internals::markerAt(Node* node, const String& markerType, unsign
     return markers[index];
 }
 
-PassRefPtr<Range> Internals::markerRangeForNode(Node* node, const String& markerType, unsigned index, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Range> Internals::markerRangeForNode(Node* node, const String& markerType, unsigned index, ExceptionState& exceptionState)
 {
     DocumentMarker* marker = markerAt(node, markerType, index, exceptionState);
     if (!marker)
@@ -1078,7 +1078,7 @@ void Internals::scrollElementToRect(Element* element, long x, long y, long w, lo
     frameView->scrollElementToRect(element, IntRect(x, y, w, h));
 }
 
-PassRefPtr<Range> Internals::rangeFromLocationAndLength(Element* scope, int rangeLocation, int rangeLength, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Range> Internals::rangeFromLocationAndLength(Element* scope, int rangeLocation, int rangeLength, ExceptionState& exceptionState)
 {
     if (!scope) {
         exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
@@ -1207,7 +1207,7 @@ Node* Internals::touchNodeAdjustedToBestContextMenuNode(long x, long y, long wid
     return targetNode;
 }
 
-PassRefPtr<ClientRect> Internals::bestZoomableAreaForTouchPoint(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRect> Internals::bestZoomableAreaForTouchPoint(long x, long y, long width, long height, Document* document, ExceptionState& exceptionState)
 {
     if (!document || !document->frame()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's frame cannot be retrieved." : "The document provided is invalid.");
@@ -1305,8 +1305,9 @@ unsigned Internals::touchEventHandlerCount(Document* document, ExceptionState& e
     return count;
 }
 
-static RenderLayer* findRenderLayerForGraphicsLayer(RenderLayer* searchRoot, GraphicsLayer* graphicsLayer, String* layerType)
+static RenderLayer* findRenderLayerForGraphicsLayer(RenderLayer* searchRoot, GraphicsLayer* graphicsLayer, IntSize* layerOffset, String* layerType)
 {
+    *layerOffset = IntSize();
     if (searchRoot->hasCompositedLayerMapping() && graphicsLayer == searchRoot->compositedLayerMapping()->mainGraphicsLayer())
         return searchRoot;
 
@@ -1314,6 +1315,15 @@ static RenderLayer* findRenderLayerForGraphicsLayer(RenderLayer* searchRoot, Gra
     if (graphicsLayer == layerForScrolling) {
         *layerType = "scrolling";
         return searchRoot;
+    }
+
+    if (searchRoot->compositingState() == PaintsIntoGroupedBacking) {
+        GraphicsLayer* squashingLayer = searchRoot->groupedMapping()->squashingLayer();
+        if (graphicsLayer == squashingLayer) {
+            *layerType ="squashing";
+            *layerOffset = -searchRoot->offsetFromSquashingLayerOrigin();
+            return searchRoot;
+        }
     }
 
     GraphicsLayer* layerForHorizontalScrollbar = searchRoot->scrollableArea() ? searchRoot->scrollableArea()->layerForHorizontalScrollbar() : 0;
@@ -1334,8 +1344,10 @@ static RenderLayer* findRenderLayerForGraphicsLayer(RenderLayer* searchRoot, Gra
         return searchRoot;
     }
 
-    for (RenderLayer* child = searchRoot->firstChild(); child; child = child->nextSibling()) {
-        RenderLayer* foundLayer = findRenderLayerForGraphicsLayer(child, graphicsLayer, layerType);
+    // Search right to left to increase the chances that we'll choose the top-most layers in a
+    // grouped mapping for squashing.
+    for (RenderLayer* child = searchRoot->lastChild(); child; child = child->previousSibling()) {
+        RenderLayer* foundLayer = findRenderLayerForGraphicsLayer(child, graphicsLayer, layerOffset, layerType);
         if (foundLayer)
             return foundLayer;
     }
@@ -1394,11 +1406,13 @@ static void accumulateLayerRectList(RenderLayerCompositor* compositor, GraphicsL
     if (!layerRects.isEmpty()) {
         mergeRects(layerRects);
         String layerType;
-        RenderLayer* renderLayer = findRenderLayerForGraphicsLayer(compositor->rootRenderLayer(), graphicsLayer, &layerType);
+        IntSize layerOffset;
+        RenderLayer* renderLayer = findRenderLayerForGraphicsLayer(compositor->rootRenderLayer(), graphicsLayer, &layerOffset, &layerType);
         Node* node = renderLayer ? renderLayer->renderer()->node() : 0;
         for (size_t i = 0; i < layerRects.size(); ++i) {
-            if (!layerRects[i].isEmpty())
-                rects->append(node, layerType, ClientRect::create(layerRects[i]));
+            if (!layerRects[i].isEmpty()) {
+                rects->append(node, layerType, layerOffset.width(), layerOffset.height(), ClientRect::create(layerRects[i]));
+            }
         }
     }
 
@@ -1863,7 +1877,7 @@ String Internals::repaintRectsAsText(Document* document, ExceptionState& excepti
     return document->frame()->trackedRepaintRectsAsText();
 }
 
-PassRefPtr<ClientRectList> Internals::repaintRects(Element* element, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::repaintRects(Element* element, ExceptionState& exceptionState) const
 {
     if (!element) {
         exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
@@ -1897,11 +1911,7 @@ String Internals::mainThreadScrollingReasons(Document* document, ExceptionState&
         return String();
     }
 
-    // Force a re-layout and a compositing update.
-    document->updateLayout();
-    RenderView* view = document->renderView();
-    if (view->compositor())
-        view->compositor()->updateCompositingLayers();
+    document->frame()->view()->updateLayoutAndStyleForPainting();
 
     Page* page = document->page();
     if (!page)
@@ -1910,7 +1920,7 @@ String Internals::mainThreadScrollingReasons(Document* document, ExceptionState&
     return page->mainThreadScrollingReasonsAsText();
 }
 
-PassRefPtr<ClientRectList> Internals::nonFastScrollableRects(Document* document, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::nonFastScrollableRects(Document* document, ExceptionState& exceptionState) const
 {
     if (!document || !document->frame()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's frame cannot be retrieved." : "The document provided is invalid.");
@@ -2099,6 +2109,7 @@ void Internals::startTrackingRepaints(Document* document, ExceptionState& except
     }
 
     FrameView* frameView = document->view();
+    frameView->updateLayoutAndStyleForPainting();
     frameView->setTracksRepaints(true);
 }
 
@@ -2110,6 +2121,7 @@ void Internals::stopTrackingRepaints(Document* document, ExceptionState& excepti
     }
 
     FrameView* frameView = document->view();
+    frameView->updateLayoutAndStyleForPainting();
     frameView->setTracksRepaints(false);
 }
 
@@ -2134,17 +2146,17 @@ void Internals::updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(Node* 
     document->updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasksSynchronously);
 }
 
-PassRefPtr<ClientRectList> Internals::draggableRegions(Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::draggableRegions(Document* document, ExceptionState& exceptionState)
 {
     return annotatedRegions(document, true, exceptionState);
 }
 
-PassRefPtr<ClientRectList> Internals::nonDraggableRegions(Document* document, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::nonDraggableRegions(Document* document, ExceptionState& exceptionState)
 {
     return annotatedRegions(document, false, exceptionState);
 }
 
-PassRefPtr<ClientRectList> Internals::annotatedRegions(Document* document, bool draggable, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRectList> Internals::annotatedRegions(Document* document, bool draggable, ExceptionState& exceptionState)
 {
     if (!document || !document->view()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's view cannot be retrieved." : "The document provided is invalid.");
@@ -2267,7 +2279,7 @@ void Internals::forceReload(bool endToEnd)
     frame()->loader().reload(endToEnd ? EndToEndReload : NormalReload);
 }
 
-PassRefPtr<ClientRect> Internals::selectionBounds(ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ClientRect> Internals::selectionBounds(ExceptionState& exceptionState)
 {
     Document* document = contextDocument();
     if (!document || !document->frame()) {
@@ -2338,16 +2350,15 @@ bool Internals::loseSharedGraphicsContext3D()
 
 void Internals::forceCompositingUpdate(Document* document, ExceptionState& exceptionState)
 {
+    // Hit when running content_shell with --expose-internals-for-testing.
+    DisableCompositingQueryAsserts disabler;
+
     if (!document || !document->renderView()) {
         exceptionState.throwDOMException(InvalidAccessError, document ? "The document's render view cannot be retrieved." : "The document provided is invalid.");
         return;
     }
 
-    document->updateLayout();
-
-    RenderView* view = document->renderView();
-    if (view->compositor())
-        view->compositor()->updateCompositingLayers();
+    document->frame()->view()->updateLayoutAndStyleForPainting();
 }
 
 bool Internals::isCompositorFramePending(Document* document, ExceptionState& exceptionState)

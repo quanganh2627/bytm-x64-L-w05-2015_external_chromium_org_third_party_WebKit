@@ -62,16 +62,6 @@ public:
     {
     }
 
-    explicit InspectorCSSId(PassRefPtr<JSONObject> value)
-    {
-        if (!value->getString("styleSheetId", &m_styleSheetId))
-            return;
-
-        RefPtr<JSONValue> ordinalValue = value->get("ordinal");
-        if (!ordinalValue || !ordinalValue->asNumber(&m_ordinal))
-            m_styleSheetId = "";
-    }
-
     InspectorCSSId(const String& styleSheetId, unsigned ordinal)
         : m_styleSheetId(styleSheetId)
         , m_ordinal(ordinal)
@@ -82,19 +72,6 @@ public:
 
     const String& styleSheetId() const { return m_styleSheetId; }
     unsigned ordinal() const { return m_ordinal; }
-
-    // ID type is either TypeBuilder::CSS::CSSStyleId or TypeBuilder::CSS::CSSRuleId.
-    template<typename ID>
-    PassRefPtr<ID> asProtocolValue() const
-    {
-        if (isEmpty())
-            return nullptr;
-
-        RefPtr<ID> result = ID::create()
-            .setStyleSheetId(m_styleSheetId)
-            .setOrdinal(m_ordinal);
-        return result.release();
-    }
 
 private:
     String m_styleSheetId;
@@ -189,6 +166,8 @@ public:
     virtual InspectorCSSId styleId(CSSStyleDeclaration*) const = 0;
 
     PassRefPtr<TypeBuilder::CSS::CSSStyle> buildObjectForStyle(CSSStyleDeclaration*);
+    bool findPropertyByRange(const SourceRange&, InspectorCSSId*, unsigned* propertyIndex, bool* overwrite);
+    bool lineNumberAndColumnToOffset(unsigned lineNumber, unsigned columnNumber, unsigned* offset);
 
 protected:
     InspectorStyleSheetBase(const String& id, Listener*);
@@ -198,9 +177,10 @@ protected:
     PassOwnPtr<Vector<unsigned> > lineEndings();
 
     virtual PassRefPtr<InspectorStyle> inspectorStyleForId(const InspectorCSSId&) = 0;
+    virtual unsigned ruleCount() = 0;
 
     // Also accessed by friend class InspectorStyle.
-    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataFor(CSSStyleDeclaration*) const = 0;
+    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataAt(unsigned) const = 0;
     virtual bool ensureParsedDataReady() = 0;
 
 private:
@@ -239,11 +219,14 @@ public:
     virtual CSSStyleDeclaration* styleForId(const InspectorCSSId&) const OVERRIDE;
     virtual bool setStyleText(const InspectorCSSId&, const String&) OVERRIDE;
 
+    bool findRuleBySelectorRange(const SourceRange&, InspectorCSSId*);
+
 protected:
     virtual PassRefPtr<InspectorStyle> inspectorStyleForId(const InspectorCSSId&) OVERRIDE;
+    virtual unsigned ruleCount() OVERRIDE;
 
     // Also accessed by friend class InspectorStyle.
-    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataFor(CSSStyleDeclaration*) const OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataAt(unsigned) const OVERRIDE;
     virtual bool ensureParsedDataReady() OVERRIDE;
 
 private:
@@ -289,10 +272,11 @@ public:
 
 protected:
     virtual PassRefPtr<InspectorStyle> inspectorStyleForId(const InspectorCSSId&) OVERRIDE;
+    virtual unsigned ruleCount() OVERRIDE { return 1; }
 
     // Also accessed by friend class InspectorStyle.
     virtual bool ensureParsedDataReady() OVERRIDE;
-    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataFor(CSSStyleDeclaration* style) const OVERRIDE { ASSERT_UNUSED(style, style == inlineStyle()); return m_ruleSourceData; }
+    virtual PassRefPtrWillBeRawPtr<CSSRuleSourceData> ruleSourceDataAt(unsigned ruleIndex) const OVERRIDE { ASSERT_UNUSED(ruleIndex, !ruleIndex); return m_ruleSourceData; }
 
 private:
     InspectorStyleSheetForInlineStyle(const String& id, PassRefPtr<Element>, Listener*);

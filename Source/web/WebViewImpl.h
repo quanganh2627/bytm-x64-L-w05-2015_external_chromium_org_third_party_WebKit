@@ -65,48 +65,21 @@
 namespace WebCore {
 class DataObject;
 class Frame;
-class GraphicsLayerFactory;
-class HistoryItem;
-class HitTestResult;
-class KeyboardEvent;
-class Page;
-class PagePopup;
-class PagePopupClient;
-class PlatformKeyboardEvent;
-class PopupMenuClient;
 class RenderLayerCompositor;
 }
 
 namespace blink {
-class AutocompletePopupMenuClient;
-class ContextFeaturesClientImpl;
-class ContextMenuClientImpl;
 class GeolocationClientProxy;
 class LinkHighlight;
-class MIDIClientProxy;
 class PopupContainer;
-class PrerendererClientImpl;
-class SpeechInputClientImpl;
-class SpeechRecognitionClientProxy;
 class UserMediaClientImpl;
-class ValidationMessageClientImpl;
-class WebAXObject;
 class WebActiveGestureAnimation;
-class WebDevToolsAgentClient;
 class WebDevToolsAgentPrivate;
 class WebFrameImpl;
-class WebGestureEvent;
 class WebImage;
-class WebKeyboardEvent;
-class WebLayerTreeView;
-class WebMouseEvent;
-class WebMouseWheelEvent;
 class WebPagePopupImpl;
 class WebPlugin;
-class WebPrerendererClient;
 class WebSettingsImpl;
-class WebTouchEvent;
-class WorkerGlobalScopeProxyProviderImpl;
 class FullscreenController;
 
 class WebViewImpl FINAL : public WebView
@@ -187,6 +160,7 @@ public:
     virtual void setIsActive(bool value) OVERRIDE;
     virtual void setDomainRelaxationForbidden(bool, const WebString& scheme) OVERRIDE;
     virtual void setWindowFeatures(const WebWindowFeatures&) OVERRIDE;
+    virtual void setOpenedByDOM() OVERRIDE;
     virtual WebFrame* mainFrame() OVERRIDE;
     virtual WebFrame* findFrameByName(
         const WebString& name, WebFrame* relativeToFrame) OVERRIDE;
@@ -235,10 +209,6 @@ public:
     virtual WebHitTestResult hitTestResultAt(const WebPoint&) OVERRIDE;
     virtual void copyImageAt(const WebPoint&) OVERRIDE;
     virtual void dragSourceEndedAt(
-        const WebPoint& clientPoint,
-        const WebPoint& screenPoint,
-        WebDragOperation) OVERRIDE;
-    virtual void dragSourceMovedTo(
         const WebPoint& clientPoint,
         const WebPoint& screenPoint,
         WebDragOperation) OVERRIDE;
@@ -360,7 +330,6 @@ public:
 
     // WebGestureCurveTarget implementation for fling.
     virtual bool scrollBy(const WebFloatSize& delta, const WebFloatSize& velocity) OVERRIDE;
-    virtual void scrollBy(const WebFloatSize& delta) OVERRIDE;
 
     // Handles context menu events orignated via the the keyboard. These
     // include the VK_APPS virtual key and the Shift+F10 combine. Code is
@@ -595,6 +564,10 @@ private:
     virtual bool handleKeyEvent(const WebKeyboardEvent&) OVERRIDE;
     virtual bool handleCharEvent(const WebKeyboardEvent&) OVERRIDE;
 
+    virtual void updateForCommit(WebFrame*, const WebHistoryItem&, WebHistoryCommitType, bool navigationWithinPage) OVERRIDE;
+    virtual WebHistoryItem itemForNewChildFrame(WebFrame*) const OVERRIDE;
+    virtual void removeChildrenForRedirect(WebFrame*) OVERRIDE;
+
     WebCore::InputMethodContext* inputMethodContext();
     WebPlugin* focusedPluginIfInputMethodSupported(WebCore::LocalFrame*);
 
@@ -692,9 +665,6 @@ private:
     // current drop target in this WebView (the drop target can accept the drop).
     WebDragOperation m_dragOperation;
 
-    // Context-based feature switches.
-    OwnPtr<ContextFeaturesClientImpl> m_featureSwitchClient;
-
     // The popup associated with a select element.
     RefPtr<PopupContainer> m_selectPopup;
 
@@ -735,20 +705,16 @@ private:
     bool m_recreatingGraphicsContext;
     static const WebInputEvent* m_currentInputEvent;
 
-    OwnPtr<SpeechRecognitionClientProxy> m_speechRecognitionClient;
-
     OwnPtr<GeolocationClientProxy> m_geolocationClientProxy;
 
     UserMediaClientImpl m_userMediaClientImpl;
     MediaKeysClientImpl m_mediaKeysClientImpl;
-    OwnPtr<MIDIClientProxy> m_midiClientProxy;
     OwnPtr<WebActiveGestureAnimation> m_gestureAnimation;
     WebPoint m_positionOnFlingStart;
     WebPoint m_globalPositionOnFlingStart;
     int m_flingModifier;
     bool m_flingSourceDevice;
     Vector<OwnPtr<LinkHighlight> > m_linkHighlights;
-    OwnPtr<ValidationMessageClientImpl> m_validationMessage;
     OwnPtr<FullscreenController> m_fullscreenController;
 
     bool m_showFPSCounter;

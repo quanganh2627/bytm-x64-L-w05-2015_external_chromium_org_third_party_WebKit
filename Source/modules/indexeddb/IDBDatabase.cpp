@@ -164,7 +164,7 @@ PassRefPtr<DOMStringList> IDBDatabase::objectStoreNames() const
 
 ScriptValue IDBDatabase::version(ExecutionContext* context) const
 {
-    DOMRequestState requestState(context);
+    DOMRequestState requestState(toIsolate(context));
     int64_t intVersion = m_metadata.intVersion;
     if (intVersion == IDBDatabaseMetadata::NoIntVersion)
         return idbAnyToScriptValue(&requestState, IDBAny::createString(m_metadata.version));
@@ -366,7 +366,7 @@ void IDBDatabase::onVersionChange(int64_t oldVersion, int64_t newVersion)
     enqueueEvent(IDBVersionChangeEvent::create(EventTypeNames::versionchange, oldVersion, newVersionNullable));
 }
 
-void IDBDatabase::enqueueEvent(PassRefPtr<Event> event)
+void IDBDatabase::enqueueEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     ASSERT(!m_contextStopped);
     ASSERT(executionContext());
@@ -376,7 +376,7 @@ void IDBDatabase::enqueueEvent(PassRefPtr<Event> event)
     m_enqueuedEvents.append(event);
 }
 
-bool IDBDatabase::dispatchEvent(PassRefPtr<Event> event)
+bool IDBDatabase::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     IDB_TRACE("IDBDatabase::dispatchEvent");
     if (m_contextStopped || !executionContext())

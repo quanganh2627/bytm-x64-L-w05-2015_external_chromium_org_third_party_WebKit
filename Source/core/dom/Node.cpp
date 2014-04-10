@@ -98,6 +98,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+#if !ENABLE(OILPAN)
 void* Node::operator new(size_t size)
 {
     ASSERT(isMainThread());
@@ -109,6 +110,7 @@ void Node::operator delete(void* ptr)
     ASSERT(isMainThread());
     partitionFree(ptr);
 }
+#endif
 
 #if DUMP_NODE_STATISTICS
 static HashSet<Node*> liveNodeSet;
@@ -649,16 +651,14 @@ void Node::markAncestorsWithChildNeedsStyleInvalidation()
 {
     for (Node* node = parentOrShadowHostNode(); node && !node->childNeedsStyleInvalidation(); node = node->parentOrShadowHostNode())
         node->setChildNeedsStyleInvalidation();
-    if (document().childNeedsStyleInvalidation())
-        document().scheduleRenderTreeUpdate();
+    document().scheduleRenderTreeUpdateIfNeeded();
 }
 
 void Node::markAncestorsWithChildNeedsDistributionRecalc()
 {
     for (Node* node = this; node && !node->childNeedsDistributionRecalc(); node = node->parentOrShadowHostNode())
         node->setChildNeedsDistributionRecalc();
-    if (document().childNeedsDistributionRecalc())
-        document().scheduleRenderTreeUpdate();
+    document().scheduleRenderTreeUpdateIfNeeded();
 }
 
 namespace {
@@ -743,12 +743,7 @@ void Node::markAncestorsWithChildNeedsStyleRecalc()
 {
     for (ContainerNode* p = parentOrShadowHostNode(); p && !p->childNeedsStyleRecalc(); p = p->parentOrShadowHostNode())
         p->setChildNeedsStyleRecalc();
-
-    if (document().hasPendingStyleRecalc())
-        return;
-
-    if (document().needsStyleRecalc() || document().childNeedsStyleRecalc())
-        document().scheduleRenderTreeUpdate();
+    document().scheduleRenderTreeUpdateIfNeeded();
 }
 
 void Node::setNeedsStyleRecalc(StyleChangeType changeType)
@@ -2005,6 +2000,15 @@ void Node::removeAllEventListeners()
     document().didClearTouchEventHandlers(this);
 }
 
+void Node::removeAllEventListenersRecursively()
+{
+    for (Node* node = this; node; node = NodeTraversal::next(*node)) {
+        node->removeAllEventListeners();
+        for (ShadowRoot* root = node->youngestShadowRoot(); root; root = root->olderShadowRoot())
+            root->removeAllEventListenersRecursively();
+    }
+}
+
 typedef HashMap<Node*, OwnPtr<EventTargetData> > EventTargetDataMap;
 
 static EventTargetDataMap& eventTargetDataMap()
@@ -2164,7 +2168,7 @@ void Node::handleLocalEvents(Event* event)
     fireEventListeners(event);
 }
 
-void Node::dispatchScopedEvent(PassRefPtr<Event> event)
+void Node::dispatchScopedEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     dispatchScopedEventDispatchMediator(EventDispatchMediator::create(event));
 }
@@ -2174,7 +2178,7 @@ void Node::dispatchScopedEventDispatchMediator(PassRefPtr<EventDispatchMediator>
     EventDispatcher::dispatchScopedEvent(this, eventDispatchMediator);
 }
 
-bool Node::dispatchEvent(PassRefPtr<Event> event)
+bool Node::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     if (event->isMouseEvent())
         return EventDispatcher::dispatchEvent(this, MouseEventDispatchMediator::create(static_pointer_cast<MouseEvent>(event), MouseEventDispatchMediator::SyntheticMouseEvent));
@@ -2188,6 +2192,9 @@ void Node::dispatchSubtreeModifiedEvent()
     if (isInShadowTree())
         return;
 
+    if (!document().canDispatchEvents())
+        return;
+
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
 
     if (!document().hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER))
@@ -2196,10 +2203,10 @@ void Node::dispatchSubtreeModifiedEvent()
     dispatchScopedEvent(MutationEvent::create(EventTypeNames::DOMSubtreeModified, true));
 }
 
-bool Node::dispatchDOMActivateEvent(int detail, PassRefPtr<Event> underlyingEvent)
+bool Node::dispatchDOMActivateEvent(int detail, PassRefPtrWillBeRawPtr<Event> underlyingEvent)
 {
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
-    RefPtr<UIEvent> event = UIEvent::create(EventTypeNames::DOMActivate, true, true, document().domWindow(), detail);
+    RefPtrWillBeRawPtr<UIEvent> event = UIEvent::create(EventTypeNames::DOMActivate, true, true, document().domWindow(), detail);
     event->setUnderlyingEvent(underlyingEvent);
     dispatchScopedEvent(event);
     return event->defaultHandled();
@@ -2218,13 +2225,13 @@ bool Node::dispatchMouseEvent(const PlatformMouseEvent& event, const AtomicStrin
 
 bool Node::dispatchGestureEvent(const PlatformGestureEvent& event)
 {
-    RefPtr<GestureEvent> gestureEvent = GestureEvent::create(document().domWindow(), event);
+    RefPtrWillBeRawPtr<GestureEvent> gestureEvent = GestureEvent::create(document().domWindow(), event);
     if (!gestureEvent.get())
         return false;
     return EventDispatcher::dispatchEvent(this, GestureEventDispatchMediator::create(gestureEvent));
 }
 
-bool Node::dispatchTouchEvent(PassRefPtr<TouchEvent> event)
+bool Node::dispatchTouchEvent(PassRefPtrWillBeRawPtr<TouchEvent> event)
 {
     return EventDispatcher::dispatchEvent(this, TouchEventDispatchMediator::create(event));
 }
@@ -2346,10 +2353,12 @@ inline void TreeScope::removedLastRefToScope()
 #if !ASSERT_DISABLED
         rootNode().m_inRemovedLastRefFunction = false;
 #endif
+#if !ENABLE(OILPAN)
 #if SECURITY_ASSERT_ENABLED
         beginDeletion();
 #endif
         delete this;
+#endif
     }
 }
 
@@ -2365,10 +2374,12 @@ void Node::removedLastRef()
         return;
     }
 
+#if !ENABLE(OILPAN)
 #if SECURITY_ASSERT_ENABLED
     m_deletionHasBegun = true;
 #endif
     delete this;
+#endif
 }
 
 unsigned Node::connectedSubframeCount() const

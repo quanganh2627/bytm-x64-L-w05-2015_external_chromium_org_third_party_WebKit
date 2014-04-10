@@ -30,16 +30,19 @@
 
 /**
  * @constructor
- * @extends {WebInspector.Object}
+ * @extends {WebInspector.TargetAwareObject}
  * @implements {WebInspector.ContentProvider}
  * @param {!NetworkAgent.RequestId} requestId
+ * @param {!WebInspector.Target} target
  * @param {string} url
  * @param {string} documentURL
  * @param {!PageAgent.FrameId} frameId
  * @param {!NetworkAgent.LoaderId} loaderId
  */
-WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loaderId)
+WebInspector.NetworkRequest = function(target, requestId, url, documentURL, frameId, loaderId)
 {
+    WebInspector.TargetAwareObject.call(this, target);
+
     this._requestId = requestId;
     this.url = url;
     this._documentURL = documentURL;
@@ -406,7 +409,7 @@ WebInspector.NetworkRequest.prototype = {
             this._path = "";
         } else {
             this._path = this._parsedURL.host + this._parsedURL.folderPathComponents;
-            this._path = this._path.trimURL(WebInspector.resourceTreeModel.inspectedPageDomain());
+            this._path = this._path.trimURL(this.target().resourceTreeModel.inspectedPageDomain());
             if (this._parsedURL.lastPathComponent || this._parsedURL.queryParams)
                 this._name = this._parsedURL.lastPathComponent + (this._parsedURL.queryParams ? "?" + this._parsedURL.queryParams : "");
             else if (this._parsedURL.folderPathComponents) {
@@ -976,5 +979,5 @@ WebInspector.NetworkRequest.prototype = {
         this._frames.push(frameOrError);
     },
 
-    __proto__: WebInspector.Object.prototype
+    __proto__: WebInspector.TargetAwareObject.prototype
 }

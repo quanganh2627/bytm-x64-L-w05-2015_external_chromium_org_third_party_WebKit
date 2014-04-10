@@ -116,7 +116,7 @@ CPP_SPECIAL_CONVERSION_RULES = {
 }
 
 
-def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, will_be_in_heap_object=False):
+def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, used_in_cpp_sequence=False):
     """Returns C++ type corresponding to IDL type.
 
     |idl_type| argument is of type IdlType, while return value is a string
@@ -126,10 +126,8 @@ def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, will_be
             IdlType
         used_as_argument:
             bool, True if idl_type's raw/primitive C++ type should be returned.
-        will_be_in_heap_object:
-            bool, True if idl_type will be part of a possibly heap allocated
-            object (e.g., appears as an element of a C++ heap vector type.)
-            The C++ type of an interface type changes, if so.
+        used_in_cpp_sequence:
+            bool, True if the C++ type is used as an element of an array or sequence.
     """
     def string_mode():
         # FIXME: the Web IDL spec requires 'EmptyString', not 'NullString',
@@ -146,9 +144,8 @@ def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, will_be
     # Composite types
     array_or_sequence_type = idl_type.array_or_sequence_type
     if array_or_sequence_type:
-        will_be_garbage_collected = array_or_sequence_type.is_will_be_garbage_collected
-        vector_type = 'WillBeHeapVector' if will_be_garbage_collected else 'Vector'
-        return cpp_template_type(vector_type, array_or_sequence_type.cpp_type_args(will_be_in_heap_object=will_be_garbage_collected))
+        vector_type = cpp_ptr_type('Vector', 'HeapVector', array_or_sequence_type.gc_type)
+        return cpp_template_type(vector_type, array_or_sequence_type.cpp_type_args(used_in_cpp_sequence=True))
 
     # Simple types
     base_idl_type = idl_type.base_type
@@ -175,16 +172,16 @@ def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, will_be
         implemented_as_class = idl_type.implemented_as
         if used_as_argument:
             return implemented_as_class + '*'
-        if idl_type.is_will_be_garbage_collected:
-            ref_ptr_type = 'RefPtrWillBeMember' if will_be_in_heap_object else 'RefPtrWillBeRawPtr'
-            return cpp_template_type(ref_ptr_type, implemented_as_class)
-        return cpp_template_type('RefPtr', implemented_as_class)
+        new_type = 'Member' if used_in_cpp_sequence else 'RawPtr'
+        ref_ptr_type = cpp_ptr_type('RefPtr', new_type, idl_type.gc_type)
+        return cpp_template_type(ref_ptr_type, implemented_as_class)
     # Default, assume native type is a pointer with same type name as idl type
     return base_idl_type + '*'
 
 
-def cpp_type_union(idl_type, extended_attributes=None, used_as_argument=False, will_be_in_heap_object=False):
+def cpp_type_union(idl_type, extended_attributes=None, used_as_argument=False):
     return (member_type.cpp_type for member_type in idl_type.member_types)
+
 
 # Allow access as idl_type.cpp_type if no arguments
 IdlType.cpp_type = property(cpp_type)
@@ -200,6 +197,14 @@ def cpp_template_type(template, inner_type):
     else:
         format_string = '{template}<{inner_type}>'
     return format_string.format(template=template, inner_type=inner_type)
+
+
+def cpp_ptr_type(old_type, new_type, gc_type):
+    if gc_type == 'WillBeGarbageCollectedObject':
+        if old_type == 'Vector':
+            return 'WillBe' + new_type
+        return old_type + 'WillBe' + new_type
+    return old_type
 
 
 def v8_type(interface_name):
@@ -239,6 +244,14 @@ IdlType.is_will_be_garbage_collected = property(
 IdlType.set_will_be_garbage_collected_types = classmethod(
     lambda cls, new_will_be_garbage_collected_types:
         cls.will_be_garbage_collected_types.update(new_will_be_garbage_collected_types))
+
+
+def gc_type(idl_type):
+    if idl_type.is_will_be_garbage_collected:
+        return 'WillBeGarbageCollectedObject'
+    return 'RefCountedObject'
+
+IdlType.gc_type = property(gc_type)
 
 
 ################################################################################
@@ -388,7 +401,7 @@ def v8_value_to_cpp_value_array_or_sequence(array_or_sequence_type, v8_value, in
     if (array_or_sequence_type.is_interface_type and
         array_or_sequence_type.name != 'Dictionary'):
         this_cpp_type = None
-        ref_ptr_type = 'Member' if array_or_sequence_type.is_will_be_garbage_collected else 'RefPtr'
+        ref_ptr_type = cpp_ptr_type('RefPtr', 'Member', array_or_sequence_type.gc_type)
         expression_format = '(to{ref_ptr_type}NativeArray<{array_or_sequence_type}, V8{array_or_sequence_type}>({v8_value}, {index}, info.GetIsolate()))'
         add_includes_for_type(array_or_sequence_type)
     else:
@@ -581,7 +594,7 @@ IdlUnionType.release = property(
 
 CPP_VALUE_TO_V8_VALUE = {
     # Built-in types
-    'Date': 'v8DateOrNull({cpp_value}, {isolate})',
+    'Date': 'v8DateOrNaN({cpp_value}, {isolate})',
     'DOMString': 'v8String({isolate}, {cpp_value})',
     'boolean': 'v8Boolean({cpp_value}, {isolate})',
     'int': 'v8::Integer::New({isolate}, {cpp_value})',

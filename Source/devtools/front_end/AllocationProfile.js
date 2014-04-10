@@ -39,6 +39,7 @@ WebInspector.AllocationProfile = function(profile, liveObjectStats)
     this._nextNodeId = 1;
     this._functionInfos = []
     this._idToNode = {};
+    this._idToTopDownNode = {};
     this._collapsedTopNodeIdToFunctionInfo = {};
 
     this._traceTops = null;
@@ -79,6 +80,7 @@ WebInspector.AllocationProfile.prototype = {
     {
         var traceTreeRaw = profile.trace_tree;
         var functionInfos = this._functionInfos;
+        var idToTopDownNode = this._idToTopDownNode;
 
         var traceNodeFields = profile.snapshot.meta.trace_node_fields;
         var nodeIdOffset = traceNodeFields.indexOf("id");
@@ -103,6 +105,7 @@ WebInspector.AllocationProfile.prototype = {
                 liveCount,
                 liveSize,
                 parent);
+            idToTopDownNode[id] = result;
             functionInfo.addTraceTopNode(result);
 
             var rawChildren = rawNodeArray[nodeOffset + childrenOffset];
@@ -129,6 +132,7 @@ WebInspector.AllocationProfile.prototype = {
             if (info.totalCount === 0)
                 continue;
             var nodeId = this._nextNodeId++;
+            var isRoot = i == 0;
             result.push(this._serializeNode(
                 nodeId,
                 info,
@@ -136,7 +140,7 @@ WebInspector.AllocationProfile.prototype = {
                 info.totalSize,
                 info.totalLiveCount,
                 info.totalLiveSize,
-                true));
+                !isRoot));
             this._collapsedTopNodeIdToFunctionInfo[nodeId] = info;
         }
         result.sort(function(a, b) {
@@ -167,6 +171,28 @@ WebInspector.AllocationProfile.prototype = {
     },
 
     /**
+     * @param {number} traceNodeId
+     * @return {!Array.<!WebInspector.HeapSnapshotCommon.AllocationStackFrame>}
+     */
+    serializeAllocationStack: function(traceNodeId)
+    {
+        var node = this._idToTopDownNode[traceNodeId];
+        var result = [];
+        while (node) {
+            var functionInfo = node.functionInfo;
+            result.push(new WebInspector.HeapSnapshotCommon.AllocationStackFrame(
+                functionInfo.functionName,
+                functionInfo.scriptName,
+                functionInfo.scriptId,
+                functionInfo.line,
+                functionInfo.column
+            ));
+            node = node.parent;
+        }
+        return result;
+    },
+
+    /**
      * @param {number} allocationNodeId
      * @return {!Array.<number>}
      */
@@ -191,6 +217,10 @@ WebInspector.AllocationProfile.prototype = {
         return node;
     },
 
+    /**
+     * @param {!WebInspector.BottomUpAllocationNode} node
+     * @return {!WebInspector.HeapSnapshotCommon.SerializedAllocationNode}
+     */
     _serializeCaller: function(node)
     {
         var callerId = this._nextNodeId++;
@@ -221,6 +251,7 @@ WebInspector.AllocationProfile.prototype = {
             nodeId,
             functionInfo.functionName,
             functionInfo.scriptName,
+            functionInfo.scriptId,
             functionInfo.line,
             functionInfo.column,
             count,

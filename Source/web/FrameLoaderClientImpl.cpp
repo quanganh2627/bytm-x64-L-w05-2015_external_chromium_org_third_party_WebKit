@@ -155,7 +155,7 @@ bool FrameLoaderClientImpl::allowScriptExtension(const String& extensionName,
                                                  int worldId)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowScriptExtension(m_webFrame, extensionName, extensionGroup, worldId);
+        return m_webFrame->permissionClient()->allowScriptExtension(extensionName, extensionGroup, worldId);
 
     return true;
 }
@@ -175,7 +175,7 @@ void FrameLoaderClientImpl::didUpdateCurrentHistoryItem()
 bool FrameLoaderClientImpl::allowScript(bool enabledPerSettings)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowScript(m_webFrame, enabledPerSettings);
+        return m_webFrame->permissionClient()->allowScript(enabledPerSettings);
 
     return enabledPerSettings;
 }
@@ -183,7 +183,7 @@ bool FrameLoaderClientImpl::allowScript(bool enabledPerSettings)
 bool FrameLoaderClientImpl::allowScriptFromSource(bool enabledPerSettings, const KURL& scriptURL)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowScriptFromSource(m_webFrame, enabledPerSettings, scriptURL);
+        return m_webFrame->permissionClient()->allowScriptFromSource(enabledPerSettings, scriptURL);
 
     return enabledPerSettings;
 }
@@ -191,7 +191,7 @@ bool FrameLoaderClientImpl::allowScriptFromSource(bool enabledPerSettings, const
 bool FrameLoaderClientImpl::allowPlugins(bool enabledPerSettings)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowPlugins(m_webFrame, enabledPerSettings);
+        return m_webFrame->permissionClient()->allowPlugins(enabledPerSettings);
 
     return enabledPerSettings;
 }
@@ -199,7 +199,7 @@ bool FrameLoaderClientImpl::allowPlugins(bool enabledPerSettings)
 bool FrameLoaderClientImpl::allowImage(bool enabledPerSettings, const KURL& imageURL)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowImage(m_webFrame, enabledPerSettings, imageURL);
+        return m_webFrame->permissionClient()->allowImage(enabledPerSettings, imageURL);
 
     return enabledPerSettings;
 }
@@ -207,7 +207,7 @@ bool FrameLoaderClientImpl::allowImage(bool enabledPerSettings, const KURL& imag
 bool FrameLoaderClientImpl::allowDisplayingInsecureContent(bool enabledPerSettings, SecurityOrigin* context, const KURL& url)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowDisplayingInsecureContent(m_webFrame, enabledPerSettings, WebSecurityOrigin(context), WebURL(url));
+        return m_webFrame->permissionClient()->allowDisplayingInsecureContent(enabledPerSettings, WebSecurityOrigin(context), WebURL(url));
 
     return enabledPerSettings;
 }
@@ -215,7 +215,7 @@ bool FrameLoaderClientImpl::allowDisplayingInsecureContent(bool enabledPerSettin
 bool FrameLoaderClientImpl::allowRunningInsecureContent(bool enabledPerSettings, SecurityOrigin* context, const KURL& url)
 {
     if (m_webFrame->permissionClient())
-        return m_webFrame->permissionClient()->allowRunningInsecureContent(m_webFrame, enabledPerSettings, WebSecurityOrigin(context), WebURL(url));
+        return m_webFrame->permissionClient()->allowRunningInsecureContent(enabledPerSettings, WebSecurityOrigin(context), WebURL(url));
 
     return enabledPerSettings;
 }
@@ -223,13 +223,13 @@ bool FrameLoaderClientImpl::allowRunningInsecureContent(bool enabledPerSettings,
 void FrameLoaderClientImpl::didNotAllowScript()
 {
     if (m_webFrame->permissionClient())
-        m_webFrame->permissionClient()->didNotAllowScript(m_webFrame);
+        m_webFrame->permissionClient()->didNotAllowScript();
 }
 
 void FrameLoaderClientImpl::didNotAllowPlugins()
 {
     if (m_webFrame->permissionClient())
-        m_webFrame->permissionClient()->didNotAllowPlugins(m_webFrame);
+        m_webFrame->permissionClient()->didNotAllowPlugins();
 
 }
 
@@ -375,17 +375,14 @@ void FrameLoaderClientImpl::dispatchDidReceiveServerRedirectForProvisionalLoad()
 {
     if (m_webFrame->client())
         m_webFrame->client()->didReceiveServerRedirectForProvisionalLoad(m_webFrame);
-    m_webFrame->frame()->page()->historyController().removeChildrenForRedirect(m_webFrame->frame());
 }
 
 void FrameLoaderClientImpl::dispatchDidNavigateWithinPage(HistoryItem* item, HistoryCommitType commitType)
 {
     bool shouldCreateHistoryEntry = commitType == StandardCommit;
-    if (shouldCreateHistoryEntry)
-        m_webFrame->frame()->page()->historyController().updateBackForwardListForFragmentScroll(m_webFrame->frame(), item);
     m_webFrame->viewImpl()->didCommitLoad(shouldCreateHistoryEntry, true);
     if (m_webFrame->client())
-        m_webFrame->client()->didNavigateWithinPage(m_webFrame, shouldCreateHistoryEntry);
+        m_webFrame->client()->didNavigateWithinPage(m_webFrame, WebHistoryItem(item), static_cast<WebHistoryCommitType>(commitType));
 }
 
 void FrameLoaderClientImpl::dispatchWillClose()
@@ -414,10 +411,9 @@ void FrameLoaderClientImpl::dispatchDidChangeIcons(WebCore::IconType type)
 
 void FrameLoaderClientImpl::dispatchDidCommitLoad(LocalFrame* frame, HistoryItem* item, HistoryCommitType commitType)
 {
-    m_webFrame->frame()->page()->historyController().updateForCommit(frame, item, commitType);
     m_webFrame->viewImpl()->didCommitLoad(commitType == StandardCommit, false);
     if (m_webFrame->client())
-        m_webFrame->client()->didCommitProvisionalLoad(m_webFrame, commitType == StandardCommit);
+        m_webFrame->client()->didCommitProvisionalLoad(m_webFrame, WebHistoryItem(item), static_cast<WebHistoryCommitType>(commitType));
 }
 
 void FrameLoaderClientImpl::dispatchDidFailProvisionalLoad(
@@ -615,6 +611,14 @@ PassRefPtr<LocalFrame> FrameLoaderClientImpl::createFrame(
     return m_webFrame->createChildFrame(frameRequest, ownerElement);
 }
 
+bool FrameLoaderClientImpl::canCreatePluginWithoutRenderer(const String& mimeType) const
+{
+    if (!m_webFrame->client())
+        return false;
+
+    return m_webFrame->client()->canCreatePluginWithoutRenderer(mimeType);
+}
+
 PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     HTMLPlugInElement* element,
     const KURL& url,
@@ -722,7 +726,7 @@ bool FrameLoaderClientImpl::willCheckAndDispatchMessageEvent(
     if (!m_webFrame->client())
         return false;
 
-    WebFrame* source = 0;
+    WebLocalFrame* source = 0;
     if (event && event->source() && event->source()->toDOMWindow() && event->source()->toDOMWindow()->document())
         source = WebFrameImpl::fromFrame(event->source()->toDOMWindow()->document()->frame());
     return m_webFrame->client()->willCheckAndDispatchMessageEvent(

@@ -271,16 +271,6 @@ PassRefPtr<MediaControlOverlayPlayButtonElement> MediaControlOverlayPlayButtonEl
     return button.release();
 }
 
-void MediaControlOverlayPlayButtonElement::defaultEventHandler(Event* event)
-{
-    if (event->type() == EventTypeNames::click && mediaElement().togglePlayStateWillPlay()) {
-        mediaElement().togglePlayState();
-        updateDisplayType();
-        event->setDefaultHandled();
-    }
-    HTMLInputElement::defaultEventHandler(event);
-}
-
 void MediaControlOverlayPlayButtonElement::updateDisplayType()
 {
     if (mediaElement().togglePlayStateWillPlay()) {
@@ -374,6 +364,8 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
 
     double time = value().toDouble();
     if (event->type() == EventTypeNames::input) {
+        // FIXME: This will need to take the timeline offset into consideration
+        // once that concept is supported, see https://crbug.com/312699
         if (mediaElement().controller())
             mediaElement().controller()->setCurrentTime(time, IGNORE_EXCEPTION);
         else

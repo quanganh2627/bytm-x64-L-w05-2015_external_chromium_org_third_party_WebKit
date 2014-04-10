@@ -89,11 +89,12 @@ public:
 
     void load(ExecutionContext* loadingContext, const KURL& scriptURL, const Closure& receiveResponseCallback, const Closure& finishCallback)
     {
+        ASSERT(loadingContext);
         m_receiveResponseCallback = receiveResponseCallback;
         m_finishCallback = finishCallback;
         m_scriptLoader->setTargetType(ResourceRequest::TargetIsSharedWorker);
         m_scriptLoader->loadAsynchronously(
-            loadingContext, scriptURL, DenyCrossOriginRequests, this);
+            *loadingContext, scriptURL, DenyCrossOriginRequests, this);
     }
 
     void didReceiveResponse(unsigned long identifier, const ResourceResponse& response) OVERRIDE
@@ -205,14 +206,14 @@ void WebSharedWorkerImpl::initializeLoader(const WebURL& url)
     webFrame->frame()->loader().load(FrameLoadRequest(0, ResourceRequest(url), SubstituteData(buffer, "text/html", "UTF-8", KURL())));
 }
 
-WebApplicationCacheHost* WebSharedWorkerImpl::createApplicationCacheHost(WebFrame*, WebApplicationCacheHostClient* appcacheHostClient)
+WebApplicationCacheHost* WebSharedWorkerImpl::createApplicationCacheHost(WebLocalFrame*, WebApplicationCacheHostClient* appcacheHostClient)
 {
     if (client())
         return client()->createApplicationCacheHost(appcacheHostClient);
     return 0;
 }
 
-void WebSharedWorkerImpl::didFinishDocumentLoad(WebFrame* frame)
+void WebSharedWorkerImpl::didFinishDocumentLoad(WebLocalFrame* frame)
 {
     ASSERT(!m_loadingDocument);
     ASSERT(!m_mainScriptLoader);

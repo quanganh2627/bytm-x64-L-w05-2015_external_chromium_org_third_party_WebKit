@@ -163,7 +163,7 @@ void CanvasRenderingContext2D::restoreContext()
 void CanvasRenderingContext2D::dispatchContextLostEvent(Timer<CanvasRenderingContext2D>*)
 {
     if (contextLostRestoredEventsEnabled()) {
-        RefPtr<Event> event(Event::createCancelable(EventTypeNames::contextlost));
+        RefPtrWillBeRawPtr<Event> event = Event::createCancelable(EventTypeNames::contextlost);
         canvas()->dispatchEvent(event);
         if (event->defaultPrevented()) {
             m_contextRestorable = false;
@@ -208,7 +208,7 @@ void CanvasRenderingContext2D::dispatchContextRestoredEvent(Timer<CanvasRenderin
     reset();
     m_isContextLost = false;
     if (contextLostRestoredEventsEnabled()) {
-        RefPtr<Event> event(Event::create(EventTypeNames::contextrestored));
+        RefPtrWillBeRawPtr<Event> event(Event::create(EventTypeNames::contextrestored));
         canvas()->dispatchEvent(event);
     }
 }
@@ -677,16 +677,9 @@ void CanvasRenderingContext2D::setGlobalCompositeOperation(const String& operati
     c->setCompositeOperation(op, blendMode);
 }
 
-void CanvasRenderingContext2D::setCurrentTransform(PassRefPtr<SVGMatrixTearOff> passMatrixTearOff, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::setCurrentTransform(PassRefPtr<SVGMatrixTearOff> passMatrixTearOff)
 {
     RefPtr<SVGMatrixTearOff> matrixTearOff = passMatrixTearOff;
-
-    // FIXME: bindings should do null checking and throw: http://crbug.com/321518
-    if (!matrixTearOff) {
-        exceptionState.throwTypeError("currentTransform only accepts a SVGMatrix.");
-        return;
-    }
-
     const AffineTransform& transform = matrixTearOff->value();
     setTransform(transform.a(), transform.b(), transform.c(), transform.d(), transform.e(), transform.f());
 }

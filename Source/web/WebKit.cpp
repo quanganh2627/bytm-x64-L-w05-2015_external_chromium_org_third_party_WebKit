@@ -42,13 +42,13 @@
 #include "core/page/Page.h"
 #include "core/frame/Settings.h"
 #include "core/workers/WorkerGlobalScopeProxy.h"
-#include "heap/Heap.h"
-#include "heap/glue/MessageLoopInterruptor.h"
-#include "heap/glue/PendingGCRunner.h"
 #include "platform/LayoutTestSupport.h"
 #include "platform/Logging.h"
 #include "platform/graphics/ImageDecodingStore.h"
 #include "platform/graphics/media/MediaPlayer.h"
+#include "platform/heap/Heap.h"
+#include "platform/heap/glue/MessageLoopInterruptor.h"
+#include "platform/heap/glue/PendingGCRunner.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebPrerenderingSupport.h"
 #include "public/platform/WebThread.h"
@@ -96,7 +96,7 @@ static bool generateEntropy(unsigned char* buffer, size_t length)
 #ifndef NDEBUG
 static void assertV8RecursionScope()
 {
-    ASSERT(!isMainThread() || WebCore::V8RecursionScope::properlyUsed());
+    ASSERT(!isMainThread() || WebCore::V8RecursionScope::properlyUsed(v8::Isolate::GetCurrent()));
 }
 #endif
 
@@ -163,6 +163,7 @@ void initializeWithoutV8(Platform* platform)
     WTF::initialize(currentTimeFunction, monotonicallyIncreasingTimeFunction);
     WTF::initializeMainThread(callOnMainThreadFunction);
     WebCore::Heap::init();
+    // currentThread will always be non-null in production, but can be null in Chromium unit tests.
     if (WebThread* currentThread = platform->currentThread()) {
         ASSERT(!s_pendingGCRunner);
         s_pendingGCRunner = new WebCore::PendingGCRunner;
@@ -216,6 +217,7 @@ void shutdownWithoutV8()
     ASSERT(!s_endOfTaskRunner);
     WebCore::ImageDecodingStore::shutdown();
     WebCore::shutdown();
+    // currentThread will always be non-null in production, but can be null in Chromium unit tests.
     if (Platform::current()->currentThread()) {
         ASSERT(s_pendingGCRunner);
         delete s_pendingGCRunner;
@@ -240,6 +242,16 @@ void setLayoutTestMode(bool value)
 bool layoutTestMode()
 {
     return WebCore::isRunningLayoutTest();
+}
+
+void setFontSmoothingEnabledForTest(bool value)
+{
+    WebCore::setFontSmoothingEnabledForTest(value);
+}
+
+bool fontSmoothingEnabledForTest()
+{
+    return WebCore::isFontSmoothingEnabledForTest();
 }
 
 void enableLogChannel(const char* name)

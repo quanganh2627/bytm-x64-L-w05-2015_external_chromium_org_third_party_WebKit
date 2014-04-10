@@ -70,7 +70,7 @@ public:
     WeakPtr<HTMLFormElement> createWeakPtr();
     void didAssociateByParser();
 
-    bool prepareForSubmission(Event*);
+    void prepareForSubmission(Event*);
     void submit();
     void submitFromJavaScript();
     void reset();
@@ -171,7 +171,6 @@ private:
     bool m_didFinishParsingChildren;
 
     bool m_wasUserSubmitted;
-    bool m_shouldSubmit;
 
     bool m_isInResetFunction;
 
@@ -179,7 +178,7 @@ private:
 
     void requestAutocompleteTimerFired(Timer<HTMLFormElement>*);
 
-    Vector<RefPtr<Event> > m_pendingAutocompleteEvents;
+    WillBePersistentHeapVector<RefPtrWillBeMember<Event> > m_pendingAutocompleteEvents;
     Timer<HTMLFormElement> m_requestAutocompleteTimer;
 };
 

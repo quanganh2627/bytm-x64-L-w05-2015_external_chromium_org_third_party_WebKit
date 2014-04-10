@@ -370,7 +370,7 @@ void CompositedLayerMapping::updateCompositedBounds(GraphicsLayerUpdater::Update
     // on whether or not descendands will paint into our backing). Update this value now.
     updateDrawsContent();
 
-    LayoutRect layerBounds = compositor()->calculateCompositedBounds(&m_owningLayer, &m_owningLayer);
+    LayoutRect layerBounds = m_owningLayer.boundingBoxForCompositing();
 
     // Clip to the size of the document or enclosing overflow-scroll layer.
     // If this or an ancestor is transformed, we can't currently compute the correct rect to intersect with.
@@ -406,7 +406,7 @@ void CompositedLayerMapping::updateCompositedBounds(GraphicsLayerUpdater::Update
         m_artificiallyInflatedBounds = false;
     }
 
-    setCompositedBounds(layerBounds);
+    m_compositedBounds = layerBounds;
 }
 
 void CompositedLayerMapping::updateAfterWidgetResize()
@@ -449,13 +449,13 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdat
     if (updateForegroundLayer(compositor->needsContentsCompositingLayer(&m_owningLayer)))
         layerConfigChanged = true;
 
-    bool needsDescendentsClippingLayer = compositor->clipsCompositingDescendants(&m_owningLayer);
+    bool needsDescendantsClippingLayer = compositor->clipsCompositingDescendants(&m_owningLayer);
 
     // Our scrolling layer will clip.
     if (m_owningLayer.needsCompositedScrolling())
-        needsDescendentsClippingLayer = false;
+        needsDescendantsClippingLayer = false;
 
-    RenderLayer* scrollParent = renderer->compositorDrivenAcceleratedScrollingEnabled() ? m_owningLayer.scrollParent() : 0;
+    RenderLayer* scrollParent = compositor->acceleratedCompositingForOverflowScrollEnabled() ? m_owningLayer.scrollParent() : 0;
     bool needsAncestorClip = compositor->clippedByAncestor(&m_owningLayer);
     if (scrollParent) {
         // If our containing block is our ancestor scrolling layer, then we'll already be clipped
@@ -464,7 +464,7 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdat
             needsAncestorClip = false;
     }
 
-    if (updateClippingLayers(needsAncestorClip, needsDescendentsClippingLayer))
+    if (updateClippingLayers(needsAncestorClip, needsDescendantsClippingLayer))
         layerConfigChanged = true;
 
     if (updateOverflowControlsLayers(requiresHorizontalScrollbarLayer(), requiresVerticalScrollbarLayer(), requiresScrollCornerLayer()))
@@ -555,7 +555,7 @@ static LayoutPoint computeOffsetFromCompositedAncestor(const RenderLayer* layer,
     LayoutPoint offset;
     layer->convertToLayerCoords(compositedAncestor, offset);
     if (compositedAncestor)
-        offset.move(compositedAncestor->compositedLayerMapping()->subpixelAccumulation());
+        offset.move(compositedAncestor->compositedLayerMapping()->owningLayer().subpixelAccumulation());
     return offset;
 }
 
@@ -564,11 +564,11 @@ void CompositedLayerMapping::adjustBoundsForSubPixelAccumulation(const RenderLay
     LayoutRect localRawCompositingBounds = compositedBounds();
     LayoutPoint rawDelta = computeOffsetFromCompositedAncestor(&m_owningLayer, compositedAncestor);
     delta = flooredIntPoint(rawDelta);
-    m_subpixelAccumulation = toLayoutSize(rawDelta).fraction();
-    RELEASE_ASSERT(m_subpixelAccumulation.width() < 1 && m_subpixelAccumulation.height() < 1);
+    LayoutSize subpixelAccumulation = toLayoutSize(rawDelta).fraction();
+    m_owningLayer.setSubpixelAccumulation(subpixelAccumulation);
 
     // Move the bounds by the subpixel accumulation so that it pixel-snaps relative to absolute pixels instead of local coordinates.
-    localRawCompositingBounds.move(m_subpixelAccumulation);
+    localRawCompositingBounds.move(subpixelAccumulation);
     localBounds = pixelSnappedIntRect(localRawCompositingBounds);
 
     relativeBounds = localBounds;
@@ -584,7 +584,7 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
 
     LayoutRect totalSquashBounds;
     for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
-        LayoutRect squashedBounds = compositor()->calculateCompositedBounds(m_squashedLayers[i].renderLayer, m_squashedLayers[i].renderLayer);
+        LayoutRect squashedBounds = m_squashedLayers[i].renderLayer->boundingBoxForCompositing();
 
         // Store the local bounds of the RenderLayer subtree before applying the offset.
         m_squashedLayers[i].compositedBounds = squashedBounds;
@@ -596,8 +596,8 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
     // The totalSquashBounds is positioned with respect to m_owningLayer of this CompositedLayerMapping.
     // But the squashingLayer needs to be positioned with respect to the ancestor CompositedLayerMapping.
     // The conversion between m_owningLayer and the ancestor CLM is already computed in the caller as
-    // |delta| + |m_subpixelAccumulation|.
-    LayoutPoint rawDelta = delta + m_subpixelAccumulation;
+    // |delta| + |subpixelAccumulation|.
+    LayoutPoint rawDelta = delta + m_owningLayer.subpixelAccumulation();
     totalSquashBounds.moveBy(rawDelta);
     IntRect squashLayerBounds = enclosingIntRect(totalSquashBounds);
     IntPoint squashLayerOrigin = squashLayerBounds.location();
@@ -619,8 +619,9 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
     for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
         LayoutSize offsetFromSquashLayerOrigin = LayoutPoint(m_squashedLayers[i].offsetFromSquashingCLM) - squashLayerOriginInOwningLayerSpace;
         m_squashedLayers[i].offsetFromRenderer = -flooredIntSize(offsetFromSquashLayerOrigin);
-        m_squashedLayers[i].subpixelAccumulation = offsetFromSquashLayerOrigin.fraction();
-        ASSERT(m_squashedLayers[i].subpixelAccumulation ==
+
+        m_squashedLayers[i].renderLayer->setSubpixelAccumulation(offsetFromSquashLayerOrigin.fraction());
+        ASSERT(m_squashedLayers[i].renderLayer->subpixelAccumulation() ==
             toLayoutSize(computeOffsetFromCompositedAncestor(m_squashedLayers[i].renderLayer, m_squashedLayers[i].renderLayer->ancestorCompositingLayer())).fraction());
 
         // FIXME: find a better design to avoid this redundant value - most likely it will make
@@ -640,11 +641,11 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
-    if (!hasActiveAnimationsOnCompositor(*renderer(), CSSPropertyTransform))
+    if (!renderer()->style()->isRunningTransformAnimationOnCompositor())
         updateTransform(renderer()->style());
 
     // Set opacity, if it is not animating.
-    if (!hasActiveAnimationsOnCompositor(*renderer(), CSSPropertyOpacity))
+    if (!renderer()->style()->isRunningOpacityAnimationOnCompositor())
         updateOpacity(renderer()->style());
 
     m_owningLayer.updateDescendantDependentFlags();
@@ -682,7 +683,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
         // If the compositing ancestor has a layer to clip children, we parent in that, and therefore
         // position relative to it.
         IntRect clippingBox = clipBox(toRenderBox(compAncestor->renderer()));
-        graphicsLayerParentLocation = clippingBox.location() + roundedIntSize(compAncestor->compositedLayerMapping()->subpixelAccumulation());
+        graphicsLayerParentLocation = clippingBox.location() + roundedIntSize(compAncestor->subpixelAccumulation());
     } else if (compAncestor) {
         graphicsLayerParentLocation = ancestorCompositingBounds.location();
     } else {
@@ -723,7 +724,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
     IntRect clippingBox;
     if (GraphicsLayer* clipLayer = clippingLayer()) {
         clippingBox = clipBox(toRenderBox(renderer()));
-        clipLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location() + roundedIntSize(m_subpixelAccumulation)));
+        clipLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
         clipLayer->setSize(clippingBox.size());
         clipLayer->setOffsetFromRenderer(toIntSize(clippingBox.location()));
         if (m_childClippingMaskLayer && !m_scrollingLayer) {
@@ -748,7 +749,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
         const LayoutRect borderBox = toRenderBox(renderer())->borderBoxRect();
 
         // Get layout bounds in the coords of compAncestor to match relativeCompositingBounds.
-        IntRect layerBounds = pixelSnappedIntRect(toLayoutPoint(m_subpixelAccumulation), borderBox.size());
+        IntRect layerBounds = pixelSnappedIntRect(toLayoutPoint(m_owningLayer.subpixelAccumulation()), borderBox.size());
         layerBounds.moveBy(delta);
 
         // Update properties that depend on layer dimensions
@@ -815,7 +816,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
         IntRect clientBox = enclosingIntRect(renderBox->clientBoxRect());
 
         IntSize adjustedScrollOffset = m_owningLayer.scrollableArea()->adjustedScrollOffset();
-        m_scrollingLayer->setPosition(FloatPoint(clientBox.location() - localCompositingBounds.location() + roundedIntSize(m_subpixelAccumulation)));
+        m_scrollingLayer->setPosition(FloatPoint(clientBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
         m_scrollingLayer->setSize(clientBox.size());
 
         IntSize oldScrollingLayerOffset = m_scrollingLayer->offsetFromRenderer();
@@ -878,7 +879,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
     updateRenderingContext();
     updateShouldFlattenTransform();
     updateChildrenTransform();
-    updateScrollParent(renderer()->compositorDrivenAcceleratedScrollingEnabled() ? m_owningLayer.scrollParent() : 0);
+    updateScrollParent(compositor()->acceleratedCompositingForOverflowScrollEnabled() ? m_owningLayer.scrollParent() : 0);
     registerScrollingLayers();
 
     updateCompositingReasons();
@@ -1107,7 +1108,7 @@ bool CompositedLayerMapping::updateOverflowControlsLayers(bool needsHorizontalSc
 
 void CompositedLayerMapping::positionOverflowControlsLayers(const IntSize& offsetFromRoot)
 {
-    IntSize offsetFromRenderer = m_graphicsLayer->offsetFromRenderer() - roundedIntSize(m_subpixelAccumulation);
+    IntSize offsetFromRenderer = m_graphicsLayer->offsetFromRenderer() - roundedIntSize(m_owningLayer.subpixelAccumulation());
     if (GraphicsLayer* layer = layerForHorizontalScrollbar()) {
         Scrollbar* hBar = m_owningLayer.scrollableArea()->horizontalScrollbar();
         if (hBar) {
@@ -1261,9 +1262,16 @@ bool CompositedLayerMapping::updateForegroundLayer(bool needsForegroundLayer)
             m_foregroundLayer = createGraphicsLayer(CompositingReasonLayerForForeground);
             m_foregroundLayer->setDrawsContent(true);
             m_foregroundLayer->setPaintingPhase(GraphicsLayerPaintForeground);
+            // If the foreground layer pops content out of the graphics
+            // layer, then the graphics layer needs to be repainted.
+            // FIXME: This is conservative, as m_foregroundLayer could
+            // be smaller than m_graphicsLayer due to clipping.
+            m_graphicsLayer->setNeedsDisplay();
             layerChanged = true;
         }
     } else if (m_foregroundLayer) {
+        FloatRect repaintRect(FloatPoint(), m_foregroundLayer->size());
+        m_graphicsLayer->setNeedsDisplayInRect(repaintRect);
         m_foregroundLayer->removeFromParent();
         m_foregroundLayer = nullptr;
         layerChanged = true;
@@ -1403,7 +1411,7 @@ static void updateScrollParentForGraphicsLayer(GraphicsLayer* layer, GraphicsLay
 
 void CompositedLayerMapping::updateScrollParent(RenderLayer* scrollParent)
 {
-    if (!scrollParent && m_squashedLayers.size() && renderer()->compositorDrivenAcceleratedScrollingEnabled())
+    if (!scrollParent && m_squashedLayers.size() && compositor()->acceleratedCompositingForOverflowScrollEnabled())
         scrollParent = m_squashedLayers[0].renderLayer->scrollParent();
 
     if (ScrollingCoordinator* scrollingCoordinator = scrollingCoordinatorFromLayer(m_owningLayer)) {
@@ -1922,10 +1930,10 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
 
     if (!(paintInfo.paintingPhase & GraphicsLayerPaintOverflowContents)) {
         LayoutRect bounds = paintInfo.compositedBounds;
-        bounds.move(paintInfo.subpixelAccumulation);
+        bounds.move(paintInfo.renderLayer->subpixelAccumulation());
         dirtyRect.intersect(pixelSnappedIntRect(bounds));
     } else {
-        dirtyRect.move(roundedIntSize(paintInfo.subpixelAccumulation));
+        dirtyRect.move(roundedIntSize(paintInfo.renderLayer->subpixelAccumulation()));
     }
 
 #ifndef NDEBUG
@@ -1934,7 +1942,7 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
 
     if (paintInfo.renderLayer->compositingState() != PaintsIntoGroupedBacking) {
         // FIXME: GraphicsLayers need a way to split for RenderRegions.
-        LayerPaintingInfo paintingInfo(paintInfo.renderLayer, dirtyRect, PaintBehaviorNormal, paintInfo.subpixelAccumulation);
+        LayerPaintingInfo paintingInfo(paintInfo.renderLayer, dirtyRect, PaintBehaviorNormal, paintInfo.renderLayer->subpixelAccumulation());
         paintInfo.renderLayer->paintLayerContents(context, paintingInfo, paintFlags);
 
         ASSERT(!paintInfo.isBackgroundLayer || paintFlags & PaintLayerPaintingRootBackgroundOnly);
@@ -1943,7 +1951,7 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
             paintInfo.renderLayer->paintLayerContents(context, paintingInfo, paintFlags | PaintLayerPaintingOverlayScrollbars);
     } else {
         ASSERT(compositor()->layerSquashingEnabled());
-        LayerPaintingInfo paintingInfo(paintInfo.renderLayer, dirtyRect, PaintBehaviorNormal, paintInfo.subpixelAccumulation);
+        LayerPaintingInfo paintingInfo(paintInfo.renderLayer, dirtyRect, PaintBehaviorNormal, paintInfo.renderLayer->subpixelAccumulation());
         paintInfo.renderLayer->paintLayer(context, paintingInfo, paintFlags);
     }
 
@@ -1992,7 +2000,6 @@ void CompositedLayerMapping::paintContents(const GraphicsLayer* graphicsLayer, G
         paintInfo.offsetFromRenderer = graphicsLayer->offsetFromRenderer();
         paintInfo.paintingPhase = paintingPhase;
         paintInfo.isBackgroundLayer = (graphicsLayer == m_backgroundLayer);
-        paintInfo.subpixelAccumulation = m_subpixelAccumulation;
 
         // We have to use the same root as for hit testing, because both methods can compute and cache clipRects.
         doPaintTask(paintInfo, &context, clip);
@@ -2049,19 +2056,14 @@ void CompositedLayerMapping::verifyNotPainting()
 
 void CompositedLayerMapping::notifyAnimationStarted(const GraphicsLayer*, double monotonicTime)
 {
-    renderer()->node()->document().cssPendingAnimations().notifyCompositorAnimationStarted(monotonicTime);
+    renderer()->node()->document().compositorPendingAnimations().notifyCompositorAnimationStarted(monotonicTime);
 }
 
 IntRect CompositedLayerMapping::pixelSnappedCompositedBounds() const
 {
     LayoutRect bounds = m_compositedBounds;
-    bounds.move(m_subpixelAccumulation);
+    bounds.move(m_owningLayer.subpixelAccumulation());
     return pixelSnappedIntRect(bounds);
-}
-
-void CompositedLayerMapping::setCompositedBounds(const LayoutRect& bounds)
-{
-    m_compositedBounds = bounds;
 }
 
 bool CompositedLayerMapping::updateSquashingLayerAssignment(RenderLayer* layer, LayoutSize offsetFromSquashingCLM, size_t nextSquashedLayerIndex)

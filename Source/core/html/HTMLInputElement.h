@@ -151,7 +151,7 @@ public:
 
     void setEditingValue(const String&);
 
-    double valueAsDate() const;
+    double valueAsDate(bool& isNull) const;
     void setValueAsDate(double, ExceptionState&);
 
     double valueAsNumber() const;
@@ -233,6 +233,8 @@ public:
     void setValueInternal(const String&, TextFieldEventBehavior);
     bool valueAttributeWasUpdatedAfterParsing() const { return m_valueAttributeWasUpdatedAfterParsing; }
     void updateView();
+    bool needsToUpdateViewValue() const { return m_needsToUpdateViewValue; }
+    virtual void setInnerTextValue(const String&) OVERRIDE;
 
     void cacheSelectionInResponseToSetValue(int caretOffset) { cacheSelection(caretOffset, caretOffset, SelectionHasNoDirection); }
 
@@ -383,7 +385,6 @@ private:
     bool m_isChecked : 1;
     bool m_reflectsCheckedAttribute : 1;
     bool m_isIndeterminate : 1;
-    bool m_hasType : 1;
     bool m_isActivatedSubmit : 1;
     unsigned m_autocomplete : 2; // AutoCompleteSetting
     bool m_hasNonEmptyList : 1;
@@ -393,6 +394,7 @@ private:
     bool m_canReceiveDroppedFiles : 1;
     bool m_hasTouchEventHandler : 1;
     bool m_shouldRevealPassword : 1;
+    bool m_needsToUpdateViewValue : 1;
     RefPtr<InputType> m_inputType;
     RefPtr<InputTypeView> m_inputTypeView;
     // The ImageLoader must be owned by this element because the loader code assumes

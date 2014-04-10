@@ -35,7 +35,6 @@
 #include "core/frame/FrameView.h"
 #include "core/rendering/FastTextAutosizer.h"
 #include "core/rendering/HitTestLocation.h"
-#include "core/rendering/LayoutRectRecorder.h"
 #include "core/rendering/LayoutRepainter.h"
 #include "core/rendering/RenderFlowThread.h"
 #include "core/rendering/RenderLayer.h"
@@ -200,8 +199,8 @@ bool RenderBlockFlow::updateLogicalWidthAndColumnWidth()
 void RenderBlockFlow::checkForPaginationLogicalHeightChange(LayoutUnit& pageLogicalHeight, bool& pageLogicalHeightChanged, bool& hasSpecifiedPageLogicalHeight)
 {
     if (RenderMultiColumnFlowThread* flowThread = multiColumnFlowThread()) {
-        // We don't actually update any of the variables. We just subclassed to adjust our column height.
         updateLogicalHeight();
+        pageLogicalHeightChanged = contentLogicalHeight() != flowThread->columnHeightAvailable();
         flowThread->setColumnHeightAvailable(std::max<LayoutUnit>(contentLogicalHeight(), 0));
         setLogicalHeight(0);
     } else if (hasColumns()) {
@@ -351,6 +350,8 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
     bool pageLogicalHeightChanged = false;
     bool hasSpecifiedPageLogicalHeight = false;
     checkForPaginationLogicalHeightChange(pageLogicalHeight, pageLogicalHeightChanged, hasSpecifiedPageLogicalHeight);
+    if (pageLogicalHeightChanged)
+        relayoutChildren = true;
 
     LayoutStateMaintainer statePusher(*this, locationOffset(), pageLogicalHeight, pageLogicalHeightChanged, columnInfo());
 
@@ -908,7 +909,8 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
         RenderBox* child = next;
         next = child->nextSiblingBox();
 
-        LayoutRectRecorder recorder(*child);
+        // FIXME: this should only be set from clearNeedsLayout crbug.com/361250
+        child->setLayoutDidGetCalled(true);
 
         if (childToExclude == child)
             continue; // Skip this child, since it will be positioned by the specialized subclass (fieldsets and ruby runs).
@@ -1951,7 +1953,6 @@ void RenderBlockFlow::repaintOverhangingFloats(bool paintAllDescendants)
             && (floatingObject->shouldPaint() || (paintAllDescendants && floatingObject->renderer()->isDescendantOf(this)))) {
 
             RenderBox* floatingRenderer = floatingObject->renderer();
-            LayoutRectRecorder recorder(*floatingRenderer);
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                 floatingRenderer->setShouldDoFullRepaintAfterLayout(true);
             else
@@ -2324,7 +2325,6 @@ bool RenderBlockFlow::positionNewFloats()
             continue;
 
         RenderBox* childBox = floatingObject->renderer();
-        LayoutRectRecorder childBoxRecorder(*childBox);
 
         LayoutUnit childLogicalLeftMargin = style()->isLeftToRightDirection() ? marginStartForChild(childBox) : marginEndForChild(childBox);
         LayoutRect oldRect = childBox->frameRect();

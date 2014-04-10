@@ -91,10 +91,14 @@ WebInspector.DOMPresentationUtils.createSpansForNodeTitle = function(container, 
 }
 
 /**
- * @param {!WebInspector.DOMNode} node
+ * @param {?WebInspector.DOMNode} node
+ * @return {!Node}
  */
 WebInspector.DOMPresentationUtils.linkifyNodeReference = function(node)
 {
+    if (!node)
+        return document.createTextNode(WebInspector.UIString("<node>"));
+
     var link = document.createElement("span");
     link.className = "node-link";
     WebInspector.DOMPresentationUtils.decorateNodeLabel(node, link);
@@ -106,23 +110,16 @@ WebInspector.DOMPresentationUtils.linkifyNodeReference = function(node)
     return link;
 }
 
-WebInspector.DOMPresentationUtils.linkifyNodeById = function(nodeId)
-{
-    var node = WebInspector.domModel.nodeForId(nodeId);
-    if (!node)
-        return document.createTextNode(WebInspector.UIString("<node>"));
-    return WebInspector.DOMPresentationUtils.linkifyNodeReference(node);
-}
-
 /**
  * @param {string} imageURL
+ * @param {!WebInspector.Target} target
  * @param {boolean} showDimensions
  * @param {function(!Element=)} userCallback
  * @param {!Object=} precomputedDimensions
  */
-WebInspector.DOMPresentationUtils.buildImagePreviewContents = function(imageURL, showDimensions, userCallback, precomputedDimensions)
+WebInspector.DOMPresentationUtils.buildImagePreviewContents = function(target, imageURL, showDimensions, userCallback, precomputedDimensions)
 {
-    var resource = WebInspector.resourceTreeModel.resourceForURL(imageURL);
+    var resource = target.resourceTreeModel.resourceForURL(imageURL);
     if (!resource) {
         userCallback();
         return;

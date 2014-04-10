@@ -21,7 +21,28 @@ class ExecutionContext;
 class NewScriptState : public RefCounted<NewScriptState> {
     WTF_MAKE_NONCOPYABLE(NewScriptState);
 public:
-    static void install(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
+    class Scope {
+    public:
+        // You need to make sure that scriptState->context() is not empty before creating a Scope.
+        explicit Scope(NewScriptState* scriptState)
+            : m_handleScope(scriptState->isolate())
+            , m_context(scriptState->context())
+        {
+            ASSERT(!m_context.IsEmpty());
+            m_context->Enter();
+        }
+
+        ~Scope()
+        {
+            m_context->Exit();
+        }
+
+    private:
+        v8::HandleScope m_handleScope;
+        v8::Handle<v8::Context> m_context;
+    };
+
+    static PassRefPtr<NewScriptState> create(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
     ~NewScriptState();
 
     static NewScriptState* current(v8::Isolate* isolate)
@@ -44,19 +65,20 @@ public:
     DOMWrapperWorld& world() const { return *m_world; }
     // This can return an empty handle if the v8::Context is gone.
     v8::Handle<v8::Context> context() const { return m_context.newLocal(m_isolate); }
+    bool contextIsEmpty() const { return m_context.isEmpty(); }
     void clearContext() { return m_context.clear(); }
     ExecutionContext* executionContext() const;
-    V8PerContextData* perContextData() const { return m_perContextData; }
-    void setPerContextData(V8PerContextData* data) { m_perContextData = data; }
+    V8PerContextData* perContextData() const { return m_perContextData.get(); }
+    void disposePerContextData() { m_perContextData = nullptr; }
 
 private:
     NewScriptState(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
 
     v8::Isolate* m_isolate;
     ScopedPersistent<v8::Context> m_context;
-    V8PerContextData* m_perContextData;
     // This RefPtr doesn't cause a cycle because all persistent handles that DOMWrapperWorld holds are weak.
     RefPtr<DOMWrapperWorld> m_world;
+    OwnPtr<V8PerContextData> m_perContextData;
 };
 
 }

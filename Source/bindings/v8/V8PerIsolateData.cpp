@@ -27,12 +27,12 @@
 #include "bindings/v8/V8PerIsolateData.h"
 
 #include "bindings/v8/DOMDataStore.h"
+#include "bindings/v8/PageScriptDebugServer.h"
 #include "bindings/v8/ScriptGCEvent.h"
 #include "bindings/v8/ScriptProfiler.h"
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/V8HiddenValue.h"
 #include "bindings/v8/V8ObjectConstructor.h"
-#include "bindings/v8/V8PerContextData.h"
 #include "bindings/v8/V8ScriptRunner.h"
 #include "wtf/MainThread.h"
 
@@ -53,8 +53,10 @@ V8PerIsolateData::V8PerIsolateData(v8::Isolate* isolate)
     , m_gcEventData(adoptPtr(new GCEventData()))
     , m_performingMicrotaskCheckpoint(false)
 {
-    if (isMainThread())
+    if (isMainThread()) {
         mainThreadPerIsolateData = this;
+        PageScriptDebugServer::setMainThreadIsolate(isolate);
+    }
 }
 
 V8PerIsolateData::~V8PerIsolateData()
@@ -128,9 +130,9 @@ void V8PerIsolateData::setDOMTemplate(void* domTemplateKey, v8::Handle<v8::Funct
 
 v8::Local<v8::Context> V8PerIsolateData::ensureDomInJSContext()
 {
-    if (!m_domInJSPerContextData)
-        m_domInJSPerContextData = V8PerContextData::create(v8::Context::New(m_isolate), DOMWrapperWorld::create());
-    return m_domInJSPerContextData->context();
+    if (!m_blinkInJSScriptState)
+        m_blinkInJSScriptState = NewScriptState::create(v8::Context::New(m_isolate), DOMWrapperWorld::create());
+    return m_blinkInJSScriptState->context();
 }
 
 bool V8PerIsolateData::hasInstance(const WrapperTypeInfo* info, v8::Handle<v8::Value> value)
@@ -182,7 +184,7 @@ static void constructorOfToString(const v8::FunctionCallbackInfo<v8::Value>& inf
         v8SetReturnValue(info, v8::String::Empty(info.GetIsolate()));
         return;
     }
-    v8SetReturnValue(info, V8ScriptRunner::callInternalFunction(v8::Handle<v8::Function>::Cast(value), info.This(), 0, 0, v8::Isolate::GetCurrent()));
+    v8SetReturnValue(info, V8ScriptRunner::callInternalFunction(v8::Handle<v8::Function>::Cast(value), info.This(), 0, 0, info.GetIsolate()));
 }
 
 v8::Handle<v8::FunctionTemplate> V8PerIsolateData::toStringTemplate()

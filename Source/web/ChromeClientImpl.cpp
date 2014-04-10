@@ -366,10 +366,7 @@ void ChromeClientImpl::setResizable(bool value)
 bool ChromeClientImpl::shouldReportDetailedMessageForSource(const String& url)
 {
     WebFrameImpl* webframe = m_webView->mainFrameImpl();
-    // TODO(mkosiba): remove once Chrome side is updated.
-    bool shouldReport = m_webView->client() && m_webView->client()->shouldReportDetailedMessageForSource(url);
-    shouldReport &= webframe->client() && webframe->client()->shouldReportDetailedMessageForSource(url);
-    return shouldReport;
+    return webframe->client() && webframe->client()->shouldReportDetailedMessageForSource(url);
 }
 
 void ChromeClientImpl::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID, const String& stackTrace)
@@ -377,14 +374,6 @@ void ChromeClientImpl::addMessageToConsole(MessageSource source, MessageLevel le
     WebFrameImpl* webframe = m_webView->mainFrameImpl();
     if (webframe->client()) {
         webframe->client()->didAddMessageToConsole(
-            WebConsoleMessage(static_cast<WebConsoleMessage::Level>(level), message),
-            sourceID,
-            lineNumber,
-            stackTrace);
-    }
-    // TODO(mkosiba): remove once Chrome side is updated.
-    if (m_webView->client()) {
-        m_webView->client()->didAddMessageToConsole(
             WebConsoleMessage(static_cast<WebConsoleMessage::Level>(level), message),
             sourceID,
             lineNumber,
@@ -747,6 +736,10 @@ WebCore::CompositingTriggerFlags ChromeClientImpl::allowedCompositingTriggers() 
         flags |= WebCore::FilterTrigger;
     if (settings.acceleratedCompositingForGpuRasterizationHintEnabled())
         flags |= WebCore::GPURasterizationTrigger;
+    if (settings.acceleratedCompositingForOverflowScrollEnabled())
+        flags |= WebCore::LegacyOverflowScrollTrigger;
+    if (settings.compositorDrivenAcceleratedScrollingEnabled())
+        flags |= WebCore::OverflowScrollTrigger;
 
     return flags;
 }
@@ -827,22 +820,6 @@ bool ChromeClientImpl::shouldRunModalDialogDuringPageDismissal(const DialogType&
     return false;
 }
 
-bool ChromeClientImpl::shouldRubberBandInDirection(WebCore::ScrollDirection direction) const
-{
-    ASSERT(direction != WebCore::ScrollUp && direction != WebCore::ScrollDown);
-
-    if (!m_webView->client())
-        return false;
-
-    if (direction == WebCore::ScrollLeft)
-        return !m_webView->client()->historyBackListCount();
-    if (direction == WebCore::ScrollRight)
-        return !m_webView->client()->historyForwardListCount();
-
-    ASSERT_NOT_REACHED();
-    return true;
-}
-
 void ChromeClientImpl::numWheelEventHandlersChanged(unsigned numberOfWheelHandlers)
 {
     m_webView->numberOfWheelEventHandlersChanged(numberOfWheelHandlers);
@@ -901,6 +878,12 @@ void ChromeClientImpl::willSetInputMethodState()
         m_webView->client()->resetInputMethod();
 }
 
+void ChromeClientImpl::didUpdateTextOfFocusedElementByNonUserInput()
+{
+    if (m_webView->client())
+        m_webView->client()->didUpdateTextOfFocusedElementByNonUserInput();
+}
+
 void ChromeClientImpl::handleKeyboardEventOnTextField(HTMLInputElement& inputElement, KeyboardEvent& event)
 {
     if (!m_webView->autofillClient())
@@ -911,9 +894,9 @@ void ChromeClientImpl::handleKeyboardEventOnTextField(HTMLInputElement& inputEle
 // FIXME: Remove this code once we have input routing in the browser
 // process. See http://crbug.com/339659.
 void ChromeClientImpl::forwardInputEvent(
-    WebCore::Document* document, WebCore::Event* event)
+    WebCore::Frame* frame, WebCore::Event* event)
 {
-    WebFrameImpl* webFrame = WebFrameImpl::fromFrame(document->frame());
+    WebFrameImpl* webFrame = WebFrameImpl::fromFrame(toLocalFrameTemporary(frame));
 
     // This is only called when we have out-of-process iframes, which
     // need to forward input events across processes.
@@ -922,14 +905,14 @@ void ChromeClientImpl::forwardInputEvent(
         WebKeyboardEventBuilder webEvent(*static_cast<WebCore::KeyboardEvent*>(event));
         webFrame->client()->forwardInputEvent(&webEvent);
     } else if (event->isMouseEvent()) {
-        WebMouseEventBuilder webEvent(webFrame->frameView(), document->renderer(), *static_cast<WebCore::MouseEvent*>(event));
+        WebMouseEventBuilder webEvent(webFrame->frameView(), frame->ownerRenderer(), *static_cast<WebCore::MouseEvent*>(event));
         // Internal Blink events should not be forwarded.
         if (webEvent.type == WebInputEvent::Undefined)
             return;
 
         webFrame->client()->forwardInputEvent(&webEvent);
     } else if (event->isWheelEvent()) {
-        WebMouseWheelEventBuilder webEvent(webFrame->frameView(), document->renderer(), *static_cast<WebCore::WheelEvent*>(event));
+        WebMouseWheelEventBuilder webEvent(webFrame->frameView(), frame->ownerRenderer(), *static_cast<WebCore::WheelEvent*>(event));
         if (webEvent.type == WebInputEvent::Undefined)
             return;
         webFrame->client()->forwardInputEvent(&webEvent);

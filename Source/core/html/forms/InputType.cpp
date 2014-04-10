@@ -133,16 +133,6 @@ const AtomicString& InputType::normalizeTypeName(const AtomicString& typeName)
     return it == factoryMap()->end() ? InputTypeNames::text : it->key;
 }
 
-bool InputType::canChangeFromAnotherType(const AtomicString& normalizedTypeName)
-{
-    // Don't allow the type to be changed to file after the first type change.
-    // In other engines this might mean a JavaScript programmer could set a text
-    // field's value to something like /etc/passwd and then change it to a file
-    // input. I don't think this would actually occur in Blink, but this rule
-    // still may be important for compatibility.
-    return normalizedTypeName != InputTypeNames::file;
-}
-
 InputType::~InputType()
 {
 }
@@ -944,10 +934,10 @@ void InputType::stepUpFromRenderer(int n)
         setValueAsDecimal(current, DispatchNoEvent, IGNORE_EXCEPTION);
     }
     if ((sign > 0 && current < stepRange.minimum()) || (sign < 0 && current > stepRange.maximum())) {
-        setValueAsDecimal(sign > 0 ? stepRange.minimum() : stepRange.maximum(), DispatchInputAndChangeEvent, IGNORE_EXCEPTION);
+        setValueAsDecimal(sign > 0 ? stepRange.minimum() : stepRange.maximum(), DispatchChangeEvent, IGNORE_EXCEPTION);
         return;
     }
-    applyStep(current, n, AnyIsDefaultStep, DispatchInputAndChangeEvent, IGNORE_EXCEPTION);
+    applyStep(current, n, AnyIsDefaultStep, DispatchChangeEvent, IGNORE_EXCEPTION);
 }
 
 void InputType::countUsageIfVisible(UseCounter::Feature feature) const

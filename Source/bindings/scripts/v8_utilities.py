@@ -108,9 +108,11 @@ IdlType.enum_validation_expression = property(enum_validation_expression)
 
 
 def scoped_name(interface, definition, base_name):
-    implemented_by = definition.extended_attributes.get('ImplementedBy')
-    if implemented_by:
-        return '%s::%s' % (implemented_by, base_name)
+    # partial interfaces are implemented as separate classes, with their members
+    # implemented as static member functions
+    partial_interface_implemented_as = definition.extended_attributes.get('PartialInterfaceImplementedAs')
+    if partial_interface_implemented_as:
+        return '%s::%s' % (partial_interface_implemented_as, base_name)
     if definition.is_static:
         return '%s::%s' % (cpp_name(interface), base_name)
     return 'impl->%s' % base_name
@@ -148,7 +150,8 @@ def activity_logging_world_list(member, access_type=None):
 
 # [CallWith]
 CALL_WITH_ARGUMENTS = {
-    'ScriptState': '&state',
+    'ScriptState': 'state',
+    'NewScriptState': 'state',
     'ExecutionContext': 'scriptContext',
     'ScriptArguments': 'scriptArguments.release()',
     'ActiveWindow': 'callingDOMWindow(info.GetIsolate())',
@@ -157,6 +160,7 @@ CALL_WITH_ARGUMENTS = {
 # List because key order matters, as we want arguments in deterministic order
 CALL_WITH_VALUES = [
     'ScriptState',
+    'NewScriptState',
     'ExecutionContext',
     'ScriptArguments',
     'ActiveWindow',

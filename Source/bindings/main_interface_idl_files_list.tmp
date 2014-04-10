@@ -339,9 +339,9 @@
 ../core/svg/SVGFontFaceUriElement.idl
 ../core/svg/SVGForeignObjectElement.idl
 ../core/svg/SVGGElement.idl
+../core/svg/SVGGeometryElement.idl
 ../core/svg/SVGGlyphElement.idl
 ../core/svg/SVGGlyphRefElement.idl
-../core/svg/SVGGeometryElement.idl
 ../core/svg/SVGGradientElement.idl
 ../core/svg/SVGGraphicsElement.idl
 ../core/svg/SVGHKernElement.idl
@@ -449,7 +449,6 @@
 ../modules/crypto/RsaHashedKeyAlgorithm.idl
 ../modules/crypto/RsaKeyAlgorithm.idl
 ../modules/crypto/SubtleCrypto.idl
-../modules/crypto/WorkerCrypto.idl
 ../modules/device_orientation/DeviceAcceleration.idl
 ../modules/device_orientation/DeviceMotionEvent.idl
 ../modules/device_orientation/DeviceOrientationEvent.idl
@@ -536,6 +535,7 @@
 ../modules/notifications/NotificationPermissionCallback.idl
 ../modules/performance/WorkerPerformance.idl
 ../modules/push_messaging/PushManager.idl
+../modules/push_messaging/PushRegistration.idl
 ../modules/quota/DeprecatedStorageInfo.idl
 ../modules/quota/DeprecatedStorageQuota.idl
 ../modules/quota/StorageErrorCallback.idl

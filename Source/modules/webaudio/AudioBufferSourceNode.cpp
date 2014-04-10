@@ -65,13 +65,11 @@ AudioBufferSourceNode::AudioBufferSourceNode(AudioContext* context, float sample
     , m_isGrain(false)
     , m_grainOffset(0.0)
     , m_grainDuration(DefaultGrainDuration)
-    , m_lastGain(1.0)
     , m_pannerNode(0)
 {
     ScriptWrappable::init(this);
     setNodeType(NodeTypeAudioBufferSource);
 
-    m_gain = AudioParam::create(context, "gain", 1.0, 0.0, 1.0);
     m_playbackRate = AudioParam::create(context, "playbackRate", 1.0, 0.0, MaxRate);
 
     // Default to mono.  A call to setBuffer() will set the number of output channels to that of the buffer.
@@ -133,9 +131,6 @@ void AudioBufferSourceNode::process(size_t framesToProcess)
             return;
         }
 
-        // Apply the gain (in-place) to the output bus.
-        float totalGain = gain()->value() * m_buffer->gain();
-        outputBus->copyWithGainFrom(*outputBus, &m_lastGain, totalGain);
         outputBus->clearSilentFlag();
     } else {
         // Too bad - the tryLock() failed.  We must be in the middle of changing buffers and were already outputting silence anyway.
@@ -334,12 +329,6 @@ bool AudioBufferSourceNode::renderFromBuffer(AudioBus* bus, unsigned destination
 void AudioBufferSourceNode::setBuffer(AudioBuffer* buffer, ExceptionState& exceptionState)
 {
     ASSERT(isMainThread());
-    // FIXME: It does not look like we should throw if the buffer is null as
-    // the attribute is nullable in the specification.
-    if (!buffer) {
-        exceptionState.throwTypeError("buffer cannot be null");
-        return;
-    }
 
     // The context must be locked since changing the buffer can re-configure the number of channels that are output.
     AudioContext::AutoLocker contextLocker(context());
@@ -423,14 +412,6 @@ void AudioBufferSourceNode::start(double when, double grainOffset, double grainD
     m_virtualReadIndex = AudioUtilities::timeToSampleFrame(m_grainOffset, buffer()->sampleRate());
 
     m_playbackState = SCHEDULED_STATE;
-}
-
-void AudioBufferSourceNode::noteGrainOn(double when, double grainOffset, double grainDuration, ExceptionState& exceptionState)
-{
-    // Handle unspecified duration where 0 means the rest of the buffer.
-    if (!grainDuration && buffer())
-        grainDuration = buffer()->duration();
-    start(when, grainOffset, grainDuration, exceptionState);
 }
 
 double AudioBufferSourceNode::totalPitchRate()

@@ -180,7 +180,7 @@ void Event::receivedTarget()
 {
 }
 
-void Event::setUnderlyingEvent(PassRefPtr<Event> ue)
+void Event::setUnderlyingEvent(PassRefPtrWillBeRawPtr<Event> ue)
 {
     // Prohibit creation of a cycle -- just do nothing in that case.
     for (Event* e = ue.get(); e; e = e->underlyingEvent())
@@ -192,7 +192,7 @@ void Event::setUnderlyingEvent(PassRefPtr<Event> ue)
 EventPath& Event::ensureEventPath()
 {
     if (!m_eventPath)
-        m_eventPath = adoptPtr(new EventPath(this));
+        m_eventPath = adoptPtrWillBeNoop(new EventPath(this));
     return *m_eventPath;
 }
 
@@ -213,8 +213,10 @@ PassRefPtr<NodeList> Event::path() const
     return StaticNodeList::createEmpty();
 }
 
-void Event::trace(Visitor*)
+void Event::trace(Visitor* visitor)
 {
+    visitor->trace(m_underlyingEvent);
+    visitor->trace(m_eventPath);
 }
 
 } // namespace WebCore

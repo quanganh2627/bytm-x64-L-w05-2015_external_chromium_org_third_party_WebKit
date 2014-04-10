@@ -161,8 +161,6 @@ public:
 
     virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE { }
 
-    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE { return false; }
-
     virtual void didAssociateFormControls(const Vector<RefPtr<Element> >&) OVERRIDE { }
 
     virtual void annotatedRegionsChanged() OVERRIDE { }
@@ -234,6 +232,7 @@ public:
     virtual void selectorMatchChanged(const Vector<String>&, const Vector<String>&) OVERRIDE { }
     virtual PassRefPtr<LocalFrame> createFrame(const KURL&, const AtomicString&, const Referrer&, HTMLFrameOwnerElement*) OVERRIDE;
     virtual PassRefPtr<Widget> createPlugin(HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool, DetachedPluginPolicy) OVERRIDE;
+    virtual bool canCreatePluginWithoutRenderer(const String& mimeType) const OVERRIDE { return false; }
     virtual PassRefPtr<Widget> createJavaAppletWidget(HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) OVERRIDE;
 
     virtual ObjectContentType objectContentType(const KURL&, const String&, bool) OVERRIDE { return ObjectContentType(); }

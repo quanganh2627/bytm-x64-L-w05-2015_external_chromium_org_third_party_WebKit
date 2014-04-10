@@ -212,6 +212,7 @@ void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent* event)
         spinButtonStepDown();
     else
         return;
+    element().dispatchFormControlChangeEvent();
     event->setDefaultHandled();
 }
 
@@ -254,6 +255,8 @@ void TextFieldInputType::handleBlurEvent()
 {
     InputType::handleBlurEvent();
     element().endEditing();
+    if (SpinButtonElement *spinButton = spinButtonElement())
+        spinButton->releaseCapture();
 }
 
 bool TextFieldInputType::shouldSubmitImplicitly(Event* event)
@@ -533,9 +536,13 @@ void TextFieldInputType::updateView()
     if (!element().suggestedValue().isNull()) {
         element().setInnerTextValue(element().suggestedValue());
         element().updatePlaceholderVisibility(false);
-    } else if (!element().formControlValueMatchesRenderer()) {
-        // Update the renderer value if the formControlValueMatchesRenderer() flag is false.
-        // It protects an unacceptable renderer value from being overwritten with the DOM value.
+    } else if (element().needsToUpdateViewValue()) {
+        // Update the view only if needsToUpdateViewValue is true. It protects
+        // an unacceptable view value from being overwritten with the DOM value.
+        //
+        // e.g. <input type=number> has a view value "abc", and input.max is
+        // updated. In this case, updateView() is called but we should not
+        // update the view value.
         element().setInnerTextValue(visibleValue());
         element().updatePlaceholderVisibility(false);
     }
@@ -556,6 +563,11 @@ bool TextFieldInputType::shouldSpinButtonRespondToMouseEvents()
 bool TextFieldInputType::shouldSpinButtonRespondToWheelEvents()
 {
     return shouldSpinButtonRespondToMouseEvents() && element().focused();
+}
+
+void TextFieldInputType::spinButtonDidReleaseMouseCapture()
+{
+    element().dispatchFormControlChangeEvent();
 }
 
 } // namespace WebCore

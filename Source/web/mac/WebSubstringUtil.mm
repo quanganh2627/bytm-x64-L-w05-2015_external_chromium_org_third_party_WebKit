@@ -113,24 +113,26 @@ namespace blink {
 NSAttributedString* WebSubstringUtil::attributedWordAtPoint(WebView* view, WebPoint point, WebPoint& baselinePoint)
 {
     HitTestResult result = view->hitTestResultAt(point);
+    if (!result.targetNode())
+      return nil;
     LocalFrame* frame = result.targetNode()->document().frame();
     FrameView* frameView = frame->view();
 
-    RefPtr<Range> range = frame->rangeForPoint(result.roundedPointInInnerNodeFrame());
+    RefPtrWillBeRawPtr<Range> range = frame->rangeForPoint(result.roundedPointInInnerNodeFrame());
     if (!range)
         return nil;
 
     // Expand to word under point.
     VisibleSelection selection(range.get());
     selection.expandUsingGranularity(WordGranularity);
-    RefPtr<Range> wordRange = selection.toNormalizedRange();
+    RefPtrWillBeRawPtr<Range> wordRange = selection.toNormalizedRange();
 
     // Convert to NSAttributedString.
     NSAttributedString* string = attributedSubstringFromRange(wordRange.get());
 
     // Compute bottom left corner and convert to AppKit coordinates.
     IntRect stringRect = enclosingIntRect(wordRange->boundingRect());
-    IntPoint stringPoint = frameView->contentsToWindow(stringRect).minXMaxYCorner();
+    IntPoint stringPoint = stringRect.minXMaxYCorner();
     stringPoint.setY(frameView->height() - stringPoint.y());
 
     // Adjust for the font's descender. AppKit wants the baseline point.
@@ -153,7 +155,7 @@ NSAttributedString* WebSubstringUtil::attributedSubstringInRange(WebFrame* webFr
 
     Element* editable = frame->selection().rootEditableElementOrDocumentElement();
     ASSERT(editable);
-    RefPtr<Range> range(PlainTextRange(location, location + length).createRange(*editable));
+    RefPtrWillBeRawPtr<Range> range(PlainTextRange(location, location + length).createRange(*editable));
     if (!range)
         return nil;
 

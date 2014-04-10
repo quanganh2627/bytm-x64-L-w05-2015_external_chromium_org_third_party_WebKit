@@ -593,8 +593,7 @@ public:
     RenderView* view() const { return document().renderView(); };
     FrameView* frameView() const { return document().view(); };
 
-    // Returns true if this renderer is rooted, and optionally returns the hosting view (the root of the hierarchy).
-    bool isRooted(RenderView** = 0) const;
+    bool isRooted() const;
 
     Node* node() const
     {
@@ -698,11 +697,6 @@ public:
 
     CompositingState compositingState() const;
     virtual CompositingReasons additionalCompositingReasons(CompositingTriggerFlags) const;
-
-    bool acceleratedCompositingForOverflowScrollEnabled() const;
-    // FIXME: This is a temporary flag and should be removed once accelerated
-    // overflow scroll is ready (crbug.com/254111).
-    bool compositorDrivenAcceleratedScrollingEnabled() const;
 
     bool hitTest(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestFilter = HitTestAll);
     virtual void updateHitTestResult(HitTestResult&, const LayoutPoint&);
@@ -830,6 +824,9 @@ public:
     // Repaint only if our old bounds and new bounds are different. The caller may pass in newBounds if they are known.
     bool repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, bool wasSelfLayout,
         const LayoutRect& oldBounds, const LayoutRect* newBoundsPtr = 0);
+
+    // Walk the tree after layout repainting renderers that have changed or moved, updating bounds that have changed, and clearing repaint state.
+    virtual void repaintTreeAfterLayout();
 
     virtual void repaintOverflow();
     void repaintOverflowIfNeeded();
@@ -983,11 +980,8 @@ public:
 
     bool isRelayoutBoundaryForInspector() const;
 
-    const LayoutRect& newRepaintRect() const { return m_newRepaintRect; }
-    void setNewRepaintRect(const LayoutRect& rect) { m_newRepaintRect = rect; }
-
-    const LayoutRect& oldRepaintRect() const { return m_oldRepaintRect; }
-    void setOldRepaintRect(const LayoutRect& rect) { m_oldRepaintRect = rect; }
+    const LayoutRect& previousRepaintRect() const { return m_previousRepaintRect; }
+    void setPreviousRepaintRect(const LayoutRect& rect) { m_previousRepaintRect = rect; }
 
     LayoutRect newOutlineRect();
     void setNewOutlineRect(const LayoutRect&);
@@ -1242,8 +1236,8 @@ private:
     // Store state between styleWillChange and styleDidChange
     static bool s_affectsParentBlock;
 
-    LayoutRect m_oldRepaintRect;
-    LayoutRect m_newRepaintRect;
+    // This stores the repaint rect from the previous layout.
+    LayoutRect m_previousRepaintRect;
 };
 
 // Allow equality comparisons of RenderObject's by reference or pointer, interchangeably.
@@ -1302,6 +1296,11 @@ inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLay
 
 inline void RenderObject::clearNeedsLayout()
 {
+    if (!shouldDoFullRepaintAfterLayout())
+        setShouldDoFullRepaintAfterLayout(selfNeedsLayout());
+    if (needsPositionedMovementLayoutOnly())
+        setOnlyNeededPositionedMovementLayout(true);
+    setLayoutDidGetCalled(true);
     setSelfNeedsLayout(false);
     setEverHadLayout(true);
     setPosChildNeedsLayout(false);

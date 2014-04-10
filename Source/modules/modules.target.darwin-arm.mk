@@ -6,15 +6,16 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := third_party_WebKit_Source_modules_modules_gyp
 LOCAL_MODULE_SUFFIX := .a
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp)/config.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_gyp)/webcore.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_core_webcore_generated_gyp)/third_party_WebKit_Source_core_webcore_generated_gyp.a \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_gyp,,,$(GYP_VAR_PREFIX))/webcore.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_core_webcore_generated_gyp,,,$(GYP_VAR_PREFIX))/third_party_WebKit_Source_core_webcore_generated_gyp.a \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
@@ -29,19 +30,18 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/battery/BatteryManager.cpp \
 	third_party/WebKit/Source/modules/battery/BatteryStatus.cpp \
 	third_party/WebKit/Source/modules/battery/NavigatorBattery.cpp \
+	third_party/WebKit/Source/modules/crypto/AesKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/Crypto.cpp \
 	third_party/WebKit/Source/modules/crypto/CryptoResultImpl.cpp \
 	third_party/WebKit/Source/modules/crypto/DOMWindowCrypto.cpp \
-	third_party/WebKit/Source/modules/crypto/Key.cpp \
-	third_party/WebKit/Source/modules/crypto/AesKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/HmacKeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/Key.cpp \
 	third_party/WebKit/Source/modules/crypto/KeyAlgorithm.cpp \
-	third_party/WebKit/Source/modules/crypto/RsaHashedKeyAlgorithm.cpp \
-	third_party/WebKit/Source/modules/crypto/RsaKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/KeyPair.cpp \
 	third_party/WebKit/Source/modules/crypto/NormalizeAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/RsaHashedKeyAlgorithm.cpp \
+	third_party/WebKit/Source/modules/crypto/RsaKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/SubtleCrypto.cpp \
-	third_party/WebKit/Source/modules/crypto/WorkerCrypto.cpp \
 	third_party/WebKit/Source/modules/crypto/WorkerGlobalScopeCrypto.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceAcceleration.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceMotionController.cpp \
@@ -49,8 +49,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/device_orientation/DeviceMotionDispatcher.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceMotionEvent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationController.cpp \
-	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationDispatcher.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationData.cpp \
+	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationDispatcher.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationEvent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceOrientationInspectorAgent.cpp \
 	third_party/WebKit/Source/modules/device_orientation/DeviceRotationRate.cpp \
@@ -60,9 +60,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/encryptedmedia/HTMLMediaElementEncryptedMedia.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyMessageEvent.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeyNeededEvent.cpp \
+	third_party/WebKit/Source/modules/encryptedmedia/MediaKeySession.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeys.cpp \
 	third_party/WebKit/Source/modules/encryptedmedia/MediaKeysController.cpp \
-	third_party/WebKit/Source/modules/encryptedmedia/MediaKeySession.cpp \
 	third_party/WebKit/Source/modules/filesystem/DOMFilePath.cpp \
 	third_party/WebKit/Source/modules/filesystem/DOMFileSystem.cpp \
 	third_party/WebKit/Source/modules/filesystem/DOMFileSystemBase.cpp \
@@ -162,9 +162,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediastream/RTCStatsResponse.cpp \
 	third_party/WebKit/Source/modules/mediastream/RTCVoidRequestImpl.cpp \
 	third_party/WebKit/Source/modules/mediastream/SourceInfo.cpp \
+	third_party/WebKit/Source/modules/mediastream/URLMediaStream.cpp \
 	third_party/WebKit/Source/modules/mediastream/UserMediaController.cpp \
 	third_party/WebKit/Source/modules/mediastream/UserMediaRequest.cpp \
-	third_party/WebKit/Source/modules/mediastream/URLMediaStream.cpp \
 	third_party/WebKit/Source/modules/navigatorcontentutils/NavigatorContentUtils.cpp \
 	third_party/WebKit/Source/modules/notifications/Notification.cpp \
 	third_party/WebKit/Source/modules/notifications/NotificationController.cpp \
@@ -172,11 +172,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/performance/WorkerGlobalScopePerformance.cpp \
 	third_party/WebKit/Source/modules/performance/WorkerPerformance.cpp \
 	third_party/WebKit/Source/modules/push_messaging/NavigatorPushManager.cpp \
+	third_party/WebKit/Source/modules/push_messaging/PushController.cpp \
+	third_party/WebKit/Source/modules/push_messaging/PushError.cpp \
 	third_party/WebKit/Source/modules/push_messaging/PushManager.cpp \
+	third_party/WebKit/Source/modules/push_messaging/PushRegistration.cpp \
+	third_party/WebKit/Source/modules/quota/DOMWindowQuota.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageInfo.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuota.cpp \
 	third_party/WebKit/Source/modules/quota/DeprecatedStorageQuotaCallbacksImpl.cpp \
-	third_party/WebKit/Source/modules/quota/DOMWindowQuota.cpp \
 	third_party/WebKit/Source/modules/quota/NavigatorStorageQuota.cpp \
 	third_party/WebKit/Source/modules/quota/StorageErrorCallback.cpp \
 	third_party/WebKit/Source/modules/quota/StorageInfo.cpp \
@@ -217,36 +220,35 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/speech/SpeechSynthesisUtterance.cpp \
 	third_party/WebKit/Source/modules/speech/SpeechSynthesisVoice.cpp \
 	third_party/WebKit/Source/modules/vibration/NavigatorVibration.cpp \
+	third_party/WebKit/Source/modules/webaudio/AnalyserNode.cpp \
+	third_party/WebKit/Source/modules/webaudio/AsyncAudioDecoder.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioBasicInspectorNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioBasicProcessorNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioBuffer.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioBufferSourceNode.cpp \
-	third_party/WebKit/Source/modules/webaudio/ChannelMergerNode.cpp \
-	third_party/WebKit/Source/modules/webaudio/ChannelSplitterNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioContext.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioDestinationNode.cpp \
-	third_party/WebKit/Source/modules/webaudio/GainNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioListener.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioNodeInput.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioNodeOutput.cpp \
-	third_party/WebKit/Source/modules/webaudio/PannerNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioParam.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioParamTimeline.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioProcessingEvent.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioScheduledSourceNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/AudioSummingJunction.cpp \
-	third_party/WebKit/Source/modules/webaudio/AsyncAudioDecoder.cpp \
 	third_party/WebKit/Source/modules/webaudio/BiquadDSPKernel.cpp \
 	third_party/WebKit/Source/modules/webaudio/BiquadFilterNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/BiquadProcessor.cpp \
+	third_party/WebKit/Source/modules/webaudio/ChannelMergerNode.cpp \
+	third_party/WebKit/Source/modules/webaudio/ChannelSplitterNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/ConvolverNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/DefaultAudioDestinationNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/DelayDSPKernel.cpp \
 	third_party/WebKit/Source/modules/webaudio/DelayNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/DelayProcessor.cpp \
 	third_party/WebKit/Source/modules/webaudio/DynamicsCompressorNode.cpp \
-	third_party/WebKit/Source/modules/webaudio/ScriptProcessorNode.cpp \
+	third_party/WebKit/Source/modules/webaudio/GainNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/MediaElementAudioSourceNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/MediaStreamAudioDestinationNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/MediaStreamAudioSourceNode.cpp \
@@ -254,13 +256,15 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/webaudio/OfflineAudioContext.cpp \
 	third_party/WebKit/Source/modules/webaudio/OfflineAudioDestinationNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/OscillatorNode.cpp \
+	third_party/WebKit/Source/modules/webaudio/PannerNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/PeriodicWave.cpp \
 	third_party/WebKit/Source/modules/webaudio/RealtimeAnalyser.cpp \
-	third_party/WebKit/Source/modules/webaudio/AnalyserNode.cpp \
+	third_party/WebKit/Source/modules/webaudio/ScriptProcessorNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/WaveShaperDSPKernel.cpp \
 	third_party/WebKit/Source/modules/webaudio/WaveShaperNode.cpp \
 	third_party/WebKit/Source/modules/webaudio/WaveShaperProcessor.cpp \
 	third_party/WebKit/Source/modules/webdatabase/ChangeVersionWrapper.cpp \
+	third_party/WebKit/Source/modules/webdatabase/DOMWindowWebDatabase.cpp \
 	third_party/WebKit/Source/modules/webdatabase/Database.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseAuthorizer.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseBackend.cpp \
@@ -275,7 +279,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseTask.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseThread.cpp \
 	third_party/WebKit/Source/modules/webdatabase/DatabaseTracker.cpp \
-	third_party/WebKit/Source/modules/webdatabase/DOMWindowWebDatabase.cpp \
 	third_party/WebKit/Source/modules/webdatabase/InspectorDatabaseAgent.cpp \
 	third_party/WebKit/Source/modules/webdatabase/InspectorDatabaseResource.cpp \
 	third_party/WebKit/Source/modules/webdatabase/QuotaTracker.cpp \
@@ -391,15 +394,14 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -531,15 +533,14 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -611,9 +612,9 @@ LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \
@@ -630,9 +631,9 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \

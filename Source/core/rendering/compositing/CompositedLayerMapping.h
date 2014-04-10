@@ -152,7 +152,6 @@ public:
 
     LayoutRect compositedBounds() const { return m_compositedBounds; }
     IntRect pixelSnappedCompositedBounds() const;
-    void setCompositedBounds(const LayoutRect&);
     void updateCompositedBounds(GraphicsLayerUpdater::UpdateType);
 
     void updateAfterWidgetResize();
@@ -200,7 +199,6 @@ public:
 
     virtual String debugName(const GraphicsLayer*) OVERRIDE;
 
-    LayoutSize subpixelAccumulation() const { return m_subpixelAccumulation; }
 private:
     void createPrimaryGraphicsLayer();
     void destroyGraphicsLayers();
@@ -351,7 +349,7 @@ private:
     //
     // If m_clippingAncestorLayer is present:
     //
-    // m_clippingAncestorLayer
+    // m_ancestorClippingLayer
     //   + m_graphicsLayer
     //   + m_squashingLayer
     //
@@ -365,7 +363,6 @@ private:
     Vector<GraphicsLayerPaintInfo> m_squashedLayers;
 
     LayoutRect m_compositedBounds;
-    LayoutSize m_subpixelAccumulation; // The accumulated subpixel offset of the compositedBounds compared to absolute coordinates.
 
     bool m_artificiallyInflatedBounds : 1; // bounds had to be made non-zero to make transform-origin work
     bool m_isMainFrameRenderViewLayer : 1;

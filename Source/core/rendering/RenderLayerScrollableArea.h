@@ -124,6 +124,8 @@ public:
     void updateAfterLayout();
     void updateAfterStyleChange(const RenderStyle*);
 
+    virtual void updateAfterCompositingChange() OVERRIDE;
+
     bool hasScrollbar() const { return m_hBar || m_vBar; }
 
     // FIXME: This should be removed.
@@ -221,8 +223,6 @@ private:
     virtual void updateNeedsCompositedScrolling() OVERRIDE;
     bool setNeedsCompositedScrolling(bool);
 
-    virtual void updateHasVisibleNonLayerContent() OVERRIDE;
-
     void setForceNeedsCompositedScrolling(ForceNeedsCompositedScrollingMode);
 
     RenderBox* m_box;
@@ -234,9 +234,6 @@ private:
     unsigned m_inOverflowRelayout : 1;
 
     unsigned m_needsCompositedScrolling : 1;
-    unsigned m_willUseCompositedScrollingHasBeenRecorded : 1;
-
-    unsigned m_isScrollableAreaHasBeenRecorded : 1;
 
     ForceNeedsCompositedScrollingMode m_forceNeedsCompositedScrolling;
 

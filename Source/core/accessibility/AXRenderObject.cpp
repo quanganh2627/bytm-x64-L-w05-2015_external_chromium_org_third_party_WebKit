@@ -1742,7 +1742,7 @@ VisiblePosition AXRenderObject::visiblePositionForIndex(int index) const
     if (index <= 0)
         return VisiblePosition(firstPositionInOrBeforeNode(node), DOWNSTREAM);
 
-    RefPtr<Range> range = Range::create(m_renderer->document());
+    RefPtrWillBeRawPtr<Range> range = Range::create(m_renderer->document());
     range->selectNodeContents(node, IGNORE_EXCEPTION);
     CharacterIterator it(range.get());
     it.advance(index - 1);
@@ -1768,7 +1768,7 @@ int AXRenderObject::indexForVisiblePosition(const VisiblePosition& pos) const
     if (indexPosition.isNull() || highestEditableRoot(indexPosition, HasEditableAXRole) != node)
         return 0;
 
-    RefPtr<Range> range = Range::create(m_renderer->document());
+    RefPtrWillBeRawPtr<Range> range = Range::create(m_renderer->document());
     range->setStart(node, 0, IGNORE_EXCEPTION);
     range->setEnd(indexPosition, IGNORE_EXCEPTION);
 
@@ -1783,10 +1783,14 @@ void AXRenderObject::addInlineTextBoxChildren()
     if (!renderer() || !renderer()->isText())
         return;
 
-    RenderText* renderText = toRenderText(renderer());
-    if (renderText->needsLayout())
-        renderText->document().updateLayoutIgnorePendingStylesheets();
+    if (renderer()->needsLayout()) {
+        // If a RenderText needs layout, its inline text boxes are either
+        // nonexistent or invalid, so defer until the layout happens and
+        // the renderer calls AXObjectCache::inlineTextBoxesUpdated.
+        return;
+    }
 
+    RenderText* renderText = toRenderText(renderer());
     for (RefPtr<AbstractInlineTextBox> box = renderText->firstAbstractInlineTextBox(); box.get(); box = box->nextInlineTextBox()) {
         AXObject* axObject = axObjectCache()->getOrCreate(box.get());
         if (!axObject->accessibilityIsIgnored())
@@ -1859,7 +1863,7 @@ AXObject::PlainTextRange AXRenderObject::ariaSelectedTextRange() const
         return PlainTextRange();
 
     VisibleSelection visibleSelection = selection();
-    RefPtr<Range> currentSelectionRange = visibleSelection.toNormalizedRange();
+    RefPtrWillBeRawPtr<Range> currentSelectionRange = visibleSelection.toNormalizedRange();
     if (!currentSelectionRange || !currentSelectionRange->intersectsNode(node, IGNORE_EXCEPTION))
         return PlainTextRange();
 

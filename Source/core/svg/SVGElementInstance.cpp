@@ -124,10 +124,12 @@ SVGElementInstance::~SVGElementInstance()
 // delete an SVGElementInstance at each deref call site.
 void SVGElementInstance::removedLastRef()
 {
+#if !ENABLE(OILPAN)
 #if SECURITY_ASSERT_ENABLED
     m_deletionHasBegun = true;
 #endif
     delete this;
+#endif
 }
 
 void SVGElementInstance::detach()
@@ -232,7 +234,7 @@ Document* SVGElementInstance::ownerDocument() const
     return m_element ? m_element->ownerDocument() : 0;
 }
 
-bool SVGElementInstance::dispatchEvent(PassRefPtr<Event> event)
+bool SVGElementInstance::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     SVGElement* element = shadowTreeElement();
     if (!element)

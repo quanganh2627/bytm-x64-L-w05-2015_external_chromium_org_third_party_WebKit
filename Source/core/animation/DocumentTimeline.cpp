@@ -83,6 +83,7 @@ AnimationPlayer* DocumentTimeline::play(TimedItem* child)
         return 0;
     AnimationPlayer* player = createAnimationPlayer(child);
     player->setStartTime(effectiveTime());
+    m_document->compositorPendingAnimations().add(player);
     return player;
 }
 
@@ -91,7 +92,7 @@ void DocumentTimeline::wake()
     m_timing->serviceOnNextFrame();
 }
 
-void DocumentTimeline::serviceAnimations()
+void DocumentTimeline::serviceAnimations(AnimationPlayer::UpdateReason reason)
 {
     TRACE_EVENT0("webkit", "DocumentTimeline::serviceAnimations");
 
@@ -107,7 +108,7 @@ void DocumentTimeline::serviceAnimations()
 
     for (size_t i = 0; i < players.size(); ++i) {
         AnimationPlayer* player = players[i];
-        if (player->update())
+        if (player->update(reason))
             timeToNextEffect = std::min(timeToNextEffect, player->timeToEffectChange());
         else
             m_playersNeedingUpdate.remove(player);
@@ -127,7 +128,7 @@ void DocumentTimeline::setZeroTime(double zeroTime)
     ASSERT(isNull(m_zeroTime));
     m_zeroTime = zeroTime;
     ASSERT(!isNull(m_zeroTime));
-    serviceAnimations();
+    serviceAnimations(AnimationPlayer::UpdateOnDemand);
 }
 
 void DocumentTimeline::DocumentTimelineTiming::wakeAfter(double duration)
@@ -173,7 +174,7 @@ void DocumentTimeline::pauseAnimationsForTesting(double pauseTime)
 {
     for (HashSet<RefPtr<AnimationPlayer> >::iterator it = m_playersNeedingUpdate.begin(); it != m_playersNeedingUpdate.end(); ++it)
         (*it)->pauseForTesting(pauseTime);
-    serviceAnimations();
+    serviceAnimations(AnimationPlayer::UpdateOnDemand);
 }
 
 void DocumentTimeline::setOutdatedAnimationPlayer(AnimationPlayer* player)
@@ -186,8 +187,6 @@ void DocumentTimeline::setOutdatedAnimationPlayer(AnimationPlayer* player)
 
 size_t DocumentTimeline::numberOfActiveAnimationsForTesting() const
 {
-    if (isNull(m_zeroTime))
-        return 0;
     // Includes all players whose directly associated timed items
     // are current or in effect.
     if (isNull(m_zeroTime))

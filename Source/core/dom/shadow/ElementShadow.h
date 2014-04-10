@@ -52,15 +52,11 @@ public:
 
     ShadowRoot& addShadowRoot(Element& shadowHost, ShadowRoot::ShadowRootType);
 
-    bool applyAuthorStyles() const { return m_applyAuthorStyles; }
-    bool didAffectApplyAuthorStyles();
     bool containsActiveStyles() const;
     bool hasSameStyles(ElementShadow *) const;
 
     void attach(const Node::AttachContext&);
     void detach(const Node::AttachContext&);
-
-    void removeAllEventListeners();
 
     void didAffectSelector(AffectedSelectorMask);
     void willAffectSelector();
@@ -78,7 +74,6 @@ private:
     ElementShadow();
 
     void removeDetachedShadowRoots();
-    bool resolveApplyAuthorStyles() const;
 
     void distribute();
     void clearDistribution();
@@ -95,7 +90,6 @@ private:
     SelectRuleFeatureSet m_selectFeatures;
     DoublyLinkedList<ShadowRoot> m_shadowRoots;
     bool m_needsDistributionRecalc;
-    bool m_applyAuthorStyles;
     bool m_needsSelectFeatureSet;
 };
 

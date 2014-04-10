@@ -41,7 +41,7 @@
 #include "WebNodeList.h"
 #include "bindings/v8/Dictionary.h"
 #include "bindings/v8/ExceptionState.h"
-#include "bindings/v8/ScriptState.h"
+#include "bindings/v8/NewScriptState.h"
 #include "bindings/v8/ScriptValue.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/css/CSSParserMode.h"
@@ -102,7 +102,7 @@ WebURL WebDocument::openSearchDescriptionURL() const
     return const_cast<Document*>(constUnwrap<Document>())->openSearchDescriptionURL();
 }
 
-WebFrame* WebDocument::frame() const
+WebLocalFrame* WebDocument::frame() const
 {
     return WebFrameImpl::fromFrame(constUnwrap<Document>()->frame());
 }
@@ -290,10 +290,11 @@ WebVector<WebDraggableRegion> WebDocument::draggableRegions() const
 
 v8::Handle<v8::Value> WebDocument::registerEmbedderCustomElement(const WebString& name, v8::Handle<v8::Value> options, WebExceptionCode& ec)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     Document* document = unwrap<Document>();
-    Dictionary dictionary(options, v8::Isolate::GetCurrent());
+    Dictionary dictionary(options, isolate);
     TrackExceptionState exceptionState;
-    ScriptValue constructor = document->registerElement(ScriptState::current(), name, dictionary, exceptionState, CustomElement::EmbedderNames);
+    ScriptValue constructor = document->registerElement(NewScriptState::current(isolate), name, dictionary, exceptionState, CustomElement::EmbedderNames);
     ec = exceptionState.code();
     if (exceptionState.hadException())
         return v8::Handle<v8::Value>();

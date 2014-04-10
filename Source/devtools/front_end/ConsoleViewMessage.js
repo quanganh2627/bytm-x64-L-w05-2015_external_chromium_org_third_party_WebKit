@@ -228,7 +228,7 @@ WebInspector.ConsoleViewMessage.prototype = {
             return this._linkifier.linkifyCSSLocation(headerIds[0] || null, cssLocation, "console-message-url");
         }
 
-        return this._linkifier.linkifyLocation(url, lineNumber, columnNumber, "console-message-url");
+        return this._linkifier.linkifyLocation(this.target(), url, lineNumber, columnNumber, "console-message-url");
     },
 
     /**
@@ -487,18 +487,17 @@ WebInspector.ConsoleViewMessage.prototype = {
     _formatParameterAsNode: function(object, elem)
     {
         /**
-         * @param {!DOMAgent.NodeId} nodeId
+         * @param {!WebInspector.DOMNode} node
          * @this {WebInspector.ConsoleViewMessage}
          */
-        function printNode(nodeId)
+        function printNode(node)
         {
-            if (!nodeId) {
+            if (!node) {
                 // Sometimes DOM is loaded after the sync message is being formatted, so we get no
                 // nodeId here. So we fall back to object formatting here.
                 this._formatParameterAsObject(object, elem, false);
                 return;
             }
-            var node = this.target().domModel.nodeForId(nodeId);
             var renderer = WebInspector.moduleManager.instance(WebInspector.Renderer, node);
             if (renderer)
                 elem.appendChild(renderer.render(node));
@@ -869,6 +868,9 @@ WebInspector.ConsoleViewMessage.prototype = {
         return regexObject.test(this._formattedMessageText()) || (!!this._anchorElement && regexObject.test(this._anchorElement.textContent));
     },
 
+    /**
+     * @param {boolean} show
+     */
     updateTimestamp: function(show)
     {
         if (!this._element)
@@ -877,7 +879,7 @@ WebInspector.ConsoleViewMessage.prototype = {
         if (show && !this.timestampElement) {
             this.timestampElement = this._element.createChild("span", "console-timestamp");
             this.timestampElement.textContent = (new Date(this._message.timestamp)).toConsoleTime();
-            var afterRepeatCountChild = this.repeatCountElement && this.repeatCountElement.nextSibling;
+            var afterRepeatCountChild = this._repeatCountElement && this._repeatCountElement.nextSibling;
             this._element.insertBefore(this.timestampElement, afterRepeatCountChild || this._element.firstChild);
             return;
         }
@@ -958,6 +960,16 @@ WebInspector.ConsoleViewMessage.prototype = {
         }
     },
 
+    resetIncrementRepeatCount: function()
+    {
+        this._repeatCount = 1;
+        if (!this._repeatCountElement)
+            return;
+
+        this._repeatCountElement.remove();
+        delete this._repeatCountElement;
+    },
+
     incrementRepeatCount: function()
     {
         this._repeatCount++;
@@ -969,14 +981,14 @@ WebInspector.ConsoleViewMessage.prototype = {
         if (!this._element)
             return;
 
-        if (!this.repeatCountElement) {
-            this.repeatCountElement = document.createElement("span");
-            this.repeatCountElement.className = "bubble";
+        if (!this._repeatCountElement) {
+            this._repeatCountElement = document.createElement("span");
+            this._repeatCountElement.className = "bubble";
 
-            this._element.insertBefore(this.repeatCountElement, this._element.firstChild);
+            this._element.insertBefore(this._repeatCountElement, this._element.firstChild);
             this._element.classList.add("repeated-message");
         }
-        this.repeatCountElement.textContent = this._repeatCount;
+        this._repeatCountElement.textContent = this._repeatCount;
     },
 
     /**

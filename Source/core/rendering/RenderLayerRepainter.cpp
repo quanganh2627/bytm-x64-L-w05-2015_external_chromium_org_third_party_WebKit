@@ -45,7 +45,6 @@
 #include "core/rendering/RenderLayerRepainter.h"
 
 #include "core/rendering/FilterEffectRenderer.h"
-#include "core/rendering/LayoutRectRecorder.h"
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/compositing/CompositedLayerMapping.h"
@@ -119,11 +118,7 @@ void RenderLayerRepainter::computeRepaintRectsIncludingDescendants()
         // FIXME: We want RenderLayerRepainter to go away when
         // repaint-after-layout is on by default so we need to figure out how to
         // handle this update.
-        //
-        // This is a little silly as we create and immediately destroy the RAII
-        // object but it makes sure we correctly set all of the repaint flags.
-        LayoutRectRecorder recorder(*m_renderer);
-
+        m_renderer->setPreviousRepaintRect(m_renderer->clippedOverflowRectForRepaint(m_renderer->containerForRepaint()));
     } else {
         // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
         // We should make this more efficient.
@@ -163,7 +158,7 @@ LayoutRect RenderLayerRepainter::repaintRectIncludingNonCompositingDescendants()
 {
     LayoutRect repaintRect;
     if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-        repaintRect = m_renderer->newRepaintRect();
+        repaintRect = m_renderer->previousRepaintRect();
     else
         repaintRect = m_repaintRect;
 
@@ -215,7 +210,7 @@ void RenderLayerRepainter::setBackingNeedsRepaintInRect(const LayoutRect& r)
             offsetRect.move(-m_renderer->layer()->offsetFromSquashingLayerOrigin());
             m_renderer->groupedMapping()->squashingLayer()->setNeedsDisplayInRect(offsetRect);
         } else {
-            IntRect repaintRect = pixelSnappedIntRect(r.location() +  m_renderer->compositedLayerMapping()->subpixelAccumulation(), r.size());
+            IntRect repaintRect = pixelSnappedIntRect(r.location() +  m_renderer->layer()->subpixelAccumulation(), r.size());
             m_renderer->compositedLayerMapping()->setContentsNeedDisplayInRect(repaintRect);
         }
     }
@@ -239,14 +234,6 @@ void RenderLayerRepainter::setFilterBackendNeedsRepaintingInRect(const LayoutRec
     RenderLayerFilterInfo* filterInfo = m_renderer->layer()->filterInfo();
     ASSERT(filterInfo);
     filterInfo->expandDirtySourceRect(rectForRepaint);
-
-    ASSERT(filterInfo->renderer());
-    if (filterInfo->renderer()->hasCustomShaderFilter()) {
-        // If we have at least one custom shader, we need to update the whole bounding box of the layer, because the
-        // shader can address any ouput pixel.
-        // Note: This is only for output rect, so there's no need to expand the dirty source rect.
-        rectForRepaint.unite(m_renderer->layer()->calculateLayerBounds(m_renderer->layer()));
-    }
 
     RenderLayer* parentLayer = enclosingFilterRepaintLayer();
     ASSERT(parentLayer);

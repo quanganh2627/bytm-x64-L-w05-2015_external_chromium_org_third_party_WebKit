@@ -57,6 +57,16 @@ WebInspector.TextRange.fromObject = function(serializedTextRange)
     return new WebInspector.TextRange(serializedTextRange.startLine, serializedTextRange.startColumn, serializedTextRange.endLine, serializedTextRange.endColumn);
 }
 
+/**
+ * @param {!WebInspector.TextRange} range1
+ * @param {!WebInspector.TextRange} range2
+ * @return {number}
+ */
+WebInspector.TextRange.comparator = function(range1, range2)
+{
+    return range1.compareTo(range2);
+}
+
 WebInspector.TextRange.prototype = {
     /**
      * @return {boolean}
@@ -112,6 +122,14 @@ WebInspector.TextRange.prototype = {
     collapseToEnd: function()
     {
         return new WebInspector.TextRange(this.endLine, this.endColumn, this.endLine, this.endColumn);
+    },
+
+    /**
+     * @return {!WebInspector.TextRange}
+     */
+    collapseToStart: function()
+    {
+        return new WebInspector.TextRange(this.startLine, this.startColumn, this.startLine, this.startColumn);
     },
 
     /**

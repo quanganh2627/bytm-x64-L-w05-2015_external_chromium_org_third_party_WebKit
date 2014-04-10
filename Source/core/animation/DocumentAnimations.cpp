@@ -31,12 +31,12 @@
 #include "config.h"
 #include "core/animation/DocumentAnimations.h"
 
-#include "core/animation/ActiveAnimations.h"
 #include "core/animation/AnimationClock.h"
 #include "core/animation/DocumentTimeline.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/dom/Node.h"
+#include "core/dom/NodeRenderStyle.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/rendering/RenderView.h"
@@ -46,10 +46,10 @@ namespace WebCore {
 
 namespace {
 
-void updateAnimationTiming(Document& document)
+void updateAnimationTiming(Document& document, AnimationPlayer::UpdateReason reason)
 {
-    document.timeline().serviceAnimations();
-    document.transitionTimeline().serviceAnimations();
+    document.timeline().serviceAnimations(reason);
+    document.transitionTimeline().serviceAnimations(reason);
 }
 
 } // namespace
@@ -57,13 +57,13 @@ void updateAnimationTiming(Document& document)
 void DocumentAnimations::updateAnimationTimingForAnimationFrame(Document& document, double monotonicAnimationStartTime)
 {
     document.animationClock().updateTime(monotonicAnimationStartTime);
-    updateAnimationTiming(document);
+    updateAnimationTiming(document, AnimationPlayer::UpdateForAnimationFrame);
 }
 
 void DocumentAnimations::updateOutdatedAnimationPlayersAfterFrameCallbacks(Document& document)
 {
     if (document.timeline().hasOutdatedAnimationPlayer()) {
-        updateAnimationTiming(document);
+        updateAnimationTiming(document, AnimationPlayer::UpdateOnDemand);
     }
 }
 
@@ -73,19 +73,22 @@ void DocumentAnimations::updateAnimationTimingForGetComputedStyle(Node& node, CS
         return;
     const Element& element = toElement(node);
     if (element.document().timeline().hasOutdatedAnimationPlayer()) {
-        updateAnimationTiming(element.document());
+        updateAnimationTiming(element.document(), AnimationPlayer::UpdateOnDemand);
         return;
     }
-    if (const ActiveAnimations* activeAnimations = element.activeAnimations()) {
-        if (activeAnimations->hasActiveAnimationsOnCompositor(property))
-            updateAnimationTiming(element.document());
+    if (RenderStyle* style = element.renderStyle()) {
+        if ((property == CSSPropertyOpacity && style->isRunningOpacityAnimationOnCompositor())
+            || ((property == CSSPropertyTransform || property == CSSPropertyWebkitTransform) && style->isRunningTransformAnimationOnCompositor())
+            || (property == CSSPropertyWebkitFilter && style->isRunningFilterAnimationOnCompositor())) {
+            updateAnimationTiming(element.document(), AnimationPlayer::UpdateOnDemand);
+        }
     }
 }
 
 void DocumentAnimations::startPendingAnimations(Document& document)
 {
     ASSERT(document.lifecycle().state() == DocumentLifecycle::CompositingClean);
-    if (document.cssPendingAnimations().startPendingAnimations()) {
+    if (document.compositorPendingAnimations().startPendingAnimations()) {
         ASSERT(document.view());
         document.view()->scheduleAnimation();
     }

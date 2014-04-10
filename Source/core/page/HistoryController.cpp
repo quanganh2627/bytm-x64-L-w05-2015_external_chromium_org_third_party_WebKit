@@ -151,11 +151,6 @@ HistoryController::~HistoryController()
 {
 }
 
-void HistoryController::updateBackForwardListForFragmentScroll(LocalFrame* frame, HistoryItem* item)
-{
-    createNewBackForwardItem(frame, item, false);
-}
-
 void HistoryController::goToEntry(PassOwnPtr<HistoryEntry> targetEntry, ResourceRequestCachePolicy cachePolicy)
 {
     HistoryFrameLoadSet sameDocumentLoads;
@@ -220,12 +215,12 @@ void HistoryController::goToItem(HistoryItem* targetItem, ResourceRequestCachePo
         // create a new HistoryNode for each child and attach it,
         // then clear the children on the HistoryItem.
         HistoryNode* historyNode = historyNodes.takeFirst();
-        const HistoryItemVector& children = historyNode->value()->children();
+        const HistoryItemVector& children = historyNode->value()->deprecatedChildren();
         for (size_t i = 0; i < children.size(); i++) {
             HistoryNode* childHistoryNode = historyNode->addChild(children[i].get(), -1);
             historyNodes.append(childHistoryNode);
         }
-        historyNode->value()->clearChildren();
+        historyNode->value()->deprecatedClearChildren();
     }
     goToEntry(newEntry.release(), cachePolicy);
 }
@@ -241,7 +236,7 @@ void HistoryController::updateForInitialLoadInChildFrame(LocalFrame* frame, Hist
         parentHistoryNode->addChild(item, frame->frameID());
 }
 
-void HistoryController::updateForCommit(LocalFrame* frame, HistoryItem* item, HistoryCommitType commitType)
+void HistoryController::updateForCommit(LocalFrame* frame, HistoryItem* item, HistoryCommitType commitType, bool navigationWithinPage)
 {
     if (commitType == BackForwardCommit) {
         if (!m_provisionalEntry)
@@ -254,7 +249,7 @@ void HistoryController::updateForCommit(LocalFrame* frame, HistoryItem* item, Hi
         ASSERT(m_provisionalEntry);
         m_currentEntry = m_provisionalEntry.release();
     } else if (commitType == StandardCommit) {
-        createNewBackForwardItem(frame, item, true);
+        createNewBackForwardItem(frame, item, !navigationWithinPage);
     } else if (commitType == InitialCommitInChildFrame) {
         updateForInitialLoadInChildFrame(frame, item);
     }
@@ -263,10 +258,11 @@ void HistoryController::updateForCommit(LocalFrame* frame, HistoryItem* item, Hi
 static PassRefPtr<HistoryItem> itemForExport(HistoryNode* historyNode)
 {
     ASSERT(historyNode);
-    RefPtr<HistoryItem> item = historyNode->value()->copy();
+    RefPtr<HistoryItem> item = historyNode->value();
+    item->deprecatedClearChildren();
     const Vector<OwnPtr<HistoryNode> >& childEntries = historyNode->children();
     for (size_t i = 0; i < childEntries.size(); i++)
-        item->addChildItem(itemForExport(childEntries[i].get()));
+        item->deprecatedAddChildItem(itemForExport(childEntries[i].get()));
     return item;
 }
 

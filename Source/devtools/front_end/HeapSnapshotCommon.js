@@ -35,6 +35,8 @@ WebInspector.HeapSnapshotProgressEvent = {
 WebInspector.HeapSnapshotCommon = {
 }
 
+WebInspector.HeapSnapshotCommon.baseSystemDistance = 100000000;
+
 /**
  * @param {!Array.<!WebInspector.HeapSnapshotCommon.SerializedAllocationNode>} nodesWithSingleCaller
  * @param {!Array.<!WebInspector.HeapSnapshotCommon.SerializedAllocationNode>} branchingCallers
@@ -52,6 +54,7 @@ WebInspector.HeapSnapshotCommon.AllocationNodeCallers = function(nodesWithSingle
  * @param {number} nodeId
  * @param {string} functionName
  * @param {string} scriptName
+ * @param {number} scriptId
  * @param {number} line
  * @param {number} column
  * @param {number} count
@@ -61,7 +64,7 @@ WebInspector.HeapSnapshotCommon.AllocationNodeCallers = function(nodesWithSingle
  * @param {boolean} hasChildren
  * @constructor
  */
-WebInspector.HeapSnapshotCommon.SerializedAllocationNode = function(nodeId, functionName, scriptName, line, column, count, size, liveCount, liveSize, hasChildren)
+WebInspector.HeapSnapshotCommon.SerializedAllocationNode = function(nodeId, functionName, scriptName, scriptId, line, column, count, size, liveCount, liveSize, hasChildren)
 {
     /** @type {number} */
     this.id = nodeId;
@@ -69,6 +72,8 @@ WebInspector.HeapSnapshotCommon.SerializedAllocationNode = function(nodeId, func
     this.name = functionName;
     /** @type {string} */
     this.scriptName = scriptName;
+    /** @type {number} */
+    this.scriptId = scriptId;
     /** @type {number} */
     this.line = line;
     /** @type {number} */
@@ -84,6 +89,67 @@ WebInspector.HeapSnapshotCommon.SerializedAllocationNode = function(nodeId, func
     /** @type {boolean} */
     this.hasChildren = hasChildren;
 }
+
+/**
+ * @param {string} functionName
+ * @param {string} scriptName
+ * @param {number} scriptId
+ * @param {number} line
+ * @param {number} column
+ * @constructor
+ */
+WebInspector.HeapSnapshotCommon.AllocationStackFrame = function(functionName, scriptName, scriptId, line, column)
+{
+    /** @type {string} */
+    this.functionName = functionName;
+    /** @type {string} */
+    this.scriptName = scriptName;
+    /** @type {number} */
+    this.scriptId = scriptId;
+    /** @type {number} */
+    this.line = line;
+    /** @type {number} */
+    this.column = column;
+}
+
+/**
+ * @constructor
+ * @param {number} id
+ * @param {string} name
+ * @param {number} distance
+ * @param {number|undefined} nodeIndex
+ * @param {number} retainedSize
+ * @param {number} selfSize
+ * @param {string} type
+ */
+WebInspector.HeapSnapshotCommon.Node = function(id, name, distance, nodeIndex, retainedSize, selfSize, type)
+{
+    this.id = id;
+    this.name = name;
+    this.distance = distance;
+    this.nodeIndex = nodeIndex;
+    this.retainedSize = retainedSize;
+    this.selfSize = selfSize;
+    this.type = type;
+
+    this.canBeQueried = false;
+    this.detachedDOMTreeNode = false;
+}
+
+/**
+ * @constructor
+ * @param {string} name
+ * @param {!WebInspector.HeapSnapshotCommon.Node} node
+ * @param {string} type
+ * @param {number} edgeIndex
+ */
+WebInspector.HeapSnapshotCommon.Edge = function(name, node, type, edgeIndex)
+{
+    this.name = name;
+    this.node = node;
+    this.type = type;
+    this.edgeIndex = edgeIndex;
+};
 
 /**
  * @constructor

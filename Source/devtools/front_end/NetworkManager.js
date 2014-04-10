@@ -30,12 +30,12 @@
 
 /**
  * @constructor
- * @extends {WebInspector.Object}
+ * @extends {WebInspector.TargetAwareObject}
  * @param {!WebInspector.Target} target
  */
 WebInspector.NetworkManager = function(target)
 {
-    WebInspector.Object.call(this);
+    WebInspector.TargetAwareObject.call(this, target);
     this._dispatcher = new WebInspector.NetworkDispatcher(this);
     this._target = target;
     this._networkAgent = target.networkAgent();
@@ -117,7 +117,7 @@ WebInspector.NetworkManager.prototype = {
         this._networkAgent.setCacheDisabled(enabled);
     },
 
-    __proto__: WebInspector.Object.prototype
+    __proto__: WebInspector.TargetAwareObject.prototype
 }
 
 /**
@@ -164,9 +164,6 @@ WebInspector.NetworkDispatcher.prototype = {
      */
     _updateNetworkRequestWithResponse: function(networkRequest, response)
     {
-        if (!response)
-            return;
-
         if (response.url && networkRequest.url !== response.url)
             networkRequest.url = response.url;
         networkRequest.mimeType = response.mimeType;
@@ -236,17 +233,6 @@ WebInspector.NetworkDispatcher.prototype = {
     },
 
     /**
-     * @param {!NetworkAgent.Response} response
-     * @return {boolean}
-     */
-    _isNull: function(response)
-    {
-        if (!response)
-            return true;
-        return !response.status && !response.mimeType && (!response.headers || !Object.keys(response.headers).length);
-    },
-
-    /**
      * @param {!NetworkAgent.RequestId} requestId
      * @param {!PageAgent.FrameId} frameId
      * @param {!NetworkAgent.LoaderId} loaderId
@@ -296,10 +282,6 @@ WebInspector.NetworkDispatcher.prototype = {
      */
     responseReceived: function(requestId, frameId, loaderId, time, resourceType, response)
     {
-        // FIXME: move this check to the backend.
-        if (this._isNull(response))
-            return;
-
         var networkRequest = this._inflightRequestsById[requestId];
         if (!networkRequest) {
             // We missed the requestWillBeSent.
@@ -378,7 +360,7 @@ WebInspector.NetworkDispatcher.prototype = {
      */
     webSocketCreated: function(requestId, requestURL)
     {
-        var networkRequest = new WebInspector.NetworkRequest(requestId, requestURL, "", "", "");
+        var networkRequest = new WebInspector.NetworkRequest(this._manager._target, requestId, requestURL, "", "", "");
         networkRequest.type = WebInspector.resourceTypes.WebSocket;
         this._startNetworkRequest(networkRequest);
     },
@@ -562,7 +544,7 @@ WebInspector.NetworkDispatcher.prototype = {
      */
     _createNetworkRequest: function(requestId, frameId, loaderId, url, documentURL, initiator)
     {
-        var networkRequest = new WebInspector.NetworkRequest(requestId, url, documentURL, frameId, loaderId);
+        var networkRequest = new WebInspector.NetworkRequest(this._manager._target, requestId, url, documentURL, frameId, loaderId);
         networkRequest.initiator = initiator;
         return networkRequest;
     }

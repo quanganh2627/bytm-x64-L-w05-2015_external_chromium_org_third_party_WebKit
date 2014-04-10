@@ -179,14 +179,17 @@ if (!{{argument.name}}.isUndefinedOrNull() && !{{argument.name}}.isObject()) {
 {######################################}
 {% macro cpp_method_call(method, v8_set_return_value, cpp_value) %}
 {# Local variables #}
-{% if method.is_implemented_by and not method.is_static %}
+{% if method.is_partial_interface_member and not method.is_static %}
+{# instance members (non-static members) in partial interface take |impl| #}
 ASSERT(impl);
 {% endif %}
 {% if method.is_call_with_script_state %}
-ScriptState* currentState = ScriptState::current();
-if (!currentState)
+ScriptState* state = ScriptState::current();
+if (!state)
     return;
-ScriptState& state = *currentState;
+{% endif %}
+{% if method.is_call_with_new_script_state %}
+NewScriptState* state = NewScriptState::current(info.GetIsolate());
 {% endif %}
 {% if method.is_call_with_execution_context %}
 ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
@@ -197,7 +200,7 @@ RefPtr<ScriptArguments> scriptArguments(createScriptArguments(info, {{method.num
 {# Call #}
 {% if method.idl_type == 'void' %}
 {{cpp_value}};
-{% elif method.is_call_with_script_state or method.is_raises_exception %}
+{% elif method.is_call_with_script_state or method.is_call_with_new_script_state or method.is_raises_exception %}
 {# FIXME: consider always using a local variable #}
 {{method.cpp_type}} result = {{cpp_value}};
 {% endif %}
@@ -205,14 +208,6 @@ RefPtr<ScriptArguments> scriptArguments(createScriptArguments(info, {{method.num
 {% if method.is_raises_exception %}
 if (exceptionState.throwIfNeeded())
     return;
-{% endif %}
-{% if method.is_call_with_script_state %}
-if (state.hadException()) {
-    v8::Local<v8::Value> exception = state.exception();
-    state.clearException();
-    throwError(exception, info.GetIsolate());
-    return;
-}
 {% endif %}
 {# Set return value #}
 {% if method.union_arguments %}
@@ -418,7 +413,7 @@ static void {{v8_class}}ConstructorCallback(const v8::FunctionCallbackInfo<v8::V
         return;
     }
 
-    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject) {
+    if (ConstructorMode::current(info.GetIsolate()) == ConstructorMode::WrapExistingObject) {
         v8SetReturnValue(info, info.Holder());
         return;
     }

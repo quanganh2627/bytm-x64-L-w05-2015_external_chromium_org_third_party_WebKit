@@ -34,6 +34,7 @@
 #include "WebDOMMessageEvent.h"
 #include "WebDataSource.h"
 #include "WebFrame.h"
+#include "WebHistoryCommitType.h"
 #include "WebHistoryItem.h"
 #include "WebIconURL.h"
 #include "WebNavigationPolicy.h"
@@ -116,6 +117,9 @@ public:
 
     // General notifications -----------------------------------------------
 
+    // Indicates if creating a plugin without an associated renderer is supported.
+    virtual bool canCreatePluginWithoutRenderer(const WebString& mimeType) { return false; }
+
     // Indicates that another page has accessed the DOM of the initial empty
     // document of a main frame. After this, it is no longer safe to show a
     // pending navigation's URL, because a URL spoof is possible.
@@ -141,7 +145,7 @@ public:
 
     // This frame is about to be closed. This is called after frameDetached,
     // when the document is being unloaded, due to new one committing.
-    virtual void willClose(WebLocalFrame*) { }
+    virtual void willClose(WebFrame*) { }
 
     // This frame's name has changed.
     virtual void didChangeName(WebLocalFrame*, const WebString&) { }
@@ -213,7 +217,7 @@ public:
     // The provisional datasource is now committed.  The first part of the
     // response body has been received, and the encoding of the response
     // body is known.
-    virtual void didCommitProvisionalLoad(WebLocalFrame*, bool isNewNavigation) { }
+    virtual void didCommitProvisionalLoad(WebLocalFrame*, const WebHistoryItem&, WebHistoryCommitType) { }
 
     // The window object for the frame has been cleared of any extra
     // properties that may have been set by script from the previously
@@ -244,7 +248,7 @@ public:
     // The navigation resulted in no change to the documents within the page.
     // For example, the navigation may have just resulted in scrolling to a
     // named anchor or a PopState event may have been dispatched.
-    virtual void didNavigateWithinPage(WebLocalFrame*, bool isNewNavigation) { }
+    virtual void didNavigateWithinPage(WebLocalFrame*, const WebHistoryItem&, WebHistoryCommitType) { }
 
     // Called upon update to scroll position, document state, and other
     // non-navigational events related to the data held by WebHistoryItem.
@@ -294,7 +298,7 @@ public:
         WebLocalFrame*, unsigned identifier, const blink::WebURLRequest::Priority&) { }
 
     virtual void didChangeResourcePriority(
-        WebFrame* webFrame, unsigned identifier, const blink::WebURLRequest::Priority& priority, int) { didChangeResourcePriority(webFrame, identifier, priority); }
+        WebLocalFrame* webFrame, unsigned identifier, const blink::WebURLRequest::Priority& priority, int) { didChangeResourcePriority(webFrame, identifier, priority); }
 
     // The resource request given by identifier succeeded.
     virtual void didFinishResourceLoad(

@@ -298,9 +298,9 @@ public:
 
     // Message Ports -------------------------------------------------------
 
-    // Creates a Message Port Channel. This can be called on any thread.
-    // The returned object should only be used on the thread it was created on.
-    virtual WebMessagePortChannel* createMessagePortChannel() { return 0; }
+    // Creates a Message Port Channel pair. This can be called on any thread.
+    // The returned objects should only be used on the thread they were created on.
+    virtual void createMessageChannel(WebMessagePortChannel** channel1, WebMessagePortChannel** channel2) { *channel1 = 0; *channel2 = 0; }
 
 
     // Network -------------------------------------------------------------

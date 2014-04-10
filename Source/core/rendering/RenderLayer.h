@@ -223,13 +223,16 @@ public:
     void setHasOutOfFlowPositionedDescendant(bool hasDescendant) { m_hasOutOfFlowPositionedDescendant = hasDescendant; }
     void setHasOutOfFlowPositionedDescendantDirty(bool dirty) { m_hasOutOfFlowPositionedDescendantDirty = dirty; }
 
+
     bool hasUnclippedDescendant() const { return m_hasUnclippedDescendant; }
     void setHasUnclippedDescendant(bool hasDescendant) { m_hasUnclippedDescendant = hasDescendant; }
     void updateHasUnclippedDescendant();
     bool isUnclippedDescendant() const { return m_isUnclippedDescendant; }
 
+    // Will ensure that hasUnclippedDescendant and hasNonCompositiedChild are up to date.
+    void updateScrollingStateAfterCompositingChange();
     bool hasVisibleNonLayerContent() const { return m_hasVisibleNonLayerContent; }
-    void updateHasVisibleNonLayerContent();
+    bool hasNonCompositedChild() const { return m_compositingProperties.hasNonCompositedChild; }
 
     bool usedTransparency() const { return m_usedTransparency; }
 
@@ -252,7 +255,6 @@ public:
     RenderLayer* ancestorScrollingLayer() const;
 
     RenderLayer* enclosingFilterLayer(IncludeSelfOrNot = IncludeSelf) const;
-    RenderLayer* enclosingFilterRepaintLayer() const;
     bool hasAncestorWithFilterOutsets() const;
 
     bool canUseConvertToLayerCoords() const
@@ -278,31 +280,22 @@ public:
     // Pass offsetFromRoot if known.
     bool intersectsDamageRect(const LayoutRect& layerBounds, const LayoutRect& damageRect, const RenderLayer* rootLayer, const LayoutPoint* offsetFromRoot = 0) const;
 
-    enum CalculateLayerBoundsFlag {
-        IncludeSelfTransform = 1 << 0,
-        UseLocalClipRectIfPossible = 1 << 1,
-        IncludeLayerFilterOutsets = 1 << 2,
-        ExcludeHiddenDescendants = 1 << 3,
-        DontConstrainForMask = 1 << 4,
-        IncludeCompositedDescendants = 1 << 5,
-        UseFragmentBoxes = 1 << 6,
-        PretendLayerHasOwnBacking = 1 << 7,
-        DefaultCalculateLayerBoundsFlags =  IncludeSelfTransform | UseLocalClipRectIfPossible | IncludeLayerFilterOutsets | UseFragmentBoxes
-    };
-    typedef unsigned CalculateLayerBoundsFlags;
-
     // Bounding box relative to some ancestor layer. Pass offsetFromRoot if known.
-    LayoutRect boundingBox(const RenderLayer* rootLayer, CalculateLayerBoundsFlags = 0, const LayoutPoint* offsetFromRoot = 0) const;
+    LayoutRect physicalBoundingBox(const RenderLayer* ancestorLayer, const LayoutPoint* offsetFromRoot = 0) const;
+    LayoutRect physicalBoundingBoxIncludingReflectionAndStackingChildren(const RenderLayer* ancestorLayer, const LayoutPoint& offsetFromRoot) const;
 
-    // Bounds used for layer overlap testing in RenderLayerCompositor.
-    LayoutRect overlapBounds() const { return overlapBoundsIncludeChildren() ? calculateLayerBounds(this) : localBoundingBox(); }
+    // FIXME: This function is inconsistent as to whether the returned rect has been flipped for writing mode.
+    LayoutRect boundingBoxForCompositingOverlapTest() const { return overlapBoundsIncludeChildren() ? boundingBoxForCompositing() : logicalBoundingBox(); }
 
     // If true, this layer's children are included in its bounds for overlap testing.
     // We can't rely on the children's positions if this layer has a filter that could have moved the children's pixels around.
     bool overlapBoundsIncludeChildren() const { return hasFilter() && renderer()->style()->filter().hasFilterThatMovesPixels(); }
 
-    // Can pass offsetFromRoot if known.
-    LayoutRect calculateLayerBounds(const RenderLayer* ancestorLayer, const LayoutPoint* offsetFromRoot = 0, CalculateLayerBoundsFlags = DefaultCalculateLayerBoundsFlags) const;
+    enum CalculateBoundsOptions {
+        ApplyBoundsChickenEggHacks,
+        DoNotApplyBoundsChickenEggHacks,
+    };
+    LayoutRect boundingBoxForCompositing(const RenderLayer* ancestorLayer = 0, CalculateBoundsOptions = DoNotApplyBoundsChickenEggHacks) const;
 
     // WARNING: This method returns the offset for the parent as this is what updateLayerPositions expects.
     LayoutPoint computeOffsetFromRoot(bool& hasLayerOffset) const;
@@ -312,6 +305,9 @@ public:
 
     void setStaticInlinePosition(LayoutUnit position) { m_staticInlinePosition = position; }
     void setStaticBlockPosition(LayoutUnit position) { m_staticBlockPosition = position; }
+
+    LayoutSize subpixelAccumulation() const;
+    void setSubpixelAccumulation(const LayoutSize&);
 
     bool hasTransform() const { return renderer()->hasTransform(); }
     // Note that this transform has the transform-origin baked in.
@@ -473,8 +469,6 @@ public:
     bool hasDirectReasonsForCompositing() const { return compositingReasons() & CompositingReasonComboAllDirectReasons; }
     CompositingReasons styleDeterminedCompositingReasons() const { return compositingReasons() & CompositingReasonComboAllStyleDeterminedReasons; }
 
-    void clearAncestorDependentPropertyCache();
-
     class AncestorDependentProperties {
     public:
         IntRect clippedAbsoluteBoundingBox;
@@ -498,9 +492,6 @@ public:
     bool hasCompositingDescendant() const { return m_compositingProperties.hasCompositingDescendant; }
     void setHasCompositingDescendant(bool b)  { m_compositingProperties.hasCompositingDescendant = b; }
 
-    bool hasNonCompositedChild() const { return m_compositingProperties.hasNonCompositedChild; }
-    void setHasNonCompositedChild(bool b)  { m_compositingProperties.hasNonCompositedChild = b; }
-
     bool shouldIsolateCompositedDescendants() const { return m_compositingProperties.shouldIsolateCompositedDescendants; }
     void setShouldIsolateCompositedDescendants(bool b)  { m_compositingProperties.shouldIsolateCompositedDescendants = b; }
 
@@ -517,33 +508,8 @@ public:
     void didUpdateNeedsCompositedScrolling();
 
 private:
-    // FIXME: Merge with AncestorDependentProperties.
-    class AncestorDependentPropertyCache {
-        WTF_MAKE_NONCOPYABLE(AncestorDependentPropertyCache);
-    public:
-        AncestorDependentPropertyCache();
-
-        RenderLayer* ancestorCompositedScrollingLayer() const;
-        void setAncestorCompositedScrollingLayer(RenderLayer*);
-
-        RenderLayer* scrollParent() const;
-        void setScrollParent(RenderLayer*);
-
-        bool ancestorCompositedScrollingLayerDirty() const { return m_ancestorCompositedScrollingLayerDirty; }
-        bool scrollParentDirty() const { return m_scrollParentDirty; }
-
-    private:
-        RenderLayer* m_ancestorCompositedScrollingLayer;
-        RenderLayer* m_scrollParent;
-
-        bool m_ancestorCompositedScrollingLayerDirty;
-        bool m_scrollParentDirty;
-    };
-
-    void ensureAncestorDependentPropertyCache() const;
-
     // Bounding box in the coordinates of this layer.
-    LayoutRect localBoundingBox(CalculateLayerBoundsFlags = 0) const;
+    LayoutRect logicalBoundingBox() const;
 
     bool hasOverflowControls() const;
 
@@ -779,7 +745,6 @@ private:
         IntSize offsetFromSquashingLayerOrigin;
     };
 
-    // FIXME: Merge m_ancestorDependentPropertyCache into m_ancestorDependentProperties;
     AncestorDependentProperties m_ancestorDependentProperties;
 
     CompositingProperties m_compositingProperties;
@@ -789,8 +754,6 @@ private:
     OwnPtr<CompositedLayerMapping> m_compositedLayerMapping;
     OwnPtr<RenderLayerScrollableArea> m_scrollableArea;
 
-    mutable OwnPtr<AncestorDependentPropertyCache> m_ancestorDependentPropertyCache;
-
     CompositedLayerMapping* m_groupedMapping;
 
     RenderLayerRepainter m_repainter;
@@ -798,6 +761,8 @@ private:
     OwnPtr<RenderLayerStackingNode> m_stackingNode;
     OwnPtr<RenderLayerReflectionInfo> m_reflectionInfo;
     RenderLayerBlendInfo m_blendInfo;
+
+    LayoutSize m_subpixelAccumulation; // The accumulated subpixel offset of a composited layer's composited bounds compared to absolute coordinates.
 };
 
 } // namespace WebCore

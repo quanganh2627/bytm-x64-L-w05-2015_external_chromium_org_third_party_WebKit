@@ -43,6 +43,7 @@ class InsertionPoint;
 class ShadowRootRareData;
 
 class ShadowRoot FINAL : public DocumentFragment, public TreeScope, public DoublyLinkedListNode<ShadowRoot> {
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(ShadowRoot);
     friend class WTF::DoublyLinkedListNode<ShadowRoot>;
 public:
     // FIXME: We will support multiple shadow subtrees, however current implementation does not work well
@@ -110,9 +111,6 @@ public:
 public:
     Element* activeElement() const;
 
-    bool applyAuthorStyles() const { return m_applyAuthorStyles; }
-    void setApplyAuthorStyles(bool);
-
     ShadowRoot* olderShadowRoot() const { return next(); }
 
     String innerHTML() const;
@@ -146,7 +144,6 @@ private:
     ShadowRoot* m_next;
     OwnPtr<ShadowRootRareData> m_shadowRootRareData;
     unsigned m_numberOfStyles : 27;
-    unsigned m_applyAuthorStyles : 1;
     unsigned m_type : 1;
     unsigned m_registeredWithParentShadowRoot : 1;
     unsigned m_descendantInsertionPointsIsValid : 1;

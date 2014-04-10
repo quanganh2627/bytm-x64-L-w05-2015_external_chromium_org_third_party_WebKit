@@ -46,7 +46,7 @@ public:
     bool cancelable;
 };
 
-class Event : public RefCountedWillBeRefCountedGarbageCollected<Event>,  public ScriptWrappable {
+class Event : public RefCountedWillBeGarbageCollectedFinalized<Event>,  public ScriptWrappable {
 public:
     enum PhaseType {
         NONE                = 0,
@@ -76,7 +76,7 @@ public:
 
     static PassRefPtrWillBeRawPtr<Event> create()
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event);
+        return adoptRefWillBeNoop(new Event);
     }
 
     // A factory for a simple event. The event doesn't bubble, and isn't
@@ -84,24 +84,24 @@ public:
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#fire-a-simple-event
     static PassRefPtrWillBeRawPtr<Event> create(const AtomicString& type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event(type, false, false));
+        return adoptRefWillBeNoop(new Event(type, false, false));
     }
     static PassRefPtrWillBeRawPtr<Event> createCancelable(const AtomicString& type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event(type, false, true));
+        return adoptRefWillBeNoop(new Event(type, false, true));
     }
     static PassRefPtrWillBeRawPtr<Event> createBubble(const AtomicString& type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event(type, true, false));
+        return adoptRefWillBeNoop(new Event(type, true, false));
     }
     static PassRefPtrWillBeRawPtr<Event> createCancelableBubble(const AtomicString& type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event(type, true, true));
+        return adoptRefWillBeNoop(new Event(type, true, true));
     }
 
     static PassRefPtrWillBeRawPtr<Event> create(const AtomicString& type, const EventInit& initializer)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Event(type, initializer));
+        return adoptRefWillBeNoop(new Event(type, initializer));
     }
 
     virtual ~Event();
@@ -172,7 +172,7 @@ public:
     void setCancelBubble(bool cancel) { m_cancelBubble = cancel; }
 
     Event* underlyingEvent() const { return m_underlyingEvent.get(); }
-    void setUnderlyingEvent(PassRefPtr<Event>);
+    void setUnderlyingEvent(PassRefPtrWillBeRawPtr<Event>);
 
     EventPath& eventPath() { ASSERT(m_eventPath); return *m_eventPath; }
     EventPath& ensureEventPath();
@@ -206,8 +206,8 @@ private:
     EventTarget* m_currentTarget;
     RefPtr<EventTarget> m_target;
     DOMTimeStamp m_createTime;
-    RefPtr<Event> m_underlyingEvent;
-    OwnPtr<EventPath> m_eventPath;
+    RefPtrWillBeMember<Event> m_underlyingEvent;
+    OwnPtrWillBeMember<EventPath> m_eventPath;
 };
 
 #define DEFINE_EVENT_TYPE_CASTS(typeName) \

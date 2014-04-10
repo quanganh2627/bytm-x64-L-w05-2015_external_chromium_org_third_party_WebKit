@@ -29,7 +29,7 @@
 #define Document_h
 
 #include "bindings/v8/ScriptValue.h"
-#include "core/animation/css/CSSPendingAnimations.h"
+#include "core/animation/CompositorPendingAnimations.h"
 #include "core/dom/ContainerNode.h"
 #include "core/dom/DocumentEncodingData.h"
 #include "core/dom/DocumentInit.h"
@@ -49,9 +49,9 @@
 #include "core/page/FocusType.h"
 #include "core/page/PageVisibilityState.h"
 #include "core/rendering/HitTestRequest.h"
-#include "heap/Handle.h"
 #include "platform/Length.h"
 #include "platform/Timer.h"
+#include "platform/heap/Handle.h"
 #include "platform/weborigin/KURL.h"
 #include "platform/weborigin/ReferrerPolicy.h"
 #include "wtf/HashSet.h"
@@ -231,6 +231,7 @@ private:
 
 class Document : public ContainerNode, public TreeScope, public SecurityContext, public ExecutionContext, public ExecutionContextClient
     , public DocumentSupplementable, public LifecycleContext<Document> {
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(Document);
 public:
     static PassRefPtr<Document> create(const DocumentInit& initializer = DocumentInit())
     {
@@ -339,7 +340,7 @@ public:
         unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding,
         HitTestRequest::HitTestRequestType hitType = HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::ConfusingAndOftenMisusedDisallowShadowContent) const;
     Element* elementFromPoint(int x, int y) const;
-    PassRefPtr<Range> caretRangeFromPoint(int x, int y);
+    PassRefPtrWillBeRawPtr<Range> caretRangeFromPoint(int x, int y);
 
     String readyState() const;
 
@@ -420,8 +421,8 @@ public:
 
     void notifyRemovePendingSheetIfNeeded();
 
-    bool haveStylesheetsLoaded() const;
-    bool haveStylesheetsAndImportsLoaded() const { return haveImportsLoaded() && haveStylesheetsLoaded(); }
+    bool isRenderingReady() const { return haveImportsLoaded() && haveStylesheetsLoaded(); }
+    bool isScriptExecutionReady() const { return isRenderingReady(); }
 
     // This is a DOM function.
     StyleSheetList* styleSheets();
@@ -464,7 +465,7 @@ public:
 
     float devicePixelRatio() const;
 
-    PassRefPtr<Range> createRange();
+    PassRefPtrWillBeRawPtr<Range> createRange();
 
     PassRefPtr<NodeIterator> createNodeIterator(Node* root, ExceptionState&);
     PassRefPtr<NodeIterator> createNodeIterator(Node* root, unsigned whatToShow, ExceptionState&);
@@ -570,6 +571,8 @@ public:
     bool canNavigate(LocalFrame* targetFrame);
     LocalFrame* findUnsafeParentScrollPropagationBoundary();
 
+    bool canDispatchEvents() const { return !isSandboxed(SandboxScripts); }
+
     CSSStyleSheet& elementSheet();
 
     virtual PassRefPtr<DocumentParser> createParser();
@@ -611,7 +614,6 @@ public:
     bool historyItemDocumentStateDirty() const { return m_historyItemDocumentStateDirty; }
 
     bool shouldScheduleLayout() const;
-    bool shouldParserYieldAgressivelyBeforeScriptExecution();
     int elapsedTime() const;
 
     TextLinkColors& textLinkColors() { return m_textLinkColors; }
@@ -651,9 +653,8 @@ public:
     void setCSSTarget(Element*);
     Element* cssTarget() const { return m_cssTarget; }
 
-    void scheduleRenderTreeUpdate();
+    void scheduleRenderTreeUpdateIfNeeded();
     bool hasPendingForcedStyleRecalc() const;
-    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::StyleRecalcPending; }
 
     void registerNodeList(LiveNodeListBase*);
     void unregisterNodeList(LiveNodeListBase*);
@@ -835,7 +836,7 @@ public:
     void setTransformSource(PassOwnPtr<TransformSource>);
     TransformSource* transformSource() const { return m_transformSource.get(); }
 
-    void incDOMTreeVersion() { ASSERT(!inStyleRecalc()); m_domTreeVersion = ++s_globalTreeVersion; }
+    void incDOMTreeVersion() { ASSERT(m_lifecycle.stateAllowsTreeMutations()); m_domTreeVersion = ++s_globalTreeVersion; }
     uint64_t domTreeVersion() const { return m_domTreeVersion; }
 
     enum PendingSheetLayout { NoLayoutWithPendingSheets, DidLayoutWithPendingSheets, IgnoreLayoutWithPendingSheets };
@@ -925,7 +926,7 @@ public:
 
     void enqueueResizeEvent();
     void enqueueScrollEventForNode(Node*);
-    void enqueueAnimationFrameEvent(PassRefPtr<Event>);
+    void enqueueAnimationFrameEvent(PassRefPtrWillBeRawPtr<Event>);
 
     bool hasFullscreenElementStack() const { return m_hasFullscreenElementStack; }
     void setHasFullscreenElementStack() { m_hasFullscreenElementStack = true; }
@@ -953,9 +954,6 @@ public:
 
     void initDNSPrefetch();
 
-    double lastHandledUserGestureTimestamp() const { return m_lastHandledUserGestureTimestamp; }
-    void resetLastHandledUserGestureTimestamp();
-
     bool hasTouchEventHandlers() const { return (m_touchEventTargets.get()) ? m_touchEventTargets->size() : false; }
 
     // Called when a single touch event handler has been added or removed for a node.
@@ -982,8 +980,8 @@ public:
 
     PassRefPtr<Element> createElement(const AtomicString& localName, const AtomicString& typeExtension, ExceptionState&);
     PassRefPtr<Element> createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& typeExtension, ExceptionState&);
-    ScriptValue registerElement(WebCore::ScriptState*, const AtomicString& name, ExceptionState&);
-    ScriptValue registerElement(WebCore::ScriptState*, const AtomicString& name, const Dictionary& options, ExceptionState&, CustomElement::NameSet validNames = CustomElement::StandardNames);
+    ScriptValue registerElement(WebCore::NewScriptState*, const AtomicString& name, ExceptionState&);
+    ScriptValue registerElement(WebCore::NewScriptState*, const AtomicString& name, const Dictionary& options, ExceptionState&, CustomElement::NameSet validNames = CustomElement::StandardNames);
     CustomElementRegistrationContext* registrationContext() { return m_registrationContext.get(); }
 
     void setImport(HTMLImport*);
@@ -1017,7 +1015,7 @@ public:
     AnimationClock& animationClock() { return *m_animationClock; }
     DocumentTimeline& timeline() const { return *m_timeline; }
     DocumentTimeline& transitionTimeline() const { return *m_transitionTimeline; }
-    CSSPendingAnimations& cssPendingAnimations() { return m_cssPendingAnimations; }
+    CompositorPendingAnimations& compositorPendingAnimations() { return m_compositorPendingAnimations; }
 
     void addToTopLayer(Element*, const Element* before = 0);
     void removeFromTopLayer(Element*);
@@ -1034,7 +1032,6 @@ public:
     void addConsoleMessageWithRequestIdentifier(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier);
 
     virtual DOMWindow* executingWindow() OVERRIDE FINAL;
-    virtual void userEventWasHandled() OVERRIDE FINAL { resetLastHandledUserGestureTimestamp(); }
     LocalFrame* executingFrame();
 
     DocumentLifecycleNotifier& lifecycleNotifier();
@@ -1058,11 +1055,9 @@ public:
     void registerVisibilityObserver(DocumentVisibilityObserver*);
     void unregisterVisibilityObserver(DocumentVisibilityObserver*);
 
-    // FIXME: Remove this method once we have input routing in the browser
-    // process. See http://crbug.com/339659.
-    virtual void defaultEventHandler(Event*) OVERRIDE;
-
     void updateStyleInvalidationIfNeeded();
+
+    virtual void trace(Visitor*) OVERRIDE;
 
 protected:
     Document(const DocumentInit&, DocumentClassFlags = DefaultDocumentClass);
@@ -1084,6 +1079,11 @@ private:
     ScriptedAnimationController& ensureScriptedAnimationController();
     virtual SecurityContext& securityContext() OVERRIDE FINAL { return *this; }
     virtual EventQueue* eventQueue() const OVERRIDE FINAL;
+
+    void scheduleRenderTreeUpdate();
+
+    // FIXME: Rename the StyleRecalc state to RenderTreeUpdate.
+    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::StyleRecalcPending; }
 
     void inheritHtmlAndBodyElementStyles(StyleRecalcChange);
 
@@ -1157,6 +1157,7 @@ private:
 
     bool needsRenderTreeUpdate() const;
     bool shouldScheduleRenderTreeUpdate() const;
+    bool haveStylesheetsLoaded() const;
 
     DocumentLifecycle m_lifecycle;
 
@@ -1330,8 +1331,6 @@ private:
 
     OwnPtr<TouchEventTargetSet> m_touchEventTargets;
 
-    double m_lastHandledUserGestureTimestamp;
-
     RefPtr<ScriptedAnimationController> m_scriptedAnimationController;
     OwnPtr<MainThreadTaskRunner> m_taskRunner;
     OwnPtr<TextAutosizer> m_textAutosizer;
@@ -1354,7 +1353,7 @@ private:
     OwnPtr<AnimationClock> m_animationClock;
     RefPtr<DocumentTimeline> m_timeline;
     RefPtr<DocumentTimeline> m_transitionTimeline;
-    CSSPendingAnimations m_cssPendingAnimations;
+    CompositorPendingAnimations m_compositorPendingAnimations;
 
     RefPtr<Document> m_templateDocument;
     Document* m_templateDocumentHost; // Manually managed weakref (backpointer from m_templateDocument).
@@ -1393,6 +1392,15 @@ inline void Document::decrementNodeListWithIdNameCacheCount()
 {
     ASSERT(m_nodeListCounts[InvalidateOnIdNameAttrChange] > 0);
     m_nodeListCounts[InvalidateOnIdNameAttrChange]--;
+}
+
+inline void Document::scheduleRenderTreeUpdateIfNeeded()
+{
+    // Inline early out to avoid the function calls below.
+    if (hasPendingStyleRecalc())
+        return;
+    if (shouldScheduleRenderTreeUpdate() && needsRenderTreeUpdate())
+        scheduleRenderTreeUpdate();
 }
 
 DEFINE_TYPE_CASTS(Document, ExecutionContextClient, client, client->isDocument(), client.isDocument());

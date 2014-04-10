@@ -165,7 +165,6 @@
 #include "core/rendering/FastTextAutosizer.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderView.h"
-#include "core/rendering/RenderWidget.h"
 #include "core/rendering/TextAutosizer.h"
 #include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGFontFaceElement.h"
@@ -465,7 +464,6 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_writingModeSetOnDocumentElement(false)
     , m_writeRecursionIsTooDeep(false)
     , m_writeRecursionDepth(0)
-    , m_lastHandledUserGestureTimestamp(0)
     , m_taskRunner(MainThreadTaskRunner::create(this))
     , m_registrationContext(initializer.registrationContext(this))
     , m_elementDataCacheClearTimer(this, &Document::elementDataCacheClearTimerFired)
@@ -530,7 +528,7 @@ Document::~Document()
 
     m_scriptRunner.clear();
 
-    removeAllEventListeners();
+    removeAllEventListenersRecursively();
 
     // Currently we believe that Document can never outlive the parser.
     // Although the Document may be replaced synchronously, DocumentParsers
@@ -785,19 +783,19 @@ PassRefPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, 
     return element;
 }
 
-ScriptValue Document::registerElement(WebCore::ScriptState* state, const AtomicString& name, ExceptionState& exceptionState)
+ScriptValue Document::registerElement(WebCore::NewScriptState* scriptState, const AtomicString& name, ExceptionState& exceptionState)
 {
-    return registerElement(state, name, Dictionary(), exceptionState);
+    return registerElement(scriptState, name, Dictionary(), exceptionState);
 }
 
-ScriptValue Document::registerElement(WebCore::ScriptState* state, const AtomicString& name, const Dictionary& options, ExceptionState& exceptionState, CustomElement::NameSet validNames)
+ScriptValue Document::registerElement(WebCore::NewScriptState* scriptState, const AtomicString& name, const Dictionary& options, ExceptionState& exceptionState, CustomElement::NameSet validNames)
 {
     if (!registrationContext()) {
         exceptionState.throwDOMException(NotSupportedError, "No element registration context is available.");
         return ScriptValue();
     }
 
-    CustomElementConstructorBuilder constructorBuilder(state, &options);
+    CustomElementConstructorBuilder constructorBuilder(scriptState, &options);
     registrationContext()->registerElement(this, &constructorBuilder, name, validNames, exceptionState);
     return constructorBuilder.bindingsReturnValue();
 }
@@ -810,7 +808,9 @@ void Document::setImport(HTMLImport* import)
 
 bool Document::haveImportsLoaded() const
 {
-    return !m_import || !m_import->state().shouldBlockScriptExecution();
+    if (!m_import)
+        return true;
+    return !m_import->state().shouldBlockScriptExecution();
 }
 
 DOMWindow* Document::executingWindow()
@@ -1232,7 +1232,7 @@ Element* Document::elementFromPoint(int x, int y) const
     return TreeScope::elementFromPoint(x, y);
 }
 
-PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
+PassRefPtrWillBeRawPtr<Range> Document::caretRangeFromPoint(int x, int y)
 {
     if (!renderView())
         return nullptr;
@@ -1479,7 +1479,7 @@ Settings* Document::settings() const
     return m_frame ? m_frame->settings() : 0;
 }
 
-PassRefPtr<Range> Document::createRange()
+PassRefPtrWillBeRawPtr<Range> Document::createRange()
 {
     return Range::create(*this);
 }
@@ -1563,8 +1563,6 @@ bool Document::shouldScheduleRenderTreeUpdate() const
 {
     if (!isActive())
         return false;
-    if (hasPendingStyleRecalc())
-        return false;
     if (inStyleRecalc())
         return false;
     // InPreLayout will recalc style itself. There's no reason to schedule another recalc.
@@ -1577,9 +1575,8 @@ bool Document::shouldScheduleRenderTreeUpdate() const
 
 void Document::scheduleRenderTreeUpdate()
 {
-    if (!shouldScheduleRenderTreeUpdate())
-        return;
-
+    ASSERT(!hasPendingStyleRecalc());
+    ASSERT(shouldScheduleRenderTreeUpdate());
     ASSERT(needsRenderTreeUpdate());
 
     page()->animator().scheduleVisualUpdate();
@@ -1791,7 +1788,7 @@ void Document::updateStyle(StyleRecalcChange change)
 {
     TRACE_EVENT0("webkit", "Document::updateStyle");
 
-    RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
+    HTMLFrameOwnerElement::UpdateSuspendScope suspendWidgetHierarchyUpdates;
     m_lifecycle.advanceTo(DocumentLifecycle::InStyleRecalc);
 
     if (styleChangeType() >= SubtreeStyleChange)
@@ -2027,7 +2024,7 @@ void Document::scheduleLayerUpdate(Element& element)
         return;
     element.setNeedsLayerUpdate();
     m_layerUpdateElements.add(&element);
-    scheduleRenderTreeUpdate();
+    scheduleRenderTreeUpdateIfNeeded();
 }
 
 void Document::unscheduleLayerUpdate(Element& element)
@@ -2039,7 +2036,7 @@ void Document::unscheduleLayerUpdate(Element& element)
 void Document::scheduleUseShadowTreeUpdate(SVGUseElement& element)
 {
     m_useElementsNeedingUpdate.add(&element);
-    scheduleRenderTreeUpdate();
+    scheduleRenderTreeUpdateIfNeeded();
 }
 
 void Document::unscheduleUseShadowTreeUpdate(SVGUseElement& element)
@@ -2191,8 +2188,6 @@ void Document::removeAllEventListeners()
 
     if (DOMWindow* domWindow = this->domWindow())
         domWindow->removeAllEventListeners();
-    for (Node* node = firstChild(); node; node = NodeTraversal::next(*node))
-        node->removeAllEventListeners();
 }
 
 void Document::clearAXObjectCache()
@@ -2283,7 +2278,7 @@ void Document::open(Document* ownerDocument)
             m_frame->loader().stopAllLoaders();
     }
 
-    removeAllEventListeners();
+    removeAllEventListenersRecursively();
     implicitOpen();
     if (ScriptableDocumentParser* parser = scriptableDocumentParser())
         parser->setWasCreatedByScript(true);
@@ -2541,7 +2536,7 @@ bool Document::dispatchBeforeUnloadEvent(Chrome& chrome, bool& didAllowNavigatio
 
     RefPtr<Document> protect(this);
 
-    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = BeforeUnloadEvent::create();
+    RefPtrWillBeRawPtr<BeforeUnloadEvent> beforeUnloadEvent = BeforeUnloadEvent::create();
     m_loadEventProgress = BeforeUnloadEventInProgress;
     m_domWindow->dispatchEvent(beforeUnloadEvent.get(), this);
     m_loadEventProgress = BeforeUnloadEventCompleted;
@@ -2585,7 +2580,7 @@ void Document::dispatchUnloadEvents()
             // time into freed memory.
             RefPtr<DocumentLoader> documentLoader =  m_frame->loader().provisionalDocumentLoader();
             m_loadEventProgress = UnloadEventInProgress;
-            RefPtr<Event> unloadEvent(Event::create(EventTypeNames::unload));
+            RefPtrWillBeRawPtr<Event> unloadEvent(Event::create(EventTypeNames::unload));
             if (documentLoader && !documentLoader->timing()->unloadEventStart() && !documentLoader->timing()->unloadEventEnd()) {
                 DocumentLoadTiming* timing = documentLoader->timing();
                 ASSERT(timing->navigationStart());
@@ -2606,7 +2601,7 @@ void Document::dispatchUnloadEvents()
     bool keepEventListeners = m_frame->loader().stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->loader().provisionalDocumentLoader()
         && isSecureTransitionTo(m_frame->loader().provisionalDocumentLoader()->url());
     if (!keepEventListeners)
-        removeAllEventListeners();
+        removeAllEventListenersRecursively();
 }
 
 Document::PageDismissalType Document::pageDismissalEventBeingDispatched() const
@@ -2636,13 +2631,8 @@ bool Document::shouldScheduleLayout() const
     //    (a) Only schedule a layout once the stylesheets are loaded.
     //    (b) Only schedule layout once we have a body element.
 
-    return (haveStylesheetsAndImportsLoaded() && body())
+    return (isRenderingReady() && body())
         || (documentElement() && !isHTMLHtmlElement(*documentElement()));
-}
-
-bool Document::shouldParserYieldAgressivelyBeforeScriptExecution()
-{
-    return view() && view()->layoutPending();
 }
 
 int Document::elapsedTime() const
@@ -2923,7 +2913,7 @@ void Document::didLoadAllScriptBlockingResources()
 
 void Document::executeScriptsWaitingForResourcesIfNeeded()
 {
-    if (!haveStylesheetsAndImportsLoaded())
+    if (!isRenderingReady())
         return;
     if (ScriptableDocumentParser* parser = scriptableDocumentParser())
         parser->executeScriptsWaitingForResources();
@@ -3756,7 +3746,7 @@ EventQueue* Document::eventQueue() const
     return m_domWindow->eventQueue();
 }
 
-void Document::enqueueAnimationFrameEvent(PassRefPtr<Event> event)
+void Document::enqueueAnimationFrameEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     ensureScriptedAnimationController().enqueueEvent(event);
 }
@@ -3764,14 +3754,14 @@ void Document::enqueueAnimationFrameEvent(PassRefPtr<Event> event)
 void Document::enqueueScrollEventForNode(Node* target)
 {
     // Per the W3C CSSOM View Module only scroll events fired at the document should bubble.
-    RefPtr<Event> scrollEvent = target->isDocumentNode() ? Event::createBubble(EventTypeNames::scroll) : Event::create(EventTypeNames::scroll);
+    RefPtrWillBeRawPtr<Event> scrollEvent = target->isDocumentNode() ? Event::createBubble(EventTypeNames::scroll) : Event::create(EventTypeNames::scroll);
     scrollEvent->setTarget(target);
     ensureScriptedAnimationController().enqueuePerFrameEvent(scrollEvent.release());
 }
 
 void Document::enqueueResizeEvent()
 {
-    RefPtr<Event> event = Event::create(EventTypeNames::resize);
+    RefPtrWillBeRawPtr<Event> event = Event::create(EventTypeNames::resize);
     event->setTarget(domWindow());
     ensureScriptedAnimationController().enqueuePerFrameEvent(event.release());
 }
@@ -4475,6 +4465,12 @@ void Document::finishedParsing()
     RefPtr<Document> protect(this);
 
     if (RefPtr<LocalFrame> f = frame()) {
+        // Don't update the render tree if we haven't requested the main resource yet to avoid
+        // adding extra latency. Note that the first render tree update can be expensive since it
+        // triggers the parsing of the default stylesheets which are compiled-in.
+        const bool mainResourceWasAlreadyRequested =
+            m_frame->loader().stateMachine()->startedFirstRealLoad();
+
         // FrameLoader::finishedParsing() might end up calling Document::implicitClose() if all
         // resource loads are complete. HTMLObjectElements can start loading their resources from
         // post attach callbacks triggered by recalcStyle().  This means if we parse out an <object>
@@ -4482,7 +4478,8 @@ void Document::finishedParsing()
         // started the resource load and might fire the window load event too early.  To avoid this
         // we force the styles to be up to date before calling FrameLoader::finishedParsing().
         // See https://bugs.webkit.org/show_bug.cgi?id=36864 starting around comment 35.
-        updateRenderTreeIfNeeded();
+        if (mainResourceWasAlreadyRequested)
+            updateRenderTreeIfNeeded();
 
         f->loader().finishedParsing();
 
@@ -5094,11 +5091,6 @@ void Document::didRemoveTouchEventHandler(Node* handler, bool clearAll)
     }
 }
 
-void Document::resetLastHandledUserGestureTimestamp()
-{
-    m_lastHandledUserGestureTimestamp = currentTime();
-}
-
 DocumentLoader* Document::loader() const
 {
     if (!m_frame)
@@ -5336,8 +5328,6 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
                 nodesToAddToChain[i]->dispatchMouseEvent(*event, EventTypeNames::mouseenter, 0, oldHoverNode.get());
         }
     }
-
-    updateRenderTreeIfNeeded();
 }
 
 bool Document::haveStylesheetsLoaded() const
@@ -5483,17 +5473,6 @@ bool Document::hasFocus() const
     return false;
 }
 
-// FIXME: Remove this code once we have input routing in the browser
-// process. See http://crbug.com/339659.
-void Document::defaultEventHandler(Event* event)
-{
-    if (frame() && frame()->remotePlatformLayer()) {
-        frame()->chromeClient().forwardInputEvent(this, event);
-        return;
-    }
-    Node::defaultEventHandler(event);
-}
-
 template<unsigned type>
 bool shouldInvalidateNodeListCachesForAttr(const unsigned nodeListCounts[], const QualifiedName& attrName)
 {
@@ -5526,6 +5505,12 @@ void Document::invalidateNodeListCaches(const QualifiedName* attrName)
     HashSet<LiveNodeListBase*>::iterator end = m_listsInvalidatedAtDocument.end();
     for (HashSet<LiveNodeListBase*>::iterator it = m_listsInvalidatedAtDocument.begin(); it != end; ++it)
         (*it)->invalidateCache(attrName);
+}
+
+void Document::trace(Visitor* visitor)
+{
+    Supplementable<Document>::trace(visitor);
+    ContainerNode::trace(visitor);
 }
 
 } // namespace WebCore

@@ -69,6 +69,7 @@ class WebKeyboardEvent;
 class WebMIDIClient;
 class WebNode;
 class WebNotificationPresenter;
+class WebPushClient;
 class WebRange;
 class WebSpeechInputController;
 class WebSpeechInputListener;
@@ -123,13 +124,6 @@ public:
 
 
     // Misc ----------------------------------------------------------------
-
-    // Whether or not we should report a detailed message for the given source.
-    virtual bool shouldReportDetailedMessageForSource(const WebString& source) { return false; }
-
-    // A new message was added to the console.
-    virtual void didAddMessageToConsole(
-        const WebConsoleMessage&, const WebString& sourceName, unsigned sourceLine, const WebString& stackTrace) { }
 
     // Called when script in the page calls window.print().  If frame is
     // non-null, then it selects a particular frame, including its
@@ -379,6 +373,9 @@ public:
 
     virtual WebMIDIClient* webMIDIClient() { return 0; }
 
+    // Push Messaging -------------------------------------------------------
+
+    virtual WebPushClient* webPushClient() { return 0; }
 
     // Content detection ----------------------------------------------------
 

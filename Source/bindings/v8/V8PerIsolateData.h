@@ -26,6 +26,7 @@
 #ifndef V8PerIsolateData_h
 #define V8PerIsolateData_h
 
+#include "bindings/v8/NewScriptState.h"
 #include "bindings/v8/ScopedPersistent.h"
 #include "bindings/v8/UnsafePersistent.h"
 #include "bindings/v8/V8HiddenValue.h"
@@ -43,7 +44,6 @@ namespace WebCore {
 class DOMDataStore;
 class GCEventData;
 class StringCache;
-class V8PerContextData;
 struct WrapperTypeInfo;
 
 class ExternalStringVisitor;
@@ -53,10 +53,6 @@ typedef WTF::Vector<DOMDataStore*> DOMDataStoreList;
 class V8PerIsolateData {
 public:
     static void ensureInitialized(v8::Isolate*);
-    static V8PerIsolateData* current()
-    {
-        return from(v8::Isolate::GetCurrent());
-    }
     static V8PerIsolateData* from(v8::Isolate* isolate)
     {
         ASSERT(isolate);
@@ -119,7 +115,7 @@ private:
     OwnPtr<StringCache> m_stringCache;
     OwnPtr<V8HiddenValue> m_hiddenValue;
     ScopedPersistent<v8::Value> m_liveRoot;
-    OwnPtr<V8PerContextData> m_domInJSPerContextData;
+    RefPtr<NewScriptState> m_blinkInJSScriptState;
 
     const char* m_previousSamplingState;
 

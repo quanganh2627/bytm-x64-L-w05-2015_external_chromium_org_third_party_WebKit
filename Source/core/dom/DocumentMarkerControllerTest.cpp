@@ -79,7 +79,7 @@ void DocumentMarkerControllerTest::markNodeContents(PassRefPtr<Node> node)
     // Force renderers to be created; TextIterator, which is used in
     // DocumentMarkerControllerTest::addMarker(), needs them.
     document().updateLayout();
-    RefPtr<Range> range = rangeOfContents(node.get());
+    RefPtrWillBeRawPtr<Range> range = rangeOfContents(node.get());
     markerController().addMarker(range.get(), DocumentMarker::Spelling);
 }
 
@@ -99,6 +99,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedMarkedByNormalize)
         parent->normalize();
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(1u, markerController().markers().size());
 }
 
@@ -110,6 +111,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedMarkedByRemoveChildren)
     EXPECT_EQ(1u, markerController().markers().size());
     parent->removeChildren();
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 
@@ -123,6 +125,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedByRemoveMarked)
         parent->removeChild(parent->firstChild());
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 
@@ -136,6 +139,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedMarkedByRemoveAncestor)
         parent->parentNode()->parentNode()->removeChild(parent->parentNode());
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 
@@ -149,6 +153,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedMarkedByRemoveParent)
         parent->parentNode()->removeChild(parent.get());
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 
@@ -162,6 +167,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedMarkedByReplaceChild)
         parent->replaceChild(createTextNode("bar").get(), parent->firstChild());
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 
@@ -175,6 +181,7 @@ TEST_F(DocumentMarkerControllerTest, NodeWillBeRemovedBySetInnerHTML)
         setBodyInnerHTML("");
     }
     // No more reference to marked node.
+    Heap::collectAllGarbage();
     EXPECT_EQ(0u, markerController().markers().size());
 }
 

@@ -47,14 +47,6 @@ class WorkerGlobalScope;
 class ScriptState {
     WTF_MAKE_NONCOPYABLE(ScriptState);
 public:
-    bool hadException() { return !m_exception.isEmpty(); }
-    void setException(v8::Local<v8::Value> exception)
-    {
-        m_exception.set(m_isolate, exception);
-    }
-    v8::Local<v8::Value> exception() { return m_exception.newLocal(m_isolate); }
-    void clearException() { m_exception.clear(); }
-
     v8::Local<v8::Context> context() const
     {
         return m_context.newLocal(m_isolate);
@@ -103,12 +95,24 @@ public:
     ScriptStateProtectedPtr(ScriptState* scriptState)
         : m_scriptState(scriptState)
     {
+        if (!scriptState)
+            return;
+
         v8::HandleScope handleScope(scriptState->isolate());
         // Keep the context from being GC'ed. ScriptState is guaranteed to be live while the context is live.
         m_context.set(scriptState->isolate(), scriptState->context());
     }
 
     ScriptState* get() const { return m_scriptState; }
+
+    void clear()
+    {
+        if (!m_scriptState)
+            return;
+
+        m_context.clear();
+        m_scriptState = 0;
+    }
 
 private:
     ScriptState* m_scriptState;

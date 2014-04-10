@@ -96,7 +96,6 @@
 #include "core/page/PointerLockController.h"
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderView.h"
-#include "core/rendering/RenderWidget.h"
 #include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGElement.h"
 #include "platform/scroll/ScrollableArea.h"
@@ -834,7 +833,7 @@ IntRect Element::boundsInRootViewSpace()
     return result;
 }
 
-PassRefPtr<ClientRectList> Element::getClientRects()
+PassRefPtrWillBeRawPtr<ClientRectList> Element::getClientRects()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -851,7 +850,7 @@ PassRefPtr<ClientRectList> Element::getClientRects()
     return ClientRectList::create(quads);
 }
 
-PassRefPtr<ClientRect> Element::getBoundingClientRect()
+PassRefPtrWillBeRawPtr<ClientRect> Element::getBoundingClientRect()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -971,16 +970,6 @@ static inline AtomicString makeIdForStyleResolution(const AtomicString& value, b
     return value;
 }
 
-static bool checkNeedsStyleInvalidationForIdChange(const AtomicString& oldId, const AtomicString& newId, const RuleFeatureSet& features)
-{
-    ASSERT(newId != oldId);
-    if (!oldId.isEmpty() && features.hasSelectorForId(oldId))
-        return true;
-    if (!newId.isEmpty() && features.hasSelectorForId(newId))
-        return true;
-    return false;
-}
-
 void Element::attributeChanged(const QualifiedName& name, const AtomicString& newValue, AttributeModificationReason reason)
 {
     if (ElementShadow* parentElementShadow = shadowWhereNodeCanBeDistributed(*this)) {
@@ -994,7 +983,6 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ne
 
     StyleResolver* styleResolver = document().styleResolver();
     bool testShouldInvalidateStyle = inActiveDocument() && styleResolver && styleChangeType() < SubtreeStyleChange;
-    bool shouldInvalidateStyle = false;
 
     if (isStyledElement() && name == styleAttr) {
         styleAttributeChanged(newValue, reason);
@@ -1008,7 +996,8 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ne
         AtomicString newId = makeIdForStyleResolution(newValue, document().inQuirksMode());
         if (newId != oldId) {
             elementData()->setIdForStyleResolution(newId);
-            shouldInvalidateStyle = testShouldInvalidateStyle && checkNeedsStyleInvalidationForIdChange(oldId, newId, styleResolver->ensureUpdatedRuleFeatureSet());
+            if (testShouldInvalidateStyle)
+                styleResolver->ensureUpdatedRuleFeatureSet().scheduleStyleInvalidationForIdChange(oldId, newId, *this);
         }
     } else if (name == classAttr) {
         classAttributeChanged(newValue);
@@ -1019,9 +1008,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ne
     invalidateNodeListCachesInAncestors(&name, this);
 
     // If there is currently no StyleResolver, we can't be sure that this attribute change won't affect style.
-    shouldInvalidateStyle |= !styleResolver;
-
-    if (shouldInvalidateStyle)
+    if (!styleResolver)
         setNeedsStyleRecalc(SubtreeStyleChange);
 
     if (AXObjectCache* cache = document().existingAXObjectCache())
@@ -1426,7 +1413,7 @@ void Element::attach(const AttachContext& context)
 
 void Element::detach(const AttachContext& context)
 {
-    RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
+    HTMLFrameOwnerElement::UpdateSuspendScope suspendWidgetHierarchyUpdates;
     cancelFocusAppearanceUpdate();
     removeCallbackSelectors();
     if (needsLayerUpdate())
@@ -1515,12 +1502,14 @@ PassRefPtr<RenderStyle> Element::styleForRenderer()
         style = customStyleForRenderer();
     if (!style)
         style = originalStyleForRenderer();
+    ASSERT(style);
 
     // styleForElement() might add active animations so we need to get it again.
-    if (ActiveAnimations* activeAnimations = this->activeAnimations())
+    if (ActiveAnimations* activeAnimations = this->activeAnimations()) {
         activeAnimations->cssAnimations().maybeApplyPendingUpdate(this);
+        activeAnimations->updateAnimationFlags(*style);
+    }
 
-    ASSERT(style);
     return style.release();
 }
 
@@ -1900,13 +1889,6 @@ void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* af
         shadow->setNeedsDistributionRecalc();
 }
 
-void Element::removeAllEventListeners()
-{
-    ContainerNode::removeAllEventListeners();
-    if (ElementShadow* shadow = this->shadow())
-        shadow->removeAllEventListeners();
-}
-
 void Element::finishParsingChildren()
 {
     setIsFinishedParsingChildren(true);
@@ -2142,7 +2124,7 @@ void Element::focus(bool restorePreviousSelection, FocusType type)
     // If the stylesheets have already been loaded we can reliably check isFocusable.
     // If not, we continue and set the focused node on the focus controller below so
     // that it can be updated soon after attach.
-    if (doc.haveStylesheetsLoaded()) {
+    if (doc.isRenderingReady()) {
         doc.updateLayoutIgnorePendingStylesheets();
         if (!isFocusable())
             return;
@@ -2221,13 +2203,13 @@ bool Element::isMouseFocusable() const
 
 void Element::dispatchFocusEvent(Element* oldFocusedElement, FocusType)
 {
-    RefPtr<FocusEvent> event = FocusEvent::create(EventTypeNames::focus, false, false, document().domWindow(), 0, oldFocusedElement);
+    RefPtrWillBeRawPtr<FocusEvent> event = FocusEvent::create(EventTypeNames::focus, false, false, document().domWindow(), 0, oldFocusedElement);
     EventDispatcher::dispatchEvent(this, FocusEventDispatchMediator::create(event.release()));
 }
 
 void Element::dispatchBlurEvent(Element* newFocusedElement)
 {
-    RefPtr<FocusEvent> event = FocusEvent::create(EventTypeNames::blur, false, false, document().domWindow(), 0, newFocusedElement);
+    RefPtrWillBeRawPtr<FocusEvent> event = FocusEvent::create(EventTypeNames::blur, false, false, document().domWindow(), 0, newFocusedElement);
     EventDispatcher::dispatchEvent(this, BlurEventDispatchMediator::create(event.release()));
 }
 

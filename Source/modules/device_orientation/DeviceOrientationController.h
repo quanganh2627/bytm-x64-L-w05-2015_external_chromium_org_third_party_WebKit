@@ -53,6 +53,8 @@ public:
     virtual void didRemoveEventListener(DOMWindow*, const AtomicString&) OVERRIDE;
     virtual void didRemoveAllEventListeners(DOMWindow*) OVERRIDE;
 
+    virtual void trace(Visitor*) OVERRIDE { }
+
 private:
     explicit DeviceOrientationController(Document&);
     virtual void registerWithDispatcher() OVERRIDE;
@@ -60,7 +62,7 @@ private:
 
     DeviceOrientationData* lastData();
     virtual bool hasLastData() OVERRIDE;
-    virtual PassRefPtr<Event> getLastEvent() OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<Event> getLastEvent() OVERRIDE;
     virtual bool isNullEvent(Event*) OVERRIDE;
 
     RefPtrWillBePersistent<DeviceOrientationData> m_overrideOrientationData;

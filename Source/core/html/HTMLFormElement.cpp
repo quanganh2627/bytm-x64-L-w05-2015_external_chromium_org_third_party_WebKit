@@ -66,7 +66,6 @@ HTMLFormElement::HTMLFormElement(Document& document)
     , m_hasElementsAssociatedByParser(false)
     , m_didFinishParsingChildren(false)
     , m_wasUserSubmitted(false)
-    , m_shouldSubmit(false)
     , m_isInResetFunction(false)
     , m_wasDemoted(false)
     , m_requestAutocompleteTimer(this, &HTMLFormElement::requestAutocompleteTimerFired)
@@ -91,6 +90,8 @@ bool HTMLFormElement::rendererIsNeeded(const RenderStyle& style)
         return HTMLElement::rendererIsNeeded(style);
 
     ContainerNode* node = parentNode();
+    if (!node || !node->renderer())
+        return HTMLElement::rendererIsNeeded(style);
     RenderObject* parentRenderer = node->renderer();
     // FIXME: Shouldn't we also check for table caption (see |formIsTablePart| below).
     // FIXME: This check is not correct for Shadow DOM.
@@ -278,28 +279,21 @@ bool HTMLFormElement::validateInteractively(Event* event)
     return false;
 }
 
-bool HTMLFormElement::prepareForSubmission(Event* event)
+void HTMLFormElement::prepareForSubmission(Event* event)
 {
     RefPtr<HTMLFormElement> protector(this);
     LocalFrame* frame = document().frame();
     if (!frame)
-        return false;
-
-    m_shouldSubmit = false;
+        return;
 
     // Interactive validation must be done before dispatching the submit event.
     if (!validateInteractively(event))
-        return false;
+        return;
 
     frame->loader().client()->dispatchWillSendSubmitEvent(this);
 
     if (dispatchEvent(Event::createCancelableBubble(EventTypeNames::submit)))
-        m_shouldSubmit = true;
-
-    if (m_shouldSubmit)
         submit(event, true, true, NotSubmittedByJavaScript);
-
-    return m_shouldSubmit;
 }
 
 void HTMLFormElement::submit()
@@ -360,8 +354,6 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
 
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(false);
-
-    m_shouldSubmit = false;
 }
 
 void HTMLFormElement::scheduleFormSubmission(PassRefPtr<FormSubmission> submission)
@@ -433,15 +425,17 @@ void HTMLFormElement::requestAutocomplete()
 
 void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
 {
-    RefPtr<Event> event;
+    RefPtrWillBeRawPtr<Event> event = nullptr;
     if (result == AutocompleteResultSuccess)
-        event = Event::create(EventTypeNames::autocomplete);
+        event = Event::createBubble(EventTypeNames::autocomplete);
     else if (result == AutocompleteResultErrorDisabled)
         event = AutocompleteErrorEvent::create("disabled");
     else if (result == AutocompleteResultErrorCancel)
         event = AutocompleteErrorEvent::create("cancel");
     else if (result == AutocompleteResultErrorInvalid)
         event = AutocompleteErrorEvent::create("invalid");
+    else
+        ASSERT_NOT_REACHED();
 
     event->setTarget(this);
     m_pendingAutocompleteEvents.append(event.release());
@@ -453,7 +447,7 @@ void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
 
 void HTMLFormElement::requestAutocompleteTimerFired(Timer<HTMLFormElement>*)
 {
-    Vector<RefPtr<Event> > pendingEvents;
+    WillBeHeapVector<RefPtrWillBeMember<Event> > pendingEvents;
     m_pendingAutocompleteEvents.swap(pendingEvents);
     for (size_t i = 0; i < pendingEvents.size(); ++i)
         dispatchEvent(pendingEvents[i].release());

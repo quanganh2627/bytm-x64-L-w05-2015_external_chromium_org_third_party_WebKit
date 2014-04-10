@@ -28,15 +28,19 @@
 
 /**
  * @constructor
- * @extends {WebInspector.Object}
+ * @extends {WebInspector.TargetAwareObject}
+ * @param {!WebInspector.Target} target
  */
-WebInspector.ApplicationCacheModel = function()
+WebInspector.ApplicationCacheModel = function(target)
 {
-    ApplicationCacheAgent.enable();
-    InspectorBackend.registerApplicationCacheDispatcher(new WebInspector.ApplicationCacheDispatcher(this));
+    WebInspector.TargetAwareObject.call(this, target);
 
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameNavigated, this._frameNavigated, this);
-    WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameDetached, this._frameDetached, this);
+    target.registerApplicationCacheDispatcher(new WebInspector.ApplicationCacheDispatcher(this));
+    this._agent = target.applicationCacheAgent();
+    this._agent.enable();
+
+    target.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameNavigated, this._frameNavigated, this);
+    target.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameDetached, this._frameDetached, this);
 
     this._statuses = {};
     this._manifestURLsByFrame = {};
@@ -62,7 +66,7 @@ WebInspector.ApplicationCacheModel.prototype = {
             return;
         }
 
-        ApplicationCacheAgent.getManifestForFrame(frame.id, this._manifestForFrameLoaded.bind(this, frame.id));
+        this._agent.getManifestForFrame(frame.id, this._manifestForFrameLoaded.bind(this, frame.id));
     },
 
     /**
@@ -76,7 +80,7 @@ WebInspector.ApplicationCacheModel.prototype = {
 
     _mainFrameNavigated: function()
     {
-        ApplicationCacheAgent.getFramesWithManifests(this._framesWithManifestsLoaded.bind(this));
+        this._agent.getFramesWithManifests(this._framesWithManifestsLoaded.bind(this));
     },
 
     /**
@@ -212,7 +216,7 @@ WebInspector.ApplicationCacheModel.prototype = {
             callback(applicationCache);
         }
 
-        ApplicationCacheAgent.getApplicationCacheForFrame(frameId, callbackWrapper);
+        this._agent.getApplicationCacheForFrame(frameId, callbackWrapper);
     },
 
     /**
@@ -224,7 +228,7 @@ WebInspector.ApplicationCacheModel.prototype = {
         this.dispatchEventToListeners(WebInspector.ApplicationCacheModel.EventTypes.NetworkStateChanged, isNowOnline);
     },
 
-    __proto__: WebInspector.Object.prototype
+    __proto__: WebInspector.TargetAwareObject.prototype
 }
 
 /**

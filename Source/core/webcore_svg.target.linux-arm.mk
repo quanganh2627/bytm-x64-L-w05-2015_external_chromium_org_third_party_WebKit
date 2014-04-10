@@ -6,13 +6,14 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := third_party_WebKit_Source_core_webcore_svg_gyp
 LOCAL_MODULE_SUFFIX := .a
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp)/webcore_prerequisites.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp,,,$(GYP_VAR_PREFIX))/webcore_prerequisites.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
@@ -86,6 +87,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGAltGlyphItemElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAngle.cpp \
 	third_party/WebKit/Source/core/svg/SVGAngleTearOff.cpp \
+	third_party/WebKit/Source/core/svg/SVGAnimateElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGAnimateMotionElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGAnimateTransformElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedAngle.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedColor.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedEnumerationBase.cpp \
@@ -96,9 +100,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGAnimatedNumberOptionalNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedPath.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimatedTypeAnimator.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimateElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimateMotionElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGAnimateTransformElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGAnimationElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGBoolean.cpp \
 	third_party/WebKit/Source/core/svg/SVGCircleElement.cpp \
@@ -110,11 +111,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGDiscardElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocument.cpp \
 	third_party/WebKit/Source/core/svg/SVGDocumentExtensions.cpp \
-	third_party/WebKit/Source/core/svg/SVGEnumeration.cpp \
 	third_party/WebKit/Source/core/svg/SVGElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstance.cpp \
 	third_party/WebKit/Source/core/svg/SVGElementInstanceList.cpp \
 	third_party/WebKit/Source/core/svg/SVGEllipseElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGEnumeration.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEBlendElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEColorMatrixElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGFEComponentTransferElement.cpp \
@@ -154,9 +155,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGFontFaceUriElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGForeignObjectElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGGElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGGeometryElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGGlyphElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGGlyphRefElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGGeometryElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGGradientElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGGraphicsElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGHKernElement.cpp \
@@ -170,16 +171,16 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGLengthTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGLineElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGLinearGradientElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGMatrixTearOff.cpp \
+	third_party/WebKit/Source/core/svg/SVGMPathElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMarkerElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMaskElement.cpp \
+	third_party/WebKit/Source/core/svg/SVGMatrixTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGMetadataElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGMissingGlyphElement.cpp \
-	third_party/WebKit/Source/core/svg/SVGMPathElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumber.cpp \
+	third_party/WebKit/Source/core/svg/SVGNumberList.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumberOptionalNumber.cpp \
 	third_party/WebKit/Source/core/svg/SVGNumberTearOff.cpp \
-	third_party/WebKit/Source/core/svg/SVGNumberList.cpp \
 	third_party/WebKit/Source/core/svg/SVGPaint.cpp \
 	third_party/WebKit/Source/core/svg/SVGParserUtilities.cpp \
 	third_party/WebKit/Source/core/svg/SVGPathBlender.cpp \
@@ -198,8 +199,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGPathUtilities.cpp \
 	third_party/WebKit/Source/core/svg/SVGPatternElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPoint.cpp \
-	third_party/WebKit/Source/core/svg/SVGPointTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGPointList.cpp \
+	third_party/WebKit/Source/core/svg/SVGPointTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolyElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolygonElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGPolylineElement.cpp \
@@ -229,10 +230,10 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/SVGTextPositioningElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGTitleElement.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransform.cpp \
-	third_party/WebKit/Source/core/svg/SVGTransformTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransformDistance.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransformList.cpp \
 	third_party/WebKit/Source/core/svg/SVGTransformListTearOff.cpp \
+	third_party/WebKit/Source/core/svg/SVGTransformTearOff.cpp \
 	third_party/WebKit/Source/core/svg/SVGURIReference.cpp \
 	third_party/WebKit/Source/core/svg/SVGUnitTypes.cpp \
 	third_party/WebKit/Source/core/svg/SVGUnknownElement.cpp \
@@ -245,9 +246,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/svg/animation/SMILTime.cpp \
 	third_party/WebKit/Source/core/svg/animation/SMILTimeContainer.cpp \
 	third_party/WebKit/Source/core/svg/animation/SVGSMILElement.cpp \
+	third_party/WebKit/Source/core/svg/graphics/SVGImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImageCache.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImageChromeClient.cpp \
-	third_party/WebKit/Source/core/svg/graphics/SVGImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/SVGImageForContainer.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFEImage.cpp \
 	third_party/WebKit/Source/core/svg/graphics/filters/SVGFilter.cpp \
@@ -324,15 +325,14 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -477,15 +477,14 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -570,9 +569,9 @@ LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \
@@ -589,9 +588,9 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \

@@ -82,7 +82,6 @@
             "ResourceType.js",
             "ResourceUtils.js",
             "SourceMap.js",
-            "TracingAgent.js",
             "TracingModel.js",
             "NetworkManager.js",
             "NetworkRequest.js",
@@ -155,7 +154,6 @@
         "name": "components",
         "dependencies": ["sdk", "ui"],
         "sources": [
-            "AdvancedSearchController.js",
             "HandlerRegistry.js",
             "CookiesTable.js",
             "DOMBreakpointsSidebarPane.js",
@@ -260,6 +258,16 @@
         ]
     },
     {
+        "name": "search",
+        "dependencies": ["components"],
+        "sources": [
+            "AdvancedSearchController.js",
+            "FileBasedSearchResultsPane.js",
+            "SearchConfig.js",
+            "SourcesSearchScope.js"
+        ]
+    },
+    {
         "name": "sources",
         "dependencies": ["components", "source_frame", "workers", "console"],
         "sources": [
@@ -278,7 +286,6 @@
             "SourcesView.js",
             "SourcesNavigator.js",
             "SourcesPanel.js",
-            "SourcesSearchScope.js",
             "StyleSheetOutlineDialog.js",
             "TabbedEditorContainer.js",
             "UISourceCodeFrame.js",
@@ -382,18 +389,18 @@
         "name": "profiler",
         "dependencies": ["components"],
         "sources": [
-            "BottomUpProfileDataGridTree.js",
+            "CPUProfileBottomUpDataGrid.js",
+            "CPUProfileDataGrid.js",
             "CPUProfileFlameChart.js",
+            "CPUProfileTopDownDataGrid.js",
             "CPUProfileView.js",
             "HeapSnapshotCommon.js",
             "HeapSnapshotDataGrids.js",
             "HeapSnapshotGridNodes.js",
             "HeapSnapshotProxy.js",
             "HeapSnapshotView.js",
-            "ProfileDataGridTree.js",
             "ProfilesPanel.js",
             "ProfileLauncherView.js",
-            "TopDownProfileDataGridTree.js",
             "CanvasProfileView.js",
             "CanvasReplayStateView.js"
         ]

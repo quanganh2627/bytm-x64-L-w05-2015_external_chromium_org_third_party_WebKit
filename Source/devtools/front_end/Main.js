@@ -52,9 +52,9 @@ WebInspector.Main.prototype = {
     {
         var configuration;
         if (!Capabilities.isMainFrontend) {
-            configuration = ["main", "sources", "timeline", "profiles", "console", "codemirror"];
+            configuration = ["main", "sources", "timeline", "profiles", "console", "codemirror", "search"];
         } else {
-            configuration = ["main", "elements", "network", "sources", "timeline", "profiles", "resources", "audits", "console", "codemirror", "extensions", "settings"];
+            configuration = ["main", "elements", "network", "sources", "timeline", "profiles", "resources", "audits", "console", "codemirror", "extensions", "settings", "search"];
             if (WebInspector.experimentsSettings.layersPanel.isEnabled())
                 configuration.push("layers");
         }
@@ -261,20 +261,14 @@ WebInspector.Main.prototype = {
         WebInspector.console.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, this._updateErrorAndWarningCounts, this);
 
         WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerPaused, this._debuggerPaused, this);
-        WebInspector.networkLog = new WebInspector.NetworkLog();
 
         WebInspector.zoomManager = new WebInspector.ZoomManager();
-
-        WebInspector.advancedSearchController = new WebInspector.AdvancedSearchController();
 
         InspectorBackend.registerInspectorDispatcher(this);
 
         WebInspector.isolatedFileSystemManager = new WebInspector.IsolatedFileSystemManager();
         WebInspector.isolatedFileSystemDispatcher = new WebInspector.IsolatedFileSystemDispatcher(WebInspector.isolatedFileSystemManager);
         WebInspector.workspace = new WebInspector.Workspace(WebInspector.isolatedFileSystemManager.mapping());
-
-        WebInspector.timelineManager = new WebInspector.TimelineManager();
-        WebInspector.tracingAgent = new WebInspector.TracingAgent();
 
         if (Capabilities.isMainFrontend) {
             WebInspector.inspectElementModeController = new WebInspector.InspectElementModeController();
@@ -364,10 +358,6 @@ WebInspector.Main.prototype = {
         this._updateErrorAndWarningCounts();
 
         WebInspector.extensionServerProxy.setFrontendReady();
-
-        WebInspector.databaseModel = new WebInspector.DatabaseModel();
-        WebInspector.domStorageModel = new WebInspector.DOMStorageModel();
-        WebInspector.cpuProfilerModel = new WebInspector.CPUProfilerModel(mainTarget);
 
         InspectorAgent.enable(inspectorAgentEnableCallback.bind(this));
 
@@ -470,7 +460,10 @@ WebInspector.Main.prototype = {
         section.addKey(shortcut.makeDescriptor(shortcut.Keys.Esc), toggleDrawerLabel);
         section.addKey(shortcut.makeDescriptor("f", shortcut.Modifiers.CtrlOrMeta), WebInspector.UIString("Search"));
 
-        var advancedSearchShortcut = WebInspector.AdvancedSearchController.createShortcut();
+        var advancedSearchShortcutModifier = WebInspector.isMac()
+                ? WebInspector.KeyboardShortcut.Modifiers.Meta | WebInspector.KeyboardShortcut.Modifiers.Alt
+                : WebInspector.KeyboardShortcut.Modifiers.Ctrl | WebInspector.KeyboardShortcut.Modifiers.Shift;
+        var advancedSearchShortcut = shortcut.makeDescriptor("f", advancedSearchShortcutModifier);
         section.addKey(advancedSearchShortcut, WebInspector.UIString("Search across all sources"));
 
         var inspectElementModeShortcut = WebInspector.InspectElementModeController.createShortcut();
@@ -528,8 +521,6 @@ WebInspector.Main.prototype = {
             }
         }
 
-        if (!WebInspector.Dialog.currentInstance() && WebInspector.advancedSearchController.handleShortcut(event))
-            return;
         if (!WebInspector.Dialog.currentInstance() && WebInspector.inspectElementModeController && WebInspector.inspectElementModeController.handleShortcut(event))
             return;
 
@@ -561,18 +552,6 @@ WebInspector.Main.prototype = {
             event.preventDefault();
     },
 
-    _inspectNodeRequested: function(event)
-    {
-        this._updateFocusedNode(event.data);
-    },
-
-    _updateFocusedNode: function(nodeId)
-    {
-        var node = WebInspector.domModel.nodeForId(nodeId);
-        console.assert(node);
-        WebInspector.Revealer.reveal(node);
-    },
-
     _addMainEventListeners: function(doc)
     {
         doc.addEventListener("keydown", this._postDocumentKeyDown.bind(this), false);
@@ -598,10 +577,13 @@ WebInspector.Main.prototype = {
             return;
         }
 
-        function callback(nodeId)
+        /**
+         * @param {!WebInspector.DOMNode} node
+         */
+        function callback(node)
         {
             elementsPanel.stopOmittingDefaultSelection();
-            WebInspector.Revealer.reveal(WebInspector.domModel.nodeForId(nodeId));
+            node.reveal();
             if (!WebInspector.inspectorView.drawerVisible() && !WebInspector._notFirstInspectElement)
                 InspectorFrontendHost.inspectElementCompleted();
             WebInspector._notFirstInspectElement = true;
@@ -756,6 +738,21 @@ WebInspector.Main.ShortcutPanelSwitchSettingDelegate.prototype = {
     },
 
     __proto__: WebInspector.UISettingDelegate.prototype
+}
+
+/**
+ * @param {string} ws
+ */
+WebInspector.Main._addWebSocketTarget = function(ws)
+{
+    /**
+     * @param {!InspectorBackendClass.Connection} connection
+     */
+    function callback(connection)
+    {
+        WebInspector.targetManager.createTarget(connection);
+    }
+    new InspectorBackendClass.WebSocketConnection(ws, callback);
 }
 
 new WebInspector.Main();

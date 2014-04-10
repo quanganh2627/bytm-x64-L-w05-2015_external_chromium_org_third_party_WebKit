@@ -33,6 +33,8 @@
 
 #include "core/animation/Animation.h"
 #include "core/animation/DocumentTimeline.h"
+#include "core/events/AnimationPlayerEvent.h"
+#include "core/frame/UseCounter.h"
 
 namespace WebCore {
 
@@ -63,6 +65,7 @@ AnimationPlayer::AnimationPlayer(DocumentTimeline& timeline, TimedItem* content)
     , m_held(false)
     , m_isPausedForTesting(false)
     , m_outdated(false)
+    , m_finished(false)
 {
     if (m_content) {
         if (m_content->player())
@@ -116,6 +119,7 @@ void AnimationPlayer::updateTimingState(double newCurrentTime)
     } else {
         m_holdTime = nullValue();
         m_storedTimeLag = currentTimeWithoutLag() - newCurrentTime;
+        m_finished = false;
         setOutdated();
     }
 }
@@ -146,19 +150,25 @@ void AnimationPlayer::setCurrentTime(double newCurrentTime)
     if (!std::isfinite(newCurrentTime))
         return;
     updateTimingState(newCurrentTime);
+    // FIXME: Restart animation on compositor.
+    cancelAnimationOnCompositor();
 }
 
 void AnimationPlayer::setStartTime(double newStartTime)
 {
     if (!std::isfinite(newStartTime))
         return;
+    if (newStartTime == m_startTime)
+        return;
     updateCurrentTimingState(); // Update the value of held
     m_startTime = newStartTime;
     m_sortInfo.m_startTime = newStartTime;
+    cancelAnimationOnCompositor();
     if (m_held)
         return;
     updateCurrentTimingState();
     setOutdated();
+    // FIXME: Restart animation on compositor.
 }
 
 void AnimationPlayer::setSource(TimedItem* newSource)
@@ -184,7 +194,6 @@ void AnimationPlayer::pause()
         return;
     m_paused = true;
     updateTimingState(currentTime());
-    // FIXME: resume compositor animation rather than pull back to main-thread
     cancelAnimationOnCompositor();
 }
 
@@ -194,6 +203,7 @@ void AnimationPlayer::unpause()
         return;
     m_paused = false;
     updateTimingState(currentTime());
+    // FIXME: Resume compositor animation.
 }
 
 void AnimationPlayer::play()
@@ -206,6 +216,9 @@ void AnimationPlayer::play()
         setCurrentTime(0);
     else if (m_playbackRate < 0 && (currentTime <= 0 || currentTime > sourceEnd()))
         setCurrentTime(sourceEnd());
+    m_finished = false;
+    // FIXME: Restart animation on compositor.
+    cancelAnimationOnCompositor();
 }
 
 void AnimationPlayer::reverse()
@@ -220,6 +233,8 @@ void AnimationPlayer::reverse()
     }
     setPlaybackRate(-m_playbackRate);
     unpause();
+    // FIXME: Restart animation on compositor.
+    cancelAnimationOnCompositor();
 }
 
 void AnimationPlayer::finish(ExceptionState& exceptionState)
@@ -236,6 +251,7 @@ void AnimationPlayer::finish(ExceptionState& exceptionState)
         setCurrentTime(sourceEnd());
     }
     ASSERT(finished());
+    cancelAnimationOnCompositor();
 }
 
 const AtomicString& AnimationPlayer::interfaceName() const
@@ -257,8 +273,12 @@ void AnimationPlayer::setPlaybackRate(double playbackRate)
     if (!std::isfinite(playbackRate))
         return;
     double storedCurrentTime = currentTime();
+    if ((m_playbackRate < 0 && playbackRate >= 0) || (m_playbackRate > 0 && playbackRate <= 0))
+        m_finished = false;
     m_playbackRate = playbackRate;
     updateTimingState(storedCurrentTime);
+    // FIXME: Restart animation on compositor.
+    cancelAnimationOnCompositor();
 }
 
 void AnimationPlayer::setOutdated()
@@ -270,13 +290,14 @@ void AnimationPlayer::setOutdated()
 
 bool AnimationPlayer::maybeStartAnimationOnCompositor()
 {
-    // FIXME: Support starting compositor animations that have a fixed
-    // start time.
-    ASSERT(!hasStartTime());
+    // FIXME: Need compositor support for playback rate != 1.
+    if (playbackRate() != 1)
+        return false;
+
     if (!m_content || !m_content->isAnimation() || paused())
         return false;
 
-    return toAnimation(m_content.get())->maybeStartAnimationOnCompositor();
+    return toAnimation(m_content.get())->maybeStartAnimationOnCompositor(startTime());
 }
 
 bool AnimationPlayer::hasActiveAnimationsOnCompositor()
@@ -292,10 +313,11 @@ void AnimationPlayer::cancelAnimationOnCompositor()
         toAnimation(m_content.get())->cancelAnimationOnCompositor();
 }
 
-bool AnimationPlayer::update()
+bool AnimationPlayer::update(UpdateReason reason)
 {
     m_outdated = false;
 
+    // FIXME(ericwilligers): Support finish events with null m_content
     if (!m_timeline || !m_content)
         return false;
 
@@ -303,7 +325,17 @@ bool AnimationPlayer::update()
     m_content->updateInheritedTime(inheritedTime);
 
     ASSERT(!m_outdated);
-    return m_content->isCurrent() || m_content->isInEffect();
+    if (reason == UpdateForAnimationFrame) {
+        const AtomicString& eventType = EventTypeNames::finish;
+        if (finished() && !m_finished && executionContext() && hasEventListeners(eventType)) {
+            RefPtrWillBeRawPtr<AnimationPlayerEvent> event = AnimationPlayerEvent::create(eventType, currentTime(), timeline()->currentTime());
+            event->setTarget(this);
+            event->setCurrentTarget(this);
+            m_timeline->document()->enqueueAnimationFrameEvent(event.release());
+        }
+        m_finished = finished();
+    }
+    return !m_finished || m_content->isCurrent() || m_content->isInEffect();
 }
 
 double AnimationPlayer::timeToEffectChange()
@@ -334,6 +366,13 @@ bool AnimationPlayer::SortInfo::operator<(const SortInfo& other) const
     if (m_startTime > other.m_startTime)
         return false;
     return m_sequenceNumber < other.m_sequenceNumber;
+}
+
+bool AnimationPlayer::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
+{
+    if (eventType == EventTypeNames::finish)
+        UseCounter::count(executionContext(), UseCounter::AnimationPlayerFinishEvent);
+    return EventTargetWithInlineData::addEventListener(eventType, listener, useCapture);
 }
 
 void AnimationPlayer::pauseForTesting(double pauseTime)

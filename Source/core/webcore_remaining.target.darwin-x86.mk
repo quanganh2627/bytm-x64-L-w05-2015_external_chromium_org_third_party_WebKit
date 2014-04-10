@@ -6,13 +6,14 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := third_party_WebKit_Source_core_webcore_remaining_gyp
 LOCAL_MODULE_SUFFIX := .a
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp)/webcore_prerequisites.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp,,,$(GYP_VAR_PREFIX))/webcore_prerequisites.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
@@ -25,7 +26,6 @@ GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 
 LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/Init.cpp \
-	third_party/WebKit/Source/core/accessibility/AXObjectCache.cpp \
 	third_party/WebKit/Source/core/accessibility/AXARIAGrid.cpp \
 	third_party/WebKit/Source/core/accessibility/AXARIAGridCell.cpp \
 	third_party/WebKit/Source/core/accessibility/AXARIAGridRow.cpp \
@@ -41,13 +41,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/accessibility/AXMockObject.cpp \
 	third_party/WebKit/Source/core/accessibility/AXNodeObject.cpp \
 	third_party/WebKit/Source/core/accessibility/AXObject.cpp \
+	third_party/WebKit/Source/core/accessibility/AXObjectCache.cpp \
 	third_party/WebKit/Source/core/accessibility/AXProgressIndicator.cpp \
 	third_party/WebKit/Source/core/accessibility/AXRenderObject.cpp \
+	third_party/WebKit/Source/core/accessibility/AXSVGRoot.cpp \
 	third_party/WebKit/Source/core/accessibility/AXScrollView.cpp \
 	third_party/WebKit/Source/core/accessibility/AXScrollbar.cpp \
 	third_party/WebKit/Source/core/accessibility/AXSlider.cpp \
 	third_party/WebKit/Source/core/accessibility/AXSpinButton.cpp \
-	third_party/WebKit/Source/core/accessibility/AXSVGRoot.cpp \
 	third_party/WebKit/Source/core/accessibility/AXTable.cpp \
 	third_party/WebKit/Source/core/accessibility/AXTableCell.cpp \
 	third_party/WebKit/Source/core/accessibility/AXTableColumn.cpp \
@@ -73,9 +74,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/animation/AnimatableStrokeDasharrayList.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableTransform.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableValue.cpp \
+	third_party/WebKit/Source/core/animation/AnimatableValueKeyframe.cpp \
 	third_party/WebKit/Source/core/animation/AnimatableVisibility.cpp \
 	third_party/WebKit/Source/core/animation/Animation.cpp \
 	third_party/WebKit/Source/core/animation/AnimationClock.cpp \
+	third_party/WebKit/Source/core/animation/AnimationPlayer.cpp \
 	third_party/WebKit/Source/core/animation/AnimationStack.cpp \
 	third_party/WebKit/Source/core/animation/AnimationTranslationUtil.cpp \
 	third_party/WebKit/Source/core/animation/CompositorAnimations.cpp \
@@ -83,19 +86,19 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/animation/DocumentTimeline.cpp \
 	third_party/WebKit/Source/core/animation/EffectInput.cpp \
 	third_party/WebKit/Source/core/animation/InertAnimation.cpp \
-	third_party/WebKit/Source/core/animation/Interpolation.cpp \
 	third_party/WebKit/Source/core/animation/InterpolableValue.cpp \
+	third_party/WebKit/Source/core/animation/Interpolation.cpp \
 	third_party/WebKit/Source/core/animation/InterpolationEffect.cpp \
 	third_party/WebKit/Source/core/animation/KeyframeEffectModel.cpp \
-	third_party/WebKit/Source/core/animation/AnimationPlayer.cpp \
+	third_party/WebKit/Source/core/animation/StringKeyframe.cpp \
 	third_party/WebKit/Source/core/animation/TimedItem.cpp \
 	third_party/WebKit/Source/core/animation/TimedItemTiming.cpp \
 	third_party/WebKit/Source/core/animation/TimingInput.cpp \
 	third_party/WebKit/Source/core/animation/css/CSSAnimatableValueFactory.cpp \
-	third_party/WebKit/Source/core/animation/css/CSSAnimations.cpp \
 	third_party/WebKit/Source/core/animation/css/CSSAnimationData.cpp \
 	third_party/WebKit/Source/core/animation/css/CSSAnimationDataList.cpp \
-	third_party/WebKit/Source/core/animation/css/CSSPendingAnimations.cpp \
+	third_party/WebKit/Source/core/animation/css/CSSAnimations.cpp \
+	third_party/WebKit/Source/core/animation/CompositorPendingAnimations.cpp \
 	third_party/WebKit/Source/core/animation/css/CSSPropertyEquality.cpp \
 	third_party/WebKit/Source/core/animation/css/TransitionTimeline.cpp \
 	third_party/WebKit/Source/core/clipboard/Clipboard.cpp \
@@ -111,8 +114,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/CSSBasicShapes.cpp \
 	third_party/WebKit/Source/core/css/CSSBorderImage.cpp \
 	third_party/WebKit/Source/core/css/CSSBorderImageSliceValue.cpp \
-	third_party/WebKit/Source/core/css/CSSCanvasValue.cpp \
 	third_party/WebKit/Source/core/css/CSSCalculationValue.cpp \
+	third_party/WebKit/Source/core/css/CSSCanvasValue.cpp \
 	third_party/WebKit/Source/core/css/CSSCharsetRule.cpp \
 	third_party/WebKit/Source/core/css/CSSComputedStyleDeclaration.cpp \
 	third_party/WebKit/Source/core/css/CSSCrossfadeValue.cpp \
@@ -142,16 +145,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/CSSKeyframeRule.cpp \
 	third_party/WebKit/Source/core/css/CSSKeyframesRule.cpp \
 	third_party/WebKit/Source/core/css/CSSLineBoxContainValue.cpp \
-	third_party/WebKit/Source/core/css/CSSMatrix.cpp \
 	third_party/WebKit/Source/core/css/CSSMarkup.cpp \
+	third_party/WebKit/Source/core/css/CSSMatrix.cpp \
 	third_party/WebKit/Source/core/css/CSSMediaRule.cpp \
 	third_party/WebKit/Source/core/css/CSSOMUtils.cpp \
 	third_party/WebKit/Source/core/css/CSSPageRule.cpp \
-	third_party/WebKit/Source/core/css/parser/CSSPropertyParser.cpp \
-	third_party/WebKit/Source/core/css/parser/MediaQueryTokenizer.cpp \
-	third_party/WebKit/Source/core/css/parser/MediaQueryParser.cpp \
-	third_party/WebKit/Source/core/css/parser/MediaQueryInputStream.cpp \
-	third_party/WebKit/Source/core/css/parser/MediaQueryToken.cpp \
 	third_party/WebKit/Source/core/css/CSSParserMode.cpp \
 	third_party/WebKit/Source/core/css/CSSParserValues.cpp \
 	third_party/WebKit/Source/core/css/CSSPrimitiveValue.cpp \
@@ -216,8 +214,13 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/StyleSheetList.cpp \
 	third_party/WebKit/Source/core/css/TreeBoundaryCrossingRules.cpp \
 	third_party/WebKit/Source/core/css/invalidation/DescendantInvalidationSet.cpp \
-	third_party/WebKit/Source/core/css/invalidation/StyleSheetInvalidationAnalysis.cpp \
 	third_party/WebKit/Source/core/css/invalidation/StyleInvalidator.cpp \
+	third_party/WebKit/Source/core/css/invalidation/StyleSheetInvalidationAnalysis.cpp \
+	third_party/WebKit/Source/core/css/parser/CSSPropertyParser.cpp \
+	third_party/WebKit/Source/core/css/parser/MediaQueryInputStream.cpp \
+	third_party/WebKit/Source/core/css/parser/MediaQueryParser.cpp \
+	third_party/WebKit/Source/core/css/parser/MediaQueryToken.cpp \
+	third_party/WebKit/Source/core/css/parser/MediaQueryTokenizer.cpp \
 	third_party/WebKit/Source/core/css/resolver/AnimatedStyleBuilder.cpp \
 	third_party/WebKit/Source/core/css/resolver/CSSToStyleMap.cpp \
 	third_party/WebKit/Source/core/css/resolver/ElementResolveContext.cpp \
@@ -326,8 +329,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/BarProp.cpp \
 	third_party/WebKit/Source/core/frame/Console.cpp \
 	third_party/WebKit/Source/core/frame/ConsoleBase.cpp \
-	third_party/WebKit/Source/core/frame/DeviceSensorEventController.cpp \
-	third_party/WebKit/Source/core/frame/DeviceSensorEventDispatcher.cpp \
 	third_party/WebKit/Source/core/frame/DOMTimer.cpp \
 	third_party/WebKit/Source/core/frame/DOMWindow.cpp \
 	third_party/WebKit/Source/core/frame/DOMWindowBase64.cpp \
@@ -337,6 +338,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/DOMWindowTimers.cpp \
 	third_party/WebKit/Source/core/frame/DeprecatedScheduleStyleRecalcDuringCompositingUpdate.cpp \
 	third_party/WebKit/Source/core/frame/DeprecatedScheduleStyleRecalcDuringLayout.cpp \
+	third_party/WebKit/Source/core/frame/DeviceSensorEventController.cpp \
+	third_party/WebKit/Source/core/frame/DeviceSensorEventDispatcher.cpp \
 	third_party/WebKit/Source/core/frame/Frame.cpp \
 	third_party/WebKit/Source/core/frame/FrameDestructionObserver.cpp \
 	third_party/WebKit/Source/core/frame/FrameHost.cpp \
@@ -354,6 +357,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/Screen.cpp \
 	third_party/WebKit/Source/core/frame/Settings.cpp \
 	third_party/WebKit/Source/core/frame/SettingsDelegate.cpp \
+	third_party/WebKit/Source/core/frame/SmartClip.cpp \
 	third_party/WebKit/Source/core/frame/SuspendableTimer.cpp \
 	third_party/WebKit/Source/core/frame/UseCounter.cpp \
 	third_party/WebKit/Source/core/frame/csp/CSPDirectiveList.cpp \
@@ -470,7 +474,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/page/HistoryController.cpp \
 	third_party/WebKit/Source/core/page/InjectedStyleSheets.cpp \
 	third_party/WebKit/Source/core/page/MouseEventWithHitTestResults.cpp \
-	third_party/WebKit/Source/core/frame/SmartClip.cpp \
 	third_party/WebKit/Source/core/page/NetworkStateNotifier.cpp \
 	third_party/WebKit/Source/core/page/Page.cpp \
 	third_party/WebKit/Source/core/page/PageAnimator.cpp \
@@ -633,15 +636,14 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -787,15 +789,14 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -879,9 +880,9 @@ LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-m32 \
@@ -896,9 +897,9 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-m32 \

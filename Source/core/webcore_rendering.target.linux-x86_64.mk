@@ -6,13 +6,14 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := third_party_WebKit_Source_core_webcore_rendering_gyp
 LOCAL_MODULE_SUFFIX := .a
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp)/webcore_prerequisites.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp,,,$(GYP_VAR_PREFIX))/webcore_prerequisites.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
@@ -42,7 +43,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/InlineBox.cpp \
 	third_party/WebKit/Source/core/rendering/InlineFlowBox.cpp \
 	third_party/WebKit/Source/core/rendering/InlineTextBox.cpp \
-	third_party/WebKit/Source/core/rendering/LayoutRectRecorder.cpp \
 	third_party/WebKit/Source/core/rendering/LayoutRepainter.cpp \
 	third_party/WebKit/Source/core/rendering/LayoutState.cpp \
 	third_party/WebKit/Source/core/rendering/OrderIterator.cpp \
@@ -147,6 +147,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/compositing/CompositedLayerMapping.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingPropertyUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingReasonFinder.cpp \
+	third_party/WebKit/Source/core/rendering/compositing/CompositingRequirementsUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/GraphicsLayerUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/RenderLayerCompositor.cpp \
 	third_party/WebKit/Source/core/rendering/line/BreakingContext.cpp \
@@ -158,12 +159,12 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/shapes/RasterShape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/RectangleShape.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/Shape.cpp \
-	third_party/WebKit/Source/core/rendering/shapes/ShapeInfo.cpp \
 	third_party/WebKit/Source/core/rendering/shapes/ShapeOutsideInfo.cpp \
 	third_party/WebKit/Source/core/rendering/style/BasicShapes.cpp \
 	third_party/WebKit/Source/core/rendering/style/ContentData.cpp \
 	third_party/WebKit/Source/core/rendering/style/CounterDirectives.cpp \
 	third_party/WebKit/Source/core/rendering/style/FillLayer.cpp \
+	third_party/WebKit/Source/core/rendering/style/GridResolvedPosition.cpp \
 	third_party/WebKit/Source/core/rendering/style/KeyframeList.cpp \
 	third_party/WebKit/Source/core/rendering/style/NinePieceImage.cpp \
 	third_party/WebKit/Source/core/rendering/style/QuotesData.cpp \
@@ -260,15 +261,14 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -413,15 +413,14 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -505,9 +504,9 @@ LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-m64 \
@@ -522,9 +521,9 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-m64 \

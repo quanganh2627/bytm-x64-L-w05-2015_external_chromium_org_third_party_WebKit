@@ -22,7 +22,7 @@
 
 #include "config.h"
 
-#include "core/rendering/LayoutRectRecorder.h"
+#include "core/accessibility/AXObjectCache.h"
 #include "core/rendering/RenderCounter.h"
 #include "core/rendering/RenderFlowThread.h"
 #include "core/rendering/RenderLayer.h"
@@ -283,6 +283,9 @@ RootInlineBox* RenderBlockFlow::constructLine(BidiRunList<BidiRun>& bidiRuns, co
             text->setDirOverride(r->dirOverride(visuallyOrdered));
             if (r->m_hasHyphen)
                 text->setHasHyphen(true);
+
+            if (AXObjectCache* cache = document().existingAXObjectCache())
+                cache->inlineTextBoxesUpdated(r->m_object);
         }
     }
 
@@ -1708,8 +1711,6 @@ void RenderBlockFlow::layoutInlineChildren(bool relayoutChildren, LayoutUnit& re
         Vector<RenderBox*> replacedChildren;
         for (InlineWalker walker(this); !walker.atEnd(); walker.advance()) {
             RenderObject* o = walker.current();
-
-            LayoutRectRecorder recorder(*o, o->isText());
 
             if (!layoutState.hasInlineChild() && o->isInline())
                 layoutState.setHasInlineChild(true);

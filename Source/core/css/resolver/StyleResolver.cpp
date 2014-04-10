@@ -247,31 +247,21 @@ void StyleResolver::resetRuleFeatures()
     m_needCollectFeatures = true;
 }
 
-void StyleResolver::addTreeBoundaryCrossingRules(const WillBeHeapVector<MinimalRuleData>& rules, ContainerNode* scope)
-{
-    for (unsigned i = 0; i < rules.size(); ++i) {
-        const MinimalRuleData& info = rules[i];
-        m_treeBoundaryCrossingRules.addRule(info.m_rule, info.m_selectorIndex, scope, info.m_flags);
-    }
-}
-
-void StyleResolver::processScopedRules(const RuleSet& authorRules, const KURL& sheetBaseURL, ContainerNode* scope)
+void StyleResolver::processScopedRules(const RuleSet& authorRules, CSSStyleSheet* parentStyleSheet, ContainerNode& scope)
 {
     const WillBeHeapVector<RawPtrWillBeMember<StyleRuleKeyframes> > keyframesRules = authorRules.keyframesRules();
     for (unsigned i = 0; i < keyframesRules.size(); ++i)
-        ensureScopedStyleResolver(scope)->addKeyframeStyle(keyframesRules[i]);
+        ensureScopedStyleResolver(&scope)->addKeyframeStyle(keyframesRules[i]);
 
-    addTreeBoundaryCrossingRules(authorRules.treeBoundaryCrossingRules(), scope);
+    m_treeBoundaryCrossingRules.addTreeBoundaryCrossingRules(authorRules, scope, parentStyleSheet);
 
     // FIXME(BUG 72461): We don't add @font-face rules of scoped style sheets for the moment.
-    if (!scope || scope->isDocumentNode()) {
+    if (scope.isDocumentNode()) {
         const WillBeHeapVector<RawPtrWillBeMember<StyleRuleFontFace> > fontFaceRules = authorRules.fontFaceRules();
         for (unsigned i = 0; i < fontFaceRules.size(); ++i)
             addFontFaceRule(&m_document, document().styleEngine()->fontSelector(), fontFaceRules[i]);
         if (fontFaceRules.size())
             invalidateMatchedPropertiesCache();
-    } else {
-        addTreeBoundaryCrossingRules(authorRules.shadowDistributedRules(), scope);
     }
 }
 
@@ -283,7 +273,7 @@ void StyleResolver::resetAuthorStyle(const ContainerNode* scopingNode)
     if (!resolver)
         return;
 
-    treeBoundaryCrossingRules().reset(scopingNode);
+    m_treeBoundaryCrossingRules.reset(scopingNode);
 
     resolver->resetAuthorStyle();
     resetRuleFeatures();
@@ -400,40 +390,10 @@ StyleResolver::~StyleResolver()
 {
 }
 
-inline void StyleResolver::collectTreeBoundaryCrossingRules(Element* element, ElementRuleCollector& collector, bool includeEmptyRules)
-{
-    if (m_treeBoundaryCrossingRules.isEmpty())
-        return;
-
-    // When comparing rules declared in outer treescopes, outer's rules win.
-    CascadeOrder outerCascadeOrder = m_treeBoundaryCrossingRules.size() + m_treeBoundaryCrossingRules.size();
-    // When comparing rules declared in inner treescopes, inner's rules win.
-    CascadeOrder innerCascadeOrder = m_treeBoundaryCrossingRules.size();
-
-    for (DocumentOrderedList::iterator it = m_treeBoundaryCrossingRules.begin(); it != m_treeBoundaryCrossingRules.end(); ++it) {
-        const ContainerNode* scopingNode = toContainerNode(*it);
-        RuleSet* ruleSet = m_treeBoundaryCrossingRules.ruleSetScopedBy(scopingNode);
-        unsigned boundaryBehavior = SelectorChecker::ScopeContainsLastMatchedElement;
-        bool isInnerTreeScope = element->treeScope().isInclusiveAncestorOf(scopingNode->treeScope());
-
-        // If a given scoping node is a shadow root and a given element is in a descendant tree of tree hosted by
-        // the scoping node's shadow host, we should use ScopeIsShadowHost.
-        if (scopingNode && scopingNode->isShadowRoot()) {
-            if (element->isInDescendantTreeOf(toShadowRoot(scopingNode)->host()))
-                boundaryBehavior |= SelectorChecker::ScopeIsShadowHost;
-            scopingNode = toShadowRoot(scopingNode)->host();
-        }
-
-        CascadeOrder cascadeOrder = isInnerTreeScope ? innerCascadeOrder : outerCascadeOrder;
-        collector.collectMatchingRules(MatchRequest(ruleSet, includeEmptyRules, scopingNode), collector.matchedResult().ranges.authorRuleRange(), static_cast<SelectorChecker::BehaviorAtBoundary>(boundaryBehavior), ignoreCascadeScope, cascadeOrder);
-        ++innerCascadeOrder;
-        --outerCascadeOrder;
-    }
-}
-
+// FIXME: Get rid of all the applyAuthorStyles stuff.
 static inline bool applyAuthorStylesOf(const Element* element)
 {
-    return element->treeScope().applyAuthorStyles() || (element->shadow() && element->shadow()->applyAuthorStyles());
+    return element->treeScope().applyAuthorStyles();
 }
 
 void StyleResolver::matchAuthorRulesForShadowHost(Element* element, ElementRuleCollector& collector, bool includeEmptyRules, Vector<ScopedStyleResolver*, 8>& resolvers, Vector<ScopedStyleResolver*, 8>& resolversInShadowTree)
@@ -454,7 +414,7 @@ void StyleResolver::matchAuthorRulesForShadowHost(Element* element, ElementRuleC
     for (unsigned i = 0; i < resolvers.size(); ++i)
         resolvers.at(i)->collectMatchingAuthorRules(collector, includeEmptyRules, applyAuthorStyles, cascadeScope++, --cascadeOrder);
 
-    collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
+    m_treeBoundaryCrossingRules.collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
     collector.sortAndTransferMatchedRules();
 }
 
@@ -466,7 +426,7 @@ void StyleResolver::matchAuthorRules(Element* element, ElementRuleCollector& col
     bool applyAuthorStyles = applyAuthorStylesOf(element);
     if (m_styleTree.hasOnlyScopedResolverForDocument()) {
         m_styleTree.scopedStyleResolverForDocument()->collectMatchingAuthorRules(collector, includeEmptyRules, applyAuthorStyles, ignoreCascadeScope);
-        collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
+        m_treeBoundaryCrossingRules.collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
         collector.sortAndTransferMatchedRules();
         return;
     }
@@ -492,7 +452,7 @@ void StyleResolver::matchAuthorRules(Element* element, ElementRuleCollector& col
         resolver->collectMatchingAuthorRules(collector, includeEmptyRules, applyAuthorStyles, cascadeScope++, resolver->treeScope() == element->treeScope() && resolver->scopingNode().isShadowRoot() ? 0 : cascadeOrder);
     }
 
-    collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
+    m_treeBoundaryCrossingRules.collectTreeBoundaryCrossingRules(element, collector, includeEmptyRules);
     collector.sortAndTransferMatchedRules();
 }
 
@@ -632,13 +592,14 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
 
     // Once an element has a renderer, we don't try to destroy it, since otherwise the renderer
     // will vanish if a style recalc happens during loading.
-    if (sharingBehavior == AllowStyleSharing && !element->document().haveStylesheetsLoaded() && !element->renderer()) {
+    if (sharingBehavior == AllowStyleSharing && !document().styleEngine()->haveStylesheetsLoaded() && !element->renderer()) {
         if (!s_styleNotYetAvailable) {
             s_styleNotYetAvailable = RenderStyle::create().leakRef();
             s_styleNotYetAvailable->setDisplay(NONE);
             s_styleNotYetAvailable->font().update(document().styleEngine()->fontSelector());
         }
-        element->document().setHasNodesWithPlaceholderStyle();
+
+        document().setHasNodesWithPlaceholderStyle();
         return s_styleNotYetAvailable;
     }
 
@@ -787,23 +748,15 @@ PassRefPtr<RenderStyle> StyleResolver::styleForKeyframe(Element* element, const 
 
 // This function is used by the WebAnimations JavaScript API method animate().
 // FIXME: Remove this when animate() switches away from resolution-dependent parsing.
-PassRefPtrWillBeRawPtr<KeyframeEffectModel> StyleResolver::createKeyframeEffectModel(Element& element, const WillBeHeapVector<RefPtrWillBeMember<MutableStylePropertySet> >& propertySetVector, KeyframeEffectModel::KeyframeVector& keyframes)
+PassRefPtrWillBeRawPtr<AnimatableValue> StyleResolver::createAnimatableValueSnapshot(Element& element, CSSPropertyID property, CSSValue* value)
 {
-    ASSERT(propertySetVector.size() == keyframes.size());
-
+    // We use a fresh RenderStyle here because certain values (eg. background-position) won't always completely replace the previously applied property.
+    RefPtr<RenderStyle> style = element.renderStyle() ? RenderStyle::clone(element.renderStyle()) : RenderStyle::create();
     StyleResolverState state(element.document(), &element);
-    state.setStyle(RenderStyle::create());
+    state.setStyle(style.get());
     state.fontBuilder().initForStyleResolve(state.document(), state.style(), state.useSVGZoomRules());
-
-    for (unsigned i = 0; i < propertySetVector.size(); ++i) {
-        for (unsigned j = 0; j < propertySetVector[i]->propertyCount(); ++j) {
-            CSSPropertyID id = propertySetVector[i]->propertyAt(j).id();
-            StyleBuilder::applyProperty(id, state, propertySetVector[i]->getPropertyCSSValue(id).get());
-            keyframes[i]->setPropertyValue(id, CSSAnimatableValueFactory::create(id, *state.style()).get());
-        }
-    }
-
-    return KeyframeEffectModel::create(keyframes);
+    StyleBuilder::applyProperty(property, state, value);
+    return CSSAnimatableValueFactory::create(property, *style);
 }
 
 PassRefPtr<PseudoElement> StyleResolver::createPseudoElementIfNeeded(Element& parent, PseudoId pseudoId)
@@ -1100,7 +1053,7 @@ void StyleResolver::applyAnimatedProperties(StyleResolverState& state, const Wil
         CSSPropertyID property = iter->key;
         if (!isPropertyForPass<pass>(property))
             continue;
-        const StyleInterpolation *interpolation = toStyleInterpolation(iter->value.get());
+        const StyleInterpolation* interpolation = toStyleInterpolation(iter->value.get());
         interpolation->apply(state);
     }
 }

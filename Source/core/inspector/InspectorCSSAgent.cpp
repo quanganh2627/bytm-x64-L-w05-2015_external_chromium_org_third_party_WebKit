@@ -48,6 +48,7 @@
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/Node.h"
 #include "core/dom/NodeList.h"
+#include "core/dom/VisitedLinkState.h"
 #include "core/fetch/CSSStyleSheetResource.h"
 #include "core/fetch/ResourceClient.h"
 #include "core/fetch/ResourceFetcher.h"
@@ -65,6 +66,7 @@
 #include "core/rendering/RenderObject.h"
 #include "core/rendering/RenderText.h"
 #include "core/rendering/RenderTextFragment.h"
+#include "core/rendering/style/RenderStyleConstants.h"
 #include "platform/fonts/Font.h"
 #include "platform/fonts/GlyphBuffer.h"
 #include "platform/fonts/WidthIterator.h"
@@ -665,13 +667,20 @@ bool InspectorCSSAgent::forcePseudoState(Element* element, CSSSelector::PseudoTy
 void InspectorCSSAgent::getMatchedStylesForNode(ErrorString* errorString, int nodeId, const bool* includePseudo, const bool* includeInherited, RefPtr<TypeBuilder::Array<TypeBuilder::CSS::RuleMatch> >& matchedCSSRules, RefPtr<TypeBuilder::Array<TypeBuilder::CSS::PseudoIdMatches> >& pseudoIdMatches, RefPtr<TypeBuilder::Array<TypeBuilder::CSS::InheritedStyleEntry> >& inheritedEntries)
 {
     Element* element = elementForId(errorString, nodeId);
-    if (!element)
+    if (!element) {
+        *errorString = "Node not found";
         return;
+    }
 
     Element* originalElement = element;
     PseudoId elementPseudoId = element->pseudoId();
-    if (elementPseudoId)
+    if (elementPseudoId) {
         element = element->parentOrShadowHostElement();
+        if (!element) {
+            *errorString = "Pseudo element has no parent";
+            return;
+        }
+    }
 
     Document* ownerDocument = element->ownerDocument();
     // A non-active document has no styles.
@@ -686,7 +695,7 @@ void InspectorCSSAgent::getMatchedStylesForNode(ErrorString* errorString, int no
     StyleResolver& styleResolver = ownerDocument->ensureStyleResolver();
 
     RefPtrWillBeRawPtr<CSSRuleList> matchedRules = styleResolver.pseudoCSSRulesForElement(element, elementPseudoId, StyleResolver::AllCSSRules);
-    matchedCSSRules = buildArrayForMatchedRuleList(matchedRules.get(), originalElement);
+    matchedCSSRules = buildArrayForMatchedRuleList(matchedRules.get(), originalElement, true);
 
     // Pseudo elements.
     if (!elementPseudoId && (!includePseudo || *includePseudo)) {
@@ -696,7 +705,7 @@ void InspectorCSSAgent::getMatchedStylesForNode(ErrorString* errorString, int no
             if (matchedRules && matchedRules->length()) {
                 RefPtr<TypeBuilder::CSS::PseudoIdMatches> matches = TypeBuilder::CSS::PseudoIdMatches::create()
                     .setPseudoId(static_cast<int>(pseudoId))
-                    .setMatches(buildArrayForMatchedRuleList(matchedRules.get(), element));
+                    .setMatches(buildArrayForMatchedRuleList(matchedRules.get(), element, false));
                 pseudoElements->addItem(matches.release());
             }
         }
@@ -712,7 +721,7 @@ void InspectorCSSAgent::getMatchedStylesForNode(ErrorString* errorString, int no
             StyleResolver& parentStyleResolver = parentElement->ownerDocument()->ensureStyleResolver();
             RefPtrWillBeRawPtr<CSSRuleList> parentMatchedRules = parentStyleResolver.cssRulesForElement(parentElement, StyleResolver::AllCSSRules);
             RefPtr<TypeBuilder::CSS::InheritedStyleEntry> entry = TypeBuilder::CSS::InheritedStyleEntry::create()
-                .setMatchedCSSRules(buildArrayForMatchedRuleList(parentMatchedRules.get(), parentElement));
+                .setMatchedCSSRules(buildArrayForMatchedRuleList(parentMatchedRules.get(), parentElement, true));
             if (parentElement->style() && parentElement->style()->length()) {
                 InspectorStyleSheetForInlineStyle* styleSheet = asInspectorStyleSheet(parentElement);
                 if (styleSheet)
@@ -839,17 +848,62 @@ void InspectorCSSAgent::setStyleSheetText(ErrorString* errorString, const String
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
 }
 
-void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const RefPtr<JSONObject>& fullStyleId, int propertyIndex, const String& text, bool overwrite, RefPtr<TypeBuilder::CSS::CSSStyle>& result)
+static bool extractRangeComponent(ErrorString* errorString, const RefPtr<JSONObject>& range, const String& component, unsigned& result)
 {
-    InspectorCSSId compoundId(fullStyleId);
-    if (compoundId.isEmpty()) {
-        *errorString = "Failed to parse styleId argument";
-        return;
+    int parsedValue;
+    if (!range->getNumber(component, &parsedValue) || parsedValue < 0) {
+        *errorString = "range." + component + " must be a non-negative integer";
+        return false;
+    }
+    result = parsedValue;
+    return true;
+}
+
+static bool jsonRangeToSourceRange(ErrorString* errorString, InspectorStyleSheetBase* inspectorStyleSheet, const RefPtr<JSONObject>& range, SourceRange* sourceRange)
+{
+    unsigned startLineNumber;
+    unsigned startColumn;
+    unsigned endLineNumber;
+    unsigned endColumn;
+    if (!extractRangeComponent(errorString, range, "startLine", startLineNumber)
+        || !extractRangeComponent(errorString, range, "startColumn", startColumn)
+        || !extractRangeComponent(errorString, range, "endLine", endLineNumber)
+        || !extractRangeComponent(errorString, range, "endColumn", endColumn))
+        return false;
+
+    unsigned startOffset;
+    unsigned endOffset;
+    bool success = inspectorStyleSheet->lineNumberAndColumnToOffset(startLineNumber, startColumn, &startOffset)
+        && inspectorStyleSheet->lineNumberAndColumnToOffset(endLineNumber, endColumn, &endOffset);
+    if (!success) {
+        *errorString = "Specified range is out of bounds";
+        return false;
     }
 
-    InspectorStyleSheetBase* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
+    if (startOffset > endOffset) {
+        *errorString = "Range start must not succeed its end";
+        return false;
+    }
+    sourceRange->start = startOffset;
+    sourceRange->end = endOffset;
+    return true;
+}
+
+void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const String& styleSheetId, const RefPtr<JSONObject>& range, const String& text, RefPtr<TypeBuilder::CSS::CSSStyle>& result)
+{
+    InspectorStyleSheetBase* inspectorStyleSheet = assertStyleSheetForId(errorString, styleSheetId);
     if (!inspectorStyleSheet)
         return;
+    SourceRange propertyRange;
+    if (!jsonRangeToSourceRange(errorString, inspectorStyleSheet, range, &propertyRange))
+        return;
+    InspectorCSSId compoundId;
+    unsigned propertyIndex;
+    bool overwrite;
+    if (!inspectorStyleSheet->findPropertyByRange(propertyRange, &compoundId, &propertyIndex, &overwrite)) {
+        *errorString = "Source range didn't match any existing property source range nor any property insertion point";
+        return;
+    }
 
     TrackExceptionState exceptionState;
     bool success = m_domAgent->history()->perform(adoptRef(new SetPropertyTextAction(inspectorStyleSheet, compoundId, propertyIndex, text, overwrite)), exceptionState);
@@ -858,18 +912,22 @@ void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const RefPtr<J
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
 }
 
-void InspectorCSSAgent::setRuleSelector(ErrorString* errorString, const RefPtr<JSONObject>& fullRuleId, const String& selector, RefPtr<TypeBuilder::CSS::CSSRule>& result)
+void InspectorCSSAgent::setRuleSelector(ErrorString* errorString, const String& styleSheetId, const RefPtr<JSONObject>& range, const String& selector, RefPtr<TypeBuilder::CSS::CSSRule>& result)
 {
-    InspectorCSSId compoundId(fullRuleId);
-    ASSERT(!compoundId.isEmpty());
-
-    InspectorStyleSheet* inspectorStyleSheet = assertInspectorStyleSheetForId(errorString, compoundId.styleSheetId());
+    InspectorStyleSheet* inspectorStyleSheet = assertInspectorStyleSheetForId(errorString, styleSheetId);
     if (!inspectorStyleSheet)
         return;
+    SourceRange selectorRange;
+    if (!jsonRangeToSourceRange(errorString, inspectorStyleSheet, range, &selectorRange))
+        return;
+    InspectorCSSId compoundId;
+    if (!inspectorStyleSheet->findRuleBySelectorRange(selectorRange, &compoundId)) {
+        *errorString = "Source range didn't match any rule selector source range";
+        return;
+    }
 
     TrackExceptionState exceptionState;
     bool success = m_domAgent->history()->perform(adoptRef(new SetRuleSelectorAction(inspectorStyleSheet, compoundId, selector)), exceptionState);
-
     if (success) {
         CSSStyleRule* rule = inspectorStyleSheet->ruleForId(compoundId);
         result = inspectorStyleSheet->buildObjectForRule(rule, buildMediaListChain(rule));
@@ -1245,12 +1303,35 @@ static inline bool matchesPseudoElement(const CSSSelector* selector, PseudoId el
     return selectorPseudoId == elementPseudoId;
 }
 
-PassRefPtr<TypeBuilder::Array<TypeBuilder::CSS::RuleMatch> > InspectorCSSAgent::buildArrayForMatchedRuleList(CSSRuleList* ruleList, Element* element)
+static inline bool matchesElement(const CSSSelector& selector, Element& element)
+{
+    SelectorChecker selectorChecker(element.document(), SelectorChecker::QueryingRules);
+    SelectorChecker::SelectorCheckingContext selectorCheckingContext(selector, &element, SelectorChecker::VisitedMatchEnabled);
+    selectorCheckingContext.behaviorAtBoundary = SelectorChecker::StaysWithinTreeScope;
+    selectorCheckingContext.scope = !element.isDocumentNode() ? &element : 0;
+    return selectorChecker.match(selectorCheckingContext, DOMSiblingTraversalStrategy()) == SelectorChecker::SelectorMatches;
+}
+
+EInsideLink InspectorCSSAgent::linkStateForElement(Element* element)
+{
+    EInsideLink linkState = NotInsideLink;
+    if (element->isLink()) {
+        VisitedLinkState& visitedLinkState = element->ownerDocument()->visitedLinkState();
+        linkState = visitedLinkState.determineLinkState(*element);
+        bool forceVisited = forcePseudoState(element, CSSSelector::PseudoVisited);
+        if (forceVisited)
+            linkState = InsideVisitedLink;
+    }
+    return linkState;
+}
+
+PassRefPtr<TypeBuilder::Array<TypeBuilder::CSS::RuleMatch> > InspectorCSSAgent::buildArrayForMatchedRuleList(CSSRuleList* ruleList, Element* element, bool skipRulesWithoutMatchedSelectors)
 {
     RefPtr<TypeBuilder::Array<TypeBuilder::CSS::RuleMatch> > result = TypeBuilder::Array<TypeBuilder::CSS::RuleMatch>::create();
     if (!ruleList)
         return result.release();
 
+    EInsideLink linkState = linkStateForElement(element);
     for (unsigned i = 0, size = ruleList->length(); i < size; ++i) {
         CSSStyleRule* rule = asCSSStyleRule(ruleList->item(i));
         RefPtr<TypeBuilder::CSS::CSSRule> ruleObject = buildObjectForRule(rule);
@@ -1260,16 +1341,30 @@ PassRefPtr<TypeBuilder::Array<TypeBuilder::CSS::RuleMatch> > InspectorCSSAgent::
         const CSSSelectorList& selectorList = rule->styleRule()->selectorList();
         long index = 0;
         PseudoId elementPseudoId = element->pseudoId();
+        bool hasMatchingSelectors = false;
         for (const CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(*selector)) {
             const CSSSelector* firstTagHistorySelector = selector;
-            bool matched = false;
+            bool matchedPseudo = false;
             if (elementPseudoId)
-                matched = matchesPseudoElement(selector, elementPseudoId); // Modifies |selector|.
-            matched |= element->matches(firstTagHistorySelector->selectorText(), IGNORE_EXCEPTION);
-            if (matched)
+                matchedPseudo = matchesPseudoElement(selector, elementPseudoId); // Modifies |selector|.
+
+            bool matchedElement = matchesElement(*firstTagHistorySelector, *element);
+            if (matchedElement) {
+                unsigned linkMatchType = SelectorChecker::determineLinkMatchType(*firstTagHistorySelector);
+                if (linkState == InsideUnvisitedLink)
+                    matchedElement = linkMatchType & SelectorChecker::MatchLink;
+                else if (linkState == InsideVisitedLink)
+                    matchedElement = linkMatchType & SelectorChecker::MatchVisited;
+            }
+
+            if (matchedPseudo || matchedElement) {
                 matchingSelectors->addItem(index);
+                hasMatchingSelectors = true;
+            }
             ++index;
         }
+        if (skipRulesWithoutMatchedSelectors && !hasMatchingSelectors)
+            continue;
         RefPtr<TypeBuilder::CSS::RuleMatch> match = TypeBuilder::CSS::RuleMatch::create()
             .setRule(ruleObject.release())
             .setMatchingSelectors(matchingSelectors.release());

@@ -32,10 +32,12 @@
 #include "core/html/imports/HTMLImportsController.h"
 
 #include "core/dom/Document.h"
+#include "core/dom/StyleEngine.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/imports/HTMLImportChild.h"
 #include "core/html/imports/HTMLImportChildClient.h"
+#include "core/html/imports/HTMLImportLoader.h"
 
 namespace WebCore {
 
@@ -63,6 +65,7 @@ void HTMLImportsController::clear()
 {
     for (size_t i = 0; i < m_imports.size(); ++i)
         m_imports[i]->importDestroyed();
+    m_imports.clear();
     if (m_master)
         m_master->setImport(0);
     m_master = 0;
@@ -152,7 +155,7 @@ bool HTMLImportsController::hasLoader() const
 
 bool HTMLImportsController::isDone() const
 {
-    return !m_master->parsing() && m_master->haveStylesheetsLoaded();
+    return !m_master->parsing() && m_master->styleEngine()->haveStylesheetsLoaded();
 }
 
 void HTMLImportsController::stateDidChange()
@@ -180,6 +183,12 @@ void HTMLImportsController::recalcTimerFired(Timer<HTMLImportsController>*)
         m_recalcTimer.stop();
         HTMLImport::recalcTreeState(this);
     } while (m_recalcTimer.isActive());
+}
+
+HTMLImportLoader* HTMLImportsController::createLoader()
+{
+    m_loaders.append(HTMLImportLoader::create());
+    return m_loaders.last().get();
 }
 
 } // namespace WebCore

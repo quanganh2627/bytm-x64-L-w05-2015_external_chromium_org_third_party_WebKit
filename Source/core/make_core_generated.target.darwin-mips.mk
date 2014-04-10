@@ -7,14 +7,15 @@ LOCAL_MODULE := third_party_WebKit_Source_core_make_core_generated_gyp
 LOCAL_MODULE_STEM := make_core_generated
 LOCAL_MODULE_SUFFIX := .stamp
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_generated_testing_idls_gyp)/generated_testing_idls.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_bindings_generated_gyp)/core_bindings_generated.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp)/config.stamp
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_generated_testing_idls_gyp,,,$(GYP_VAR_PREFIX))/generated_testing_idls.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/core_bindings_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp
 
 ### Rules for action "generateXMLViewerCSS":
 $(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: gyp_local_path := $(LOCAL_PATH)
@@ -369,8 +370,6 @@ $(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: $(LOCAL_PATH)/third_party/W
 	mkdir -p $(gyp_shared_intermediate_dir)/blink; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py css/CSSGrammar.y "$(gyp_shared_intermediate_dir)/blink" bison
 
 $(gyp_shared_intermediate_dir)/blink/CSSGrammar.h: $(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp ;
-.PHONY: third_party_WebKit_Source_core_make_core_generated_gyp_rule_trigger
-third_party_WebKit_Source_core_make_core_generated_gyp_rule_trigger: $(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp
 
 $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_local_path := $(LOCAL_PATH)
 $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
@@ -380,10 +379,7 @@ $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: $(LOCAL_PATH)/third_party
 	mkdir -p $(gyp_shared_intermediate_dir)/blink; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py xml/XPathGrammar.y "$(gyp_shared_intermediate_dir)/blink" bison
 
 $(gyp_shared_intermediate_dir)/blink/XPathGrammar.h: $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp ;
-.PHONY: third_party_WebKit_Source_core_make_core_generated_gyp_rule_trigger
-third_party_WebKit_Source_core_make_core_generated_gyp_rule_trigger: $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp
 
-### Finished generating for all rules
 
 GYP_GENERATED_OUTPUTS := \
 	$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h \
@@ -456,8 +452,7 @@ GYP_GENERATED_OUTPUTS := \
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
 
-LOCAL_GENERATED_SOURCES := \
-	third_party_WebKit_Source_core_make_core_generated_gyp_rule_trigger
+LOCAL_GENERATED_SOURCES :=
 
 GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 
@@ -652,6 +647,7 @@ make_core_generated: third_party_WebKit_Source_core_make_core_generated_gyp
 
 LOCAL_MODULE_PATH := $(PRODUCT_OUT)/gyp_stamp
 LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_2ND_ARCH_VAR_PREFIX := $(GYP_VAR_PREFIX)
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -659,3 +655,5 @@ $(LOCAL_BUILT_MODULE): $(LOCAL_ADDITIONAL_DEPENDENCIES)
 	$(hide) echo "Gyp timestamp: $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) touch $@
+
+LOCAL_2ND_ARCH_VAR_PREFIX :=

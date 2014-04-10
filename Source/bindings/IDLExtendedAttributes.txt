@@ -36,7 +36,7 @@
 ActiveDOMObject
 ActivityLogging=ForAllWorlds|GetterForAllWorlds|SetterForAllWorlds|ForIsolatedWorlds|GetterForIsolatedWorlds|SetterForIsolatedWorlds
 CachedAttribute=*
-CallWith=ExecutionContext|ScriptState|ScriptArguments|ActiveWindow|FirstWindow|ThisValue
+CallWith=ExecutionContext|ScriptState|NewScriptState|ScriptArguments|ActiveWindow|FirstWindow|ThisValue
 CheckSecurity=Frame|Node
 Clamp
 Conditional=*
@@ -60,13 +60,14 @@ WillBeGarbageCollected
 GlobalContext=Window|WorkerGlobalScope|SharedWorkerGlobalScope|DedicatedWorkerGlobalScope|ServiceWorkerGlobalScope
 Immutable
 ImplementedAs=*
-ImplementedInBaseClass
 InitializedByEventConstructor
+LegacyTreatAsPartialInterface
 MeasureAs=*
 NamedConstructor=*
 NoInterfaceObject
 NotEnumerable
 OverrideBuiltins
+PartialInterfaceImplementedAs=*
 # Valid values for [PerContextEnabled] are Context Features, in
 # ContextFeatures::FeatureType in Source/core/dom/ContextFeatures.h
 PerContextEnabled=*

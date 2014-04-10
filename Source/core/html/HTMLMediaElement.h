@@ -70,13 +70,15 @@ typedef Vector<CueInterval> CueList;
 // But it can't be until the Chromium WebMediaPlayerClientImpl class is fixed so it
 // no longer depends on typecasting a MediaPlayerClient to an HTMLMediaElement.
 
-class HTMLMediaElement : public Supplementable<HTMLMediaElement>, public HTMLElement, public MediaPlayerClient, public ActiveDOMObject
+class HTMLMediaElement : public HTMLElement, public Supplementable<HTMLMediaElement>, public MediaPlayerClient, public ActiveDOMObject
 {
 public:
     static blink::WebMimeRegistry::SupportsType supportsType(const ContentType&, const String& keySystem = String());
 
     static void setMediaStreamRegistry(URLRegistry*);
     static bool isMediaStreamURL(const String& url);
+
+    virtual void trace(Visitor*) OVERRIDE;
 
     // Do not use player().
     // FIXME: Replace all uses with webMediaPlayer() and remove this API.
@@ -263,7 +265,7 @@ public:
     MediaController* controller() const;
     void setController(PassRefPtr<MediaController>); // Resets the MediaGroup and sets the MediaController.
 
-    void scheduleEvent(PassRefPtr<Event>);
+    void scheduleEvent(PassRefPtrWillBeRawPtr<Event>);
 
     // Current volume that should be used by the webMediaPlayer(). This method takes muted state
     // and m_mediaController multipliers into account.

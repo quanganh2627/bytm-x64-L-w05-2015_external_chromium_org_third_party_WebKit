@@ -7,7 +7,6 @@
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
-#include "core/animation/ActiveAnimations.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
@@ -36,11 +35,29 @@ CompositingReasonFinder::CompositingReasonFinder(RenderView& renderView)
     : m_renderView(renderView)
     , m_compositingTriggers(static_cast<CompositingTriggerFlags>(AllCompositingTriggers))
 {
+    updateTriggers();
 }
 
 void CompositingReasonFinder::updateTriggers()
 {
     m_compositingTriggers = m_renderView.document().page()->chrome().client().allowedCompositingTriggers();
+
+    // FIXME: This monkeying with the accelerated triggers is temporary and should
+    // be removed once the feature ships.
+
+    // Currently, we must have the legacy path enabled to use the new path.
+    if (!(m_compositingTriggers & LegacyOverflowScrollTrigger))
+        m_compositingTriggers &= ~OverflowScrollTrigger;
+
+    // Enable universal overflow scrolling (and only universal overflow scrolling)
+    // on the new bleeding edge path. The above requirement (having legacy enabled)
+    // was only necessary to avoid explosions; the legacy path created far fewer
+    // layers. In the world of squashing, this doesn't make sense. We never want
+    // to use the old path in that case.
+    if (RuntimeEnabledFeatures::bleedingEdgeFastPathsEnabled()) {
+        m_compositingTriggers |= OverflowScrollTrigger;
+        m_compositingTriggers &= ~LegacyOverflowScrollTrigger;
+    }
 }
 
 bool CompositingReasonFinder::has3DTransformTrigger() const
@@ -51,6 +68,19 @@ bool CompositingReasonFinder::has3DTransformTrigger() const
 bool CompositingReasonFinder::hasAnimationTrigger() const
 {
     return m_compositingTriggers & AnimationTrigger;
+}
+
+bool CompositingReasonFinder::hasOverflowScrollTrigger() const
+{
+    return m_compositingTriggers & OverflowScrollTrigger;
+}
+
+// FIXME: This is a temporary trigger for enabling the old, opt-in path for
+// accelerated overflow scroll. It should be removed once the "universal"
+// path is ready (crbug.com/254111).
+bool CompositingReasonFinder::hasLegacyOverflowScrollTrigger() const
+{
+    return m_compositingTriggers & LegacyOverflowScrollTrigger;
 }
 
 bool CompositingReasonFinder::isMainFrame() const
@@ -90,6 +120,9 @@ CompositingReasons CompositingReasonFinder::styleDeterminedReasons(RenderObject*
 
     if (requiresCompositingForBackfaceVisibilityHidden(renderer))
         directReasons |= CompositingReasonBackfaceVisibilityHidden;
+
+    if (requiresCompositingForAnimation(renderer))
+        directReasons |= CompositingReasonActiveAnimation;
 
     if (requiresCompositingForFilters(renderer))
         directReasons |= CompositingReasonFilters;
@@ -143,10 +176,7 @@ CompositingReasons CompositingReasonFinder::nonStyleDeterminedDirectReasons(cons
     CompositingReasons directReasons = CompositingReasonNone;
     RenderObject* renderer = layer->renderer();
 
-    if (requiresCompositingForAnimation(renderer))
-        directReasons |= CompositingReasonActiveAnimation;
-
-    if (m_renderView.compositorDrivenAcceleratedScrollingEnabled()) {
+    if (hasOverflowScrollTrigger()) {
         if (requiresCompositingForOutOfFlowClipping(layer))
             directReasons |= CompositingReasonOutOfFlowClipping;
 
@@ -171,7 +201,7 @@ bool CompositingReasonFinder::requiresCompositingForAnimation(RenderObject* rend
     if (!(m_compositingTriggers & AnimationTrigger))
         return false;
 
-    return shouldCompositeForActiveAnimations(*renderer);
+    return renderer->style()->shouldCompositeForCurrentAnimations();
 }
 
 bool CompositingReasonFinder::requiresCompositingForOutOfFlowClipping(const RenderLayer* layer) const
@@ -181,6 +211,8 @@ bool CompositingReasonFinder::requiresCompositingForOutOfFlowClipping(const Rend
 
 bool CompositingReasonFinder::requiresCompositingForOverflowScrollingParent(const RenderLayer* layer) const
 {
+    if (!hasOverflowScrollTrigger())
+        return false;
     return layer->scrollParent();
 }
 
@@ -291,12 +323,7 @@ bool CompositingReasonFinder::requiresCompositingForPosition(RenderObject* rende
     // Fixed position elements that are invisible in the current view don't get their own layer.
     if (FrameView* frameView = m_renderView.frameView()) {
         LayoutRect viewBounds = frameView->viewportConstrainedVisibleContentRect();
-        LayoutRect layerBounds = layer->calculateLayerBounds(layer->compositor()->rootRenderLayer(), 0,
-            RenderLayer::DefaultCalculateLayerBoundsFlags
-            | RenderLayer::ExcludeHiddenDescendants
-            | RenderLayer::DontConstrainForMask
-            | RenderLayer::IncludeCompositedDescendants
-            | RenderLayer::PretendLayerHasOwnBacking);
+        LayoutRect layerBounds = layer->boundingBoxForCompositing(layer->compositor()->rootRenderLayer(), RenderLayer::ApplyBoundsChickenEggHacks);
         if (!viewBounds.intersects(enclosingIntRect(layerBounds))) {
             if (viewportConstrainedNotCompositedReason) {
                 *viewportConstrainedNotCompositedReason = RenderLayer::NotCompositedForBoundsOutOfView;

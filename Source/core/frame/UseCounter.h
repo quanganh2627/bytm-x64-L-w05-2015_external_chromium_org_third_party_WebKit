@@ -134,8 +134,6 @@ public:
         FormElement = 84,
         DemotedFormElement = 85,
         CaptureAttributeAsEnum = 86,
-        ShadowDOMPrefixedCreateShadowRoot = 88,
-        ShadowDOMPrefixedShadowRoot = 89,
         SVGAnimationElement = 90,
         KeyboardEventKeyLocation = 91,
         LineClamp = 96,
@@ -344,6 +342,9 @@ public:
         // The above items are available in M35 branch.
 
         SVGForeignObjectElement = 325,
+        PrefixedElementRequestPointerLock = 326,
+        SelectionSetPosition = 327,
+        AnimationPlayerFinishEvent = 328,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         NumberOfFeatures, // This enum value must be last.

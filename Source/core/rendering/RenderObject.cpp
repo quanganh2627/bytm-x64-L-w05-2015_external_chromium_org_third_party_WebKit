@@ -51,7 +51,6 @@
 #include "core/frame/UseCounter.h"
 #include "core/rendering/FlowThreadController.h"
 #include "core/rendering/HitTestResult.h"
-#include "core/rendering/LayoutRectRecorder.h"
 #include "core/rendering/RenderCounter.h"
 #include "core/rendering/RenderDeprecatedFlexibleBox.h"
 #include "core/rendering/RenderFlexibleBox.h"
@@ -117,7 +116,7 @@ struct SameSizeAsRenderObject {
 #endif
     unsigned m_bitfields;
     unsigned m_bitfields2;
-    LayoutRect rects[2]; // Stores the old/new repaint rects.
+    LayoutRect rect; // Stores the previous repaint rect.
 };
 
 COMPILE_ASSERT(sizeof(RenderObject) == sizeof(SameSizeAsRenderObject), RenderObject_should_stay_small);
@@ -702,9 +701,8 @@ void RenderObject::checkBlockPositionedObjectsNeedLayout()
 
 void RenderObject::setPreferredLogicalWidthsDirty(MarkingBehavior markParents)
 {
-    bool alreadyDirty = preferredLogicalWidthsDirty();
     m_bitfields.setPreferredLogicalWidthsDirty(true);
-    if (!alreadyDirty && markParents == MarkContainingBlockChain && (isText() || !style()->hasOutOfFlowPosition()))
+    if (markParents == MarkContainingBlockChain && (isText() || !style()->hasOutOfFlowPosition()))
         invalidateContainerPreferredLogicalWidths();
 }
 
@@ -1368,6 +1366,7 @@ RenderLayerModelObject* RenderObject::containerForRepaint() const
 
 void RenderObject::repaintUsingContainer(const RenderLayerModelObject* repaintContainer, const IntRect& r, InvalidationReason invalidationReason) const
 {
+    // FIXME: This should use a ConvertableToTraceFormat when they are available in Blink.
     TRACE_EVENT2(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"), "RenderObject::repaintUsingContainer()",
         "object", TRACE_STR_COPY(this->debugName().ascii().data()),
         "info", TRACE_STR_COPY(String::format("rect: %d,%d %dx%d, invalidation_reason: %s",
@@ -1437,29 +1436,25 @@ void RenderObject::repaintUsingContainer(const RenderLayerModelObject* repaintCo
 
 void RenderObject::repaint() const
 {
-    // Don't repaint if we're unrooted (note that view() still returns the view when unrooted)
-    RenderView* view;
-    if (!isRooted(&view))
+    if (!isRooted())
         return;
 
-    if (view->document().printing())
+    if (view()->document().printing())
         return; // Don't repaint if we're printing.
 
     // FIXME: really, we're in the repaint phase here, and the following queries are legal.
     // Until those states are fully fledged, I'll just disable the ASSERTS.
     DisableCompositingQueryAsserts disabler;
     RenderLayerModelObject* repaintContainer = containerForRepaint();
-    repaintUsingContainer(repaintContainer ? repaintContainer : view, pixelSnappedIntRect(clippedOverflowRectForRepaint(repaintContainer)), InvalidationRepaint);
+    repaintUsingContainer(repaintContainer ? repaintContainer : view(), pixelSnappedIntRect(clippedOverflowRectForRepaint(repaintContainer)), InvalidationRepaint);
 }
 
 void RenderObject::repaintRectangle(const LayoutRect& r) const
 {
-    // Don't repaint if we're unrooted (note that view() still returns the view when unrooted)
-    RenderView* view;
-    if (!isRooted(&view))
+    if (!isRooted())
         return;
 
-    if (view->document().printing())
+    if (view()->document().printing())
         return; // Don't repaint if we're printing.
 
     LayoutRect dirtyRect(r);
@@ -1467,12 +1462,12 @@ void RenderObject::repaintRectangle(const LayoutRect& r) const
     if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
         // FIXME: layoutDelta needs to be applied in parts before/after transforms and
         // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
-        dirtyRect.move(view->layoutDelta());
+        dirtyRect.move(view()->layoutDelta());
     }
 
     RenderLayerModelObject* repaintContainer = containerForRepaint();
     computeRectForRepaint(repaintContainer, dirtyRect);
-    repaintUsingContainer(repaintContainer ? repaintContainer : view, pixelSnappedIntRect(dirtyRect), InvalidationRepaintRectangle);
+    repaintUsingContainer(repaintContainer ? repaintContainer : view(), pixelSnappedIntRect(dirtyRect), InvalidationRepaintRectangle);
 }
 
 IntRect RenderObject::pixelSnappedAbsoluteClippedOverflowRect() const
@@ -1510,6 +1505,14 @@ const char* RenderObject::invalidationReasonToString(InvalidationReason reason) 
     return "";
 }
 
+void RenderObject::repaintTreeAfterLayout()
+{
+    clearRepaintState();
+
+    for (RenderObject* child = firstChild(); child; child = child->nextSibling())
+        child->repaintTreeAfterLayout();
+}
+
 bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, bool wasSelfLayout,
     const LayoutRect& oldBounds, const LayoutRect* newBoundsPtr)
 {
@@ -1520,6 +1523,13 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
     // ASSERT(!newBoundsPtr || *newBoundsPtr == clippedOverflowRectForRepaint(repaintContainer));
     LayoutRect newBounds = newBoundsPtr ? *newBoundsPtr : clippedOverflowRectForRepaint(repaintContainer);
+
+    // FIXME: This should use a ConvertableToTraceFormat when they are available in Blink.
+    TRACE_EVENT2(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"), "RenderObject::repaintAfterLayoutIfNeeded()",
+        "object", TRACE_STR_COPY(this->debugName().ascii().data()),
+        "info", TRACE_STR_COPY(String::format("oldBounds: %d,%d %dx%d newBounds: %d,%d %dx%d",
+            oldBounds.x().toInt(), oldBounds.y().toInt(), oldBounds.width().toInt(), oldBounds.height().toInt(),
+            newBounds.x().toInt(), newBounds.y().toInt(), newBounds.width().toInt(), newBounds.height().toInt()).ascii().data()));
 
     InvalidationReason invalidationReason = wasSelfLayout ? InvalidationSelfLayout : InvalidationIncremental;
 
@@ -2030,7 +2040,7 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
             }
         }
 
-        if (m_parent && (newStyle.outlineSize() < m_style->outlineSize() || shouldRepaintForStyleDifference(diff)))
+        if (m_parent && shouldRepaintForStyleDifference(diff))
             repaint();
         if (isFloating() && (m_style->floating() != newStyle.floating()))
             // For changes in float styles, we need to conceivably remove ourselves
@@ -2473,19 +2483,14 @@ void RenderObject::addLayerHitTestRects(LayerHitTestRects& layerRects, const Ren
     }
 }
 
-bool RenderObject::isRooted(RenderView** view) const
+bool RenderObject::isRooted() const
 {
-    const RenderObject* o = this;
-    while (o->parent())
-        o = o->parent();
-
-    if (!o->isRenderView())
-        return false;
-
-    if (view)
-        *view = const_cast<RenderView*>(toRenderView(o));
-
-    return true;
+    const RenderObject* object = this;
+    while (object->parent() && !object->hasLayer())
+        object = object->parent();
+    if (object->hasLayer())
+        return toRenderLayerModelObject(object)->layer()->root()->isRootLayer();
+    return false;
 }
 
 RenderObject* RenderObject::rendererForRootBackground()
@@ -2802,22 +2807,6 @@ CompositingState RenderObject::compositingState() const
 CompositingReasons RenderObject::additionalCompositingReasons(CompositingTriggerFlags) const
 {
     return CompositingReasonNone;
-}
-
-bool RenderObject::acceleratedCompositingForOverflowScrollEnabled() const
-{
-    const Settings* settings = document().settings();
-    return settings && settings->acceleratedCompositingForOverflowScrollEnabled();
-}
-
-// FIXME: This is a temporary flag and should be removed once accelerated
-// overflow scroll is ready (crbug.com/254111).
-bool RenderObject::compositorDrivenAcceleratedScrollingEnabled() const
-{
-    const Settings* settings = document().settings();
-    if (!settings)
-        return false;
-    return settings->acceleratedCompositingForOverflowScrollEnabled() && settings->compositorDrivenAcceleratedScrollingEnabled();
 }
 
 bool RenderObject::hitTest(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestFilter hitTestFilter)

@@ -133,7 +133,7 @@ WebInspector.ElementsPanel.prototype = {
         this._treeOutlines.push(treeOutline);
         this._targetToTreeOutline.put(target, treeOutline);
 
-        target.domModel.addEventListener(WebInspector.DOMModel.Events.DocumentUpdated, this._documentUpdatedEvent.bind(this, target));
+        target.domModel.addEventListener(WebInspector.DOMModel.Events.DocumentUpdated, this._documentUpdatedEvent, this);
         target.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.ModelWasEnabled, this._updateSidebars, this);
 
         // Perform attach if necessary.
@@ -144,12 +144,16 @@ WebInspector.ElementsPanel.prototype = {
     /**
      * @param {!WebInspector.Target} target
      */
-    targetRemoved: function(target) { },
+    targetRemoved: function(target)
+    {
+        var treeOutline = this._targetToTreeOutline.get(target);
+        treeOutline.unwireFromDOMModel();
+        this._treeOutlines.remove(treeOutline);
+        treeOutline.element.remove();
 
-    /**
-     * @param {?WebInspector.Target} target
-     */
-    activeTargetChanged: function(target) { },
+        target.domModel.removeEventListener(WebInspector.DOMModel.Events.DocumentUpdated, this._documentUpdatedEvent, this);
+        target.cssModel.removeEventListener(WebInspector.CSSStyleModel.Events.ModelWasEnabled, this._updateSidebars, this);
+    },
 
     /**
      * @return {?WebInspector.ElementsTreeOutline}
@@ -208,7 +212,7 @@ WebInspector.ElementsPanel.prototype = {
 
             if (!treeOutline.rootDOMNode)
                 if (treeOutline.domModel().existingDocument())
-                    this._documentUpdated(treeOutline.target(), treeOutline.domModel().existingDocument());
+                    this._documentUpdated(treeOutline.domModel(), treeOutline.domModel().existingDocument());
                 else
                     treeOutline.domModel().requestDocument();
         }
@@ -265,9 +269,17 @@ WebInspector.ElementsPanel.prototype = {
         });
     },
 
-    _selectedNodeChanged: function()
+    /**
+     * @param {!WebInspector.Event} event
+     */
+    _selectedNodeChanged: function(event)
     {
-        var selectedNode = this.selectedDOMNode();
+        var selectedNode = /** @type {?WebInspector.DOMNode} */ (event.data);
+        for (var i = 0; i < this._treeOutlines.length; ++i) {
+            if (!selectedNode || selectedNode.domModel() !== this._treeOutlines[i].domModel())
+                this._treeOutlines[i].selectDOMNode(null);
+        }
+
         if (!selectedNode && this._lastValidSelectedNode)
             this._selectedPathOnReset = this._lastValidSelectedNode.path();
 
@@ -300,33 +312,32 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     /**
-     * @param {!WebInspector.Target} target
      * @param {!WebInspector.Event} event
      */
-    _documentUpdatedEvent: function(target, event)
+    _documentUpdatedEvent: function(event)
     {
-        this._documentUpdated(target, /** @type {?WebInspector.DOMDocument} */ (event.data));
+        this._documentUpdated(/** @type {!WebInspector.DOMModel} */ (event.target), /** @type {?WebInspector.DOMDocument} */ (event.data));
     },
 
     /**
-     * @param {!WebInspector.Target} target
+     * @param {!WebInspector.DOMModel} domModel
      * @param {?WebInspector.DOMDocument} inspectedRootDocument
      */
-    _documentUpdated: function(target, inspectedRootDocument)
+    _documentUpdated: function(domModel, inspectedRootDocument)
     {
         this._reset();
         this.searchCanceled();
 
-        var treeOutline = this._targetToTreeOutline.get(target);
+        var treeOutline = this._targetToTreeOutline.get(domModel.target());
         treeOutline.rootDOMNode = inspectedRootDocument;
 
         if (!inspectedRootDocument) {
             if (this.isShowing())
-                target.domModel.requestDocument();
+                domModel.requestDocument();
             return;
         }
 
-        WebInspector.domBreakpointsSidebarPane.restoreBreakpoints();
+        WebInspector.domBreakpointsSidebarPane.restoreBreakpoints(domModel.target());
 
         /**
          * @this {WebInspector.ElementsPanel}
@@ -355,7 +366,7 @@ WebInspector.ElementsPanel.prototype = {
                 // Focused node has been explicitly set while reaching out for the last selected node.
                 return;
             }
-            var node = nodeId ? target.domModel.nodeForId(nodeId) : null;
+            var node = nodeId ? domModel.nodeForId(nodeId) : null;
             selectNode.call(this, node);
         }
 
@@ -363,7 +374,7 @@ WebInspector.ElementsPanel.prototype = {
             return;
 
         if (this._selectedPathOnReset)
-            target.domModel.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
+            domModel.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
         else
             selectNode.call(this, null);
         delete this._selectedPathOnReset;
@@ -384,8 +395,9 @@ WebInspector.ElementsPanel.prototype = {
     /**
      * @param {string} query
      * @param {boolean} shouldJump
+     * @param {boolean=} jumpBackwards
      */
-    performSearch: function(query, shouldJump)
+    performSearch: function(query, shouldJump, jumpBackwards)
     {
         // Call searchCanceled since it will reset everything we need before doing a new search.
         this.searchCanceled();
@@ -406,10 +418,10 @@ WebInspector.ElementsPanel.prototype = {
             if (!resultCount)
                 return;
 
-            this._searchResults = new Array(resultCount);
             this._currentSearchResultIndex = -1;
+            this._searchResults = new Array(resultCount);
             if (shouldJump)
-                this.jumpToNextSearchResult();
+                this._jumpToSearchResult(jumpBackwards ? -1 : 0);
         }
         WebInspector.domModel.performSearch(whitespaceTrimmedQuery, resultCountCallback.bind(this));
     },
@@ -458,29 +470,31 @@ WebInspector.ElementsPanel.prototype = {
     _getPopoverAnchor: function(element)
     {
         var anchor = element.enclosingNodeOrSelfWithClass("webkit-html-resource-link");
-        if (anchor) {
-            if (!anchor.href)
-                return null;
+        if (!anchor || !anchor.href)
+            return null;
 
-            var resource = WebInspector.resourceTreeModel.resourceForURL(anchor.href);
+        var treeOutlineElement = anchor.enclosingNodeOrSelfWithClass("elements-tree-outline");
+        if (!treeOutlineElement)
+            return null;
+
+        for (var i = 0; i < this._treeOutlines.length; ++i) {
+            if (this._treeOutlines[i].element !== treeOutlineElement)
+                continue;
+
+            var resource = this._treeOutlines[i].target().resourceTreeModel.resourceForURL(anchor.href);
             if (!resource || resource.type !== WebInspector.resourceTypes.Image)
                 return null;
-
             anchor.removeAttribute("title");
+            return anchor;
         }
-        return anchor;
+        return null;
     },
 
-    _loadDimensionsForNode: function(treeElement, callback)
+    /**
+     * @param {!WebInspector.DOMNode} node
+     */
+    _loadDimensionsForNode: function(node, callback)
     {
-        // We get here for CSS properties, too, so bail out early for non-DOM treeElements.
-        if (!(treeElement.treeOutline instanceof WebInspector.ElementsTreeOutline)) {
-            callback();
-            return;
-        }
-
-        var node = /** @type {!WebInspector.DOMNode} */ (treeElement.representedObject);
-
         if (!node.nodeName() || node.nodeName().toLowerCase() !== "img") {
             callback();
             return;
@@ -517,10 +531,15 @@ WebInspector.ElementsPanel.prototype = {
     _showPopover: function(anchor, popover)
     {
         var listItem = anchor.enclosingNodeOrSelfWithNodeName("li");
-        if (listItem && listItem.treeElement)
-            this._loadDimensionsForNode(listItem.treeElement, WebInspector.DOMPresentationUtils.buildImagePreviewContents.bind(WebInspector.DOMPresentationUtils, anchor.href, true, showPopover));
-        else
-            WebInspector.DOMPresentationUtils.buildImagePreviewContents(anchor.href, true, showPopover);
+        // We get here for CSS properties, too.
+        if (listItem && listItem.treeElement && listItem.treeElement.treeOutline instanceof WebInspector.ElementsTreeOutline) {
+            var node = /** @type {!WebInspector.DOMNode} */ (listItem.treeElement.representedObject);
+            this._loadDimensionsForNode(node, WebInspector.DOMPresentationUtils.buildImagePreviewContents.bind(WebInspector.DOMPresentationUtils, node.target(), anchor.href, true, showPopover));
+        } else {
+            var node = this.selectedDOMNode();
+            if (node)
+                WebInspector.DOMPresentationUtils.buildImagePreviewContents(node.target(), anchor.href, true, showPopover);
+        }
 
         /**
          * @param {!Element=} contents
@@ -534,28 +553,25 @@ WebInspector.ElementsPanel.prototype = {
         }
     },
 
+    _jumpToSearchResult: function(index)
+    {
+        this._hideSearchHighlights();
+        this._currentSearchResultIndex = (index + this._searchResults.length) % this._searchResults.length;
+        this._highlightCurrentSearchResult();
+    },
+
     jumpToNextSearchResult: function()
     {
         if (!this._searchResults)
             return;
-
-        this._hideSearchHighlights();
-        if (++this._currentSearchResultIndex >= this._searchResults.length)
-            this._currentSearchResultIndex = 0;
-
-        this._highlightCurrentSearchResult();
+        this._jumpToSearchResult(this._currentSearchResultIndex + 1);
     },
 
     jumpToPreviousSearchResult: function()
     {
         if (!this._searchResults)
             return;
-
-        this._hideSearchHighlights();
-        if (--this._currentSearchResultIndex < 0)
-            this._currentSearchResultIndex = (this._searchResults.length - 1);
-
-        this._highlightCurrentSearchResult();
+        this._jumpToSearchResult(this._currentSearchResultIndex - 1);
     },
 
     _highlightCurrentSearchResult: function()
@@ -1199,13 +1215,12 @@ WebInspector.ElementsPanel.prototype = {
     appendApplicableItems: function(event, contextMenu, object)
     {
         /**
-         * @param {!WebInspector.Target} target
-         * @param {?DOMAgent.NodeId} nodeId
+         * @param {?WebInspector.DOMNode} node
          */
-        function selectNode(target, nodeId)
+        function selectNode(node)
         {
-            if (nodeId)
-                target.domModel.inspectElement(nodeId);
+            if (node)
+                node.reveal();
         }
 
         /**
@@ -1213,7 +1228,7 @@ WebInspector.ElementsPanel.prototype = {
          */
         function revealElement(remoteObject)
         {
-            remoteObject.pushNodeToFrontend(selectNode.bind(null, /** @type {!WebInspector.Target} */ (remoteObject.target())));
+            remoteObject.pushNodeToFrontend(selectNode);
         }
 
         var commandCallback;

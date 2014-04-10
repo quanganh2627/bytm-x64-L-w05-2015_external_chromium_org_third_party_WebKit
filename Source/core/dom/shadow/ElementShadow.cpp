@@ -129,7 +129,6 @@ PassOwnPtr<ElementShadow> ElementShadow::create()
 
 ElementShadow::ElementShadow()
     : m_needsDistributionRecalc(false)
-    , m_applyAuthorStyles(false)
     , m_needsSelectFeatureSet(false)
 {
 }
@@ -151,10 +150,6 @@ ShadowRoot& ElementShadow::addShadowRoot(Element& shadowHost, ShadowRoot::Shadow
     m_shadowRoots.push(shadowRoot.get());
     ChildNodeInsertionNotifier(shadowHost).notify(*shadowRoot);
     setNeedsDistributionRecalc();
-
-    // addShadowRoot() affects apply-author-styles. However, we know that the youngest shadow root has not had any children yet.
-    // The youngest shadow root's apply-author-styles is default (false). So we can just set m_applyAuthorStyles false.
-    m_applyAuthorStyles = false;
 
     shadowHost.didAddShadowRoot(*shadowRoot);
     InspectorInstrumentation::didPushShadowRoot(&shadowHost, shadowRoot.get());
@@ -202,14 +197,6 @@ void ElementShadow::detach(const Node::AttachContext& context)
         root->detach(childrenContext);
 }
 
-void ElementShadow::removeAllEventListeners()
-{
-    for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot()) {
-        for (Node* node = root; node; node = NodeTraversal::next(*node))
-            node->removeAllEventListeners();
-    }
-}
-
 void ElementShadow::setNeedsDistributionRecalc()
 {
     if (m_needsDistributionRecalc)
@@ -217,17 +204,6 @@ void ElementShadow::setNeedsDistributionRecalc()
     m_needsDistributionRecalc = true;
     host()->markAncestorsWithChildNeedsDistributionRecalc();
     clearDistribution();
-}
-
-bool ElementShadow::didAffectApplyAuthorStyles()
-{
-    bool applyAuthorStyles = resolveApplyAuthorStyles();
-
-    if (m_applyAuthorStyles == applyAuthorStyles)
-        return false;
-
-    m_applyAuthorStyles = applyAuthorStyles;
-    return true;
 }
 
 bool ElementShadow::containsActiveStyles() const
@@ -264,17 +240,6 @@ bool ElementShadow::hasSameStyles(ElementShadow *other) const
     }
 
     return true;
-}
-
-bool ElementShadow::resolveApplyAuthorStyles() const
-{
-    for (const ShadowRoot* shadowRoot = youngestShadowRoot(); shadowRoot; shadowRoot = shadowRoot->olderShadowRoot()) {
-        if (shadowRoot->applyAuthorStyles())
-            return true;
-        if (!shadowRoot->containsShadowElements())
-            break;
-    }
-    return false;
 }
 
 const InsertionPoint* ElementShadow::finalDestinationInsertionPointFor(const Node* key) const

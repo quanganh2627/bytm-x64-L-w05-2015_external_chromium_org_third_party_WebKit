@@ -38,7 +38,6 @@
 #include "core/dom/ExceptionCode.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/frame/DOMWindow.h"
-#include "platform/UserGestureIndicator.h"
 #include "wtf/StdLibExtras.h"
 #include "wtf/Vector.h"
 
@@ -154,7 +153,7 @@ bool EventTarget::clearAttributeEventListener(const AtomicString& eventType)
     return removeEventListener(eventType, listener, false);
 }
 
-bool EventTarget::dispatchEvent(PassRefPtr<Event> event, ExceptionState& exceptionState)
+bool EventTarget::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event, ExceptionState& exceptionState)
 {
     if (!event) {
         exceptionState.throwDOMException(InvalidStateError, "The event provided is null.");
@@ -175,7 +174,7 @@ bool EventTarget::dispatchEvent(PassRefPtr<Event> event, ExceptionState& excepti
     return dispatchEvent(event);
 }
 
-bool EventTarget::dispatchEvent(PassRefPtr<Event> event)
+bool EventTarget::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     event->setTarget(this);
     event->setCurrentTarget(this);
@@ -305,7 +304,6 @@ void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventList
             UseCounter::count(executingWindow->document(), UseCounter::DocumentUnloadFired);
     }
 
-    bool userEventWasHandled = false;
     size_t i = 0;
     size_t size = entry.size();
     if (!d->firingEventIterators)
@@ -331,15 +329,9 @@ void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventList
         // To match Mozilla, the AT_TARGET phase fires both capturing and bubbling
         // event listeners, even though that violates some versions of the DOM spec.
         registeredListener.listener->handleEvent(context, event);
-        if (!userEventWasHandled && UserGestureIndicator::processingUserGesture())
-            userEventWasHandled = true;
         InspectorInstrumentation::didHandleEvent(cookie);
     }
     d->firingEventIterators->removeLast();
-    if (userEventWasHandled) {
-        if (ExecutionContext* context = executionContext())
-            context->userEventWasHandled();
-    }
 }
 
 const EventListenerVector& EventTarget::getEventListeners(const AtomicString& eventType)

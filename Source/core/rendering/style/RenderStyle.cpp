@@ -568,6 +568,11 @@ StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle& other, un
     if ((visibility() == COLLAPSE) != (other.visibility() == COLLAPSE))
         return StyleDifferenceLayout;
 
+    if (!m_background->outline().visuallyEqual(other.m_background->outline())) {
+        // FIXME: We only really need to recompute the overflow but we don't have an optimized layout for it.
+        return StyleDifferenceLayout;
+    }
+
     // SVGRenderStyle::diff() might have returned StyleDifferenceRepaint, eg. if fill changes.
     // If eg. the font-size changed at the same time, we're not allowed to return StyleDifferenceRepaint,
     // but have to return StyleDifferenceLayout, that's why  this if branch comes after all branches
@@ -589,7 +594,9 @@ StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle& other, un
         return StyleDifferenceLayout;
     }
 
-    return repaintOnlyDiff(other, changedContextSensitiveProperties);
+    StyleDifference repaintDifference = repaintOnlyDiff(other, changedContextSensitiveProperties);
+    ASSERT(repaintDifference <= StyleDifferenceRepaintLayer);
+    return repaintDifference;
 }
 
 StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const
@@ -622,8 +629,8 @@ StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned&
     if (inherited_flags._visibility != other.inherited_flags._visibility
         || inherited_flags.m_printColorAdjust != other.inherited_flags.m_printColorAdjust
         || inherited_flags._insideLink != other.inherited_flags._insideLink
-        || surround->border != other.surround->border
-        || *m_background.get() != *other.m_background.get()
+        || !surround->border.visuallyEqual(other.surround->border)
+        || !m_background->visuallyEqual(*other.m_background)
         || rareInheritedData->userModify != other.rareInheritedData->userModify
         || rareInheritedData->userSelect != other.rareInheritedData->userSelect
         || rareNonInheritedData->userDrag != other.rareNonInheritedData->userDrag

@@ -53,6 +53,10 @@ WebInspector.Target.prototype = {
         if (!WebInspector.resourceTreeModel)
             WebInspector.resourceTreeModel = this.resourceTreeModel;
 
+        this.networkLog = new WebInspector.NetworkLog(this);
+        if (!WebInspector.networkLog)
+            WebInspector.networkLog = this.networkLog;
+
         this.debuggerModel = new WebInspector.DebuggerModel(this);
         if (!WebInspector.debuggerModel)
             WebInspector.debuggerModel = this.debuggerModel;
@@ -75,6 +79,22 @@ WebInspector.Target.prototype = {
 
         if (this.canProfilePower)
             WebInspector.powerProfiler = new WebInspector.PowerProfiler();
+
+        this.timelineManager = new WebInspector.TimelineManager(this);
+        if (!WebInspector.timelineManager)
+            WebInspector.timelineManager = this.timelineManager;
+
+        this.databaseModel = new WebInspector.DatabaseModel(this);
+        if (!WebInspector.databaseModel)
+            WebInspector.databaseModel = this.databaseModel;
+
+        this.domStorageModel = new WebInspector.DOMStorageModel(this);
+        if (!WebInspector.domStorageModel)
+            WebInspector.domStorageModel = this.domStorageModel;
+
+        this.cpuProfilerModel = new WebInspector.CPUProfilerModel(this);
+        if (!WebInspector.cpuProfilerModel)
+            WebInspector.cpuProfilerModel = this.cpuProfilerModel;
 
         if (callback)
             callback(this);
@@ -165,8 +185,6 @@ WebInspector.TargetManager.prototype = {
     observeTargets: function(targetObserver)
     {
         WebInspector.targetManager.targets().forEach(targetObserver.targetAdded.bind(targetObserver));
-        if (this._targets.length)
-            targetObserver.activeTargetChanged(this._targets[0]);
         this._observers.push(targetObserver);
     },
 
@@ -184,16 +202,13 @@ WebInspector.TargetManager.prototype = {
          */
         function callbackWrapper(newTarget)
         {
-            if (callback)
-                callback(newTarget);
-
             this._targets.push(newTarget);
             var copy = this._observers;
-            for (var i = 0; i < copy.length; ++i) {
+            for (var i = 0; i < copy.length; ++i)
                 copy[i].targetAdded(newTarget);
-                if (this._targets.length === 1)
-                    copy[i].activeTargetChanged(newTarget);
-            }
+
+            if (callback)
+                callback(newTarget);
         }
     },
 
@@ -231,11 +246,6 @@ WebInspector.TargetManager.Observer.prototype = {
      * @param {!WebInspector.Target} target
      */
     targetRemoved: function(target) { },
-
-    /**
-     * @param {?WebInspector.Target} target
-     */
-    activeTargetChanged: function(target) { }
 }
 
 /**

@@ -35,7 +35,6 @@
 #include "core/rendering/FixedTableLayout.h"
 #include "core/rendering/GraphicsContextAnnotator.h"
 #include "core/rendering/HitTestResult.h"
-#include "core/rendering/LayoutRectRecorder.h"
 #include "core/rendering/LayoutRepainter.h"
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderTableCaption.h"
@@ -412,15 +411,14 @@ void RenderTable::simplifiedNormalFlowLayout()
 
 void RenderTable::layout()
 {
-    // Note: RenderTable is handled differently than other RenderBlocks and the LayoutScope
-    //       must be created before the table begins laying out.
-    FastTextAutosizer::LayoutScope fastTextAutosizerLayoutScope(this);
     ASSERT(needsLayout());
-
-    LayoutRectRecorder recorder(*this);
 
     if (simplifiedLayout())
         return;
+
+    // Note: RenderTable is handled differently than other RenderBlocks and the LayoutScope
+    //       must be created before the table begins laying out.
+    FastTextAutosizer::LayoutScope fastTextAutosizerLayoutScope(this);
 
     recalcSectionsIfNeeded();
     // FIXME: We should do this recalc lazily in borderStart/borderEnd so that we don't have to make sure

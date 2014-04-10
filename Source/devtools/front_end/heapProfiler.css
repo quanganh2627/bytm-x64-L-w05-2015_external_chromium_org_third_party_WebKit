@@ -60,22 +60,8 @@
     visibility: hidden;
 }
 
-.heap-snapshot-view .data-grid tr.selected span {
-    color: inherit;
-}
-
-.heap-snapshot-view .data-grid td.numeric-column {
-    text-align: right;
-}
-
-.heap-snapshot-view .data-grid div.heap-snapshot-multiple-values {
-    float: right;
-}
-
 .heap-snapshot-view .data-grid span.percent-column {
-    color: #999;
     width: 32px;
-    display: inline-block;
 }
 
 .heap-snapshot-view .console-formatted-object,
@@ -133,6 +119,10 @@
 
 .heap-snapshot-view .heap-snapshot-view-resizer * {
     pointer-events: none;
+}
+
+.heap-snapshot-view .heap-object-details-header {
+    background-color: rgb(236, 236, 236);
 }
 
 .heap-snapshot-view tr:not(.selected) td.object-column span.highlight {
@@ -208,4 +198,19 @@ table.heap-snapshot-help {
 .heap-snapshot-stats-size {
     float: right;
     text-align: right;
+}
+
+.heap-allocation-stack .stack-frame {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid rgb(240, 240, 240);
+    padding: 2px;
+}
+
+.heap-allocation-stack .stack-frame a {
+    color: rgb(33%, 33%, 33%);
+}
+
+.no-heap-allocation-stack {
+    padding: 5px;
 }

@@ -173,7 +173,6 @@ public:
 
     virtual bool shouldRunModalDialogDuringPageDismissal(const DialogType&, const String& dialogMessage, WebCore::Document::PageDismissalType) const OVERRIDE;
 
-    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE;
     virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE;
 
     virtual bool requestPointerLock() OVERRIDE;
@@ -186,10 +185,11 @@ public:
 
     // FIXME: Remove this method once we have input routing in the browser
     // process. See http://crbug.com/339659.
-    virtual void forwardInputEvent(WebCore::Document*, WebCore::Event*) OVERRIDE;
+    virtual void forwardInputEvent(WebCore::Frame*, WebCore::Event*) OVERRIDE;
 
     virtual void didCancelCompositionOnSelectionChange() OVERRIDE;
     virtual void willSetInputMethodState() OVERRIDE;
+    virtual void didUpdateTextOfFocusedElementByNonUserInput() OVERRIDE;
 
 private:
     virtual bool isChromeClientImpl() const OVERRIDE { return true; }

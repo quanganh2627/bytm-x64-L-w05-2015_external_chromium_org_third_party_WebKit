@@ -354,7 +354,7 @@ void FrameSelection::respondToNodeModification(Node& node, bool baseRemoved, boo
             m_selection.setWithoutValidation(m_selection.start(), m_selection.end());
         else
             m_selection.setWithoutValidation(m_selection.end(), m_selection.start());
-    } else if (RefPtr<Range> range = m_selection.firstRange()) {
+    } else if (RefPtrWillBeRawPtr<Range> range = m_selection.firstRange()) {
         TrackExceptionState exceptionState;
         Range::CompareResults compareResult = range->compareNode(&node, exceptionState);
         if (!exceptionState.hadException() && (compareResult == Range::NODE_BEFORE_AND_AFTER || compareResult == Range::NODE_INSIDE)) {
@@ -390,7 +390,7 @@ static Position updatePositionAfterAdoptingTextReplacement(const Position& posit
     if (positionOffset > offset + oldLength)
         positionOffset = positionOffset - oldLength + newLength;
 
-    ASSERT(positionOffset <= node->length());
+    ASSERT_WITH_SECURITY_IMPLICATION(positionOffset <= node->length());
     // CharacterNode in VisibleSelection must be Text node, because Comment
     // and ProcessingInstruction node aren't visible.
     return Position(toText(node), positionOffset);
@@ -1428,7 +1428,7 @@ bool FrameSelection::setSelectedRange(Range* range, EAffinity affinity, SetSelec
     return true;
 }
 
-PassRefPtr<Range> FrameSelection::firstRange() const
+PassRefPtrWillBeRawPtr<Range> FrameSelection::firstRange() const
 {
     if (m_logicalRange)
         return m_logicalRange->cloneRange(ASSERT_NO_EXCEPTION);

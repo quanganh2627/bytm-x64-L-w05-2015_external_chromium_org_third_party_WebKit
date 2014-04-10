@@ -68,7 +68,7 @@ IDBRequest::IDBRequest(ExecutionContext* context, PassRefPtr<IDBAny> source, IDB
     , m_didFireUpgradeNeededEvent(false)
     , m_preventPropagation(false)
     , m_resultDirty(true)
-    , m_requestState(context)
+    , m_requestState(toIsolate(context))
 {
     ScriptWrappable::init(this);
 }
@@ -104,7 +104,7 @@ ScriptValue IDBRequest::source(ExecutionContext* context) const
     if (m_contextStopped || !executionContext())
         return ScriptValue();
 
-    DOMRequestState requestState(context);
+    DOMRequestState requestState(toIsolate(context));
     return idbAnyToScriptValue(&requestState, m_source);
 }
 
@@ -400,7 +400,7 @@ ExecutionContext* IDBRequest::executionContext() const
     return ActiveDOMObject::executionContext();
 }
 
-bool IDBRequest::dispatchEvent(PassRefPtr<Event> event)
+bool IDBRequest::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     IDB_TRACE("IDBRequest::dispatchEvent");
     if (m_contextStopped || !executionContext())
@@ -500,7 +500,7 @@ void IDBRequest::transactionDidFinishAndDispatch()
     m_readyState = PENDING;
 }
 
-void IDBRequest::enqueueEvent(PassRefPtr<Event> event)
+void IDBRequest::enqueueEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
     ASSERT(m_readyState == PENDING || m_readyState == DONE);
 

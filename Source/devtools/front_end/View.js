@@ -86,6 +86,14 @@ WebInspector.View.prototype = {
     },
 
     /**
+     * @return {!Array.<!WebInspector.View>}
+     */
+    children: function()
+    {
+        return this._children;
+    },
+
+    /**
      * @return {boolean}
      */
     isShowing: function()
@@ -487,6 +495,15 @@ WebInspector.View.prototype = {
             return;
 
         WebInspector.setCurrentFocusElement(element);
+    },
+
+    /**
+     * @return {boolean}
+     */
+    hasFocus: function()
+    {
+        var activeElement = document.activeElement;
+        return activeElement && activeElement.isSelfOrDescendant(this.element);
     },
 
     /**

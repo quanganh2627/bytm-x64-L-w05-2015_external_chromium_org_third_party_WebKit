@@ -46,7 +46,7 @@
 {% set attribute_configuration_list = attribute_configuration_list
                                     + [on_prototype] %}
 {% endif %}
-{{'{'}}{{attribute_configuration_list|join(', ')}}{{'}'}}
+{{'{'}}{{attribute_configuration_list | join(', ')}}{{'}'}}
 {%- endmacro %}
 
 
@@ -139,7 +139,7 @@ static void indexedPropertyGetter(uint32_t index, const v8::PropertyCallbackInfo
     {% set getter_name = getter.name or 'anonymousIndexedGetter' %}
     {% set getter_arguments = ['index', 'exceptionState']
            if getter.is_raises_exception else ['index'] %}
-    {{getter.cpp_type}} result = impl->{{getter_name}}({{getter_arguments|join(', ')}});
+    {{getter.cpp_type}} result = impl->{{getter_name}}({{getter_arguments | join(', ')}});
     {% if getter.is_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -195,7 +195,7 @@ static void indexedPropertySetter(uint32_t index, v8::Local<v8::Value> v8Value, 
     {% set setter_name = setter.name or 'anonymousIndexedSetter' %}
     {% set setter_arguments = ['index', 'propertyValue', 'exceptionState']
            if setter.is_raises_exception else ['index', 'propertyValue'] %}
-    bool result = impl->{{setter_name}}({{setter_arguments|join(', ')}});
+    bool result = impl->{{setter_name}}({{setter_arguments | join(', ')}});
     {% if setter.is_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -241,7 +241,7 @@ static void indexedPropertyDeleter(uint32_t index, const v8::PropertyCallbackInf
     {% set deleter_name = deleter.name or 'anonymousIndexedDeleter' %}
     {% set deleter_arguments = ['index', 'exceptionState']
            if deleter.is_raises_exception else ['index'] %}
-    DeleteResult result = impl->{{deleter_name}}({{deleter_arguments|join(', ')}});
+    DeleteResult result = impl->{{deleter_name}}({{deleter_arguments | join(', ')}});
     {% if deleter.is_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -356,7 +356,7 @@ static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value>
            ['propertyName', 'propertyValue', 'exceptionState']
            if setter.is_raises_exception else
            ['propertyName', 'propertyValue'] %}
-    bool result = impl->{{setter_name}}({{setter_arguments|join(', ')}});
+    bool result = impl->{{setter_name}}({{setter_arguments | join(', ')}});
     {% if setter.is_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -447,7 +447,7 @@ static void namedPropertyDeleter(v8::Local<v8::String> name, const v8::PropertyC
     {% set deleter_name = deleter.name or 'anonymousNamedDeleter' %}
     {% set deleter_arguments = ['propertyName', 'exceptionState']
            if deleter.is_raises_exception else ['propertyName'] %}
-    DeleteResult result = impl->{{deleter_name}}({{deleter_arguments|join(', ')}});
+    DeleteResult result = impl->{{deleter_name}}({{deleter_arguments | join(', ')}});
     {% if deleter.is_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -560,7 +560,7 @@ static void {{cpp_class}}OriginSafeMethodSetterCallback(v8::Local<v8::String> na
                               if is_active_dom_object else '0' %}
 {% set to_event_target = '%s::toEventTarget' % v8_class
                          if is_event_target else '0' %}
-const WrapperTypeInfo {{v8_class}}Constructor::wrapperTypeInfo = { gin::kEmbedderBlink, {{v8_class}}Constructor::domTemplate, {{v8_class}}::derefObject, {{to_active_dom_object}}, {{to_event_target}}, 0, {{v8_class}}::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype, false };
+const WrapperTypeInfo {{v8_class}}Constructor::wrapperTypeInfo = { gin::kEmbedderBlink, {{v8_class}}Constructor::domTemplate, {{v8_class}}::derefObject, {{to_active_dom_object}}, {{to_event_target}}, 0, {{v8_class}}::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype, RefCountedObject };
 
 {{named_constructor_callback(named_constructor)}}
 v8::Handle<v8::FunctionTemplate> {{v8_class}}Constructor::domTemplate(v8::Isolate* isolate)
@@ -586,7 +586,7 @@ v8::Handle<v8::FunctionTemplate> {{v8_class}}Constructor::domTemplate(v8::Isolat
 
 {##############################################################################}
 {% block overloaded_constructor %}
-{% if constructors|length > 1 %}
+{% if constructors | length > 1 %}
 static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     {% for constructor in constructors %}
@@ -824,7 +824,7 @@ void {{v8_class}}::constructorCallback(const v8::FunctionCallbackInfo<v8::Value>
         return;
     }
 
-    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject) {
+    if (ConstructorMode::current(info.GetIsolate()) == ConstructorMode::WrapExistingObject) {
         v8SetReturnValue(info, info.Holder());
         return;
     }
@@ -1027,7 +1027,7 @@ static void configure{{v8_class}}Template(v8::Handle<v8::FunctionTemplate> funct
     {% endif %}
 
     // Custom toString template
-    functionTemplate->Set(v8AtomicString(isolate, "toString"), V8PerIsolateData::current()->toStringTemplate());
+    functionTemplate->Set(v8AtomicString(isolate, "toString"), V8PerIsolateData::from(isolate)->toStringTemplate());
 }
 
 {% endblock %}
@@ -1308,8 +1308,8 @@ v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_ref_ptr}}<{{cpp_class}
 {% block deref_object_and_to_v8_no_inline %}
 void {{v8_class}}::derefObject(void* object)
 {
-{% set oilpan_conditional = '!ENABLE(OILPAN)' if is_will_be_garbage_collected
-                                              else '' %}
+{% set oilpan_conditional = '' if gc_type == 'RefCountedObject'
+                               else '!ENABLE(OILPAN)' %}
 {% filter conditional(oilpan_conditional) %}
     fromInternalPointer(object)->deref();
 {% endfilter %}

@@ -47,6 +47,8 @@ public:
 
     void didChangeDeviceMotion(DeviceMotionData*);
 
+    virtual void trace(Visitor*) OVERRIDE { }
+
 private:
     explicit DeviceMotionController(Document&);
     virtual void registerWithDispatcher() OVERRIDE;
@@ -58,7 +60,7 @@ private:
     virtual void didRemoveAllEventListeners(DOMWindow*) OVERRIDE;
 
     virtual bool hasLastData() OVERRIDE;
-    virtual PassRefPtr<Event> getLastEvent() OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<Event> getLastEvent() OVERRIDE;
     virtual bool isNullEvent(Event*) OVERRIDE;
 };
 

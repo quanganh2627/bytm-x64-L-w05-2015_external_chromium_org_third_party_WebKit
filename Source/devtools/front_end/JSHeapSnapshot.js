@@ -561,7 +561,7 @@ WebInspector.JSHeapSnapshotNode.prototype = {
     },
 
     /**
-     * @return {string}
+     * @return {number}
      */
     id: function()
     {
@@ -602,7 +602,7 @@ WebInspector.JSHeapSnapshotNode.prototype = {
     },
 
     /**
-     * @return {!WebInspector.HeapSnapshotNode.Serialized}
+     * @return {!WebInspector.HeapSnapshotCommon.Node}
      */
     serialize: function()
     {

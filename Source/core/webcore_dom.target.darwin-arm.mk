@@ -6,13 +6,14 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := third_party_WebKit_Source_core_webcore_dom_gyp
 LOCAL_MODULE_SUFFIX := .a
 LOCAL_MODULE_TAGS := optional
-gyp_intermediate_dir := $(call local-intermediates-dir)
-gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared)
+LOCAL_MODULE_TARGET_ARCH := $(TARGET_$(GYP_VAR_PREFIX)ARCH)
+gyp_intermediate_dir := $(call local-intermediates-dir,,$(GYP_VAR_PREFIX))
+gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_VAR_PREFIX))
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp)/webcore_prerequisites.stamp \
-	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp)/skia_skia_library_gyp.a
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_webcore_prerequisites_gyp,,,$(GYP_VAR_PREFIX))/webcore_prerequisites.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
@@ -41,6 +42,16 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/ContextFeatures.cpp \
 	third_party/WebKit/Source/core/dom/ContextLifecycleNotifier.cpp \
 	third_party/WebKit/Source/core/dom/ContextLifecycleObserver.cpp \
+	third_party/WebKit/Source/core/dom/DOMError.cpp \
+	third_party/WebKit/Source/core/dom/DOMException.cpp \
+	third_party/WebKit/Source/core/dom/DOMImplementation.cpp \
+	third_party/WebKit/Source/core/dom/DOMSettableTokenList.cpp \
+	third_party/WebKit/Source/core/dom/DOMStringList.cpp \
+	third_party/WebKit/Source/core/dom/DOMStringMap.cpp \
+	third_party/WebKit/Source/core/dom/DOMTokenList.cpp \
+	third_party/WebKit/Source/core/dom/DOMURL.cpp \
+	third_party/WebKit/Source/core/dom/DOMURLUtils.cpp \
+	third_party/WebKit/Source/core/dom/DOMURLUtilsReadOnly.cpp \
 	third_party/WebKit/Source/core/dom/DatasetDOMStringMap.cpp \
 	third_party/WebKit/Source/core/dom/DecodedDataDocumentParser.cpp \
 	third_party/WebKit/Source/core/dom/Document.cpp \
@@ -59,28 +70,19 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/DocumentStyleSheetCollection.cpp \
 	third_party/WebKit/Source/core/dom/DocumentStyleSheetCollector.cpp \
 	third_party/WebKit/Source/core/dom/DocumentType.cpp \
-	third_party/WebKit/Source/core/dom/DOMError.cpp \
-	third_party/WebKit/Source/core/dom/DOMException.cpp \
-	third_party/WebKit/Source/core/dom/DOMImplementation.cpp \
-	third_party/WebKit/Source/core/dom/DOMSettableTokenList.cpp \
-	third_party/WebKit/Source/core/dom/DOMStringList.cpp \
-	third_party/WebKit/Source/core/dom/DOMStringMap.cpp \
-	third_party/WebKit/Source/core/dom/DOMTokenList.cpp \
-	third_party/WebKit/Source/core/dom/DOMURL.cpp \
-	third_party/WebKit/Source/core/dom/DOMURLUtils.cpp \
-	third_party/WebKit/Source/core/dom/DOMURLUtilsReadOnly.cpp \
 	third_party/WebKit/Source/core/dom/Element.cpp \
 	third_party/WebKit/Source/core/dom/ElementData.cpp \
 	third_party/WebKit/Source/core/dom/ElementDataCache.cpp \
 	third_party/WebKit/Source/core/dom/ElementRareData.cpp \
 	third_party/WebKit/Source/core/dom/EmptyNodeList.cpp \
-	third_party/WebKit/Source/core/dom/MainThreadTaskRunner.cpp \
+	third_party/WebKit/Source/core/dom/ExecutionContext.cpp \
 	third_party/WebKit/Source/core/dom/FullscreenElementStack.cpp \
 	third_party/WebKit/Source/core/dom/IconURL.cpp \
 	third_party/WebKit/Source/core/dom/IdTargetObserver.cpp \
 	third_party/WebKit/Source/core/dom/IdTargetObserverRegistry.cpp \
 	third_party/WebKit/Source/core/dom/LiveNodeList.cpp \
 	third_party/WebKit/Source/core/dom/LiveNodeListBase.cpp \
+	third_party/WebKit/Source/core/dom/MainThreadTaskRunner.cpp \
 	third_party/WebKit/Source/core/dom/MessageChannel.cpp \
 	third_party/WebKit/Source/core/dom/MessagePort.cpp \
 	third_party/WebKit/Source/core/dom/Microtask.cpp \
@@ -88,9 +90,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/MutationObserverInterestGroup.cpp \
 	third_party/WebKit/Source/core/dom/MutationObserverRegistration.cpp \
 	third_party/WebKit/Source/core/dom/MutationRecord.cpp \
+	third_party/WebKit/Source/core/dom/NameNodeList.cpp \
 	third_party/WebKit/Source/core/dom/NamedNodeMap.cpp \
 	third_party/WebKit/Source/core/dom/NamedNodesCollection.cpp \
-	third_party/WebKit/Source/core/dom/NameNodeList.cpp \
 	third_party/WebKit/Source/core/dom/Node.cpp \
 	third_party/WebKit/Source/core/dom/NodeChildRemovalTracker.cpp \
 	third_party/WebKit/Source/core/dom/NodeFilter.cpp \
@@ -98,7 +100,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/NodeIterator.cpp \
 	third_party/WebKit/Source/core/dom/NodeIteratorBase.cpp \
 	third_party/WebKit/Source/core/dom/NodeRareData.cpp \
-	third_party/WebKit/Source/core/dom/RenderTreeBuilder.cpp \
 	third_party/WebKit/Source/core/dom/NodeRenderingTraversal.cpp \
 	third_party/WebKit/Source/core/dom/NodeTraversal.cpp \
 	third_party/WebKit/Source/core/dom/PendingScript.cpp \
@@ -109,36 +110,14 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/PseudoElement.cpp \
 	third_party/WebKit/Source/core/dom/QualifiedName.cpp \
 	third_party/WebKit/Source/core/dom/Range.cpp \
+	third_party/WebKit/Source/core/dom/RenderTreeBuilder.cpp \
 	third_party/WebKit/Source/core/dom/SandboxFlags.cpp \
-	third_party/WebKit/Source/core/dom/ScriptableDocumentParser.cpp \
-	third_party/WebKit/Source/core/dom/ScriptedAnimationController.cpp \
-	third_party/WebKit/Source/core/dom/ExecutionContext.cpp \
 	third_party/WebKit/Source/core/dom/ScriptLoader.cpp \
 	third_party/WebKit/Source/core/dom/ScriptRunner.cpp \
+	third_party/WebKit/Source/core/dom/ScriptableDocumentParser.cpp \
+	third_party/WebKit/Source/core/dom/ScriptedAnimationController.cpp \
 	third_party/WebKit/Source/core/dom/SecurityContext.cpp \
 	third_party/WebKit/Source/core/dom/SelectorQuery.cpp \
-	third_party/WebKit/Source/core/dom/XMLDocument.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElement.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackDispatcher.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackInvocation.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackQueue.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementDefinition.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementException.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskDispatcher.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskImportStep.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskQueue.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskResolutionStep.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementObserver.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementRegistrationContext.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementRegistry.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementScheduler.cpp \
-	third_party/WebKit/Source/core/dom/custom/CustomElementUpgradeCandidateMap.cpp \
-	third_party/WebKit/Source/core/dom/shadow/ComposedTreeWalker.cpp \
-	third_party/WebKit/Source/core/dom/shadow/ContentDistribution.cpp \
-	third_party/WebKit/Source/core/dom/shadow/ElementShadow.cpp \
-	third_party/WebKit/Source/core/dom/shadow/InsertionPoint.cpp \
-	third_party/WebKit/Source/core/dom/shadow/SelectRuleFeatureSet.cpp \
-	third_party/WebKit/Source/core/dom/shadow/ShadowRoot.cpp \
 	third_party/WebKit/Source/core/dom/ShadowTreeStyleSheetCollection.cpp \
 	third_party/WebKit/Source/core/dom/SpaceSplitString.cpp \
 	third_party/WebKit/Source/core/dom/StaticNodeList.cpp \
@@ -162,6 +141,28 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/ViewportDescription.cpp \
 	third_party/WebKit/Source/core/dom/VisitedLinkState.cpp \
 	third_party/WebKit/Source/core/dom/WheelController.cpp \
+	third_party/WebKit/Source/core/dom/XMLDocument.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElement.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackDispatcher.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackInvocation.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementCallbackQueue.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementDefinition.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementException.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskDispatcher.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskImportStep.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskQueue.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementMicrotaskResolutionStep.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementObserver.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementRegistrationContext.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementRegistry.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementScheduler.cpp \
+	third_party/WebKit/Source/core/dom/custom/CustomElementUpgradeCandidateMap.cpp \
+	third_party/WebKit/Source/core/dom/shadow/ComposedTreeWalker.cpp \
+	third_party/WebKit/Source/core/dom/shadow/ContentDistribution.cpp \
+	third_party/WebKit/Source/core/dom/shadow/ElementShadow.cpp \
+	third_party/WebKit/Source/core/dom/shadow/InsertionPoint.cpp \
+	third_party/WebKit/Source/core/dom/shadow/SelectRuleFeatureSet.cpp \
+	third_party/WebKit/Source/core/dom/shadow/ShadowRoot.cpp \
 	third_party/WebKit/Source/core/events/AnimationPlayerEvent.cpp \
 	third_party/WebKit/Source/core/events/ApplicationCacheErrorEvent.cpp \
 	third_party/WebKit/Source/core/events/BeforeTextInsertedEvent.cpp \
@@ -172,8 +173,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/events/DOMWindowEventQueue.cpp \
 	third_party/WebKit/Source/core/events/ErrorEvent.cpp \
 	third_party/WebKit/Source/core/events/Event.cpp \
-	third_party/WebKit/Source/core/events/EventDispatcher.cpp \
 	third_party/WebKit/Source/core/events/EventDispatchMediator.cpp \
+	third_party/WebKit/Source/core/events/EventDispatcher.cpp \
 	third_party/WebKit/Source/core/events/EventListenerMap.cpp \
 	third_party/WebKit/Source/core/events/EventPath.cpp \
 	third_party/WebKit/Source/core/events/EventTarget.cpp \
@@ -273,15 +274,14 @@ MY_DEFS_Debug := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -426,15 +426,14 @@ MY_DEFS_Release := \
 	'-DSK_ENABLE_LEGACY_API_ALIASING=1' \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
-	'-DSK_SUPPORT_LEGACY_LAYERRASTERIZER_API=1' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETCLIPTYPE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
+	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -519,9 +518,9 @@ LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
 ### Rules for final target.
 
 LOCAL_LDFLAGS_Debug := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \
@@ -538,9 +537,9 @@ LOCAL_LDFLAGS_Debug := \
 
 
 LOCAL_LDFLAGS_Release := \
-	-Wl,--fatal-warnings \
 	-Wl,-z,now \
 	-Wl,-z,relro \
+	-Wl,--fatal-warnings \
 	-Wl,-z,noexecstack \
 	-fPIC \
 	-Wl,-z,relro \

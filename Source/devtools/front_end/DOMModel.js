@@ -853,6 +853,14 @@ WebInspector.DOMNode.prototype = {
         }
     },
 
+    /**
+     * @param {function(?DOMAgent.BoxModel)} callback
+     */
+    boxModel: function(callback)
+    {
+        this._agent.getBoxModel(this._domModel._wrapClientCallback(callback));
+    },
+
     __proto__: WebInspector.TargetAware.prototype
 }
 
@@ -891,7 +899,7 @@ WebInspector.DOMModel = function(target) {
     this._document = null;
     /** @type {!Object.<number, boolean>} */
     this._attributeLoadNodeIds = {};
-    InspectorBackend.registerDOMDispatcher(new WebInspector.DOMDispatcher(this));
+    target.registerDOMDispatcher(new WebInspector.DOMDispatcher(this));
 
     this._defaultHighlighter = new WebInspector.DefaultDOMNodeHighlighter(this._agent);
     this._highlighter = this._defaultHighlighter;
@@ -959,11 +967,19 @@ WebInspector.DOMModel.prototype = {
 
     /**
      * @param {!RuntimeAgent.RemoteObjectId} objectId
-     * @param {function(?DOMAgent.NodeId)=} callback
+     * @param {function(?WebInspector.DOMNode)=} callback
      */
     pushNodeToFrontend: function(objectId, callback)
     {
-        this._dispatchWhenDocumentAvailable(this._agent.requestNode.bind(this._agent, objectId), callback);
+        /**
+         * @param {?DOMAgent.NodeId} nodeId
+         * @this {!WebInspector.DOMModel}
+         */
+        function mycallback(nodeId)
+        {
+            callback(nodeId ? this.nodeForId(nodeId) : null);
+        }
+        this._dispatchWhenDocumentAvailable(this._agent.requestNode.bind(this._agent, objectId), mycallback.bind(this));
     },
 
     /**
@@ -1286,19 +1302,11 @@ WebInspector.DOMModel.prototype = {
     },
 
     /**
-     * @param {number} nodeId
-     */
-    inspectElement: function(nodeId)
-    {
-        WebInspector.Revealer.reveal(this.nodeForId(nodeId));
-    },
-
-    /**
      * @param {!DOMAgent.NodeId} nodeId
      */
     _inspectNodeRequested: function(nodeId)
     {
-        this.inspectElement(nodeId);
+        WebInspector.Revealer.reveal(this.nodeForId(nodeId))
     },
 
     /**
@@ -1392,7 +1400,7 @@ WebInspector.DOMModel.prototype = {
             clearTimeout(this._hideDOMNodeHighlightTimeout);
             delete this._hideDOMNodeHighlightTimeout;
         }
-        this._highlighter.highlightDOMNode(nodeId || 0, this._buildHighlightConfig(mode), objectId);
+        this._highlighter.highlightDOMNode(this.nodeForId(nodeId || 0), this._buildHighlightConfig(mode), objectId);
     },
 
     hideDOMNodeHighlight: function()
@@ -1566,6 +1574,30 @@ WebInspector.DOMModel.prototype = {
     setHighlighter: function(highlighter)
     {
         this._highlighter = highlighter || this._defaultHighlighter;
+    },
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @param {function(?WebInspector.DOMNode)} callback
+     */
+    nodeForLocation: function(x, y, callback)
+    {
+        this._agent.getNodeForLocation(x, y, mycallback.bind(this));
+
+        /**
+         * @param {?Protocol.Error} error
+         * @param {number} nodeId
+         * @this {WebInspector.DOMModel}
+         */
+        function mycallback(error, nodeId)
+        {
+            if (error) {
+                callback(null);
+                return;
+            }
+            callback(this.nodeForId(nodeId));
+        }
     },
 
     __proto__: WebInspector.TargetAwareObject.prototype
@@ -1761,11 +1793,11 @@ WebInspector.DOMNodeHighlighter = function() {
 
 WebInspector.DOMNodeHighlighter.prototype = {
     /**
-     * @param {!DOMAgent.NodeId} nodeId
+     * @param {?WebInspector.DOMNode} node
      * @param {!DOMAgent.HighlightConfig} config
      * @param {!RuntimeAgent.RemoteObjectId=} objectId
      */
-    highlightDOMNode: function(nodeId, config, objectId) {},
+    highlightDOMNode: function(node, config, objectId) {},
 
     /**
      * @param {boolean} enabled
@@ -1788,14 +1820,14 @@ WebInspector.DefaultDOMNodeHighlighter = function(agent)
 
 WebInspector.DefaultDOMNodeHighlighter.prototype = {
     /**
-     * @param {!DOMAgent.NodeId} nodeId
+     * @param {?WebInspector.DOMNode} node
      * @param {!DOMAgent.HighlightConfig} config
      * @param {!RuntimeAgent.RemoteObjectId=} objectId
      */
-    highlightDOMNode: function(nodeId, config, objectId)
+    highlightDOMNode: function(node, config, objectId)
     {
-        if (objectId || nodeId)
-            this._agent.highlightNode(config, objectId ? undefined : nodeId, objectId);
+        if (objectId || node)
+            this._agent.highlightNode(config, objectId ? undefined : node.id, objectId);
         else
             this._agent.hideHighlight();
     },

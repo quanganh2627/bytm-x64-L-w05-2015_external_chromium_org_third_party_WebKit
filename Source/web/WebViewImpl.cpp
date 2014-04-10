@@ -123,6 +123,7 @@
 #include "modules/geolocation/GeolocationController.h"
 #include "modules/indexeddb/InspectorIndexedDBAgent.h"
 #include "modules/notifications/NotificationController.h"
+#include "modules/push_messaging/PushController.h"
 #include "painting/ContinuousPainter.h"
 #include "platform/ContextMenu.h"
 #include "platform/ContextMenuItem.h"
@@ -151,6 +152,7 @@
 #include "public/platform/WebImage.h"
 #include "public/platform/WebLayerTreeView.h"
 #include "public/platform/WebVector.h"
+#include "public/web/WebFrameClient.h"
 #include "wtf/CurrentTime.h"
 #include "wtf/RefPtr.h"
 #include "wtf/TemporaryChange.h"
@@ -347,7 +349,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_imeAcceptEvents(true)
     , m_operationsAllowed(WebDragOperationNone)
     , m_dragOperation(WebDragOperationNone)
-    , m_featureSwitchClient(adoptPtr(new ContextFeaturesClientImpl()))
     , m_isTransparent(false)
     , m_tabsToLinks(false)
     , m_layerTreeView(0)
@@ -359,10 +360,8 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_layerTreeViewCommitsDeferred(false)
     , m_compositorCreationFailed(false)
     , m_recreatingGraphicsContext(false)
-    , m_speechRecognitionClient(SpeechRecognitionClientProxy::create(client ? client->speechRecognizer() : 0))
     , m_geolocationClientProxy(adoptPtr(new GeolocationClientProxy(client ? client->geolocationClient() : 0)))
     , m_userMediaClientImpl(this)
-    , m_midiClientProxy(adoptPtr(new MIDIClientProxy(client ? client->webMIDIClient() : 0)))
     , m_flingModifier(0)
     , m_flingSourceDevice(false)
     , m_fullscreenController(FullscreenController::create(this))
@@ -388,15 +387,15 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     m_page = adoptPtr(new Page(pageClients));
     provideUserMediaTo(*m_page, &m_userMediaClientImpl);
     MediaKeysController::provideMediaKeysTo(*m_page, &m_mediaKeysClientImpl);
-    provideMIDITo(*m_page, m_midiClientProxy.get());
+    provideMIDITo(*m_page, MIDIClientProxy::create(client ? client->webMIDIClient() : 0));
 #if ENABLE(INPUT_SPEECH)
     provideSpeechInputTo(*m_page, SpeechInputClientImpl::create(client));
 #endif
-    provideSpeechRecognitionTo(*m_page, m_speechRecognitionClient.get());
+    provideSpeechRecognitionTo(*m_page, SpeechRecognitionClientProxy::create(client ? client->speechRecognizer() : 0));
     provideNotification(*m_page, notificationPresenterImpl());
     provideNavigatorContentUtilsTo(*m_page, NavigatorContentUtilsClientImpl::create(this));
 
-    provideContextFeaturesTo(*m_page, m_featureSwitchClient.get());
+    provideContextFeaturesTo(*m_page, ContextFeaturesClientImpl::create());
     if (RuntimeEnabledFeatures::deviceOrientationEnabled())
         DeviceOrientationInspectorAgent::provideTo(*m_page);
     provideGeolocationTo(*m_page, m_geolocationClientProxy.get());
@@ -406,13 +405,13 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     provideDatabaseClientTo(*m_page, DatabaseClientImpl::create());
     InspectorIndexedDBAgent::provideTo(m_page.get());
     provideStorageQuotaClientTo(*m_page, StorageQuotaClientImpl::create());
-    m_validationMessage = ValidationMessageClientImpl::create(*this);
-    m_page->setValidationMessageClient(m_validationMessage.get());
+    m_page->setValidationMessageClient(ValidationMessageClientImpl::create(*this));
     provideWorkerGlobalScopeProxyProviderTo(*m_page, WorkerGlobalScopeProxyProviderImpl::create());
 
     m_page->makeOrdinary();
 
     if (m_client) {
+        providePushControllerTo(*m_page, m_client->webPushClient());
         setDeviceScaleFactor(m_client->screenInfo().deviceScaleFactor);
         setVisibilityState(m_client->visibilityState(), true);
     }
@@ -595,11 +594,6 @@ bool WebViewImpl::scrollBy(const WebFloatSize& delta, const WebFloatSize& veloci
             return handleGestureEvent(syntheticGestureEvent);
     }
     return false;
-}
-
-void WebViewImpl::scrollBy(const WebFloatSize& delta)
-{
-    scrollBy(delta, WebFloatSize());
 }
 
 bool WebViewImpl::handleGestureEvent(const WebGestureEvent& event)
@@ -909,10 +903,17 @@ bool WebViewImpl::handleKeyEvent(const WebKeyboardEvent& event)
         return true;
     }
 
-    // TODO(kenrb): Handle the remote frame case. Possibly move eventHandler() to Frame?
-    RefPtr<LocalFrame> frame = toLocalFrame(focusedWebCoreFrame());
-    if (!frame)
+    RefPtr<Frame> focusedFrame = focusedWebCoreFrame();
+    if (focusedFrame && focusedFrame->isRemoteFrameTemporary()) {
+        WebFrameImpl* webFrame = WebFrameImpl::fromFrame(toLocalFrameTemporary(focusedFrame.get()));
+        webFrame->client()->forwardInputEvent(&event);
+        return true;
+    }
+
+    if (!focusedFrame || !focusedFrame->isLocalFrame())
         return false;
+
+    RefPtr<LocalFrame> frame = toLocalFrame(focusedFrame.get());
 
 #if !OS(MACOSX)
     const WebInputEvent::Type contextMenuTriggeringEventType =
@@ -1704,8 +1705,9 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
     ASSERT(m_layerTreeView);
 
     SkBitmap target;
-    target.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height(), rect.width() * 4);
-    target.allocPixels();
+    target.setConfig(SkImageInfo::MakeN32Premul(rect.width(), rect.height()), rect.width() * 4);
+    if (!target.allocPixels())
+        return;
     m_layerTreeView->compositeAndReadback(target.getPixels(), rect);
 #if (!SK_R32_SHIFT && SK_B32_SHIFT == 16)
     // The compositor readback always gives back pixels in BGRA order, but for
@@ -1945,7 +1947,7 @@ bool WebViewImpl::setComposition(
     // editable because JavaScript may delete a parent node of the composition
     // node. In this case, WebKit crashes while deleting texts from the parent
     // node, which doesn't exist any longer.
-    RefPtr<Range> range = inputMethodController.compositionRange();
+    RefPtrWillBeRawPtr<Range> range = inputMethodController.compositionRange();
     if (range) {
         Node* node = range->startContainer();
         if (!node || !node->isContentEditable())
@@ -2009,7 +2011,7 @@ bool WebViewImpl::compositionRange(size_t* location, size_t* length)
     if (!focused || !m_imeAcceptEvents)
         return false;
 
-    RefPtr<Range> range = focused->inputMethodController().compositionRange();
+    RefPtrWillBeRawPtr<Range> range = focused->inputMethodController().compositionRange();
     if (!range)
         return false;
 
@@ -2050,7 +2052,7 @@ WebTextInputInfo WebViewImpl::textInputInfo()
     if (info.value.isEmpty())
         return info;
 
-    if (RefPtr<Range> range = selection.selection().firstRange()) {
+    if (RefPtrWillBeRawPtr<Range> range = selection.selection().firstRange()) {
         PlainTextRange plainTextRange(PlainTextRange::create(*node, *range.get()));
         if (plainTextRange.isNotNull()) {
             info.selectionStart = plainTextRange.start();
@@ -2058,7 +2060,7 @@ WebTextInputInfo WebViewImpl::textInputInfo()
         }
     }
 
-    if (RefPtr<Range> range = focused->inputMethodController().compositionRange()) {
+    if (RefPtrWillBeRawPtr<Range> range = focused->inputMethodController().compositionRange()) {
         PlainTextRange plainTextRange(PlainTextRange::create(*node, *range.get()));
         if (plainTextRange.isNotNull()) {
             info.compositionStart = plainTextRange.start();
@@ -2161,11 +2163,11 @@ bool WebViewImpl::selectionBounds(WebRect& anchor, WebRect& focus) const
     if (selection.isCaret()) {
         anchor = focus = selection.absoluteCaretBounds();
     } else {
-        RefPtr<Range> selectedRange = selection.toNormalizedRange();
+        RefPtrWillBeRawPtr<Range> selectedRange = selection.toNormalizedRange();
         if (!selectedRange)
             return false;
 
-        RefPtr<Range> range(Range::create(selectedRange->startContainer()->document(),
+        RefPtrWillBeRawPtr<Range> range(Range::create(selectedRange->startContainer()->document(),
             selectedRange->startContainer(),
             selectedRange->startOffset(),
             selectedRange->startContainer(),
@@ -2770,7 +2772,7 @@ void WebViewImpl::refreshPageScaleFactorAfterLayout()
     updatePageDefinedViewportConstraints(mainFrameImpl()->frame()->document()->viewportDescription());
     m_pageScaleConstraintsSet.computeFinalConstraints();
 
-    if (settings()->viewportEnabled() && !m_fixedLayoutSizeLock) {
+    if (settings()->shrinksViewportContentToFit() && settings()->viewportEnabled() && !m_fixedLayoutSizeLock) {
         int verticalScrollbarWidth = 0;
         if (view->verticalScrollbar() && !view->verticalScrollbar()->isOverlayScrollbar())
             verticalScrollbarWidth = view->verticalScrollbar()->width();
@@ -2932,6 +2934,24 @@ void WebViewImpl::resetScrollAndScaleState()
     resetSavedScrollAndScaleState();
 }
 
+void WebViewImpl::updateForCommit(WebFrame* frame, const WebHistoryItem& item, WebHistoryCommitType commitType, bool navigationWithinPage)
+{
+    RefPtr<HistoryItem> historyItem = PassRefPtr<HistoryItem>(item);
+    if (!historyItem)
+        return;
+    page()->historyController().updateForCommit(toWebFrameImpl(frame)->frame(), historyItem.get(), static_cast<HistoryCommitType>(commitType), navigationWithinPage);
+}
+
+WebHistoryItem WebViewImpl::itemForNewChildFrame(WebFrame* frame) const
+{
+    return WebHistoryItem(page()->historyController().itemForNewChildFrame(toWebFrameImpl(frame)->frame()));
+}
+
+void WebViewImpl::removeChildrenForRedirect(WebFrame* frame)
+{
+    page()->historyController().removeChildrenForRedirect(toWebFrameImpl(frame)->frame());
+}
+
 void WebViewImpl::setFixedLayoutSize(const WebSize& layoutSize)
 {
     if (!page())
@@ -3050,13 +3070,6 @@ void WebViewImpl::dragSourceEndedAt(
                            false, 0);
     m_page->mainFrame()->eventHandler().dragSourceEndedAt(pme,
         static_cast<DragOperation>(operation));
-}
-
-void WebViewImpl::dragSourceMovedTo(
-    const WebPoint& clientPoint,
-    const WebPoint& screenPoint,
-    WebDragOperation operation)
-{
 }
 
 void WebViewImpl::dragSourceSystemDragEnded()
@@ -3270,6 +3283,8 @@ void WebViewImpl::setInspectorSetting(const WebString& key,
 
 void WebViewImpl::setCompositorDeviceScaleFactorOverride(float deviceScaleFactor)
 {
+    if (m_compositorDeviceScaleFactorOverride == deviceScaleFactor)
+        return;
     m_compositorDeviceScaleFactorOverride = deviceScaleFactor;
     if (page() && m_layerTreeView)
         updateLayerTreeDeviceScaleFactor();
@@ -3277,6 +3292,8 @@ void WebViewImpl::setCompositorDeviceScaleFactorOverride(float deviceScaleFactor
 
 void WebViewImpl::setRootLayerTransform(const WebSize& rootLayerOffset, float rootLayerScale)
 {
+    if (m_rootLayerScale == rootLayerScale && m_rootLayerOffset == rootLayerOffset)
+        return;
     m_rootLayerScale = rootLayerScale;
     m_rootLayerOffset = rootLayerOffset;
     if (mainFrameImpl())
@@ -3393,6 +3410,11 @@ void WebViewImpl::setWindowFeatures(const WebWindowFeatures& features)
     m_page->chrome().setWindowFeatures(features);
 }
 
+void WebViewImpl::setOpenedByDOM()
+{
+    m_page->setOpenedByDOM();
+}
+
 void WebViewImpl::setSelectionColors(unsigned activeBackgroundColor,
                                      unsigned activeForegroundColor,
                                      unsigned inactiveBackgroundColor,
@@ -3433,10 +3455,10 @@ void WebViewImpl::willInsertBody(WebFrameImpl* webframe)
     if (webframe != mainFrameImpl())
         return;
 
-    // If we get to the <body> tag and we have no pending stylesheet loads, we
+    // If we get to the <body> tag and we have no pending stylesheet and import load, we
     // can be fairly confident we'll have something sensible to paint soon and
     // can turn off deferred commits.
-    if (m_page->mainFrame()->document()->haveStylesheetsLoaded())
+    if (m_page->mainFrame()->document()->isRenderingReady())
         resumeTreeViewCommits();
 }
 

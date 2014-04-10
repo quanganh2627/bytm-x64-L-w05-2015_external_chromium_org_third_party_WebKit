@@ -90,6 +90,8 @@ public:
 
     void validateAgainst(Document*);
 
+    virtual void trace(Visitor*) OVERRIDE { }
+
 private:
     String m_domain;
     Entry m_entries[ContextFeatures::FeatureTypeSize];
@@ -144,11 +146,11 @@ bool ContextFeaturesClientImpl::askIfIsEnabled(Document* document, ContextFeatur
 
     switch (type) {
     case ContextFeatures::StyleScoped:
-        return frame->permissionClient()->allowWebComponents(frame, defaultValue);
+        return frame->permissionClient()->allowWebComponents(defaultValue);
     case ContextFeatures::MutationEvents:
-        return frame->permissionClient()->allowMutationEvents(frame, defaultValue);
+        return frame->permissionClient()->allowMutationEvents(defaultValue);
     case ContextFeatures::PushState:
-        return frame->permissionClient()->allowPushState(frame);
+        return frame->permissionClient()->allowPushState();
     default:
         return defaultValue;
     }

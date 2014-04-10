@@ -38,12 +38,12 @@
 #include "core/dom/SelectorQuery.h"
 #include "core/events/MutationEvent.h"
 #include "core/html/HTMLCollection.h"
+#include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/RadioNodeList.h"
 #include "core/rendering/InlineTextBox.h"
 #include "core/rendering/RenderText.h"
 #include "core/rendering/RenderTheme.h"
 #include "core/rendering/RenderView.h"
-#include "core/rendering/RenderWidget.h"
 
 using namespace std;
 
@@ -51,8 +51,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static void dispatchChildInsertionEvents(Node&);
-static void dispatchChildRemovalEvents(Node&);
+static void dispatchChildInsertionEvents(Node& child);
+static void dispatchChildRemovalEvents(Node& child);
 
 ChildNodesLazySnapshot* ChildNodesLazySnapshot::latestSnapshot = 0;
 
@@ -172,9 +172,11 @@ bool ContainerNode::checkAcceptChildGuaranteedNodeTypes(const Node& newChild, Ex
 
 void ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionState& exceptionState)
 {
+#if !ENABLE(OILPAN)
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
     ASSERT(refCount() || parentOrShadowHostNode());
+#endif
 
     RefPtr<Node> protect(this);
 
@@ -288,9 +290,11 @@ void ContainerNode::parserInsertBefore(PassRefPtr<Node> newChild, Node& nextChil
 
 void ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionState& exceptionState)
 {
+#if !ENABLE(OILPAN)
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
     ASSERT(refCount() || parentOrShadowHostNode());
+#endif
 
     RefPtr<Node> protect(this);
 
@@ -405,9 +409,11 @@ void ContainerNode::disconnectDescendantFrames()
 
 void ContainerNode::removeChild(Node* oldChild, ExceptionState& exceptionState)
 {
+#if !ENABLE(OILPAN)
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
     ASSERT(refCount() || parentOrShadowHostNode());
+#endif
 
     RefPtr<Node> protect(this);
 
@@ -443,7 +449,7 @@ void ContainerNode::removeChild(Node* oldChild, ExceptionState& exceptionState)
     }
 
     {
-        RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
+        HTMLFrameOwnerElement::UpdateSuspendScope suspendWidgetHierarchyUpdates;
 
         Node* prev = child->previousSibling();
         Node* next = child->nextSibling();
@@ -533,7 +539,7 @@ void ContainerNode::removeChildren()
 
     NodeVector removedChildren;
     {
-        RenderWidget::UpdateSuspendScope suspendWidgetHierarchyUpdates;
+        HTMLFrameOwnerElement::UpdateSuspendScope suspendWidgetHierarchyUpdates;
         {
             NoEventDispatchAssertion assertNoEventDispatch;
             removedChildren.reserveInitialCapacity(countChildren());
@@ -939,6 +945,9 @@ static void dispatchChildInsertionEvents(Node& child)
     if (child.isInShadowTree())
         return;
 
+    if (!child.document().canDispatchEvents())
+        return;
+
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
 
     RefPtr<Node> c(child);
@@ -956,14 +965,15 @@ static void dispatchChildInsertionEvents(Node& child)
 
 static void dispatchChildRemovalEvents(Node& child)
 {
-    if (child.isInShadowTree()) {
-        InspectorInstrumentation::willRemoveDOMNode(&child);
+    InspectorInstrumentation::willRemoveDOMNode(&child);
+
+    if (child.isInShadowTree())
         return;
-    }
+
+    if (!child.document().canDispatchEvents())
+        return;
 
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
-
-    InspectorInstrumentation::willRemoveDOMNode(&child);
 
     RefPtr<Node> c(child);
     RefPtr<Document> document(child.document());

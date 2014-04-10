@@ -58,18 +58,6 @@ public:
     static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, double duration, ExceptionState&);
     static PassRefPtr<Animation> create(Element*, const Vector<Dictionary>& keyframeDictionaryVector, ExceptionState&);
 
-    // FIXME: Move all of these setter methods out of Animation,
-    // possibly into a new class (TimingInput?).
-    static void setStartDelay(Timing&, double startDelay);
-    static void setEndDelay(Timing&, double endDelay);
-    static void setFillMode(Timing&, String fillMode);
-    static void setIterationStart(Timing&, double iterationStart);
-    static void setIterationCount(Timing&, double iterationCount);
-    static void setIterationDuration(Timing&, double iterationDuration);
-    static void setPlaybackRate(Timing&, double playbackRate);
-    static void setPlaybackDirection(Timing&, String direction);
-    static void setTimingFunction(Timing&, String timingFunctionString);
-
     virtual bool isAnimation() const OVERRIDE { return true; }
 
     const WillBeHeapVector<RefPtrWillBeMember<Interpolation> >& activeInterpolations() const
@@ -80,12 +68,13 @@ public:
 
     bool affects(CSSPropertyID) const;
     const AnimationEffect* effect() const { return m_effect.get(); }
+    AnimationEffect* effect() { return m_effect.get(); }
     Priority priority() const { return m_priority; }
     Element* target() { return m_target.get(); }
 
     bool isCandidateForAnimationOnCompositor() const;
-    // Must only be called once and assumes to be part of a player without a start time.
-    bool maybeStartAnimationOnCompositor();
+    // Must only be called once.
+    bool maybeStartAnimationOnCompositor(double startTime);
     bool hasActiveAnimationsOnCompositor() const;
     bool hasActiveAnimationsOnCompositor(CSSPropertyID) const;
     void cancelAnimationOnCompositor();
@@ -97,11 +86,10 @@ protected:
     virtual void updateChildrenAndEffects() const OVERRIDE;
     virtual void didAttach() OVERRIDE;
     virtual void willDetach() OVERRIDE;
+    virtual void specifiedTimingChanged() OVERRIDE;
     virtual double calculateTimeToEffectChange(bool forwards, double inheritedTime, double timeToNextIteration) const OVERRIDE;
 
 private:
-    static void populateTiming(Timing&, Dictionary);
-
     Animation(PassRefPtr<Element>, PassRefPtrWillBeRawPtr<AnimationEffect>, const Timing&, Priority, PassOwnPtr<EventDelegate>);
 
     RefPtr<Element> m_target;
@@ -114,7 +102,6 @@ private:
 
     Vector<int> m_compositorAnimationIds;
 
-    friend class CSSAnimations;
     friend class AnimationAnimationV8Test;
 };
 
