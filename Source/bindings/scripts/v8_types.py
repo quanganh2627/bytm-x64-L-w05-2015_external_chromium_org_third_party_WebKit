@@ -173,8 +173,8 @@ def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, used_in
         if used_as_argument:
             return implemented_as_class + '*'
         new_type = 'Member' if used_in_cpp_sequence else 'RawPtr'
-        ref_ptr_type = cpp_ptr_type('RefPtr', new_type, idl_type.gc_type)
-        return cpp_template_type(ref_ptr_type, implemented_as_class)
+        ptr_type = cpp_ptr_type('RefPtr', new_type, idl_type.gc_type)
+        return cpp_template_type(ptr_type, implemented_as_class)
     # Default, assume native type is a pointer with same type name as idl type
     return base_idl_type + '*'
 
@@ -200,6 +200,8 @@ def cpp_template_type(template, inner_type):
 
 
 def cpp_ptr_type(old_type, new_type, gc_type):
+    if gc_type == 'GarbageCollectedObject':
+        return new_type
     if gc_type == 'WillBeGarbageCollectedObject':
         if old_type == 'Vector':
             return 'WillBe' + new_type
@@ -221,6 +223,7 @@ def v8_type(interface_name):
 # compute_interfaces_info.py to avoid having to parse IDLs of all used interfaces.
 IdlType.implemented_as_interfaces = {}
 
+
 def implemented_as(idl_type):
     base_idl_type = idl_type.base_type
     if base_idl_type in IdlType.implemented_as_interfaces:
@@ -235,6 +238,17 @@ IdlType.set_implemented_as_interfaces = classmethod(
         cls.implemented_as_interfaces.update(new_implemented_as_interfaces))
 
 
+# [GarbageCollected]
+IdlType.garbage_collected_types = set()
+
+IdlType.is_garbage_collected = property(
+    lambda self: self.base_type in IdlType.garbage_collected_types)
+
+IdlType.set_garbage_collected_types = classmethod(
+    lambda cls, new_garbage_collected_types:
+        cls.garbage_collected_types.update(new_garbage_collected_types))
+
+
 # [WillBeGarbageCollected]
 IdlType.will_be_garbage_collected_types = set()
 
@@ -247,6 +261,8 @@ IdlType.set_will_be_garbage_collected_types = classmethod(
 
 
 def gc_type(idl_type):
+    if idl_type.is_garbage_collected:
+        return 'GarbageCollectedObject'
     if idl_type.is_will_be_garbage_collected:
         return 'WillBeGarbageCollectedObject'
     return 'RefCountedObject'
@@ -412,20 +428,27 @@ def v8_value_to_cpp_value_array_or_sequence(array_or_sequence_type, v8_value, in
     return expression
 
 
-def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variable_name, index=None):
+def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variable_name, index=None, async=False):
     """Returns an expression that converts a V8 value to a C++ value and stores it as a local value."""
     this_cpp_type = idl_type.cpp_type_args(extended_attributes=extended_attributes, used_as_argument=True)
 
     idl_type = idl_type.preprocessed_type
-    if idl_type.base_type == 'DOMString' and not idl_type.array_or_sequence_type:
-        format_string = 'V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID({cpp_type}, {variable_name}, {cpp_value})'
-    elif idl_type.is_integer_type:
-        format_string = 'V8TRYCATCH_EXCEPTION_VOID({cpp_type}, {variable_name}, {cpp_value}, exceptionState)'
-    else:
-        format_string = 'V8TRYCATCH_VOID({cpp_type}, {variable_name}, {cpp_value})'
-
     cpp_value = v8_value_to_cpp_value(idl_type, extended_attributes, v8_value, index)
-    return format_string.format(cpp_type=this_cpp_type, cpp_value=cpp_value, variable_name=variable_name)
+    args = [this_cpp_type, variable_name, cpp_value]
+    if idl_type.base_type == 'DOMString' and not idl_type.array_or_sequence_type:
+        macro = 'TOSTRING_VOID'
+    elif idl_type.is_integer_type:
+        macro = 'TONATIVE_VOID_EXCEPTIONSTATE'
+        args.append('exceptionState')
+    else:
+        macro = 'TONATIVE_VOID'
+
+    if async:
+        macro += '_ASYNC'
+        args.append('info')
+
+    return '%s(%s)' % (macro, ', '.join(args))
+
 
 IdlType.v8_value_to_local_cpp_value = v8_value_to_local_cpp_value
 IdlUnionType.v8_value_to_local_cpp_value = v8_value_to_local_cpp_value
@@ -562,6 +585,7 @@ def v8_set_return_value(idl_type, cpp_value, extended_attributes=None, script_wr
         this_v8_conversion_type = dom_wrapper_conversion_type()
 
     format_string = V8_SET_RETURN_VALUE[this_v8_conversion_type]
+    # FIXME: oilpan: Remove .release() once we remove all RefPtrs from generated code.
     if release:
         cpp_value = '%s.release()' % cpp_value
     statement = format_string.format(cpp_value=cpp_value, script_wrappable=script_wrappable)

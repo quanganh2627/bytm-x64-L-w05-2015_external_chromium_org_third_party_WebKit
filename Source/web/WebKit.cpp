@@ -31,7 +31,7 @@
 #include "config.h"
 #include "WebKit.h"
 
-#include "IDBFactoryBackendProxy.h"
+#include "IndexedDBClientImpl.h"
 #include "RuntimeEnabledFeatures.h"
 #include "WebMediaPlayerClientImpl.h"
 #include "bindings/v8/V8Binding.h"
@@ -42,6 +42,7 @@
 #include "core/page/Page.h"
 #include "core/frame/Settings.h"
 #include "core/workers/WorkerGlobalScopeProxy.h"
+#include "gin/public/v8_platform.h"
 #include "platform/LayoutTestSupport.h"
 #include "platform/Logging.h"
 #include "platform/graphics/ImageDecodingStore.h"
@@ -104,12 +105,13 @@ void initialize(Platform* platform)
 {
     initializeWithoutV8(platform);
 
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::V8::InitializePlatform(gin::V8Platform::Get());
+    v8::Isolate* isolate = v8::Isolate::New();
+    isolate->Enter();
     WebCore::V8Initializer::initializeMainThreadIfNeeded(isolate);
     v8::V8::SetEntropySource(&generateEntropy);
     v8::V8::SetArrayBufferAllocator(WebCore::v8ArrayBufferAllocator());
     v8::V8::Initialize();
-    v8::V8::SetAutorunMicrotasks(isolate, false);
     WebCore::V8PerIsolateData::ensureInitialized(isolate);
 
     s_isolateInterruptor = new WebCore::V8IsolateInterruptor(v8::Isolate::GetCurrent());
@@ -163,6 +165,8 @@ void initializeWithoutV8(Platform* platform)
     WTF::initialize(currentTimeFunction, monotonicallyIncreasingTimeFunction);
     WTF::initializeMainThread(callOnMainThreadFunction);
     WebCore::Heap::init();
+
+    WebCore::ThreadState::attachMainThread();
     // currentThread will always be non-null in production, but can be null in Chromium unit tests.
     if (WebThread* currentThread = platform->currentThread()) {
         ASSERT(!s_pendingGCRunner);
@@ -185,7 +189,7 @@ void initializeWithoutV8(Platform* platform)
     // this, initializing this lazily probably doesn't buy us much.
     WTF::UTF8Encoding();
 
-    WebCore::setIDBFactoryBackendInterfaceCreateFunction(blink::IDBFactoryBackendProxy::create);
+    WebCore::setIndexedDBClientCreateFunction(blink::IndexedDBClientImpl::create);
 
     WebCore::MediaPlayer::setMediaEngineCreateFunction(blink::WebMediaPlayerClientImpl::create);
 }
@@ -206,17 +210,6 @@ void shutdown()
     ASSERT(s_isolateInterruptor);
     WebCore::ThreadState::current()->removeInterruptor(s_isolateInterruptor);
 
-    WebCore::V8PerIsolateData::dispose(WebCore::V8PerIsolateData::mainThreadIsolate());
-    v8::V8::Dispose();
-
-    shutdownWithoutV8();
-}
-
-void shutdownWithoutV8()
-{
-    ASSERT(!s_endOfTaskRunner);
-    WebCore::ImageDecodingStore::shutdown();
-    WebCore::shutdown();
     // currentThread will always be non-null in production, but can be null in Chromium unit tests.
     if (Platform::current()->currentThread()) {
         ASSERT(s_pendingGCRunner);
@@ -228,6 +221,24 @@ void shutdownWithoutV8()
         delete s_messageLoopInterruptor;
         s_messageLoopInterruptor = 0;
     }
+
+    // Detach the main thread before starting the shutdown sequence
+    // so that the main thread won't get involved in a GC during the shutdown.
+    WebCore::ThreadState::detachMainThread();
+
+    v8::Isolate* isolate = WebCore::V8PerIsolateData::mainThreadIsolate();
+    WebCore::V8PerIsolateData::dispose(isolate);
+    isolate->Exit();
+    isolate->Dispose();
+
+    shutdownWithoutV8();
+}
+
+void shutdownWithoutV8()
+{
+    ASSERT(!s_endOfTaskRunner);
+    WebCore::ImageDecodingStore::shutdown();
+    WebCore::shutdown();
     WebCore::Heap::shutdown();
     WTF::shutdown();
     Platform::shutdown();

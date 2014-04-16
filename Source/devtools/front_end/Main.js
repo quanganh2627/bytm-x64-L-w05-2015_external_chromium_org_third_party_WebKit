@@ -70,8 +70,8 @@ WebInspector.Main.prototype = {
         if (WebInspector.dockController.element)
             WebInspector.inspectorView.appendToRightToolbar(WebInspector.dockController.element);
 
-        if (WebInspector._screencastController)
-            WebInspector.inspectorView.appendToRightToolbar(WebInspector._screencastController.statusBarItem());
+        if (this._screencastController)
+            WebInspector.inspectorView.appendToRightToolbar(this._screencastController.statusBarItem());
     },
 
     _createRootView: function()
@@ -246,6 +246,7 @@ WebInspector.Main.prototype = {
     _doLoadedDoneWithCapabilities: function(mainTarget)
     {
         new WebInspector.VersionController().updateVersion();
+        InspectorFrontendHost.setWhitelistedShortcuts(JSON.stringify([{keyCode: WebInspector.KeyboardShortcut.Keys.F8.code}]));
         WebInspector.shortcutsScreen = new WebInspector.ShortcutsScreen();
         this._registerShortcuts();
 
@@ -307,10 +308,10 @@ WebInspector.Main.prototype = {
 
         new WebInspector.WorkspaceController(WebInspector.workspace);
 
-        WebInspector.fileSystemWorkspaceProvider = new WebInspector.FileSystemWorkspaceProvider(WebInspector.isolatedFileSystemManager, WebInspector.workspace);
+        WebInspector.fileSystemWorkspaceBinding = new WebInspector.FileSystemWorkspaceBinding(WebInspector.isolatedFileSystemManager, WebInspector.workspace);
 
-        WebInspector.networkWorkspaceProvider = new WebInspector.SimpleWorkspaceProvider(WebInspector.workspace, WebInspector.projectTypes.Network);
-        new WebInspector.NetworkUISourceCodeProvider(WebInspector.networkWorkspaceProvider, WebInspector.workspace);
+        WebInspector.networkWorkspaceBinding = new WebInspector.NetworkWorkspaceBinding(WebInspector.workspace);
+        new WebInspector.NetworkUISourceCodeProvider(WebInspector.networkWorkspaceBinding, WebInspector.workspace);
 
         WebInspector.breakpointManager = new WebInspector.BreakpointManager(WebInspector.settings.breakpoints, WebInspector.debuggerModel, WebInspector.workspace);
 
@@ -319,9 +320,9 @@ WebInspector.Main.prototype = {
         WebInspector.overridesSupport = new WebInspector.OverridesSupport();
         WebInspector.overridesSupport.applyInitialOverrides();
 
-        new WebInspector.DebuggerScriptMapping(WebInspector.debuggerModel, WebInspector.workspace, WebInspector.networkWorkspaceProvider);
+        new WebInspector.DebuggerScriptMapping(WebInspector.debuggerModel, WebInspector.workspace, WebInspector.networkWorkspaceBinding);
         WebInspector.liveEditSupport = new WebInspector.LiveEditSupport(WebInspector.workspace);
-        new WebInspector.CSSStyleSheetMapping(WebInspector.cssModel, WebInspector.workspace, WebInspector.networkWorkspaceProvider);
+        new WebInspector.CSSStyleSheetMapping(WebInspector.cssModel, WebInspector.workspace, WebInspector.networkWorkspaceBinding);
         new WebInspector.PresentationConsoleMessageHelper(WebInspector.workspace);
 
         // Create settings before loading modules.
@@ -405,7 +406,7 @@ WebInspector.Main.prototype = {
 
             var uiSourceCode = WebInspector.workspace.uiSourceCodeForURL(anchor.href);
             if (uiSourceCode) {
-                WebInspector.Revealer.reveal(new WebInspector.UILocation(uiSourceCode, anchor.lineNumber || 0, anchor.columnNumber || 0));
+                WebInspector.Revealer.reveal(uiSourceCode.uiLocation(anchor.lineNumber || 0, anchor.columnNumber || 0));
                 return;
             }
 
@@ -569,7 +570,7 @@ WebInspector.Main.prototype = {
     inspect: function(payload, hints)
     {
         var object = WebInspector.runtimeModel.createRemoteObject(payload);
-        if (object.subtype === "node") {
+        if (object.isNode()) {
             object.pushNodeToFrontend(callback);
             var elementsPanel = /** @type {!WebInspector.ElementsPanel} */ (WebInspector.inspectorView.panel("elements"));
             elementsPanel.omitDefaultSelection();

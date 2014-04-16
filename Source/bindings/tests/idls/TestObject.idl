@@ -148,6 +148,8 @@ interface TestObject {
     [ActivityLogging=SetterForAllWorlds] attribute long activityLoggingSetterForAllWorldsLongAttribute;
     [CachedAttribute=isValueDirty] attribute any cachedAttributeAnyAttribute;
     [CallWith=ExecutionContext] attribute any callWithExecutionContextAnyAttribute;
+    [CallWith=NewScriptState] attribute any callWithNewScriptStateAnyAttribute;
+    [CallWith=ExecutionContext|NewScriptState] attribute any callWithExecutionContextAndNewScriptStateAnyAttribute;
     [CheckSecurity=Node] readonly attribute Document checkSecurityForNodeReadonlyDocumentAttribute; // All uses are read only
     [Conditional=CONDITION] attribute long conditionalLongAttribute;
     [Conditional=CONDITION_1&CONDITION_2] attribute long conditionalAndLongAttribute;
@@ -183,6 +185,7 @@ interface TestObject {
     [PutForwards=hrefThrows] readonly attribute TestNode locationWithException;
     [PutForwards=hrefCallWith] readonly attribute TestNode locationWithCallWith;
     [PerWorldBindings, PutForwards=href] readonly attribute TestNode locationWithPerWorldBindings;
+    [PutForwards=attr1] readonly attribute TestInterfaceGarbageCollected locationGarbageCollected;
     [PutForwards=attr1] readonly attribute TestInterfaceWillBeGarbageCollected locationWillBeGarbageCollected;
     [RaisesException] attribute long raisesExceptionLongAttribute;
     [RaisesException=Getter] attribute long raisesExceptionGetterLongAttribute;
@@ -332,7 +335,8 @@ interface TestObject {
     // Exceptional types
     Dictionary dictionaryMethod();
     NodeFilter nodeFilterMethod();
-    Promise promiseMethod();
+    Promise promiseMethod(long arg1, Dictionary arg2, DOMString arg3, DOMString... variadic);
+    Promise promiseMethodWithoutExceptionState(Dictionary arg1);
     SerializedScriptValue serializedScriptValueMethod();
     XPathNSResolver xPathNSResolverMethod();
     void voidMethodDictionaryArg(Dictionary dictionaryArg);
@@ -364,7 +368,7 @@ interface TestObject {
     void voidMethodStringArgVariadicStringArg(DOMString stringArg, DOMString... variadicStringArgs);
     void voidMethodVariadicTestInterfaceEmptyArg(TestInterfaceEmpty... variadicTestInterfaceEmptyArgs);
     void voidMethodTestInterfaceEmptyArgVariadicTestInterfaceEmptyArg(TestInterfaceEmpty testInterfaceEmptyArg, TestInterfaceEmpty... variadicTestInterfaceEmptyArgs);
-    // [WillBeGarbageCollected]
+    void voidMethodVariadicTestInterfaceGarbageCollectedArg(TestInterfaceGarbageCollected... variadicTestInterfaceGarbageCollectedArg);
     void voidMethodVariadicTestInterfaceWillBeGarbageCollectedArg(TestInterfaceWillBeGarbageCollected... variadicTestInterfaceWillBeGarbageCollectedArg);
 
     // Overloaded methods
@@ -459,13 +463,16 @@ interface TestObject {
     [TreatReturnedNullStringAs=Null] DOMString treatReturnedNullStringAsNullStringMethod();
     [TreatReturnedNullStringAs=Undefined] DOMString treatReturnedNullStringAsUndefinedStringMethod();
     [Unforgeable] void unforgeableVoidMethod();
-    // [WillBeGarbageCollected]
+    void voidMethodTestInterfaceGarbageCollectedSequenceArg(sequence<TestInterfaceGarbageCollected> testInterfaceGarbageCollectedSequenceArg);
+    void voidMethodTestInterfaceGarbageCollectedArrayArg(TestInterfaceGarbageCollected[] testInterfaceGarbageCollectedArrayArg);
     void voidMethodTestInterfaceWillBeGarbageCollectedSequenceArg(sequence<TestInterfaceWillBeGarbageCollected> testInterfaceWillBeGarbageCollectedSequenceArg);
     void voidMethodTestInterfaceWillBeGarbageCollectedArrayArg(TestInterfaceWillBeGarbageCollected[] testInterfaceWillBeGarbageCollectedArrayArg);
 
     // Extended attributes on referenced interfaces
     // (not self; self-reference tests at interface themselves)
     attribute TestInterface testInterfaceAttribute; // [ImplementedAs]
+    attribute TestInterfaceGarbageCollected testInterfaceGarbageCollectedAttribute; // [GarbageCollected]
+    attribute TestInterfaceGarbageCollected? testInterfaceGarbageCollectedOrNullAttribute; // [GarbageCollected]
     attribute TestInterfaceWillBeGarbageCollected testInterfaceWillBeGarbageCollectedAttribute; // [WillBeGarbageCollected]
     attribute TestInterfaceWillBeGarbageCollected? testInterfaceWillBeGarbageCollectedOrNullAttribute; // [WillBeGarbageCollected]
 };

@@ -167,13 +167,13 @@ static void timerTraceProfilerInMainThread(const char* name, int status)
 static void initializeV8Common(v8::Isolate* isolate)
 {
     v8::ResourceConstraints constraints;
-    constraints.ConfigureDefaults(static_cast<uint64_t>(blink::Platform::current()->physicalMemoryMB()) << 20, static_cast<uint32_t>(blink::Platform::current()->numberOfProcessors()));
+    constraints.ConfigureDefaults(static_cast<uint64_t>(blink::Platform::current()->physicalMemoryMB()) << 20, static_cast<uint32_t>(blink::Platform::current()->virtualMemoryLimitMB()) << 20, static_cast<uint32_t>(blink::Platform::current()->numberOfProcessors()));
     v8::SetResourceConstraints(isolate, &constraints);
 
     v8::V8::AddGCPrologueCallback(V8GCController::gcPrologue);
     v8::V8::AddGCEpilogueCallback(V8GCController::gcEpilogue);
 
-    v8::Debug::SetLiveEditEnabled(false);
+    v8::Debug::SetLiveEditEnabled(false, isolate);
 }
 
 void V8Initializer::initializeMainThreadIfNeeded(v8::Isolate* isolate)
@@ -217,7 +217,7 @@ static void messageHandlerInWorker(v8::Handle<v8::Message> message, v8::Handle<v
     // During the frame teardown, there may not be a valid context.
     if (ExecutionContext* context = currentExecutionContext(isolate)) {
         String errorMessage = toCoreString(message->Get());
-        V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, sourceURL, message->GetScriptResourceName());
+        TOSTRING_VOID(V8StringResource<>, sourceURL, message->GetScriptResourceName());
 
         RefPtrWillBeRawPtr<ErrorEvent> event = ErrorEvent::create(errorMessage, sourceURL, message->GetLineNumber(), message->GetStartColumn() + 1, &DOMWrapperWorld::current(isolate));
         AccessControlStatus corsStatus = message->IsSharedCrossOrigin() ? SharableCrossOrigin : NotSharableCrossOrigin;

@@ -37,21 +37,21 @@
 namespace blink {
 
 class WebServiceWorkerContextClient;
+class WebURL;
 
 class ServiceWorkerGlobalScopeClientImpl FINAL : public WebCore::ServiceWorkerGlobalScopeClient {
 public:
     static PassOwnPtr<WebCore::ServiceWorkerGlobalScopeClient> create(PassOwnPtr<WebServiceWorkerContextClient>);
     virtual ~ServiceWorkerGlobalScopeClientImpl();
 
+    virtual WebURL scope() const OVERRIDE;
+
     virtual void didHandleActivateEvent(int eventID, WebServiceWorkerEventResult) OVERRIDE;
     virtual void didHandleInstallEvent(int installEventID, WebServiceWorkerEventResult) OVERRIDE;
     virtual void didHandleFetchEvent(int fetchEventID, PassRefPtr<WebCore::Response>) OVERRIDE;
     virtual void didHandleSyncEvent(int syncEventID) OVERRIDE;
 
-    virtual void trace(WebCore::Visitor*) OVERRIDE
-    {
-        // FIXME: Oilpan: Move WorkerClients to the managed heap before using this trace method.
-    }
+    virtual void trace(WebCore::Visitor*) OVERRIDE { }
 
 private:
     ServiceWorkerGlobalScopeClientImpl(PassOwnPtr<WebServiceWorkerContextClient>);

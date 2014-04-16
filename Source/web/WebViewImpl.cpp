@@ -122,7 +122,6 @@
 #include "modules/encryptedmedia/MediaKeysController.h"
 #include "modules/geolocation/GeolocationController.h"
 #include "modules/indexeddb/InspectorIndexedDBAgent.h"
-#include "modules/notifications/NotificationController.h"
 #include "modules/push_messaging/PushController.h"
 #include "painting/ContinuousPainter.h"
 #include "platform/ContextMenu.h"
@@ -384,7 +383,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     pageClients.spellCheckerClient = &m_spellCheckerClientImpl;
     pageClients.storageClient = &m_storageClientImpl;
 
-    m_page = adoptPtr(new Page(pageClients));
+    m_page = adoptPtrWillBeNoop(new Page(pageClients));
     provideUserMediaTo(*m_page, &m_userMediaClientImpl);
     MediaKeysController::provideMediaKeysTo(*m_page, &m_mediaKeysClientImpl);
     provideMIDITo(*m_page, MIDIClientProxy::create(client ? client->webMIDIClient() : 0));
@@ -392,7 +391,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     provideSpeechInputTo(*m_page, SpeechInputClientImpl::create(client));
 #endif
     provideSpeechRecognitionTo(*m_page, SpeechRecognitionClientProxy::create(client ? client->speechRecognizer() : 0));
-    provideNotification(*m_page, notificationPresenterImpl());
     provideNavigatorContentUtilsTo(*m_page, NavigatorContentUtilsClientImpl::create(this));
 
     provideContextFeaturesTo(*m_page, ContextFeaturesClientImpl::create());
@@ -867,7 +865,10 @@ void WebViewImpl::getSelectionRootBounds(WebRect& bounds) const
                 && toHTMLInputElement(*shadowHost).isText())))
         root = shadowHost;
 
-    IntRect boundingBox = root->pixelSnappedBoundingBox();
+    IntRect boundingBox = isHTMLHtmlElement(root)
+        ? IntRect(IntPoint(0, 0), root->document().frame()->view()->contentsSize())
+        : root->pixelSnappedBoundingBox();
+
     boundingBox = root->document().frame()->view()->contentsToWindow(boundingBox);
     boundingBox.scale(pageScaleFactor());
     bounds = boundingBox;
@@ -1124,14 +1125,14 @@ void WebViewImpl::computeScaleAndScrollForBlockRect(const WebPoint& hitPoint, co
     scroll = clampOffsetAtScale(scroll, scale);
 }
 
-static bool invokesHandCursor(Node* node, bool shiftKey, LocalFrame* frame)
+static bool invokesHandCursor(Node* node, LocalFrame* frame)
 {
     if (!node || !node->renderer())
         return false;
 
     ECursor cursor = node->renderer()->style()->cursor();
     return cursor == CURSOR_POINTER
-        || (cursor == CURSOR_AUTO && frame->eventHandler().useHandCursor(node, node->isLink(), shiftKey));
+        || (cursor == CURSOR_AUTO && frame->eventHandler().useHandCursor(node, node->isLink()));
 }
 
 Node* WebViewImpl::bestTapNode(const PlatformGestureEvent& tapEvent)
@@ -1155,14 +1156,14 @@ Node* WebViewImpl::bestTapNode(const PlatformGestureEvent& tapEvent)
 
     // Check if we're in the subtree of a node with a hand cursor
     // this is the heuristic we use to determine if we show a highlight on tap
-    while (bestTouchNode && !invokesHandCursor(bestTouchNode, false, m_page->mainFrame()))
+    while (bestTouchNode && !invokesHandCursor(bestTouchNode, m_page->mainFrame()))
         bestTouchNode = bestTouchNode->parentNode();
 
     if (!bestTouchNode)
         return 0;
 
     // We should pick the largest enclosing node with hand cursor set.
-    while (bestTouchNode->parentNode() && invokesHandCursor(bestTouchNode->parentNode(), false, m_page->mainFrame()))
+    while (bestTouchNode->parentNode() && invokesHandCursor(bestTouchNode->parentNode(), m_page->mainFrame()))
         bestTouchNode = bestTouchNode->parentNode();
 
     return bestTouchNode;
@@ -1510,6 +1511,7 @@ void WebViewImpl::close()
         if (m_page->mainFrame())
             m_page->mainFrame()->loader().frameDetached();
 
+        m_page->willBeDestroyed();
         m_page.clear();
     }
 
@@ -3572,13 +3574,6 @@ void WebViewImpl::setOverlayLayer(WebCore::GraphicsLayer* layer)
     }
 }
 
-NotificationPresenterImpl* WebViewImpl::notificationPresenterImpl()
-{
-    if (!m_notificationPresenter.isInitialized() && m_client)
-        m_notificationPresenter.initialize(m_client->notificationPresenter());
-    return &m_notificationPresenter;
-}
-
 Element* WebViewImpl::focusedElement() const
 {
     Frame* frame = m_page->focusController().focusedFrame();
@@ -3728,6 +3723,14 @@ void WebViewImpl::scheduleAnimation()
         m_client->scheduleAnimation();
 }
 
+void WebViewImpl::setCompositorCreationFailed(bool failed)
+{
+    m_compositorCreationFailed = failed;
+    // ChromeClientImpl::allowedCompositingTriggers reads this bit, so we need
+    // to update the composting triggers.
+    m_page->updateAcceleratedCompositingSettings();
+}
+
 void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 {
     blink::Platform::current()->histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
@@ -3781,7 +3784,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
             updateLayerTreeViewport();
             m_client->didActivateCompositor();
             m_isAcceleratedCompositingActive = true;
-            m_compositorCreationFailed = false;
+            setCompositorCreationFailed(false);
             if (m_pageOverlays)
                 m_pageOverlays->update();
             m_layerTreeView->setShowFPSCounter(m_showFPSCounter);
@@ -3792,7 +3795,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         } else {
             m_isAcceleratedCompositingActive = false;
             m_client->didDeactivateCompositor();
-            m_compositorCreationFailed = true;
+            setCompositorCreationFailed(true);
         }
     }
     if (page())
@@ -3852,7 +3855,7 @@ void WebViewImpl::didExitCompositingMode()
 {
     ASSERT(m_isAcceleratedCompositingActive);
     setIsAcceleratedCompositingActive(false);
-    m_compositorCreationFailed = true;
+    setCompositorCreationFailed(true);
     m_client->didInvalidateRect(IntRect(0, 0, m_size.width, m_size.height));
 
     // Force a style recalc to remove all the composited layers.

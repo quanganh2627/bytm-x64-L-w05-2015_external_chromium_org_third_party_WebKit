@@ -282,7 +282,7 @@ static double currentAge(const ResourceResponse& response, double responseTimest
     return correctedReceivedAge + residentTime;
 }
 
-static double freshnessLifetime(const ResourceResponse& response, double responseTimestamp)
+static double freshnessLifetime(ResourceResponse& response, double responseTimestamp)
 {
 #if !OS(ANDROID)
     // On desktop, local files should be reloaded in case they change.
@@ -311,7 +311,7 @@ static double freshnessLifetime(const ResourceResponse& response, double respons
     return 0;
 }
 
-static bool canUseResponse(const ResourceResponse& response, double responseTimestamp)
+static bool canUseResponse(ResourceResponse& response, double responseTimestamp)
 {
     if (response.isNull())
         return false;
@@ -478,7 +478,7 @@ void Resource::removeClient(ResourceClient* client)
         if (m_clientsAwaitingCallback.isEmpty())
             ResourceCallback::callbackHandler()->cancel(this);
     } else {
-        ASSERT(m_clients.contains(client));
+        RELEASE_ASSERT(m_clients.contains(client));
         m_clients.remove(client);
         didRemoveClient(client);
     }
@@ -493,7 +493,7 @@ void Resource::removeClient(ResourceClient* client)
         // "no-store: ... MUST make a best-effort attempt to remove the information from volatile storage as promptly as possible"
         // "... History buffers MAY store such responses as part of their normal operation."
         // We allow non-secure content to be reused in history, but we do not allow secure content to be reused.
-        if (response().cacheControlContainsNoStore() && url().protocolIs("https")) {
+        if (hasCacheControlNoStoreHeader() && url().protocolIs("https")) {
             memoryCache()->remove(this);
             memoryCache()->prune();
         } else {
@@ -563,12 +563,35 @@ void Resource::didAccessDecodedData()
 
 void Resource::finishPendingClients()
 {
-    while (!m_clientsAwaitingCallback.isEmpty()) {
-        ResourceClient* client = m_clientsAwaitingCallback.begin()->key;
-        m_clientsAwaitingCallback.remove(client);
+    // We're going to notify clients one by one. It is simple if the client does nothing.
+    // However there are a couple other things that can happen.
+    //
+    // 1. Clients can be added during the loop. Make sure they are not processed.
+    // 2. Clients can be removed during the loop. Make sure they are always available to be
+    //    removed. Also don't call removed clients or add them back.
+
+    // Handle case (1) by saving a list of clients to notify. A separate list also ensure
+    // a client is either in m_clients or m_clientsAwaitingCallback.
+    Vector<ResourceClient*> clientsToNotify;
+    copyToVector(m_clientsAwaitingCallback, clientsToNotify);
+
+    for (size_t i = 0; i < clientsToNotify.size(); ++i) {
+        ResourceClient* client = clientsToNotify[i];
+
+        // Handle case (2) to skip removed clients.
+        if (!m_clientsAwaitingCallback.remove(client))
+            continue;
         m_clients.add(client);
         didAddClient(client);
     }
+
+    bool scheduled = ResourceCallback::callbackHandler()->isScheduled(this);
+    // It is a critical problem if a callback is scheduled but there is no client waiting for it.
+    // Such a callback cannot be cancelled. It is better to crash the renderer now.
+    RELEASE_ASSERT(!scheduled || !m_clientsAwaitingCallback.isEmpty());
+
+    // Prevent the case when there are clients waiting but no callback scheduled.
+    ASSERT(m_clientsAwaitingCallback.isEmpty() || scheduled);
 }
 
 void Resource::prune()
@@ -742,28 +765,35 @@ void Resource::unregisterHandle(ResourcePtrBase* h)
     }
 }
 
-bool Resource::canReuseRedirectChain() const
+bool Resource::canReuseRedirectChain()
 {
     for (size_t i = 0; i < m_redirectChain.size(); ++i) {
         if (!canUseResponse(m_redirectChain[i].m_redirectResponse, m_responseTimestamp))
+            return false;
+        if (m_redirectChain[i].m_request.cacheControlContainsNoCache() || m_redirectChain[i].m_request.cacheControlContainsNoStore())
             return false;
     }
     return true;
 }
 
-bool Resource::mustRevalidateDueToCacheHeaders() const
+bool Resource::hasCacheControlNoStoreHeader()
 {
-    return !canUseResponse(m_response, m_responseTimestamp);
+    return m_response.cacheControlContainsNoStore() || m_resourceRequest.cacheControlContainsNoStore();
 }
 
-bool Resource::canUseCacheValidator() const
+bool Resource::mustRevalidateDueToCacheHeaders()
+{
+    return !canUseResponse(m_response, m_responseTimestamp) || m_resourceRequest.cacheControlContainsNoCache() || m_resourceRequest.cacheControlContainsNoStore();
+}
+
+bool Resource::canUseCacheValidator()
 {
     if (m_loading || errorOccurred())
         return false;
 
-    if (m_response.cacheControlContainsNoStore())
+    if (hasCacheControlNoStoreHeader())
         return false;
-    return m_response.hasCacheValidatorFields();
+    return m_response.hasCacheValidatorFields() || m_resourceRequest.hasCacheValidatorFields();
 }
 
 bool Resource::isPurgeable() const
@@ -907,6 +937,8 @@ const char* Resource::resourceTypeToString(Type type, const FetchInitiatorInfo& 
         return "Shader";
     case Resource::ImportResource:
         return "Imported resource";
+    case Resource::Media:
+        return "Media";
     }
     ASSERT_NOT_REACHED();
     return initatorTypeNameToString(initiatorInfo.name);
@@ -942,6 +974,8 @@ const char* ResourceTypeName(Resource::Type type)
         return "Shader";
     case Resource::ImportResource:
         return "ImportResource";
+    case Resource::Media:
+        return "Media";
     }
     ASSERT_NOT_REACHED();
     return "Unknown";

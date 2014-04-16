@@ -113,6 +113,8 @@ class HTMLFrameOwnerElement;
 class HTMLHeadElement;
 class HTMLIFrameElement;
 class HTMLImport;
+class HTMLImportLoader;
+class HTMLImportsController;
 class HTMLMapElement;
 class HTMLNameCollection;
 class HTMLScriptElement;
@@ -571,8 +573,6 @@ public:
     bool canNavigate(LocalFrame* targetFrame);
     LocalFrame* findUnsafeParentScrollPropagationBoundary();
 
-    bool canDispatchEvents() const { return !isSandboxed(SandboxScripts); }
-
     CSSStyleSheet& elementSheet();
 
     virtual PassRefPtr<DocumentParser> createParser();
@@ -746,6 +746,9 @@ public:
     Element* titleElement() const { return m_titleElement.get(); }
     void setTitleElement(const String& title, Element* titleElement);
     void removeTitle(Element* titleElement);
+
+    const AtomicString& dir();
+    void setDir(const AtomicString&);
 
     String cookie(ExceptionState&) const;
     void setCookie(const String&, ExceptionState&);
@@ -984,8 +987,10 @@ public:
     ScriptValue registerElement(WebCore::NewScriptState*, const AtomicString& name, const Dictionary& options, ExceptionState&, CustomElement::NameSet validNames = CustomElement::StandardNames);
     CustomElementRegistrationContext* registrationContext() { return m_registrationContext.get(); }
 
-    void setImport(HTMLImport*);
-    HTMLImport* import() const { return m_import; }
+    void setImportsController(HTMLImportsController*);
+    HTMLImportsController* importsController() const { return m_importsController; }
+    HTMLImportLoader* importLoader() const;
+
     bool haveImportsLoaded() const;
     void didLoadAllImports();
 
@@ -1083,7 +1088,7 @@ private:
     void scheduleRenderTreeUpdate();
 
     // FIXME: Rename the StyleRecalc state to RenderTreeUpdate.
-    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::StyleRecalcPending; }
+    bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::VisualUpdatePending; }
 
     void inheritHtmlAndBodyElementStyles(StyleRecalcChange);
 
@@ -1172,7 +1177,7 @@ private:
 
     LocalFrame* m_frame;
     DOMWindow* m_domWindow;
-    HTMLImport* m_import;
+    HTMLImportsController* m_importsController;
 
     RefPtr<ResourceFetcher> m_fetcher;
     RefPtr<DocumentParser> m_parser;

@@ -121,16 +121,16 @@ static bool verifyProtocolHandlerScheme(const String& scheme, const String& meth
 
 NavigatorContentUtils* NavigatorContentUtils::from(Page& page)
 {
-    return static_cast<NavigatorContentUtils*>(RefCountedSupplement<Page, NavigatorContentUtils>::from(page, NavigatorContentUtils::supplementName()));
+    return static_cast<NavigatorContentUtils*>(Supplement<Page>::from(page, supplementName()));
 }
 
 NavigatorContentUtils::~NavigatorContentUtils()
 {
 }
 
-PassRefPtr<NavigatorContentUtils> NavigatorContentUtils::create(PassOwnPtr<NavigatorContentUtilsClient> client)
+PassOwnPtr<NavigatorContentUtils> NavigatorContentUtils::create(PassOwnPtr<NavigatorContentUtilsClient> client)
 {
-    return adoptRef(new NavigatorContentUtils(client));
+    return adoptPtr(new NavigatorContentUtils(client));
 }
 
 void NavigatorContentUtils::registerProtocolHandler(Navigator& navigator, const String& scheme, const String& url, const String& title, ExceptionState& exceptionState)
@@ -181,6 +181,9 @@ String NavigatorContentUtils::isProtocolHandlerRegistered(Navigator& navigator, 
         return declined;
 
     Document* document = navigator.frame()->document();
+    if (document->activeDOMObjectsAreStopped())
+        return declined;
+
     KURL baseURL = document->baseURL();
 
     if (!verifyCustomHandlerURL(baseURL, url, exceptionState))
@@ -218,7 +221,7 @@ const char* NavigatorContentUtils::supplementName()
 
 void provideNavigatorContentUtilsTo(Page& page, PassOwnPtr<NavigatorContentUtilsClient> client)
 {
-    RefCountedSupplement<Page, NavigatorContentUtils>::provideTo(page, NavigatorContentUtils::supplementName(), NavigatorContentUtils::create(client));
+    NavigatorContentUtils::provideTo(page, NavigatorContentUtils::supplementName(), NavigatorContentUtils::create(client));
 }
 
 } // namespace WebCore

@@ -59,6 +59,7 @@
 #include "core/html/HTMLLinkElement.h"
 #include "core/html/HTMLTemplateElement.h"
 #include "core/html/imports/HTMLImportChild.h"
+#include "core/html/imports/HTMLImportLoader.h"
 #include "core/inspector/DOMEditor.h"
 #include "core/inspector/DOMPatchSupport.h"
 #include "core/inspector/IdentifiersFactory.h"
@@ -1743,8 +1744,8 @@ Node* InspectorDOMAgent::innerParentNode(Node* node)
 {
     if (node->isDocumentNode()) {
         Document* document = toDocument(node);
-        if (document->import() && document->import()->isChild())
-            return toHTMLImportChild(document->import())->link();
+        if (HTMLImportLoader* loader = document->importLoader())
+            return loader->firstImport()->link();
         return document->ownerElement();
     }
     return node->parentOrShadowHostNode();
@@ -2089,7 +2090,7 @@ void InspectorDOMAgent::getRelayoutBoundary(ErrorString* errorString, int nodeId
         *errorString = "No renderer for node, perhaps orphan or hidden node";
         return;
     }
-    while (renderer && !renderer->isRoot() && !renderer->isRelayoutBoundaryForInspector())
+    while (renderer && !renderer->isDocumentElement() && !renderer->isRelayoutBoundaryForInspector())
         renderer = renderer->container();
     Node* resultNode = renderer ? renderer->generatingNode() : node->ownerDocument();
     *relayoutBoundaryNodeId = pushNodePathToFrontend(resultNode);

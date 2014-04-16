@@ -83,7 +83,7 @@ private:
         m_popup->widgetClient()->setWindowRect(m_popup->m_windowRectInScreen);
     }
 
-    virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String&, const String&) OVERRIDE
+    virtual void addMessageToConsole(LocalFrame*, MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String&, const String&) OVERRIDE
     {
 #ifndef NDEBUG
         fprintf(stderr, "CONSOLE MESSSAGE:%u: %s\n", lineNumber, message.utf8().data());
@@ -204,7 +204,7 @@ bool WebPagePopupImpl::initializePage()
     m_chromeClient = adoptPtr(new PagePopupChromeClient(this));
     pageClients.chromeClient = m_chromeClient.get();
 
-    m_page = adoptPtr(new Page(pageClients));
+    m_page = adoptPtrWillBeNoop(new Page(pageClients));
     m_page->settings().setScriptEnabled(true);
     m_page->settings().setAllowScriptsToCloseWindows(true);
     m_page->setDeviceScaleFactor(m_webView->deviceScaleFactor());
@@ -235,6 +235,7 @@ void WebPagePopupImpl::destroyPage()
     if (m_page->mainFrame())
         m_page->mainFrame()->loader().frameDetached();
 
+    m_page->willBeDestroyed();
     m_page.clear();
 }
 

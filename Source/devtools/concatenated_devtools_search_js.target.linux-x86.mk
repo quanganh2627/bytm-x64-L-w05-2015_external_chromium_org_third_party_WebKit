@@ -15,18 +15,18 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "concatenate_devtools_search_js":
-$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js: $(LOCAL_PATH)/third_party/WebKit/Source/devtools/scripts/inline_js_imports.py $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/AdvancedSearchController.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FileBasedSearchResultsPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SearchConfig.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesSearchScope.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js: $(LOCAL_PATH)/third_party/WebKit/Source/devtools/scripts/inline_js_imports.py $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/AdvancedSearchView.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/FileBasedSearchResultsPane.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SearchConfig.js $(LOCAL_PATH)/third_party/WebKit/Source/devtools/front_end/SourcesSearchScope.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_devtools_devtools_gyp_concatenated_devtools_search_js_target_concatenate_devtools_search_js ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/devtools; mkdir -p $(gyp_shared_intermediate_dir)/resources/inspector; python scripts/inline_js_imports.py front_end/AdvancedSearchController.js front_end "$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/devtools; mkdir -p $(gyp_shared_intermediate_dir)/resources/inspector; python scripts/inline_js_imports.py front_end/AdvancedSearchView.js front_end "$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js"
 
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchController.js
+	$(gyp_shared_intermediate_dir)/resources/inspector/AdvancedSearchView.js
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

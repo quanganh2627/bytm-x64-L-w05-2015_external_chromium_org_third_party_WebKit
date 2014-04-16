@@ -105,7 +105,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/FullscreenController.cpp \
 	third_party/WebKit/Source/web/GeolocationClientProxy.cpp \
 	third_party/WebKit/Source/web/GraphicsLayerFactoryChromium.cpp \
-	third_party/WebKit/Source/web/IDBFactoryBackendProxy.cpp \
+	third_party/WebKit/Source/web/IndexedDBClientImpl.cpp \
 	third_party/WebKit/Source/web/InspectorClientImpl.cpp \
 	third_party/WebKit/Source/web/InspectorFrontendClientImpl.cpp \
 	third_party/WebKit/Source/web/LinkHighlight.cpp \
@@ -137,6 +137,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebAXObject.cpp \
 	third_party/WebKit/Source/web/WebArrayBufferConverter.cpp \
 	third_party/WebKit/Source/web/WebArrayBufferView.cpp \
+	third_party/WebKit/Source/web/WebAutocompleteParams.cpp \
 	third_party/WebKit/Source/web/WebBindings.cpp \
 	third_party/WebKit/Source/web/WebBlob.cpp \
 	third_party/WebKit/Source/web/WebCache.cpp \
@@ -330,8 +331,10 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -472,8 +475,10 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \

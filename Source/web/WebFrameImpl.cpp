@@ -162,6 +162,7 @@
 #include "core/rendering/RenderView.h"
 #include "core/rendering/style/StyleInheritedData.h"
 #include "core/timing/Performance.h"
+#include "modules/notifications/NotificationController.h"
 #include "platform/TraceEvent.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/clipboard/ClipboardUtilities.h"
@@ -457,7 +458,7 @@ int WebFrame::instanceCount()
     return frameCount;
 }
 
-WebLocalFrame* WebFrame::frameForCurrentContext()
+WebLocalFrame* WebLocalFrame::frameForCurrentContext()
 {
     v8::Handle<v8::Context> context = v8::Isolate::GetCurrent()->GetCurrentContext();
     if (context.IsEmpty())
@@ -465,12 +466,12 @@ WebLocalFrame* WebFrame::frameForCurrentContext()
     return frameForContext(context);
 }
 
-WebLocalFrame* WebFrame::frameForContext(v8::Handle<v8::Context> context)
+WebLocalFrame* WebLocalFrame::frameForContext(v8::Handle<v8::Context> context)
 {
    return WebFrameImpl::fromFrame(toFrameIfNotDetached(context));
 }
 
-WebLocalFrame* WebFrame::fromFrameOwnerElement(const WebElement& element)
+WebLocalFrame* WebLocalFrame::fromFrameOwnerElement(const WebElement& element)
 {
     return WebFrameImpl::fromFrameOwnerElement(PassRefPtr<Element>(element).get());
 }
@@ -1388,6 +1389,13 @@ WebPlugin* WebFrameImpl::focusedPluginIfInputMethodSupported()
     return 0;
 }
 
+NotificationPresenterImpl* WebFrameImpl::notificationPresenterImpl()
+{
+    if (!m_notificationPresenter.isInitialized() && m_client)
+        m_notificationPresenter.initialize(m_client->notificationPresenter());
+    return &m_notificationPresenter;
+}
+
 int WebFrameImpl::printBegin(const WebPrintParams& printParams, const WebNode& constrainToNode)
 {
     ASSERT(!frame()->document()->isFrameSet());
@@ -1635,7 +1643,7 @@ WebString WebFrameImpl::layerTreeAsText(bool showDebugInfo) const
 
 // WebFrameImpl public ---------------------------------------------------------
 
-WebLocalFrame* WebFrame::create(WebFrameClient* client)
+WebLocalFrame* WebLocalFrame::create(WebFrameClient* client)
 {
     return WebFrameImpl::create(client);
 }
@@ -1676,6 +1684,10 @@ WebFrameImpl::~WebFrameImpl()
 void WebFrameImpl::setWebCoreFrame(PassRefPtr<WebCore::LocalFrame> frame)
 {
     m_frame = frame;
+
+    // FIXME: we shouldn't add overhead to every frame by registering these objects when they're not used.
+    if (m_frame)
+        provideNotification(*m_frame, notificationPresenterImpl());
 }
 
 void WebFrameImpl::initializeAsMainFrame(WebCore::Page* page)

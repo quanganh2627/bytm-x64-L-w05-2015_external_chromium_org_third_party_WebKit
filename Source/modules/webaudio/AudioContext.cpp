@@ -118,7 +118,6 @@ AudioContext::AudioContext(Document* document)
     , m_audioThread(0)
     , m_graphOwnerThread(UndefinedThreadIdentifier)
     , m_isOfflineContext(false)
-    , m_activeSourceCount(0)
 {
     constructCommon();
 
@@ -138,7 +137,6 @@ AudioContext::AudioContext(Document* document, unsigned numberOfChannels, size_t
     , m_audioThread(0)
     , m_graphOwnerThread(UndefinedThreadIdentifier)
     , m_isOfflineContext(true)
-    , m_activeSourceCount(0)
 {
     constructCommon();
 
@@ -301,27 +299,6 @@ PassRefPtr<AudioBuffer> AudioContext::createBuffer(unsigned numberOfChannels, si
                 + " channel(s) of " + String::number(numberOfFrames)
                 + " frames each.");
         }
-        return nullptr;
-    }
-
-    return audioBuffer;
-}
-
-PassRefPtr<AudioBuffer> AudioContext::createBuffer(ArrayBuffer* arrayBuffer, bool mixToMono, ExceptionState& exceptionState)
-{
-    ASSERT(arrayBuffer);
-    if (!arrayBuffer) {
-        exceptionState.throwDOMException(
-            SyntaxError,
-            "invalid ArrayBuffer.");
-        return nullptr;
-    }
-
-    RefPtr<AudioBuffer> audioBuffer = AudioBuffer::createFromAudioFileData(arrayBuffer->data(), arrayBuffer->byteLength(), mixToMono, sampleRate());
-    if (!audioBuffer.get()) {
-        exceptionState.throwDOMException(
-            SyntaxError,
-            "invalid audio data in ArrayBuffer.");
         return nullptr;
     }
 
@@ -1005,16 +982,6 @@ void AudioContext::fireCompletionEvent()
         // Call the offline rendering completion event listener.
         dispatchEvent(OfflineAudioCompletionEvent::create(renderedBuffer));
     }
-}
-
-void AudioContext::incrementActiveSourceCount()
-{
-    atomicIncrement(&m_activeSourceCount);
-}
-
-void AudioContext::decrementActiveSourceCount()
-{
-    atomicDecrement(&m_activeSourceCount);
 }
 
 } // namespace WebCore

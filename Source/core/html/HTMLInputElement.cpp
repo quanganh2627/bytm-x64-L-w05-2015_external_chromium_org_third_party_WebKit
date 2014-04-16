@@ -148,10 +148,8 @@ void HTMLInputElement::didAddUserAgentShadowRoot(ShadowRoot&)
     m_inputTypeView->createShadowSubtree();
 }
 
-void HTMLInputElement::didAddShadowRoot(ShadowRoot& root)
+void HTMLInputElement::willAddFirstAuthorShadowRoot()
 {
-    if (!root.isOldestAuthorShadowRoot())
-        return;
     m_inputTypeView->destroyShadowSubtree();
     m_inputTypeView = InputTypeView::create(*this);
     lazyReattachIfAttached();
@@ -339,7 +337,7 @@ bool HTMLInputElement::shouldShowFocusRingOnMouseFocus() const
 void HTMLInputElement::updateFocusAppearance(bool restorePreviousSelection)
 {
     if (isTextField()) {
-        if (!restorePreviousSelection || !hasCachedSelection())
+        if (!restorePreviousSelection)
             select();
         else
             restoreCachedSelection();

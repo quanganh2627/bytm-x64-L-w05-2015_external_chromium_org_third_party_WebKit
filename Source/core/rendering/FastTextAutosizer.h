@@ -97,6 +97,11 @@ private:
         LayoutNeeded // Use this if changing a multiplier outside of layout.
     };
 
+    enum BeginLayoutBehavior {
+        StopLayout,
+        ContinueLayout
+    };
+
     // A supercluster represents autosizing information about a set of two or
     // more blocks that all have the same fingerprint. Clusters whose roots
     // belong to a supercluster will share a common multiplier and
@@ -202,6 +207,7 @@ private:
     bool shouldHandleLayout() const;
     void setAllTextNeedsLayout();
     void resetMultipliers();
+    BeginLayoutBehavior prepareForLayout(const RenderBlock*);
     void prepareClusterStack(const RenderObject*);
     bool isFingerprintingCandidate(const RenderBlock*);
     bool clusterHasEnoughTextToAutosize(Cluster*, const RenderBlock* widthProvider = 0);
@@ -211,12 +217,12 @@ private:
     Fingerprint computeFingerprint(const RenderObject*);
     Cluster* maybeCreateCluster(const RenderBlock*);
     Supercluster* getSupercluster(const RenderBlock*);
-    const RenderBlock* deepestCommonAncestor(BlockSet&);
     float clusterMultiplier(Cluster*);
     float superclusterMultiplier(Cluster*);
     // A cluster's width provider is typically the deepest block containing all text.
     // There are exceptions, such as tables and table cells which use the table itself for width.
     const RenderBlock* clusterWidthProvider(const RenderBlock*);
+    const RenderBlock* maxClusterWidthProvider(const Supercluster*, const RenderBlock* currentRoot);
     // Typically this returns a block's computed width. In the case of tables layout, this
     // width is not yet known so the fixed width is used if it's available, or the containing
     // block's width otherwise.
@@ -244,7 +250,7 @@ private:
     bool m_pageNeedsAutosizing;
     bool m_previouslyAutosized;
     bool m_updatePageInfoDeferred;
-    const RenderBlock* m_firstBlock; // First block to receive beginLayout.
+    const RenderBlock* m_firstBlockToBeginLayout;
 #ifndef NDEBUG
     BlockSet m_blocksThatHaveBegunLayout; // Used to ensure we don't compute properties of a block before beginLayout() is called on it.
 #endif

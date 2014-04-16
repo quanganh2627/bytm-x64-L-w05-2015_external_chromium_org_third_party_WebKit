@@ -1919,6 +1919,8 @@ void Node::didMoveToNewDocument(Document& oldDocument)
             cache->remove(this);
     }
 
+    oldDocument.markers().removeMarkers(this);
+
     const EventListenerVector& mousewheelListeners = getEventListeners(EventTypeNames::mousewheel);
     WheelController* oldController = WheelController::from(oldDocument);
     WheelController* newController = WheelController::from(document());
@@ -2190,9 +2192,6 @@ bool Node::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
 void Node::dispatchSubtreeModifiedEvent()
 {
     if (isInShadowTree())
-        return;
-
-    if (!document().canDispatchEvents())
         return;
 
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());

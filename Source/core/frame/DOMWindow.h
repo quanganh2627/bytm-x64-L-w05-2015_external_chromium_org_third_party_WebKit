@@ -59,16 +59,16 @@ namespace WebCore {
     class EventQueue;
     class ExceptionState;
     class FloatRect;
-    class LocalFrame;
+    class FrameConsole;
     class History;
     class IDBFactory;
+    class LocalFrame;
     class Location;
     class MediaQueryList;
     class MessageEvent;
     class Navigator;
     class Node;
     class Page;
-    class PageConsole;
     class Performance;
     class PostMessageTimer;
     class RequestAnimationFrameCallback;
@@ -224,7 +224,7 @@ enum PageshowEventPersistence {
         PassRefPtrWillBeRawPtr<DOMPoint> webkitConvertPointFromNodeToPage(Node*, const DOMPoint*) const;
 
         Console& console() const;
-        PageConsole* pageConsole() const;
+        FrameConsole* frameConsole() const;
 
         void printErrorMessage(const String&);
         String crossDomainAccessErrorMessage(DOMWindow* callingWindow);
@@ -320,11 +320,9 @@ enum PageshowEventPersistence {
         void enqueuePageshowEvent(PageshowEventPersistence);
         void enqueueHashchangeEvent(const String& oldURL, const String& newURL);
         void enqueuePopstateEvent(PassRefPtr<SerializedScriptValue>);
+        void dispatchWindowLoadEvent();
         void documentWasClosed();
         void statePopped(PassRefPtr<SerializedScriptValue>);
-
-        // FIXME: Remove this.
-        void dispatchWindowLoadEvent() { dispatchLoadEvent(); }
 
         // FIXME: This shouldn't be public once DOMWindow becomes ExecutionContext.
         void clearEventQueue();

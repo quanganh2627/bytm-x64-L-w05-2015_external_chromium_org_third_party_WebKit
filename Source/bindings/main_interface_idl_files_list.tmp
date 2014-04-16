@@ -217,6 +217,7 @@
 ../core/html/canvas/CanvasPattern.idl
 ../core/html/canvas/CanvasRenderingContext2D.idl
 ../core/html/canvas/EXTFragDepth.idl
+../core/html/canvas/EXTShaderTextureLOD.idl
 ../core/html/canvas/EXTTextureFilterAnisotropic.idl
 ../core/html/canvas/OESElementIndexUint.idl
 ../core/html/canvas/OESStandardDerivatives.idl

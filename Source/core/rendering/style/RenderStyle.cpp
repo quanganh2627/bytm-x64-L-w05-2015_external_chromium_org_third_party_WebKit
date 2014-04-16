@@ -180,7 +180,6 @@ StyleRecalcChange RenderStyle::stylePropagationDiff(const RenderStyle* oldStyle,
     if (oldStyle->display() != newStyle->display()
         || oldStyle->hasPseudoStyle(FIRST_LETTER) != newStyle->hasPseudoStyle(FIRST_LETTER)
         || oldStyle->columnSpan() != newStyle->columnSpan()
-        || oldStyle->specifiesColumns() != newStyle->specifiesColumns()
         || !oldStyle->contentDataEquivalent(newStyle)
         || oldStyle->hasTextCombine() != newStyle->hasTextCombine())
         return Reattach;
@@ -506,7 +505,7 @@ StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle& other, un
         if (!rareInheritedData->shadowDataEquivalent(*other.rareInheritedData.get()))
             return StyleDifferenceLayout;
 
-        if (!QuotesData::equals(rareInheritedData->quotes.get(), other.rareInheritedData->quotes.get()))
+        if (rareInheritedData->quotes.get() != other.rareInheritedData->quotes.get())
             return StyleDifferenceLayout;
     }
 
@@ -671,7 +670,7 @@ StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned&
         || rareInheritedData->textStrokeColor() != other.rareInheritedData->textStrokeColor()
         || rareInheritedData->textEmphasisColor() != other.rareInheritedData->textEmphasisColor()
         || rareInheritedData->textEmphasisFill != other.rareInheritedData->textEmphasisFill)
-        return StyleDifferenceRepaintIfTextOrColorChange;
+        changedContextSensitiveProperties |= ContextSensitivePropertyTextOrColor;
 
     // Cursors are not checked, since they will be set appropriately in response to mouse events,
     // so they don't need to cause any repaint or layout.
@@ -704,7 +703,7 @@ void RenderStyle::setCursorList(PassRefPtr<CursorList> other)
 
 void RenderStyle::setQuotes(PassRefPtr<QuotesData> q)
 {
-    if (QuotesData::equals(rareInheritedData->quotes.get(), q.get()))
+    if (rareInheritedData->quotes.get() == q.get())
         return;
     rareInheritedData.access()->quotes = q;
 }

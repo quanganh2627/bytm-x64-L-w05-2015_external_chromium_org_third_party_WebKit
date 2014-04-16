@@ -48,6 +48,9 @@ public:
     virtual ~ServiceWorkerGlobalScope();
     virtual bool isServiceWorkerGlobalScope() const OVERRIDE { return true; }
 
+    // ServiceWorkerGlobalScope.idl
+    String scope(ExecutionContext*);
+
     // EventTarget
     virtual const AtomicString& interfaceName() const OVERRIDE;
 
@@ -60,7 +63,7 @@ public:
     virtual void trace(Visitor*) OVERRIDE;
 
 private:
-    ServiceWorkerGlobalScope(const KURL&, const String& userAgent, ServiceWorkerThread*, double timeOrigin, PassOwnPtr<WorkerClients>);
+    ServiceWorkerGlobalScope(const KURL&, const String& userAgent, ServiceWorkerThread*, double timeOrigin, PassOwnPtrWillBeRawPtr<WorkerClients>);
 };
 
 } // namespace WebCore

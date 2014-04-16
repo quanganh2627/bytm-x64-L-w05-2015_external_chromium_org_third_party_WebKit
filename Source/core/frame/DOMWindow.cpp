@@ -59,13 +59,13 @@
 #include "core/frame/Console.h"
 #include "core/frame/DOMPoint.h"
 #include "core/frame/DOMWindowLifecycleNotifier.h"
+#include "core/frame/FrameConsole.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/History.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Location.h"
 #include "core/frame/Navigator.h"
-#include "core/frame/PageConsole.h"
 #include "core/frame/Screen.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLFrameOwnerElement.h"
@@ -438,6 +438,12 @@ void DOMWindow::enqueueDocumentEvent(PassRefPtrWillBeRawPtr<Event> event)
     m_eventQueue->enqueueEvent(event);
 }
 
+void DOMWindow::dispatchWindowLoadEvent()
+{
+    ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
+    dispatchLoadEvent();
+}
+
 void DOMWindow::documentWasClosed()
 {
     dispatchWindowLoadEvent();
@@ -686,11 +692,11 @@ Console& DOMWindow::console() const
     return *m_console;
 }
 
-PageConsole* DOMWindow::pageConsole() const
+FrameConsole* DOMWindow::frameConsole() const
 {
     if (!isCurrentlyDisplayedInFrame())
         return 0;
-    return m_frame->host() ? &m_frame->host()->console() : 0;
+    return &m_frame->console();
 }
 
 ApplicationCache* DOMWindow::applicationCache() const
@@ -880,7 +886,7 @@ void DOMWindow::dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTarg
         // Check target origin now since the target document may have changed since the timer was scheduled.
         if (!intendedTargetOrigin->isSameSchemeHostPort(document()->securityOrigin())) {
             String message = ExceptionMessages::failedToExecute("postMessage", "DOMWindow", "The target origin provided ('" + intendedTargetOrigin->toString() + "') does not match the recipient window's origin ('" + document()->securityOrigin()->toString() + "').");
-            pageConsole()->addMessage(SecurityMessageSource, ErrorMessageLevel, message, stackTrace);
+            frameConsole()->addMessage(SecurityMessageSource, ErrorMessageLevel, message, stackTrace);
             return;
         }
     }
@@ -958,7 +964,7 @@ void DOMWindow::close(ExecutionContext* context)
     bool allowScriptsToCloseWindows = settings && settings->allowScriptsToCloseWindows();
 
     if (!(page->openedByDOM() || page->backForward().backForwardListCount() <= 1 || allowScriptsToCloseWindows)) {
-        pageConsole()->addMessage(JSMessageSource, WarningMessageLevel, "Scripts may close only the windows that were opened by it.");
+        frameConsole()->addMessage(JSMessageSource, WarningMessageLevel, "Scripts may close only the windows that were opened by it.");
         return;
     }
 
@@ -1589,8 +1595,6 @@ void DOMWindow::dispatchLoadEvent()
 
 bool DOMWindow::dispatchEvent(PassRefPtrWillBeRawPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget)
 {
-    if (!m_document || !m_document->canDispatchEvents())
-        return true;
     ASSERT(!NoEventDispatchAssertion::isEventDispatchForbidden());
 
     RefPtr<EventTarget> protect = this;
@@ -1665,7 +1669,7 @@ void DOMWindow::printErrorMessage(const String& message)
     if (message.isEmpty())
         return;
 
-    pageConsole()->addMessage(JSMessageSource, ErrorMessageLevel, message);
+    frameConsole()->addMessage(JSMessageSource, ErrorMessageLevel, message);
 }
 
 // FIXME: Once we're throwing exceptions for cross-origin access violations, we will always sanitize the target
@@ -1885,9 +1889,7 @@ void DOMWindow::trace(Visitor* visitor)
     visitor->trace(m_applicationCache);
     visitor->trace(m_performance);
     visitor->trace(m_css);
-#if ENABLE(OILPAN)
-    HeapSupplementable<DOMWindow>::trace(visitor);
-#endif
+    WillBeHeapSupplementable<DOMWindow>::trace(visitor);
 }
 
 } // namespace WebCore

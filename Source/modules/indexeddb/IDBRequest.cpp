@@ -60,6 +60,7 @@ IDBRequest::IDBRequest(ExecutionContext* context, PassRefPtr<IDBAny> source, IDB
     , m_transaction(transaction)
     , m_readyState(PENDING)
     , m_requestAborted(false)
+    , m_scriptState(NewScriptState::current(toIsolate(context)))
     , m_source(source)
     , m_hasPendingActivity(true)
     , m_cursorType(IndexedDB::CursorKeyAndValue)
@@ -68,7 +69,6 @@ IDBRequest::IDBRequest(ExecutionContext* context, PassRefPtr<IDBAny> source, IDB
     , m_didFireUpgradeNeededEvent(false)
     , m_preventPropagation(false)
     , m_resultDirty(true)
-    , m_requestState(toIsolate(context))
 {
     ScriptWrappable::init(this);
 }
@@ -87,7 +87,7 @@ ScriptValue IDBRequest::result(ExceptionState& exceptionState)
     if (m_contextStopped || !executionContext())
         return ScriptValue();
     m_resultDirty = false;
-    return idbAnyToScriptValue(&m_requestState, m_result);
+    return idbAnyToScriptValue(m_scriptState.get(), m_result);
 }
 
 PassRefPtrWillBeRawPtr<DOMError> IDBRequest::error(ExceptionState& exceptionState) const
@@ -99,13 +99,12 @@ PassRefPtrWillBeRawPtr<DOMError> IDBRequest::error(ExceptionState& exceptionStat
     return m_error;
 }
 
-ScriptValue IDBRequest::source(ExecutionContext* context) const
+ScriptValue IDBRequest::source() const
 {
     if (m_contextStopped || !executionContext())
         return ScriptValue();
 
-    DOMRequestState requestState(toIsolate(context));
-    return idbAnyToScriptValue(&requestState, m_source);
+    return idbAnyToScriptValue(m_scriptState.get(), m_source);
 }
 
 const String& IDBRequest::readyState() const
@@ -315,7 +314,7 @@ void IDBRequest::onSuccess(PassRefPtr<SharedBuffer> prpValueBuffer, PassRefPtr<I
     RefPtr<IDBKey> primaryKey = prpPrimaryKey;
 
 #ifndef NDEBUG
-    assertPrimaryKeyValidOrInjectable(&m_requestState, valueBuffer, primaryKey, keyPath);
+    assertPrimaryKeyValidOrInjectable(m_scriptState.get(), valueBuffer, primaryKey, keyPath);
 #endif
 
     onSuccessInternal(IDBAny::create(valueBuffer, primaryKey, keyPath));
@@ -375,7 +374,6 @@ void IDBRequest::stop()
         return;
 
     m_contextStopped = true;
-    m_requestState.clear();
 
     RefPtr<IDBRequest> protect(this);
 
@@ -405,13 +403,12 @@ bool IDBRequest::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
     IDB_TRACE("IDBRequest::dispatchEvent");
     if (m_contextStopped || !executionContext())
         return false;
-    ASSERT(m_requestState.isValid());
     ASSERT(m_readyState == PENDING);
     ASSERT(m_hasPendingActivity);
     ASSERT(m_enqueuedEvents.size());
     ASSERT(event->target() == this);
 
-    DOMRequestState::Scope scope(m_requestState);
+    NewScriptState::Scope scope(m_scriptState.get());
 
     if (event->type() != EventTypeNames::blocked)
         m_readyState = DONE;

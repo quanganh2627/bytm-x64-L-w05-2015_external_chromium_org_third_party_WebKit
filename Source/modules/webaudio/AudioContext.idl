@@ -44,11 +44,7 @@
     // All panning is relative to this listener.
     readonly attribute AudioListener listener;
 
-    // Number of AudioBufferSourceNodes that are currently playing.
-    readonly attribute unsigned long activeSourceCount;
-
     [RaisesException] AudioBuffer createBuffer(unsigned long numberOfChannels, unsigned long numberOfFrames, float sampleRate);
-    [RaisesException] AudioBuffer createBuffer(ArrayBuffer? buffer, boolean mixToMono);
 
     // Asynchronous audio file data decoding.
     [RaisesException] void decodeAudioData(ArrayBuffer audioData, AudioBufferCallback successCallback, optional AudioBufferCallback errorCallback);

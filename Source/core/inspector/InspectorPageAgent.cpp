@@ -49,7 +49,6 @@
 #include "core/fetch/ScriptResource.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
-#include "core/frame/PageConsole.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/imports/HTMLImport.h"
@@ -275,14 +274,18 @@ TypeBuilder::Page::ResourceType::Enum InspectorPageAgent::resourceTypeJson(Inspe
     switch (resourceType) {
     case DocumentResource:
         return TypeBuilder::Page::ResourceType::Document;
+    case FontResource:
+        return TypeBuilder::Page::ResourceType::Font;
     case ImageResource:
         return TypeBuilder::Page::ResourceType::Image;
-    case Font:
-        return TypeBuilder::Page::ResourceType::Font;
-    case StylesheetResource:
-        return TypeBuilder::Page::ResourceType::Stylesheet;
+    case MediaResource:
+        return TypeBuilder::Page::ResourceType::Media;
     case ScriptResource:
         return TypeBuilder::Page::ResourceType::Script;
+    case StylesheetResource:
+        return TypeBuilder::Page::ResourceType::Stylesheet;
+    case TextTrackResource:
+        return TypeBuilder::Page::ResourceType::TextTrack;
     case XHRResource:
         return TypeBuilder::Page::ResourceType::XHR;
     case WebSocketResource:
@@ -299,7 +302,11 @@ InspectorPageAgent::ResourceType InspectorPageAgent::cachedResourceType(const Re
     case Resource::Image:
         return InspectorPageAgent::ImageResource;
     case Resource::Font:
-        return InspectorPageAgent::Font;
+        return InspectorPageAgent::FontResource;
+    case Resource::Media:
+        return InspectorPageAgent::MediaResource;
+    case Resource::TextTrack:
+        return InspectorPageAgent::TextTrackResource;
     case Resource::CSSStyleSheet:
         // Fall through.
     case Resource::XSLStyleSheet:
@@ -546,8 +553,7 @@ static Vector<Resource*> cachedResourcesForFrame(LocalFrame* frame)
     Document* rootDocument = frame->document();
 
     cachedResourcesForDocument(rootDocument, result);
-    if (HTMLImport* rootImport = rootDocument->import()) {
-        HTMLImportsController* controller = rootImport->root()->toController();
+    if (HTMLImportsController* controller = rootDocument->importsController()) {
         for (size_t i = 0; i < controller->loaderCount(); ++i)
             cachedResourcesForDocument(controller->loaderAt(i)->document(), result);
     }
@@ -560,8 +566,7 @@ static Vector<HTMLImportLoader*> importsForFrame(LocalFrame* frame)
     Vector<HTMLImportLoader*> result;
     Document* rootDocument = frame->document();
 
-    if (HTMLImport* rootImport = rootDocument->import()) {
-        HTMLImportsController* controller = rootImport->root()->toController();
+    if (HTMLImportsController* controller = rootDocument->importsController()) {
         for (size_t i = 0; i < controller->loaderCount(); ++i)
             result.append(controller->loaderAt(i));
     }

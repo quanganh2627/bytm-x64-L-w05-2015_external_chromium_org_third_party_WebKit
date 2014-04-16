@@ -172,25 +172,16 @@ WebInspector.OverridesView.Tab.prototype = {
      */
     _createSettingCheckbox: function(name, setting, callback)
     {
-        var checkbox = WebInspector.SettingsUI.createCheckbox(name, setting.get.bind(setting), listener, true);
+        var checkbox = WebInspector.SettingsUI.createSettingCheckbox(name, setting, true);
 
-        function listener(value)
+        function changeListener(value)
         {
-            if (setting.get() === value)
-                return;
-
-            setting.set(value);
-            if (callback)
-                callback(value);
+            callback(setting.get());
         }
 
-        setting.addChangeListener(changeListener);
+        if (callback)
+            setting.addChangeListener(changeListener);
 
-        function changeListener()
-        {
-            if (checkbox.firstChild.checked !== setting.get())
-                checkbox.firstChild.checked = setting.get();
-        }
         return checkbox;
     },
 
@@ -354,14 +345,14 @@ WebInspector.OverridesView.DeviceTab._phones = [
 ];
 
 WebInspector.OverridesView.DeviceTab._tablets = [
-    ["Amazon Amazon Kindle Fire HD 7\u2033",
-     "Mozilla/5.0 (Linux; U; Android 2.3.4; en-us; Kindle Fire HD Build/GINGERBREAD) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-     "853x533x1.5"],
-    ["Amazon Amazon Kindle Fire HD 8.9\u2033",
-     "Mozilla/5.0 (Linux; U; Android 2.3.4; en-us; Kindle Fire HD Build/GINGERBREAD) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-     "1280x800x1.5"],
-    ["Amazon Amazon Kindle Fire",
-     "Mozilla/5.0 (Linux; U; Android 2.3.4; en-us; Kindle Fire Build/GINGERBREAD) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
+    ["Amazon Kindle Fire HDX 7\u2033",
+     "Mozilla/5.0 (Linux; U; en-us; KFTHWI Build/JDQ39) AppleWebKit/535.19 (KHTML, like Gecko) Silk/3.13 Safari/535.19 Silk-Accelerated=true",
+     "1920x1200x2"],
+    ["Amazon Kindle Fire HDX 8.9\u2033",
+     "Mozilla/5.0 (Linux; U; en-us; KFAPWI Build/JDQ39) AppleWebKit/535.19 (KHTML, like Gecko) Silk/3.13 Safari/535.19 Silk-Accelerated=true",
+     "2560x1600x2"],
+    ["Amazon Kindle Fire (First Generation)",
+     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_3; en-us; Silk/1.0.141.16-Gen4_11004310) AppleWebkit/533.16 (KHTML, like Gecko) Version/5.0 Safari/533.16 Silk-Accelerated=true",
      "1024x600x1"],
     ["Apple iPad 1 / 2 / iPad Mini",
      "Mozilla/5.0 (iPad; CPU OS 4_3_5 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8L1 Safari/6533.18.5",
@@ -675,7 +666,6 @@ WebInspector.OverridesView.UserAgentTab = function()
     WebInspector.OverridesView.Tab.call(this, "user-agent", WebInspector.UIString("User Agent"), [WebInspector.settings.overrideUserAgent]);
     this.element.classList.add("overrides-user-agent");
     var checkbox = this._createSettingCheckbox(WebInspector.UIString("Spoof user agent"), WebInspector.settings.overrideUserAgent);
-    checkbox.firstChild.disabled = WebInspector.OverridesSupport.isInspectingDevice();
     this.element.appendChild(checkbox);
     this.element.appendChild(this._createUserAgentSelectRowElement());
 }
@@ -709,6 +699,8 @@ WebInspector.OverridesView.UserAgentTab._userAgents = [
     ["Opera 18 \u2014 Windows", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36 OPR/18.0.1284.68"],
     ["Opera 12 \u2014 Mac", "Opera/9.80 (Macintosh; Intel Mac OS X 10.9.1) Presto/2.12.388 Version/12.16"],
     ["Opera 12 \u2014 Windows", "Opera/9.80 (Windows NT 6.1) Presto/2.12.388 Version/12.16"],
+    ["Silk \u2014 Kindle Fire (Desktop view)", "Mozilla/5.0 (Linux; U; en-us; KFTHWI Build/JDQ39) AppleWebKit/535.19 (KHTML, like Gecko) Silk/3.13 Safari/535.19 Silk-Accelerated=true"],
+    ["Silk \u2014 Kindle Fire (Mobile view)", "Mozilla/5.0 (Linux; U; Android 4.2.2; en-us; KFTHWI Build/JDQ39) AppleWebKit/535.19 (KHTML, like Gecko) Silk/3.13 Mobile Safari/535.19 Silk-Accelerated=true"],
 ];
 
 WebInspector.OverridesView.UserAgentTab.prototype = {
@@ -721,8 +713,6 @@ WebInspector.OverridesView.UserAgentTab.prototype = {
         var userAgents = WebInspector.OverridesView.UserAgentTab._userAgents.concat([[WebInspector.UIString("Other"), "Other"]]);
 
         var fieldsetElement = WebInspector.SettingsUI.createSettingFieldset(WebInspector.settings.overrideUserAgent);
-        if (WebInspector.OverridesSupport.isInspectingDevice())
-            fieldsetElement.disabled = true;
 
         this._selectElement = fieldsetElement.createChild("select");
         fieldsetElement.createChild("br");

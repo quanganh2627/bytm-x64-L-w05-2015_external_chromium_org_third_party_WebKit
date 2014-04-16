@@ -76,6 +76,7 @@ const int ResizerControlExpandRatioForTouch = 2;
 RenderLayerScrollableArea::RenderLayerScrollableArea(RenderBox* box)
     : m_box(box)
     , m_inResizeMode(false)
+    , m_scrollsOverflow(false)
     , m_scrollDimensionsDirty(true)
     , m_inOverflowRelayout(false)
     , m_needsCompositedScrolling(false)
@@ -967,14 +968,6 @@ void RenderLayerScrollableArea::positionOverflowControls(const IntSize& offsetFr
         m_box->compositedLayerMapping()->positionOverflowControlsLayers(offsetFromRoot);
 }
 
-bool RenderLayerScrollableArea::scrollsOverflow() const
-{
-    if (FrameView* frameView = m_box->view()->frameView())
-        return frameView->containsScrollableArea(this);
-
-    return false;
-}
-
 void RenderLayerScrollableArea::updateScrollCornerStyle()
 {
     if (!m_scrollCorner && !hasScrollbar())
@@ -1415,9 +1408,10 @@ void RenderLayerScrollableArea::updateScrollableAreaSet(bool hasOverflow)
     if (HTMLFrameOwnerElement* owner = frame->ownerElement())
         isVisibleToHitTest &= owner->renderer() && owner->renderer()->visibleToHitTesting();
 
-    bool requiresScrollableArea = hasOverflow && isVisibleToHitTest;
+    m_scrollsOverflow = hasOverflow && isVisibleToHitTest;
+
     bool updatedScrollableAreaSet = false;
-    if (requiresScrollableArea) {
+    if (m_scrollsOverflow) {
         if (frameView->addScrollableArea(this))
             updatedScrollableAreaSet = true;
     } else {
@@ -1432,7 +1426,7 @@ void RenderLayerScrollableArea::updateScrollableAreaSet(bool hasOverflow)
         RenderLayerCompositor* compositor = m_box->view()->compositor();
         if (compositor->acceleratedCompositingForOverflowScrollEnabled())
             layer()->didUpdateNeedsCompositedScrolling();
-        else if (requiresScrollableArea)
+        else if (m_scrollsOverflow)
             compositor->setNeedsUpdateCompositingRequirementsState();
         else
             setNeedsCompositedScrolling(false);
@@ -1454,23 +1448,14 @@ void RenderLayerScrollableArea::updateNeedsCompositedScrolling()
         needsCompositedScrolling |= needsToBeStackingContainer;
     }
 
-    const bool needsCompositedScrollingDidChange = setNeedsCompositedScrolling(needsCompositedScrolling);
-    if (needsToBeStackingContainerDidChange || needsCompositedScrollingDidChange) {
+    if (needsToBeStackingContainerDidChange || this->needsCompositedScrolling() != needsCompositedScrolling) {
+        setNeedsCompositedScrolling(needsCompositedScrolling);
         // Note, the z-order lists may need to be rebuilt, but our code guarantees
         // that we have not affected stacking, so we will not dirty
         // m_descendantsAreContiguousInStackingOrder for either us or our stacking
         // context or container.
         layer()->didUpdateNeedsCompositedScrolling();
     }
-}
-
-bool RenderLayerScrollableArea::setNeedsCompositedScrolling(bool needsCompositedScrolling)
-{
-    if (this->needsCompositedScrolling() == needsCompositedScrolling)
-        return false;
-
-    m_needsCompositedScrolling = needsCompositedScrolling;
-    return true;
 }
 
 void RenderLayerScrollableArea::updateCompositingLayersAfterScroll()

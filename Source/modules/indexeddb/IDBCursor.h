@@ -38,7 +38,6 @@
 
 namespace WebCore {
 
-class DOMRequestState;
 class ExceptionState;
 class IDBAny;
 class IDBTransaction;
@@ -60,10 +59,10 @@ public:
 
     // Implement the IDL
     const String& direction() const { return directionToString(m_direction); }
-    ScriptValue key(ExecutionContext*);
-    ScriptValue primaryKey(ExecutionContext*);
-    ScriptValue value(ExecutionContext*);
-    ScriptValue source(ExecutionContext*) const;
+    ScriptValue key(NewScriptState*);
+    ScriptValue primaryKey(NewScriptState*);
+    ScriptValue value(NewScriptState*);
+    ScriptValue source(NewScriptState*) const;
 
     PassRefPtr<IDBRequest> update(ScriptState*, ScriptValue&, ExceptionState&);
     void advance(unsigned long, ExceptionState&);
@@ -77,6 +76,7 @@ public:
 
     void continueFunction(PassRefPtr<IDBKey>, PassRefPtr<IDBKey> primaryKey, ExceptionState&);
     void postSuccessHandlerCallback();
+    bool isDeleted() const;
     void close();
     void setValueReady(PassRefPtr<IDBKey>, PassRefPtr<IDBKey> primaryKey, PassRefPtr<SharedBuffer> value);
     PassRefPtr<IDBKey> idbPrimaryKey() const { return m_primaryKey; }
@@ -99,7 +99,6 @@ private:
     PassRefPtr<IDBObjectStore> effectiveObjectStore() const;
 
     void checkForReferenceCycle();
-    bool isDeleted() const;
 
     OwnPtr<blink::WebIDBCursor> m_backend;
     RefPtr<IDBRequest> m_request;

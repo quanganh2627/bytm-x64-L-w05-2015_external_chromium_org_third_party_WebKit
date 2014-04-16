@@ -51,7 +51,7 @@ public:
     ~AnimationPlayer();
     static PassRefPtr<AnimationPlayer> create(DocumentTimeline&, TimedItem*);
 
-    // Returns whether this player is still current or in effect.
+    // Returns whether the player is finished.
     bool update(UpdateReason);
 
     // timeToEffectChange returns:
@@ -86,7 +86,7 @@ public:
 
     bool hasStartTime() const { return !isNull(m_startTime); }
     double startTime() const { return m_startTime; }
-    void setStartTime(double);
+    void setStartTime(double, bool isUpdateFromCompositor = false);
 
     const TimedItem* source() const { return m_content.get(); }
     TimedItem* source() { return m_content.get(); }
@@ -112,6 +112,7 @@ public:
     public:
         friend class AnimationPlayer;
         bool operator<(const SortInfo& other) const;
+        double startTime() const { return m_startTime; }
     private:
         SortInfo(unsigned sequenceNumber, double startTime)
             : m_sequenceNumber(sequenceNumber)
@@ -127,6 +128,10 @@ public:
     {
         return player1->sortInfo() < player2->sortInfo();
     }
+
+    // Checks if the AnimationStack is the last reference holder to the Player.
+    // This won't be needed when AnimationPlayer is moved to Oilpan.
+    bool canFree() const;
 
     virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture = false) OVERRIDE;
 

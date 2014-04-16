@@ -43,7 +43,7 @@ static V8PerIsolateData* mainThreadPerIsolateData = 0;
 V8PerIsolateData::V8PerIsolateData(v8::Isolate* isolate)
     : m_isolate(isolate)
     , m_isolateHolder(adoptPtr(new gin::IsolateHolder(m_isolate, v8ArrayBufferAllocator())))
-    , m_stringCache(adoptPtr(new StringCache()))
+    , m_stringCache(adoptPtr(new StringCache(m_isolate)))
     , m_hiddenValue(adoptPtr(new V8HiddenValue()))
     , m_constructorMode(ConstructorMode::CreateNewObject)
     , m_recursionLevel(0)
@@ -128,11 +128,11 @@ void V8PerIsolateData::setDOMTemplate(void* domTemplateKey, v8::Handle<v8::Funct
     currentDOMTemplateMap().add(domTemplateKey, v8::Eternal<v8::FunctionTemplate>(m_isolate, v8::Local<v8::FunctionTemplate>(templ)));
 }
 
-v8::Local<v8::Context> V8PerIsolateData::ensureDomInJSContext()
+v8::Local<v8::Context> V8PerIsolateData::ensureRegexContext()
 {
-    if (!m_blinkInJSScriptState)
-        m_blinkInJSScriptState = NewScriptState::create(v8::Context::New(m_isolate), DOMWrapperWorld::create());
-    return m_blinkInJSScriptState->context();
+    if (!m_regexScriptState)
+        m_regexScriptState = NewScriptState::create(v8::Context::New(m_isolate), DOMWrapperWorld::create());
+    return m_regexScriptState->context();
 }
 
 bool V8PerIsolateData::hasInstance(const WrapperTypeInfo* info, v8::Handle<v8::Value> value)

@@ -104,11 +104,6 @@ enum MarkingBehavior {
     MarkContainingBlockChain,
 };
 
-enum RepaintLayerBehavior {
-    RepaintLayer,
-    DontRepaintLayer,
-};
-
 enum MapCoordinatesMode {
     IsFixed = 1 << 0,
     UseTransforms = 1 << 1,
@@ -311,6 +306,10 @@ private:
     void setLayerNeedsFullRepaintForPositionedMovementLayout();
     bool requiresAnonymousTableWrappers(const RenderObject*) const;
 
+    // Gets pseudoStyle from Shadow host(in case of input elements)
+    // or from Parent element.
+    PassRefPtr<RenderStyle> getUncachedPseudoStyleFromParentOrShadowHost() const;
+
 public:
 #ifndef NDEBUG
     void showTreeForThis() const;
@@ -398,7 +397,7 @@ public:
 
     virtual bool isRenderScrollbarPart() const { return false; }
 
-    bool isRoot() const { return document().documentElement() == m_node; }
+    bool isDocumentElement() const { return document().documentElement() == m_node; }
     // isBody is called from RenderBox::styleWillChange and is thus quite hot.
     bool isBody() const { return node() && node()->hasTagName(HTMLNames::bodyTag); }
     bool isHR() const;
@@ -581,6 +580,8 @@ public:
 
     bool hasBlendMode() const;
 
+    bool hasShapeOutside() const { return style() && style()->shapeOutside(); }
+
     inline bool preservesNewline() const;
 
     // The pseudo element style can be cached or uncached.  Use the cached method if the pseudo element doesn't respect
@@ -629,7 +630,7 @@ public:
     Element* offsetParent() const;
 
     void markContainingBlocksForLayout(bool scheduleRelayout = true, RenderObject* newRoot = 0, SubtreeLayoutScope* = 0);
-    void setNeedsLayout(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0, RepaintLayerBehavior = RepaintLayer);
+    void setNeedsLayout(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0);
     void clearNeedsLayout();
     void setChildNeedsLayout(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0);
     void setNeedsPositionedMovementLayout();
@@ -944,7 +945,9 @@ public:
     void remove() { if (parent()) parent()->removeChild(this); }
 
     bool isInert() const;
-    virtual bool visibleForTouchAction() const { return false; }
+
+    bool visibleForTouchAction() const;
+
     bool visibleToHitTestRequest(const HitTestRequest& request) const
     {
         if (request.touchAction() && !visibleForTouchAction())
@@ -973,7 +976,7 @@ public:
     // Compute a list of hit-test rectangles per layer rooted at this renderer.
     virtual void computeLayerHitTestRects(LayerHitTestRects&) const;
 
-    // Return the renderer whose background style is used to paint the root background. Should only be called on the renderer for which isRoot() is true.
+    // Return the renderer whose background style is used to paint the root background. Should only be called on the renderer for which isDocumentElement() is true.
     RenderObject* rendererForRootBackground();
 
     RespectImageOrientationEnum shouldRespectImageOrientation() const;
@@ -1066,15 +1069,12 @@ private:
     void removeFromRenderFlowThread();
     void removeFromRenderFlowThreadRecursive(RenderFlowThread*);
 
-    bool shouldRepaintForStyleDifference(StyleDifference) const;
     bool hasImmediateNonWhitespaceTextChildOrPropertiesDependentOnColor() const;
 
     RenderStyle* cachedFirstLineStyle() const;
     StyleDifference adjustStyleDifference(StyleDifference, unsigned contextSensitiveProperties) const;
 
     Color selectionColor(int colorProperty) const;
-
-    void removeShapeImageClient(ShapeValue*);
 
 #ifndef NDEBUG
     void checkBlockPositionedObjectsNeedLayout();
@@ -1278,7 +1278,7 @@ inline bool RenderObject::isBeforeOrAfterContent() const
     return isBeforeContent() || isAfterContent();
 }
 
-inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLayoutScope* layouter, RepaintLayerBehavior repaintLayer)
+inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLayoutScope* layouter)
 {
     ASSERT(!isSetNeedsLayoutForbidden());
     bool alreadyNeededLayout = m_bitfields.selfNeedsLayout();
@@ -1286,10 +1286,7 @@ inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLay
     if (!alreadyNeededLayout) {
         if (markParents == MarkContainingBlockChain && (!layouter || layouter->root() != this))
             markContainingBlocksForLayout(true, 0, layouter);
-        // StyleDifferenceLayout is used for different cases currently, one of which is
-        // that our content changed which mandates an invalidation.
-        // FIXME: We should be able to skip this automatic invalidation (see crbug.com/325569).
-        if (repaintLayer == RepaintLayer && hasLayer())
+        if (hasLayer())
             setLayerNeedsFullRepaint();
     }
 }

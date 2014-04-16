@@ -90,6 +90,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/animation/Interpolation.cpp \
 	third_party/WebKit/Source/core/animation/InterpolationEffect.cpp \
 	third_party/WebKit/Source/core/animation/KeyframeEffectModel.cpp \
+	third_party/WebKit/Source/core/animation/SampledEffect.cpp \
 	third_party/WebKit/Source/core/animation/StringKeyframe.cpp \
 	third_party/WebKit/Source/core/animation/TimedItem.cpp \
 	third_party/WebKit/Source/core/animation/TimedItemTiming.cpp \
@@ -217,6 +218,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/invalidation/StyleInvalidator.cpp \
 	third_party/WebKit/Source/core/css/invalidation/StyleSheetInvalidationAnalysis.cpp \
 	third_party/WebKit/Source/core/css/parser/CSSPropertyParser.cpp \
+	third_party/WebKit/Source/core/css/parser/MediaQueryBlockWatcher.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryInputStream.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryParser.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryToken.cpp \
@@ -341,6 +343,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/DeviceSensorEventController.cpp \
 	third_party/WebKit/Source/core/frame/DeviceSensorEventDispatcher.cpp \
 	third_party/WebKit/Source/core/frame/Frame.cpp \
+	third_party/WebKit/Source/core/frame/FrameConsole.cpp \
 	third_party/WebKit/Source/core/frame/FrameDestructionObserver.cpp \
 	third_party/WebKit/Source/core/frame/FrameHost.cpp \
 	third_party/WebKit/Source/core/frame/FrameView.cpp \
@@ -350,7 +353,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/Location.cpp \
 	third_party/WebKit/Source/core/frame/Navigator.cpp \
 	third_party/WebKit/Source/core/frame/NavigatorID.cpp \
-	third_party/WebKit/Source/core/frame/PageConsole.cpp \
 	third_party/WebKit/Source/core/frame/PinchViewport.cpp \
 	third_party/WebKit/Source/core/frame/RemoteFrame.cpp \
 	third_party/WebKit/Source/core/frame/RemoteFrameView.cpp \
@@ -638,8 +640,10 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -791,8 +795,10 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \

@@ -239,8 +239,8 @@ TEST_F(WebFrameTest, FrameForEnteredContext)
     webViewHelper.initializeAndLoad(m_baseURL + "iframes_test.html", true);
 
     v8::HandleScope scope(v8::Isolate::GetCurrent());
-    EXPECT_EQ(webViewHelper.webView()->mainFrame(), WebFrame::frameForContext(webViewHelper.webView()->mainFrame()->mainWorldScriptContext()));
-    EXPECT_EQ(webViewHelper.webView()->mainFrame()->firstChild(), WebFrame::frameForContext(webViewHelper.webView()->mainFrame()->firstChild()->mainWorldScriptContext()));
+    EXPECT_EQ(webViewHelper.webView()->mainFrame(), WebLocalFrame::frameForContext(webViewHelper.webView()->mainFrame()->mainWorldScriptContext()));
+    EXPECT_EQ(webViewHelper.webView()->mainFrame()->firstChild(), WebLocalFrame::frameForContext(webViewHelper.webView()->mainFrame()->firstChild()->mainWorldScriptContext()));
 }
 
 TEST_F(WebFrameTest, FormWithNullFrame)
@@ -4931,7 +4931,7 @@ public:
     virtual WebFrame* createChildFrame(WebLocalFrame* parent, const WebString&)
     {
         m_childFrameCreationCount++;
-        WebFrame* frame = WebFrame::create(m_client);
+        WebFrame* frame = WebLocalFrame::create(m_client);
         parent->appendChild(frame);
         return frame;
     }
@@ -5286,79 +5286,6 @@ TEST_F(WebFrameTest, CreateChildFrameFailure)
     webViewHelper.initializeAndLoad(m_baseURL + "create_child_frame_fail.html", true, &client);
 
     EXPECT_EQ(1, client.callCount());
-}
-
-TEST_F(WebFrameTest, DISABLED_sizeChangeRepaint)
-{
-    const char* kTests[] = {
-        "repaint/size-change-repaint1.html",
-        "repaint/size-change-repaint2.html",
-        "repaint/size-change-repaint3.html",
-        "repaint/size-change-repaint4.html",
-        "repaint/size-change-repaint5.html",
-        "repaint/size-change-repaint6.html",
-        "repaint/size-change-repaint7.html",
-        "repaint/size-change-repaint8.html",
-        "repaint/size-change-repaint9.html",
-        "repaint/size-change-repaint10.html",
-    };
-
-    const WebCore::IntRect kExpectedRepaintOnHeightChange[] = {
-        WebCore::IntRect(0, 200, 200, 100),
-        WebCore::IntRect(0, 200, 200, 100),
-        WebCore::IntRect(0, 200, 200, 100),
-        WebCore::IntRect(0, 0, 200, 300),
-        WebCore::IntRect(0, 0, 200, 300),
-        WebCore::IntRect(0, 0, 200, 300),
-        WebCore::IntRect(0, 100, 200, 200),
-        WebCore::IntRect(0, 100, 200, 200),
-        WebCore::IntRect(0, 160, 200, 140),
-        WebCore::IntRect(0, 50, 200, 250),
-    };
-
-    const WebCore::IntRect kExpectedRepaintOnWidthChange[] = {
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-        WebCore::IntRect(0, 0, 300, 300),
-    };
-
-    UseMockScrollbarSettings mockScrollbarSettings;
-
-    FrameTestHelpers::WebViewHelper webViewHelper;
-    WebViewImpl* webView = webViewHelper.initialize(true);
-
-    for (size_t i = 0; i < arraysize(kTests); ++i) {
-        SCOPED_TRACE(kTests[i]);
-        registerMockedHttpURLLoad(kTests[i]);
-        FrameTestHelpers::loadFrame(webView->mainFrame(), m_baseURL + kTests[i]);
-        Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
-
-        webView->resize(WebSize(200, 200));
-        webView->layout();
-
-        // Change height.
-        WebCore::FrameView* frameView = webView->mainFrameImpl()->frameView();
-        frameView->setTracksRepaints(true);
-        webView->resize(WebSize(200, 300));
-        webView->layout();
-        WebCore::IntRect repaintRect = WebCore::intersection(WebCore::IntRect(0, 0, 200, 300), WebCore::unionRect(frameView->trackedRepaintRects()));
-        EXPECT_EQ_RECT(kExpectedRepaintOnHeightChange[i], repaintRect);
-
-        // Change width.
-        frameView->setTracksRepaints(true);
-        webView->resize(WebSize(300, 300));
-        webView->layout();
-        repaintRect = WebCore::intersection(WebCore::IntRect(0, 0, 300, 300), WebCore::unionRect(frameView->trackedRepaintRects()));
-        EXPECT_EQ_RECT(kExpectedRepaintOnWidthChange[i], repaintRect);
-        frameView->setTracksRepaints(false);
-    }
 }
 
 TEST_F(WebFrameTest, fixedPositionInFixedViewport)

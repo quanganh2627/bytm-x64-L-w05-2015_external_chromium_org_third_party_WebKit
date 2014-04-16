@@ -1752,10 +1752,6 @@ ShadowRoot* Element::shadowRoot() const
     return 0;
 }
 
-void Element::didAddShadowRoot(ShadowRoot&)
-{
-}
-
 ShadowRoot* Element::userAgentShadowRoot() const
 {
     if (ElementShadow* elementShadow = shadow()) {
@@ -1853,7 +1849,7 @@ void Element::checkForSiblingStyleChanges(bool finishedParsingCallback, Node* be
     // In the DOM case, we only need to do something if |afterChange| is not 0.
     if (childrenAffectedByLastChildRules() && beforeChange) {
         // Find our new last child.
-        Node* newLastChild = ElementTraversal::lastWithin(*this);
+        Node* newLastChild = ElementTraversal::lastChild(*this);
         RenderStyle* newLastChildStyle = newLastChild ? newLastChild->renderStyle() : 0;
 
         // Find the last element node going backwards from |beforeChange|
@@ -2158,7 +2154,8 @@ void Element::focus(bool restorePreviousSelection, FocusType type)
 void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
 {
     if (isRootEditableElement()) {
-        LocalFrame* frame = document().frame();
+        // Taking the ownership since setSelection() may release the last reference to |frame|.
+        RefPtr<LocalFrame> frame(document().frame());
         if (!frame)
             return;
 
@@ -3284,6 +3281,7 @@ void Element::removeAllInlineStyleProperties()
 
 void Element::updatePresentationAttributeStyle()
 {
+    synchronizeAllAttributes();
     // ShareableElementData doesn't store presentation attribute style, so make sure we have a UniqueElementData.
     UniqueElementData& elementData = ensureUniqueElementData();
     elementData.m_presentationAttributeStyleIsDirty = false;
@@ -3320,13 +3318,10 @@ bool Element::supportsStyleSharing() const
     // Ids stop style sharing if they show up in the stylesheets.
     if (hasID() && document().ensureStyleResolver().hasRulesForId(idForStyleResolution()))
         return false;
-    // Active and hovered elements always make a chain towards the document node
-    // and no siblings or cousins will have the same state.
-    if (hovered())
-        return false;
-    if (active())
-        return false;
-    if (focused())
+    // :active and :hover elements always make a chain towards the document node
+    // and no siblings or cousins will have the same state. There's also only one
+    // :focus element per scope so we don't need to attempt to share.
+    if (isUserActionElement())
         return false;
     if (!parentOrShadowHostElement()->childrenSupportStyleSharing())
         return false;

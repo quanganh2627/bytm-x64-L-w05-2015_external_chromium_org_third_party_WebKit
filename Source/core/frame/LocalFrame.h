@@ -32,6 +32,7 @@
 #include "core/loader/FrameLoader.h"
 #include "core/loader/NavigationScheduler.h"
 #include "core/page/FrameTree.h"
+#include "platform/Supplementable.h"
 #include "platform/heap/Handle.h"
 #include "platform/scroll/ScrollTypes.h"
 
@@ -43,6 +44,7 @@ namespace WebCore {
     class EventHandler;
     class FetchContext;
     class FloatSize;
+    class FrameConsole;
     class FrameSelection;
     class FrameView;
     class InputMethodController;
@@ -56,7 +58,7 @@ namespace WebCore {
     class TreeScope;
     class VisiblePosition;
 
-    class LocalFrame : public Frame {
+    class LocalFrame : public Frame, public Supplementable<LocalFrame>  {
     public:
         static PassRefPtr<LocalFrame> create(FrameLoaderClient*, FrameHost*, HTMLFrameOwnerElement*);
 
@@ -86,6 +88,7 @@ namespace WebCore {
         FetchContext& fetchContext() const { return loader().fetchContext(); }
         ScriptController& script();
         SpellChecker& spellChecker() const;
+        FrameConsole& console() const;
 
         void didChangeVisibilityState();
 
@@ -154,6 +157,7 @@ namespace WebCore {
         const OwnPtr<SpellChecker> m_spellChecker;
         const OwnPtr<FrameSelection> m_selection;
         const OwnPtr<EventHandler> m_eventHandler;
+        const OwnPtr<FrameConsole> m_console;
         OwnPtr<InputMethodController> m_inputMethodController;
 
         float m_pageZoomFactor;
@@ -202,6 +206,11 @@ namespace WebCore {
     inline SpellChecker& LocalFrame::spellChecker() const
     {
         return *m_spellChecker;
+    }
+
+    inline FrameConsole& LocalFrame::console() const
+    {
+        return *m_console;
     }
 
     inline InputMethodController& LocalFrame::inputMethodController() const

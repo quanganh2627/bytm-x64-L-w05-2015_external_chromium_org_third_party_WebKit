@@ -157,9 +157,9 @@ def generate_argument(interface, method, argument, index):
         'has_event_listener_argument': any(
             argument_so_far for argument_so_far in method.arguments[:index]
             if argument_so_far.idl_type.name == 'EventListener'),
-        'idl_type_object': idl_type,
         # Dictionary is special-cased, but arrays and sequences shouldn't be
         'idl_type': not idl_type.array_or_sequence_type and idl_type.base_type,
+        'idl_type_object': idl_type,
         'index': index,
         'is_clamp': 'Clamp' in extended_attributes,
         'is_callback_interface': idl_type.is_callback_interface,
@@ -173,6 +173,7 @@ def generate_argument(interface, method, argument, index):
         'v8_set_return_value_for_main_world': v8_set_return_value(interface.name, method, this_cpp_value, for_main_world=True),
         'v8_set_return_value': v8_set_return_value(interface.name, method, this_cpp_value),
         'v8_value_to_local_cpp_value': v8_value_to_local_cpp_value(argument, index),
+        'v8_value_to_local_cpp_value_async': v8_value_to_local_cpp_value(argument, index, async=True),
     }
 
 
@@ -206,14 +207,21 @@ def cpp_value(interface, method, number_of_arguments):
         not method.is_static):
         cpp_arguments.append('*impl')
     cpp_arguments.extend(cpp_argument(argument) for argument in arguments)
-    this_union_arguments = method.idl_type.union_arguments
+    this_union_arguments = method.idl_type and method.idl_type.union_arguments
     if this_union_arguments:
         cpp_arguments.extend(this_union_arguments)
 
     if 'RaisesException' in method.extended_attributes:
         cpp_arguments.append('exceptionState')
 
-    cpp_method_name = v8_utilities.scoped_name(interface, method, v8_utilities.cpp_name(method))
+    if method.name == 'Constructor':
+        base_name = 'create'
+    elif method.name == 'NamedConstructor':
+        base_name = 'createForJSConstructor'
+    else:
+        base_name = v8_utilities.cpp_name(method)
+
+    cpp_method_name = v8_utilities.scoped_name(interface, method, base_name)
     return '%s(%s)' % (cpp_method_name, ', '.join(cpp_arguments))
 
 
@@ -236,22 +244,36 @@ def v8_set_return_value(interface_name, method, cpp_value, for_main_world=False)
     return idl_type.v8_set_return_value(cpp_value, extended_attributes, script_wrappable=script_wrappable, release=release, for_main_world=for_main_world)
 
 
-def v8_value_to_local_cpp_value(argument, index):
+def v8_value_to_local_cpp_variadic_value(argument, index, async):
+    assert argument.is_variadic
+    idl_type = argument.idl_type
+    vector_type = v8_types.cpp_ptr_type('Vector', 'HeapVector', idl_type.gc_type)
+
+    macro = 'TONATIVE_VOID' + ('_ASYNC' if async else '')
+    macro_args = [
+      '%s<%s>' % (vector_type, idl_type.cpp_type),
+      argument.name,
+      'toNativeArguments<%s>(info, %s)' % (idl_type.cpp_type, index),
+    ]
+    if async:
+        macro_args.append('info')
+    return '%s(%s)' % (macro, ', '.join(macro_args))
+
+
+def v8_value_to_local_cpp_value(argument, index, async=False):
     extended_attributes = argument.extended_attributes
     idl_type = argument.idl_type
     name = argument.name
     if argument.is_variadic:
-        vector_type = v8_types.cpp_ptr_type('Vector', 'HeapVector', idl_type.gc_type)
-        return 'V8TRYCATCH_VOID({vector_type}<{cpp_type}>, {name}, toNativeArguments<{cpp_type}>(info, {index}))'.format(
-                cpp_type=idl_type.cpp_type, name=name, index=index, vector_type=vector_type)
+        return v8_value_to_local_cpp_variadic_value(argument, index, async)
     # [Default=NullString]
     if (argument.is_optional and idl_type.name == 'String' and
         extended_attributes.get('Default') == 'NullString'):
         v8_value = 'argumentOrNull(info, %s)' % index
     else:
         v8_value = 'info[%s]' % index
-    return idl_type.v8_value_to_local_cpp_value(argument.extended_attributes,
-                                                v8_value, name, index=index)
+    return idl_type.v8_value_to_local_cpp_value(extended_attributes, v8_value,
+                                                name, index=index, async=async)
 
 
 ################################################################################

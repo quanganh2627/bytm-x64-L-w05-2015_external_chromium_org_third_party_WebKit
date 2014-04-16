@@ -964,16 +964,15 @@ static bool isFullCanvasCompositeMode(CompositeOperator op)
     return op == CompositeSourceIn || op == CompositeSourceOut || op == CompositeDestinationIn || op == CompositeDestinationAtop;
 }
 
-static bool parseWinding(const String& windingRuleString, WindRule& windRule)
+static WindRule parseWinding(const String& windingRuleString)
 {
     if (windingRuleString == "nonzero")
-        windRule = RULE_NONZERO;
-    else if (windingRuleString == "evenodd")
-        windRule = RULE_EVENODD;
-    else
-        return false;
+        return RULE_NONZERO;
+    if (windingRuleString == "evenodd")
+        return RULE_EVENODD;
 
-    return true;
+    ASSERT_NOT_REACHED();
+    return RULE_EVENODD;
 }
 
 void CanvasRenderingContext2D::fillInternal(const Path& path, const String& windingRuleString)
@@ -1000,11 +999,7 @@ void CanvasRenderingContext2D::fillInternal(const Path& path, const String& wind
     }
 
     WindRule windRule = c->fillRule();
-    WindRule newWindRule = RULE_NONZERO;
-    if (!parseWinding(windingRuleString, newWindRule)) {
-        return;
-    }
-    c->setFillRule(newWindRule);
+    c->setFillRule(parseWinding(windingRuleString));
 
     if (isFullCanvasCompositeMode(state().m_globalComposite)) {
         fullCanvasCompositedFill(path);
@@ -1029,18 +1024,13 @@ void CanvasRenderingContext2D::fill(const String& windingRuleString)
     fillInternal(m_path, windingRuleString);
 }
 
-void CanvasRenderingContext2D::fill(Path2D* domPath, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::fill(Path2D* domPath)
 {
-    fill(domPath, "nonzero", exceptionState);
+    fill(domPath, "nonzero");
 }
 
-void CanvasRenderingContext2D::fill(Path2D* domPath, const String& windingRuleString, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::fill(Path2D* domPath, const String& windingRuleString)
 {
-    if (!domPath) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path"));
-        return;
-    }
-
     fillInternal(domPath->path(), windingRuleString);
 }
 
@@ -1056,6 +1046,9 @@ void CanvasRenderingContext2D::strokeInternal(const Path& path)
     if (!state().m_invertibleCTM) {
         return;
     }
+    FloatRect clipBounds;
+    if (!c->getTransformedClipBounds(&clipBounds))
+        return;
 
     // If gradient size is zero, then paint nothing.
     Gradient* gradient = c->strokeGradient();
@@ -1063,12 +1056,21 @@ void CanvasRenderingContext2D::strokeInternal(const Path& path)
         return;
     }
 
-    FloatRect bounds = path.boundingRect();
-    inflateStrokeRect(bounds);
-    FloatRect dirtyRect;
-    if (computeDirtyRect(bounds, &dirtyRect)) {
+    if (isFullCanvasCompositeMode(state().m_globalComposite)) {
+        fullCanvasCompositedStroke(path);
+        didDraw(clipBounds);
+    } else if (state().m_globalComposite == CompositeCopy) {
+        clearCanvas();
         c->strokePath(path);
-        didDraw(dirtyRect);
+        didDraw(clipBounds);
+    } else {
+        FloatRect bounds = path.boundingRect();
+        inflateStrokeRect(bounds);
+        FloatRect dirtyRect;
+        if (computeDirtyRect(bounds, &dirtyRect)) {
+            c->strokePath(path);
+            didDraw(dirtyRect);
+        }
     }
 }
 
@@ -1077,13 +1079,8 @@ void CanvasRenderingContext2D::stroke()
     strokeInternal(m_path);
 }
 
-void CanvasRenderingContext2D::stroke(Path2D* domPath, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::stroke(Path2D* domPath)
 {
-    if (!domPath) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path"));
-        return;
-    }
-
     strokeInternal(domPath->path());
 }
 
@@ -1097,13 +1094,8 @@ void CanvasRenderingContext2D::clipInternal(const Path& path, const String& wind
         return;
     }
 
-    WindRule newWindRule = RULE_NONZERO;
-    if (!parseWinding(windingRuleString, newWindRule)) {
-        return;
-    }
-
     realizeSaves();
-    c->canvasClip(path, newWindRule);
+    c->canvasClip(path, parseWinding(windingRuleString));
 }
 
 void CanvasRenderingContext2D::clip(const String& windingRuleString)
@@ -1111,18 +1103,13 @@ void CanvasRenderingContext2D::clip(const String& windingRuleString)
     clipInternal(m_path, windingRuleString);
 }
 
-void CanvasRenderingContext2D::clip(Path2D* domPath, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::clip(Path2D* domPath)
 {
-    clip(domPath, "nonzero", exceptionState);
+    clip(domPath, "nonzero");
 }
 
-void CanvasRenderingContext2D::clip(Path2D* domPath, const String& windingRuleString, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::clip(Path2D* domPath, const String& windingRuleString)
 {
-    if (!domPath) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path"));
-        return;
-    }
-
     clipInternal(domPath->path(), windingRuleString);
 }
 
@@ -1131,18 +1118,13 @@ bool CanvasRenderingContext2D::isPointInPath(const float x, const float y, const
     return isPointInPathInternal(m_path, x, y, windingRuleString);
 }
 
-bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y, ExceptionState& exceptionState)
+bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y)
 {
-    return isPointInPath(domPath, x, y, "nonzero", exceptionState);
+    return isPointInPath(domPath, x, y, "nonzero");
 }
 
-bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y, const String& windingRuleString, ExceptionState& exceptionState)
+bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y, const String& windingRuleString)
 {
-    if (!domPath) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path"));
-        return false;
-    }
-
     return isPointInPathInternal(domPath->path(), x, y, windingRuleString);
 }
 
@@ -1160,11 +1142,7 @@ bool CanvasRenderingContext2D::isPointInPathInternal(const Path& path, const flo
     if (!std::isfinite(transformedPoint.x()) || !std::isfinite(transformedPoint.y()))
         return false;
 
-    WindRule windRule = RULE_NONZERO;
-    if (!parseWinding(windingRuleString, windRule))
-        return false;
-
-    return path.contains(transformedPoint, windRule);
+    return path.contains(transformedPoint, parseWinding(windingRuleString));
 }
 
 bool CanvasRenderingContext2D::isPointInStroke(const float x, const float y)
@@ -1172,13 +1150,8 @@ bool CanvasRenderingContext2D::isPointInStroke(const float x, const float y)
     return isPointInStrokeInternal(m_path, x, y);
 }
 
-bool CanvasRenderingContext2D::isPointInStroke(Path2D* domPath, const float x, const float y, ExceptionState& exceptionState)
+bool CanvasRenderingContext2D::isPointInStroke(Path2D* domPath, const float x, const float y)
 {
-    if (!domPath) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path"));
-        return false;
-    }
-
     return isPointInStrokeInternal(domPath->path(), x, y);
 }
 
@@ -1210,13 +1183,8 @@ void CanvasRenderingContext2D::scrollPathIntoView()
     scrollPathIntoViewInternal(m_path);
 }
 
-void CanvasRenderingContext2D::scrollPathIntoView(Path2D* path2d, ExceptionState& exceptionState)
+void CanvasRenderingContext2D::scrollPathIntoView(Path2D* path2d)
 {
-    if (!path2d) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "Path2D"));
-        return;
-    }
-
     scrollPathIntoViewInternal(path2d->path());
 }
 
@@ -1345,6 +1313,9 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
         return;
     if (!state().m_invertibleCTM)
         return;
+    FloatRect clipBounds;
+    if (!c->getTransformedClipBounds(&clipBounds))
+        return;
 
     // If gradient size is zero, then paint nothing.
     Gradient* gradient = c->strokeGradient();
@@ -1353,12 +1324,21 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
 
     FloatRect rect(x, y, width, height);
 
-    FloatRect boundingRect = rect;
-    boundingRect.inflate(state().m_lineWidth / 2);
-    FloatRect dirtyRect;
-    if (computeDirtyRect(boundingRect, &dirtyRect)) {
-        c->strokeRect(rect, state().m_lineWidth);
-        didDraw(dirtyRect);
+    if (isFullCanvasCompositeMode(state().m_globalComposite)) {
+        fullCanvasCompositedStroke(rect);
+        didDraw(clipBounds);
+    } else if (state().m_globalComposite == CompositeCopy) {
+        clearCanvas();
+        c->strokeRect(rect);
+        didDraw(clipBounds);
+    } else {
+        FloatRect boundingRect = rect;
+        boundingRect.inflate(state().m_lineWidth / 2);
+        FloatRect dirtyRect;
+        if (computeDirtyRect(boundingRect, &dirtyRect)) {
+            c->strokeRect(rect);
+            didDraw(dirtyRect);
+        }
     }
 }
 
@@ -1468,20 +1448,8 @@ static inline void clipRectsToImageRect(const FloatRect& imageRect, FloatRect* s
     dstRect->move(offset);
 }
 
-static bool checkImageSource(CanvasImageSource* imageSource, ExceptionState& exceptionState)
-{
-    if (!imageSource) {
-        // FIXME: Message should mention ImageBitmap once that feature ships.
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, String("HTMLImageElement, HTMLCanvasElement or HTMLVideoElement")));
-        return false;
-    }
-    return true;
-}
-
 void CanvasRenderingContext2D::drawImage(CanvasImageSource* imageSource, float x, float y, ExceptionState& exceptionState)
 {
-    if (!checkImageSource(imageSource, exceptionState))
-        return;
     FloatSize destRectSize = imageSource->defaultDestinationSize();
     drawImage(imageSource, x, y, destRectSize.width(), destRectSize.height(), exceptionState);
 }
@@ -1489,8 +1457,6 @@ void CanvasRenderingContext2D::drawImage(CanvasImageSource* imageSource, float x
 void CanvasRenderingContext2D::drawImage(CanvasImageSource* imageSource,
     float x, float y, float width, float height, ExceptionState& exceptionState)
 {
-    if (!checkImageSource(imageSource, exceptionState))
-        return;
     FloatSize sourceRectSize = imageSource->sourceSize();
     drawImage(imageSource, 0, 0, sourceRectSize.width(), sourceRectSize.height(), x, y, width, height, exceptionState);
 }
@@ -1510,9 +1476,6 @@ void CanvasRenderingContext2D::drawImageInternal(CanvasImageSource* imageSource,
     float dx, float dy, float dw, float dh, ExceptionState& exceptionState,
     CompositeOperator op, blink::WebBlendMode blendMode)
 {
-    if (!checkImageSource(imageSource, exceptionState))
-        return;
-
     RefPtr<Image> image;
     SourceImageStatus sourceImageStatus;
     if (!imageSource->isVideoElement()) {
@@ -1595,6 +1558,8 @@ void CanvasRenderingContext2D::drawImageFromRect(HTMLImageElement* image,
     float dx, float dy, float dw, float dh,
     const String& compositeOperation)
 {
+    if (!image)
+        return;
     CompositeOperator op;
     blink::WebBlendMode blendOp = blink::WebBlendModeNormal;
     if (!parseCompositeAndBlendOperator(compositeOperation, op, blendOp) || blendOp != blink::WebBlendModeNormal)
@@ -1671,6 +1636,30 @@ template<class T> void CanvasRenderingContext2D::fullCanvasCompositedFill(const 
     c->endLayer();
 }
 
+static void strokePrimitive(const FloatRect& rect, GraphicsContext* context)
+{
+    context->strokeRect(rect);
+}
+
+static void strokePrimitive(const Path& path, GraphicsContext* context)
+{
+    context->strokePath(path);
+}
+
+template<class T> void CanvasRenderingContext2D::fullCanvasCompositedStroke(const T& area)
+{
+    ASSERT(isFullCanvasCompositeMode(state().m_globalComposite));
+
+    GraphicsContext* c = drawingContext();
+    ASSERT(c);
+    c->beginLayer(1, state().m_globalComposite);
+    CompositeOperator previousOperator = c->compositeOperation();
+    c->setCompositeOperation(CompositeSourceOver);
+    strokePrimitive(area, c);
+    c->setCompositeOperation(previousOperator);
+    c->endLayer();
+}
+
 PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createLinearGradient(float x0, float y0, float x1, float y1, ExceptionState& exceptionState)
 {
     if (!std::isfinite(x0))
@@ -1716,8 +1705,6 @@ PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createRadialGradient(float 
 PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(CanvasImageSource* imageSource,
     const String& repetitionType, ExceptionState& exceptionState)
 {
-    if (!checkImageSource(imageSource, exceptionState))
-        return nullptr;
     bool repeatX, repeatY;
     CanvasPattern::parseRepetitionType(repetitionType, repeatX, repeatY, exceptionState);
     if (exceptionState.hadException())
@@ -1815,13 +1802,8 @@ static PassRefPtrWillBeRawPtr<ImageData> createEmptyImageData(const IntSize& siz
     return nullptr;
 }
 
-PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtrWillBeRawPtr<ImageData> imageData, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtrWillBeRawPtr<ImageData> imageData) const
 {
-    if (!imageData) {
-        exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "ImageData"));
-        return nullptr;
-    }
-
     return createEmptyImageData(imageData->size());
 }
 
@@ -1899,19 +1881,13 @@ PassRefPtrWillBeRawPtr<ImageData> CanvasRenderingContext2D::getImageData(float s
 
 void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy, ExceptionState& exceptionState)
 {
-    if (!data) {
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "ImageData"));
-        return;
-    }
     putImageData(data, dx, dy, 0, 0, data->width(), data->height(), exceptionState);
 }
 
 void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy, float dirtyX, float dirtyY,
     float dirtyWidth, float dirtyHeight, ExceptionState& exceptionState)
 {
-    if (!data)
-        exceptionState.throwDOMException(TypeMismatchError, ExceptionMessages::argumentNullOrIncorrectType(1, "ImageData"));
-    else if (!std::isfinite(dx))
+    if (!std::isfinite(dx))
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::notAFiniteNumber(dx, "dx"));
     else if (!std::isfinite(dy))
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::notAFiniteNumber(dy, "dy"));
@@ -2368,11 +2344,12 @@ bool CanvasRenderingContext2D::drawCustomFocusRing(Element* element)
 
 bool CanvasRenderingContext2D::focusRingCallIsValid(const Path& path, Element* element)
 {
+    ASSERT(element);
     if (!state().m_invertibleCTM)
         return false;
     if (path.isEmpty())
         return false;
-    if (!element || !element->isDescendantOf(canvas()))
+    if (!element->isDescendantOf(canvas()))
         return false;
 
     return true;

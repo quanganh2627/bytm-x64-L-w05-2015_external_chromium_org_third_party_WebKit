@@ -345,7 +345,7 @@ static void namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value>
     {% endif %}
     {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
     {# v8_value_to_local_cpp_value('DOMString', 'name', 'propertyName') #}
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, propertyName, name);
+    TOSTRING_VOID(V8StringResource<>, propertyName, name);
     {{setter.v8_value_to_local_cpp_value}};
     {% if setter.has_exception_state %}
     v8::String::Utf8Value namedProperty(name);
@@ -626,13 +626,13 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
         return;
     }
 
-    V8TRYCATCH_FOR_V8STRINGRESOURCE_VOID(V8StringResource<>, type, info[0]);
+    TOSTRING_VOID(V8StringResource<>, type, info[0]);
     {% for attribute in any_type_attributes %}
     v8::Local<v8::Value> {{attribute.name}};
     {% endfor %}
     {{cpp_class}}Init eventInit;
     if (info.Length() >= 2) {
-        V8TRYCATCH_VOID(Dictionary, options, Dictionary(info[1], isolate));
+        TONATIVE_VOID(Dictionary, options, Dictionary(info[1], isolate));
         if (!initialize{{cpp_class}}(eventInit, options, exceptionState, info)) {
             exceptionState.throwIfNeeded();
             return;
@@ -1260,7 +1260,7 @@ v8::Handle<v8::Object> wrap({{cpp_class}}* impl, v8::Handle<v8::Object> creation
 {##############################################################################}
 {% block create_wrapper %}
 {% if not has_custom_to_v8 %}
-v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_ref_ptr}}<{{cpp_class}}> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
+v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_cpp_type}} impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
 {
     ASSERT(impl);
     ASSERT(!DOMDataStore::containsWrapper<{{v8_class}}>(impl.get(), isolate));
@@ -1308,11 +1308,13 @@ v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_ref_ptr}}<{{cpp_class}
 {% block deref_object_and_to_v8_no_inline %}
 void {{v8_class}}::derefObject(void* object)
 {
-{% set oilpan_conditional = '' if gc_type == 'RefCountedObject'
-                               else '!ENABLE(OILPAN)' %}
-{% filter conditional(oilpan_conditional) %}
+{% if gc_type == 'RefCountedObject' %}
+    fromInternalPointer(object)->deref();
+{% elif gc_type == 'WillBeGarbageCollectedObject' %}
+{% filter conditional('!ENABLE(OILPAN)') %}
     fromInternalPointer(object)->deref();
 {% endfilter %}
+{% endif %}
 }
 
 template<>

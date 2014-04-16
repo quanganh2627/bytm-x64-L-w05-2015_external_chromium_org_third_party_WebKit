@@ -38,7 +38,6 @@
 #include "EditorClientImpl.h"
 #include "InspectorClientImpl.h"
 #include "MediaKeysClientImpl.h"
-#include "NotificationPresenterImpl.h"
 #include "PageOverlayList.h"
 #include "PageScaleConstraintsSet.h"
 #include "PageWidgetDelegate.h"
@@ -391,9 +390,6 @@ public:
         const WebImage& dragImage,
         const WebPoint& dragImageOffset);
 
-    // Returns the provider of desktop notifications.
-    NotificationPresenterImpl* notificationPresenterImpl();
-
     // Tries to scroll the currently focused element and bubbles up through the
     // DOM and frame hierarchies. Returns true if something was scrolled.
     bool bubblingScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
@@ -540,6 +536,7 @@ private:
 
     void configureAutoResizeMode();
 
+    void setCompositorCreationFailed(bool);
     void setIsAcceleratedCompositingActive(bool);
     void doComposite();
     void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
@@ -594,7 +591,7 @@ private:
     // The upper bound on the size when auto-resizing.
     WebCore::IntSize m_maxAutoSize;
 
-    OwnPtr<WebCore::Page> m_page;
+    OwnPtrWillBePersistent<WebCore::Page> m_page;
 
     // An object that can be used to manipulate m_page->settings() without linking
     // against WebCore. This is lazily allocated the first time GetWebSettings()
@@ -685,9 +682,6 @@ private:
 
     typedef HashMap<WTF::String, WTF::String> SettingsMap;
     OwnPtr<SettingsMap> m_inspectorSettingsMap;
-
-    // The provider of desktop notifications;
-    NotificationPresenterImpl m_notificationPresenter;
 
     // If set, the (plugin) node which has mouse capture.
     RefPtr<WebCore::Node> m_mouseCaptureNode;

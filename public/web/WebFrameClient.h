@@ -31,6 +31,7 @@
 #ifndef WebFrameClient_h
 #define WebFrameClient_h
 
+#include "../platform/WebColor.h"
 #include "WebDOMMessageEvent.h"
 #include "WebDataSource.h"
 #include "WebFrame.h"
@@ -55,6 +56,8 @@ namespace blink {
 class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
 class WebCachedURLRequest;
+class WebColorChooser;
+class WebColorChooserClient;
 class WebContentDecryptionModule;
 class WebCookieJar;
 class WebDataSource;
@@ -63,6 +66,7 @@ class WebFormElement;
 class WebInputEvent;
 class WebMediaPlayer;
 class WebMediaPlayerClient;
+class WebNotificationPresenter;
 class WebServiceWorkerProvider;
 class WebServiceWorkerProviderClient;
 class WebNode;
@@ -76,6 +80,7 @@ class WebURL;
 class WebURLLoader;
 class WebURLResponse;
 class WebWorkerPermissionClientProxy;
+struct WebColorSuggestion;
 struct WebConsoleMessage;
 struct WebContextMenuData;
 struct WebPluginParams;
@@ -153,6 +158,7 @@ public:
     // Called when a watched CSS selector matches or stops matching.
     virtual void didMatchCSS(WebLocalFrame*, const WebVector<WebString>& newlyMatchingSelectors, const WebVector<WebString>& stoppedMatchingSelectors) { }
 
+
     // Console messages ----------------------------------------------------
 
     // Whether or not we should report a detailed message for the given source.
@@ -160,6 +166,7 @@ public:
 
     // A new message was added to the console.
     virtual void didAddMessageToConsole(const WebConsoleMessage&, const WebString& sourceName, unsigned sourceLine, const WebString& stackTrace) { }
+
 
     // Load commands -------------------------------------------------------
 
@@ -255,11 +262,56 @@ public:
     // WARNING: This method may be called very frequently.
     virtual void didUpdateCurrentHistoryItem(WebLocalFrame*) { }
 
+    // Misc ----------------------------------------------------------------
+
+    // Called to retrieve the provider of desktop notifications.
+    virtual WebNotificationPresenter* notificationPresenter() { return 0; }
+
+
     // Editing -------------------------------------------------------------
 
     // These methods allow the client to intercept and overrule editing
     // operations.
     virtual void didChangeSelection(bool isSelectionEmpty) { }
+
+
+    // Dialogs -------------------------------------------------------------
+
+    // This method opens the color chooser and returns a new WebColorChooser
+    // instance. If there is a WebColorChooser already from the last time this
+    // was called, it ends the color chooser by calling endChooser, and replaces
+    // it with the new one. The given list of suggestions can be used to show a
+    // simple interface with a limited set of choices.
+
+    virtual WebColorChooser* createColorChooser(
+        WebColorChooserClient*,
+        const WebColor&,
+        const WebVector<WebColorSuggestion>&) { return 0; }
+
+    // Displays a modal alert dialog containing the given message. Returns
+    // once the user dismisses the dialog.
+    virtual void runModalAlertDialog(const WebString& message) { }
+
+    // Displays a modal confirmation dialog with the given message as
+    // description and OK/Cancel choices. Returns true if the user selects
+    // 'OK' or false otherwise.
+    virtual bool runModalConfirmDialog(const WebString& message) { return false; }
+
+    // Displays a modal input dialog with the given message as description
+    // and OK/Cancel choices. The input field is pre-filled with
+    // defaultValue. Returns true if the user selects 'OK' or false
+    // otherwise. Upon returning true, actualValue contains the value of
+    // the input field.
+    virtual bool runModalPromptDialog(
+        const WebString& message, const WebString& defaultValue,
+        WebString* actualValue) { return false; }
+
+    // Displays a modal confirmation dialog containing the given message as
+    // description and OK/Cancel choices, where 'OK' means that it is okay
+    // to proceed with closing the view. Returns true if the user selects
+    // 'OK' or false otherwise.
+    virtual bool runModalBeforeUnloadDialog(
+        bool isReload, const WebString& message) { return true; }
 
 
     // UI ------------------------------------------------------------------
@@ -326,6 +378,7 @@ public:
     // The loaders in this frame have been stopped.
     virtual void didAbortLoading(WebLocalFrame*) { }
 
+
     // Script notifications ------------------------------------------------
 
     // Notifies that a new script context has been created for this frame.
@@ -335,6 +388,7 @@ public:
 
     // WebKit is about to release its reference to a v8 context for a frame.
     virtual void willReleaseScriptContext(WebLocalFrame*, v8::Handle<v8::Context>, int worldId) { }
+
 
     // Geometry notifications ----------------------------------------------
 
@@ -350,6 +404,7 @@ public:
     // If the frame is loading an HTML document, this will be called to
     // notify that the <body> will be attached soon.
     virtual void willInsertBody(WebLocalFrame*) { }
+
 
     // Find-in-page notifications ------------------------------------------
 
@@ -367,6 +422,7 @@ public:
     // where on the screen the selection rect is currently located.
     virtual void reportFindInPageSelection(
         int identifier, int activeMatchOrdinal, const WebRect& selection) { }
+
 
     // Quota ---------------------------------------------------------
 
@@ -388,10 +444,12 @@ public:
     // A WebSocket object is going to open new stream connection.
     virtual void willOpenSocketStream(WebSocketStreamHandle*) { }
 
+
     // MediaStream -----------------------------------------------------
 
     // A new WebRTCPeerConnectionHandler is created.
     virtual void willStartUsingPeerConnectionHandler(WebLocalFrame*, WebRTCPeerConnectionHandler*) { }
+
 
     // Messages ------------------------------------------------------
 
@@ -412,6 +470,7 @@ public:
     // Asks the embedder what value the network stack will send for the DNT
     // header. An empty string indicates that no DNT header will be send.
     virtual WebString doNotTrackValue(WebLocalFrame*) { return WebString(); }
+
 
     // WebGL ------------------------------------------------------
 

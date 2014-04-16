@@ -48,6 +48,9 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     {% if attribute.is_call_with_execution_context %}
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     {% endif %}
+    {% if attribute.is_call_with_new_script_state %}
+    NewScriptState* state = NewScriptState::current(info.GetIsolate());
+    {% endif %}
     {% if attribute.is_check_security_for_node or
           attribute.is_getter_raises_exception %}
     ExceptionState exceptionState(ExceptionState::GetterContext, "{{attribute.name}}", "{{interface_name}}", holder, info.GetIsolate());
@@ -234,7 +237,7 @@ v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info
     {# impl #}
     {% if attribute.put_forwards %}
     {{cpp_class}}* proxyImpl = {{v8_class}}::toNative(holder);
-    {{attribute.ref_ptr}}<{{attribute.idl_type}}> impl = WTF::getPtr(proxyImpl->{{attribute.name}}());
+    {{attribute.cpp_type}} impl = WTF::getPtr(proxyImpl->{{attribute.name}}());
     if (!impl)
         return;
     {% elif not attribute.is_static %}

@@ -36,19 +36,12 @@
 
 namespace WebCore {
 
-LocalFrame* HTMLImport::frame()
+HTMLImport* HTMLImport::root()
 {
-    return master()->frame();
-}
-
-Document* HTMLImport::master()
-{
-    return root()->document();
-}
-
-HTMLImportsController* HTMLImport::controller()
-{
-    return root()->toController();
+    HTMLImport* i = this;
+    while (i->parent())
+        i = i->parent();
+    return i;
 }
 
 void HTMLImport::appendChild(HTMLImport* child)
@@ -71,15 +64,8 @@ void HTMLImport::stateDidChange()
     }
 }
 
-void HTMLImport::stateWillChange()
-{
-    root()->scheduleRecalcState();
-}
-
 void HTMLImport::recalcTreeState(HTMLImport* root)
 {
-    ASSERT(root == root->root());
-
     HashMap<HTMLImport*, HTMLImportState> snapshot;
     Vector<HTMLImport*> updated;
 
@@ -107,13 +93,6 @@ void HTMLImport::recalcTreeState(HTMLImport* root)
 
     for (size_t i = 0; i < updated.size(); ++i)
         updated[i]->stateDidChange();
-}
-
-bool HTMLImport::isMaster(Document* document)
-{
-    if (!document->import())
-        return true;
-    return (document->import()->master() == document);
 }
 
 #if !defined(NDEBUG)

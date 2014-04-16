@@ -174,7 +174,7 @@ public:
 
     bool handleTouchEvent(const PlatformTouchEvent&);
 
-    bool useHandCursor(Node*, bool isOverLink, bool shiftKey);
+    bool useHandCursor(Node*, bool isOverLink);
 
     void notifyElementActivated();
 
@@ -195,6 +195,7 @@ private:
     bool handleMousePressEventSingleClick(const MouseEventWithHitTestResults&);
     bool handleMousePressEventDoubleClick(const MouseEventWithHitTestResults&);
     bool handleMousePressEventTripleClick(const MouseEventWithHitTestResults&);
+    bool handleMouseFocus(const PlatformMouseEvent&);
     bool handleMouseDraggedEvent(const MouseEventWithHitTestResults&);
     bool handleMouseReleaseEvent(const MouseEventWithHitTestResults&);
 
@@ -210,8 +211,8 @@ private:
 
     bool shouldApplyTouchAdjustment(const PlatformGestureEvent&) const;
 
-    OptionalCursor selectCursor(const HitTestResult&, bool shiftKey);
-    OptionalCursor selectAutoCursor(const HitTestResult&, Node*, const Cursor& iBeam, bool shiftKey);
+    OptionalCursor selectCursor(const HitTestResult&);
+    OptionalCursor selectAutoCursor(const HitTestResult&, Node*, const Cursor& iBeam);
 
     void hoverTimerFired(Timer<EventHandler>*);
     void cursorUpdateTimerFired(Timer<EventHandler>*);

@@ -32,8 +32,9 @@
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContext.h"
 #include "core/frame/DOMWindow.h"
+#include "core/frame/FrameConsole.h"
 #include "core/frame/FrameHost.h"
-#include "core/frame/PageConsole.h"
+#include "core/frame/LocalFrame.h"
 #include "public/platform/Platform.h"
 
 namespace WebCore {
@@ -441,7 +442,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyDominantBaseline: return 388;
     case CSSPropertyGlyphOrientationHorizontal: return 389;
     case CSSPropertyGlyphOrientationVertical: return 390;
-    case CSSPropertyKerning: return 391;
+    // CSSPropertyKerning has been removed, was return 391;
     case CSSPropertyTextAnchor: return 392;
     case CSSPropertyVectorEffect: return 393;
     case CSSPropertyWritingMode: return 394;
@@ -623,12 +624,13 @@ void UseCounter::countDeprecation(const DOMWindow* window, Feature feature)
 void UseCounter::countDeprecation(const Document& document, Feature feature)
 {
     FrameHost* host = document.frameHost();
-    if (!host)
+    LocalFrame* frame = document.frame();
+    if (!host || !frame)
         return;
 
     if (host->useCounter().recordMeasurement(feature)) {
         ASSERT(!host->useCounter().deprecationMessage(feature).isEmpty());
-        host->console().addMessage(DeprecationMessageSource, WarningMessageLevel, host->useCounter().deprecationMessage(feature));
+        frame->console().addMessage(DeprecationMessageSource, WarningMessageLevel, host->useCounter().deprecationMessage(feature));
     }
 }
 
@@ -707,6 +709,9 @@ String UseCounter::deprecationMessage(Feature feature)
 
     case PrefixedCancelRequestAnimationFrame:
         return "'webkitCancelRequestAnimationFrame' is vendor-specific. Please use the standard 'cancelAnimationFrame' instead.";
+
+    case HTMLHtmlElementManifest:
+        return "'HTMLHtmlElement.manifest' is deprecated. The manifest attribute only has an effect during the early stages of document load.";
 
     // Features that aren't deprecated don't have a deprecation message.
     default:

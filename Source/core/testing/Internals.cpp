@@ -1753,7 +1753,7 @@ bool Internals::isUnclippedDescendant(Element* element, ExceptionState& exceptio
         return 0;
     }
 
-    element->document().updateLayout();
+    element->document().view()->updateLayoutAndStyleForPainting();
 
     RenderObject* renderer = element->renderer();
     if (!renderer || !renderer->isBox()) {
@@ -1777,7 +1777,7 @@ bool Internals::needsCompositedScrolling(Element* element, ExceptionState& excep
         return 0;
     }
 
-    element->document().updateLayout();
+    element->document().view()->updateLayoutAndStyleForPainting();
 
     RenderObject* renderer = element->renderer();
     if (!renderer || !renderer->isBox()) {
@@ -1883,6 +1883,8 @@ PassRefPtrWillBeRawPtr<ClientRectList> Internals::repaintRects(Element* element,
         exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
         return nullptr;
     }
+
+    element->document().frame()->view()->updateLayoutAndStyleForPainting();
 
     if (RenderLayer* layer = getRenderLayerForElement(element, exceptionState)) {
         if (layer->compositingState() == PaintsIntoOwnBacking) {
@@ -2438,6 +2440,24 @@ ScriptPromise Internals::createRejectedPromise(ExecutionContext* context, Script
 ScriptPromise Internals::addOneToPromise(ExecutionContext* context, ScriptPromise promise)
 {
     return promise.then(AddOneFunction::create(context));
+}
+
+ScriptPromise Internals::promiseCheck(ExecutionContext* context, long arg1, bool arg2, const Dictionary& arg3, const String& arg4, const Vector<String>& arg5, ExceptionState& exceptionState)
+{
+    if (arg2)
+        return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
+    exceptionState.throwDOMException(InvalidStateError, "Thrown from the native implementation.");
+    return ScriptPromise();
+}
+
+ScriptPromise Internals::promiseCheckWithoutExceptionState(ExecutionContext* context, const Dictionary& arg1, const String& arg2, const Vector<String>& arg3)
+{
+    return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
+}
+
+ScriptPromise Internals::promiseCheckRange(ExecutionContext* context, long arg1)
+{
+    return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
 }
 
 void Internals::trace(Visitor* visitor)

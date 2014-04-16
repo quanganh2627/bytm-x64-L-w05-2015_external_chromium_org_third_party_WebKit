@@ -76,11 +76,25 @@ protected:
         return resource;
     }
 
+    ResourcePtr<Resource> resourceFromResourceRequest(ResourceRequest request)
+    {
+        if (request.url().isNull())
+            request.setURL(KURL(ParsedURLString, kResourceURL));
+        ResourcePtr<Resource> resource =
+            new Resource(request, Resource::Raw);
+        resource->setResponse(ResourceResponse(KURL(ParsedURLString, kResourceURL), "text/html", 0, nullAtom, String()));
+        memoryCache()->add(resource.get());
+
+        return resource;
+    }
+
     ResourcePtr<Resource> fetch()
     {
         FetchRequest fetchRequest(ResourceRequest(KURL(ParsedURLString, kResourceURL)), FetchInitiatorInfo());
         return m_fetcher->fetchSynchronously(fetchRequest);
     }
+
+    ResourceFetcher* fetcher() const { return m_fetcher.get(); }
 
 private:
     // A simple platform that mocks out the clock, for cache freshness testing.
@@ -269,6 +283,15 @@ TEST_F(CachingCorrectnessTest, FreshButNoCache)
     EXPECT_NE(fresh200Nocache, fetched);
 }
 
+TEST_F(CachingCorrectnessTest, RequestWithNoCahe)
+{
+    ResourceRequest noCacheRequest;
+    noCacheRequest.setHTTPHeaderField("Cache-Control", "no-cache");
+    ResourcePtr<Resource> noCacheResource = resourceFromResourceRequest(noCacheRequest);
+    ResourcePtr<Resource> fetched = fetch();
+    EXPECT_NE(noCacheResource, fetched);
+}
+
 TEST_F(CachingCorrectnessTest, FreshButNoStore)
 {
     ResourceResponse fresh200NostoreResponse;
@@ -284,6 +307,15 @@ TEST_F(CachingCorrectnessTest, FreshButNoStore)
 
     ResourcePtr<Resource> fetched = fetch();
     EXPECT_NE(fresh200Nostore, fetched);
+}
+
+TEST_F(CachingCorrectnessTest, RequestWithNoStore)
+{
+    ResourceRequest noStoreRequest;
+    noStoreRequest.setHTTPHeaderField("Cache-Control", "no-store");
+    ResourcePtr<Resource> noStoreResource = resourceFromResourceRequest(noStoreRequest);
+    ResourcePtr<Resource> fetched = fetch();
+    EXPECT_NE(noStoreResource, fetched);
 }
 
 // FIXME: Determine if ignoring must-revalidate for blink is correct behaviour.
@@ -372,6 +404,23 @@ TEST_F(CachingCorrectnessTest, FreshWithStaleRedirect)
 
     ResourcePtr<Resource> fetched = fetch();
     EXPECT_NE(firstResource, fetched);
+}
+
+TEST_F(CachingCorrectnessTest, PostToSameURLTwice)
+{
+    ResourceRequest request1(KURL(ParsedURLString, kResourceURL));
+    request1.setHTTPMethod("POST");
+    ResourcePtr<Resource> resource1 = new Resource(ResourceRequest(request1.url()), Resource::Raw);
+    resource1->setLoading(true);
+    memoryCache()->add(resource1.get());
+
+    ResourceRequest request2(KURL(ParsedURLString, kResourceURL));
+    request2.setHTTPMethod("POST");
+    FetchRequest fetch2(request2, FetchInitiatorInfo());
+    ResourcePtr<Resource> resource2 = fetcher()->fetchSynchronously(fetch2);
+
+    EXPECT_EQ(resource2, memoryCache()->resourceForURL(request2.url()));
+    EXPECT_NE(resource1, resource2);
 }
 
 } // namespace

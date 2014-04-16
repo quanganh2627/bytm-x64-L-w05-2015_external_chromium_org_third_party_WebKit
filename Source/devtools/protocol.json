@@ -69,7 +69,7 @@
             {
                 "id": "ResourceType",
                 "type": "string",
-                "enum": ["Document", "Stylesheet", "Image", "Font", "Script", "XHR", "WebSocket", "Other"],
+                "enum": ["Document", "Stylesheet", "Image", "Media", "Font", "Script", "TextTrack", "XHR", "WebSocket", "Other"],
                 "description": "Resource type as it was perceived by the rendering engine."
             },
             {
@@ -818,6 +818,13 @@
                     { "name": "context", "$ref": "ExecutionContextDescription", "description": "A newly created execution contex." }
                 ],
                 "description": "Issued when new execution context is created."
+            },
+            {
+                "name": "executionContextDestroyed",
+                "parameters": [
+                    { "name": "executionContextId", "$ref": "ExecutionContextId", "description": "Id of the destroyed context" }
+                ],
+                "description": "Issued when execution context is destroyed."
             }
         ]
     },
@@ -3766,7 +3773,6 @@
                     { "name": "keyIdentifier", "type": "string", "optional": true, "description": "Unique key identifier (e.g., 'U+0041') (default: \"\")." },
                     { "name": "windowsVirtualKeyCode", "type": "integer", "optional": true, "description": "Windows virtual key code (default: 0)." },
                     { "name": "nativeVirtualKeyCode", "type": "integer", "optional": true, "description": "Native virtual key code (default: 0)." },
-                    { "name": "macCharCode", "type": "integer", "optional": true, "description": "Mac character code (default: 0)." },
                     { "name": "autoRepeat", "type": "boolean", "optional": true, "description": "Whether the event was generated from auto repeat (default: false)." },
                     { "name": "isKeypad", "type": "boolean", "optional": true, "description": "Whether the event was generated from the keypad (default: false)." },
                     { "name": "isSystemKey", "type": "boolean", "optional": true, "description": "Whether the event was a system key event (default: false)." }
@@ -3995,7 +4001,8 @@
                 "async": true,
                 "parameters": [
                     { "name": "categories", "type": "string", "description": "Category/tag filter" },
-                    { "name": "options", "type": "string", "description": "Tracing options" }
+                    { "name": "options", "type": "string", "description": "Tracing options" },
+                    { "name": "bufferUsageReportingInterval", "type": "number", "optional": true, "description": "If set, the agent will issue bufferUsage events at this interval, specified in milliseconds" }
                 ],
                 "handlers": ["browser", "frontend"]
             },
@@ -4015,6 +4022,13 @@
             },
             {
                 "name": "tracingComplete",
+                "handlers": ["browser", "frontend"]
+            },
+            {
+                "name": "bufferUsage",
+                "parameters": [
+                    { "name": "value", "type": "number", "description": "A number in range [0..1] that indicates the used size of event buffer as a fraction of its total size." }
+                ],
                 "handlers": ["browser", "frontend"]
             }
         ]

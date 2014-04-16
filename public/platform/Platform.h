@@ -42,7 +42,9 @@
 #include "WebGamepads.h"
 #include "WebGraphicsContext3D.h"
 #include "WebLocalizedString.h"
+// FIXME: WebScreenOrientation.h is only needed because Chrome assumes it is there.
 #include "WebScreenOrientation.h"
+#include "WebScreenOrientationLockType.h"
 #include "WebSpeechSynthesizer.h"
 #include "WebStorageQuotaCallbacks.h"
 #include "WebStorageQuotaType.h"
@@ -248,6 +250,10 @@ public:
 
     // Return the physical memory of the current machine, in MB.
     virtual size_t physicalMemoryMB() { return 0; }
+
+    // Return the available virtual memory of the current machine, in MB. Or
+    // zero, if there is no limit.
+    virtual size_t virtualMemoryLimitMB() { return 0; }
 
     // Return the number of of processors of the current machine.
     virtual size_t numberOfProcessors() { return 0; }
@@ -611,6 +617,7 @@ public:
 
     virtual void setScreenOrientationListener(blink::WebScreenOrientationListener*) { }
     virtual void lockOrientation(WebScreenOrientations) { }
+    virtual void lockOrientation(WebScreenOrientationLockType) { }
     virtual void unlockOrientation() { }
 
 

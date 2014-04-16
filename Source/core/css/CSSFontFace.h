@@ -65,6 +65,9 @@ public:
 
     bool isValid() const { return !m_sources.isEmpty(); }
 
+    // FIXME: Should not be exposed (used by tentative CORS fallback code).
+    CSSFontSelector* fontSelector() const;
+
     void addSource(PassOwnPtr<CSSFontFaceSource>);
 
     void beginLoadIfNeeded(CSSFontFaceSource*, CSSFontSelector* = 0);
@@ -112,6 +115,8 @@ private:
     void setLoadStatus(FontFace::LoadStatus);
 
     UnicodeRangeSet m_ranges;
+    // FIXME: Oilpan: Make m_segmentedFontFace a RawPtrWillBeMember when moving
+    // CSSFontFace to the heap.
     CSSSegmentedFontFace* m_segmentedFontFace;
     Deque<OwnPtr<CSSFontFaceSource> > m_sources;
     FontFace* m_fontFace;

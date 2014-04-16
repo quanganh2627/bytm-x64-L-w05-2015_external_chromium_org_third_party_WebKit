@@ -81,7 +81,7 @@ typedef uint64_t LinkHash;
 
 float deviceScaleFactor(LocalFrame*);
 
-class Page FINAL : public Supplementable<Page>, public LifecycleContext<Page>, public SettingsDelegate {
+class Page FINAL : public NoBaseWillBeGarbageCollectedFinalized<Page>, public Supplementable<Page>, public LifecycleContext<Page>, public SettingsDelegate {
     WTF_MAKE_NONCOPYABLE(Page);
     friend class Settings;
 public:
@@ -118,6 +118,7 @@ public:
     FrameHost& frameHost() { return *m_frameHost; }
 
     void setNeedsRecalcStyleInAllFrames();
+    void updateAcceleratedCompositingSettings();
 
     ViewportDescription viewportDescription() const;
 
@@ -218,6 +219,10 @@ public:
 
     static void networkStateChanged(bool online);
     PassOwnPtr<LifecycleNotifier<Page> > createLifecycleNotifier();
+
+    void trace(Visitor*);
+
+    void willBeDestroyed();
 
 protected:
     PageLifecycleNotifier& lifecycleNotifier();

@@ -31,6 +31,7 @@
             "ContentProvider.js",
             "ContentProviderBasedProjectDelegate.js",
             "ContentProviders.js",
+            "Context.js",
             "CookieParser.js",
             "CPUProfilerModel.js",
             "CSSMetadata.js",
@@ -46,7 +47,7 @@
             "FileManager.js",
             "FileSystemMapping.js",
             "FileSystemModel.js",
-            "FileSystemProjectDelegate.js",
+            "FileSystemWorkspaceBinding.js",
             "FileUtils.js",
             "HAREntry.js",
             "IndexedDBModel.js",
@@ -67,7 +68,7 @@
             "SASSSourceMapping.js",
             "Script.js",
             "ScriptSnippetModel.js",
-            "SimpleWorkspaceProvider.js",
+            "NetworkWorkspaceBinding.js",
             "SnippetStorage.js",
             "SourceMapping.js",
             "StylesSourceMapping.js",
@@ -261,7 +262,7 @@
         "name": "search",
         "dependencies": ["components"],
         "sources": [
-            "AdvancedSearchController.js",
+            "AdvancedSearchView.js",
             "FileBasedSearchResultsPane.js",
             "SearchConfig.js",
             "SourcesSearchScope.js"
@@ -392,6 +393,7 @@
             "CPUProfileBottomUpDataGrid.js",
             "CPUProfileDataGrid.js",
             "CPUProfileFlameChart.js",
+            "CPUProfileModel.js",
             "CPUProfileTopDownDataGrid.js",
             "CPUProfileView.js",
             "HeapSnapshotCommon.js",
@@ -423,8 +425,15 @@
         ]
     },
     {
+        "name": "input",
+        "dependencies": ["sources"],
+        "sources": [
+            "ForwardedInputEventHandler.js"
+        ]
+    },
+    {
         "name": "host_stub",
-        "dependencies": ["components", "profiler", "timeline"],
+        "dependencies": ["components", "profiler", "timeline", "sources", "input"],
         "sources": [
             "InspectorFrontendAPI.js",
             "InspectorFrontendHostStub.js"

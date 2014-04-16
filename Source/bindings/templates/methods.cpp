@@ -24,7 +24,7 @@ static void {{method.name}}{{method.overload_index}}Method{{world_suffix}}(const
     {% if interface_name == 'EventTarget' %}
     if (DOMWindow* window = impl->toDOMWindow()) {
         if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), window->frame(), exceptionState)) {
-            exceptionState.throwIfNeeded();
+            {{throw_from_exception_state(method)}};
             return;
         }
         if (!window->document())
@@ -32,14 +32,14 @@ static void {{method.name}}{{method.overload_index}}Method{{world_suffix}}(const
     }
     {% elif method.is_check_security_for_frame %}
     if (!BindingSecurity::shouldAllowAccessToFrame(info.GetIsolate(), impl->frame(), exceptionState)) {
-        exceptionState.throwIfNeeded();
+        {{throw_from_exception_state(method)}};
         return;
     }
     {% endif %}
     {% if method.is_check_security_for_node %}
     if (!BindingSecurity::shouldAllowAccessToNode(info.GetIsolate(), impl->{{method.name}}(exceptionState), exceptionState)) {
         v8SetReturnValueNull(info);
-        exceptionState.throwIfNeeded();
+        {{throw_from_exception_state(method)}};
         return;
     }
     {% endif %}
@@ -134,15 +134,21 @@ OwnPtr<{{argument.idl_type}}> {{argument.name}} = {% if argument.is_nullable %}i
 {% elif argument.is_clamp %}{# argument.is_callback_interface #}
 {# NaN is treated as 0: http://www.w3.org/TR/WebIDL/#es-type-mapping #}
 {{argument.cpp_type}} {{argument.name}} = 0;
-V8TRYCATCH_VOID(double, {{argument.name}}NativeValue, info[{{argument.index}}]->NumberValue());
+{% if method.idl_type == 'Promise' %}
+TONATIVE_VOID_ASYNC(double, {{argument.name}}NativeValue, info[{{argument.index}}]->NumberValue(), info);
+{% else %}
+TONATIVE_VOID(double, {{argument.name}}NativeValue, info[{{argument.index}}]->NumberValue());
+{% endif %}
 if (!std::isnan({{argument.name}}NativeValue))
     {# IDL type is used for clamping, for the right bounds, since different
        IDL integer types have same internal C++ type (int or unsigned) #}
     {{argument.name}} = clampTo<{{argument.idl_type}}>({{argument.name}}NativeValue);
 {% elif argument.idl_type == 'SerializedScriptValue' %}
 {{argument.cpp_type}} {{argument.name}} = SerializedScriptValue::create(info[{{argument.index}}], 0, 0, exceptionState, info.GetIsolate());
-if (exceptionState.throwIfNeeded())
+if (exceptionState.hadException()) {
+    {{throw_from_exception_state(method)}};
     return;
+}
 {% elif argument.is_variadic_wrapper_type %}
 {{argument.vector_type}}<{{argument.cpp_type}} > {{argument.name}};
 for (int i = {{argument.index}}; i < info.Length(); ++i) {
@@ -153,9 +159,13 @@ for (int i = {{argument.index}}; i < info.Length(); ++i) {
     }
     {{argument.name}}.append(V8{{argument.idl_type}}::toNative(v8::Handle<v8::Object>::Cast(info[i])));
 }
+{% else %}{# argument.is_nullable #}
+{% if method.idl_type == 'Promise' %}
+{{argument.v8_value_to_local_cpp_value_async}};
 {% else %}
 {{argument.v8_value_to_local_cpp_value}};
 {% endif %}
+{% endif %}{# argument.is_nullable #}
 {% if argument.enum_validation_expression %}
 {# Methods throw on invalid enum values: http://www.w3.org/TR/WebIDL/#idl-enums #}
 String string = {{argument.name}};
@@ -200,17 +210,22 @@ RefPtr<ScriptArguments> scriptArguments(createScriptArguments(info, {{method.num
 {# Call #}
 {% if method.idl_type == 'void' %}
 {{cpp_value}};
+{% elif method.is_constructor %}
+{{method.cpp_type}} impl = {{cpp_value}};
 {% elif method.is_call_with_script_state or method.is_call_with_new_script_state or method.is_raises_exception %}
 {# FIXME: consider always using a local variable #}
 {{method.cpp_type}} result = {{cpp_value}};
 {% endif %}
 {# Post-call #}
 {% if method.is_raises_exception %}
-if (exceptionState.throwIfNeeded())
+if (exceptionState.hadException()) {
+    {{throw_from_exception_state(method)}};
     return;
+}
 {% endif %}
 {# Set return value #}
-{% if method.union_arguments %}
+{% if method.is_constructor %}
+{{generate_constructor_wrapper(method)}}{% elif method.union_arguments %}
 {{union_type_method_call_and_set_return_value(method)}}
 {% elif v8_set_return_value %}{{v8_set_return_value}};{% endif %}{# None for void #}
 {% endmacro %}
@@ -242,17 +257,44 @@ v8SetReturnValueNull(info);
 {% macro throw_type_error(method, error_message) %}
 {% if method.has_exception_state %}
 exceptionState.throwTypeError({{error_message}});
-exceptionState.throwIfNeeded();
+{{throw_from_exception_state(method)}};
 {%- elif method.is_constructor %}
+{% if method.idl_type == 'Promise' %}
+v8SetReturnValue(info, ScriptPromise::rejectWithTypeError(ExceptionMessages::failedToConstruct("{{interface_name}}", {{error_message}}), info.GetIsolate()).v8Value());
+{%- else %}
 throwTypeError(ExceptionMessages::failedToConstruct("{{interface_name}}", {{error_message}}), info.GetIsolate());
+{%- endif %}
+{%- else %}{# method.has_exception_state #}
+{% if method.idl_type == 'Promise' %}
+v8SetReturnValue(info, ScriptPromise::rejectWithTypeError(ExceptionMessages::failedToExecute("{{method.name}}", "{{interface_name}}", {{error_message}}), info.GetIsolate()).v8Value());
 {%- else %}
 throwTypeError(ExceptionMessages::failedToExecute("{{method.name}}", "{{interface_name}}", {{error_message}}), info.GetIsolate());
+{%- endif %}
+{%- endif %}{# method.has_exception_state #}
+{% endmacro %}
+
+
+{######################################}
+{% macro throw_from_exception_state(method) %}
+{% if method.idl_type == 'Promise' %}
+v8SetReturnValue(info, exceptionState.reject().v8Value())
+{%- else %}
+exceptionState.throwIfNeeded()
 {%- endif %}
 {% endmacro %}
 
 
 {######################################}
 {% macro throw_arity_type_error(method, number_of_required_arguments) %}
+{% if method.idl_type == 'Promise' %}
+{% if method.has_exception_state %}
+v8SetReturnValue(info, ScriptPromise::rejectWithArityTypeError(exceptionState, {{number_of_required_arguments}}, info.Length()).v8Value())
+{%- elif method.is_constructor %}
+v8SetReturnValue(info, ScriptPromise::rejectWithArityTypeErrorForConstructor("{{interface_name}}", {{number_of_required_arguments}}, info.Length(), info.GetIsolate().v8Value())
+{%- else %}
+v8SetReturnValue(info, ScriptPromise::rejectWithArityTypeErrorForMethod("{{method.name}}", "{{interface_name}}", {{number_of_required_arguments}}, info.Length(), info.GetIsolate()).v8Value())
+{%- endif %}
+{%- else %}{# methods.idl_type == 'Promise' #}
 {% if method.has_exception_state %}
 throwArityTypeError(exceptionState, {{number_of_required_arguments}}, info.Length())
 {%- elif method.is_constructor %}
@@ -260,6 +302,7 @@ throwArityTypeErrorForConstructor("{{interface_name}}", {{number_of_required_arg
 {%- else %}
 throwArityTypeErrorForMethod("{{method.name}}", "{{interface_name}}", {{number_of_required_arguments}}, info.Length(), info.GetIsolate())
 {%- endif %}
+{%- endif %}{# methods.idl_type == 'Promise' #}
 {% endmacro %}
 
 
@@ -387,20 +430,29 @@ static void constructor{{constructor.overload_index}}(const v8::FunctionCallback
     {% if is_constructor_call_with_document %}
     Document& document = *toDocument(currentExecutionContext(isolate));
     {% endif %}
-    {{ref_ptr}}<{{cpp_class}}> impl = {{cpp_class}}::create({{constructor.argument_list | join(', ')}});
+    {{constructor.cpp_type}} impl = {{cpp_class}}::create({{constructor.argument_list | join(', ')}});
     {% if is_constructor_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
     {% endif %}
 
-    {% if has_custom_wrap %}
-    v8::Handle<v8::Object> wrapper = wrap(impl.get(), info.Holder(), isolate);
-    {% else %}
-    v8::Handle<v8::Object> wrapper = info.Holder();
-    V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(impl.release(), &{{v8_class}}::wrapperTypeInfo, wrapper, isolate, {{wrapper_configuration}});
-    {% endif %}
-    v8SetReturnValue(info, wrapper);
+    {{generate_constructor_wrapper(constructor) | indent}}
 }
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro generate_constructor_wrapper(constructor) %}
+{% if has_custom_wrap %}
+v8::Handle<v8::Object> wrapper = wrap(impl.get(), info.Holder(), isolate);
+{% else %}
+{% set constructor_class = v8_class + ('Constructor'
+                                       if constructor.is_named_constructor else
+                                       '') %}
+v8::Handle<v8::Object> wrapper = info.Holder();
+V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(impl.release(), &{{constructor_class}}::wrapperTypeInfo, wrapper, isolate, {{wrapper_configuration}});
+{% endif %}
+v8SetReturnValue(info, wrapper);
 {% endmacro %}
 
 
@@ -408,25 +460,26 @@ static void constructor{{constructor.overload_index}}(const v8::FunctionCallback
 {% macro named_constructor_callback(constructor) %}
 static void {{v8_class}}ConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
+    v8::Isolate* isolate = info.GetIsolate();
     if (!info.IsConstructCall()) {
-        throwTypeError(ExceptionMessages::constructorNotCallableAsFunction("{{constructor.name}}"), info.GetIsolate());
+        throwTypeError(ExceptionMessages::constructorNotCallableAsFunction("{{constructor.name}}"), isolate);
         return;
     }
 
-    if (ConstructorMode::current(info.GetIsolate()) == ConstructorMode::WrapExistingObject) {
+    if (ConstructorMode::current(isolate) == ConstructorMode::WrapExistingObject) {
         v8SetReturnValue(info, info.Holder());
         return;
     }
 
-    Document* document = currentDOMWindow(info.GetIsolate())->document();
+    Document* document = currentDOMWindow(isolate)->document();
     ASSERT(document);
 
     // Make sure the document is added to the DOM Node map. Otherwise, the {{cpp_class}} instance
     // may end up being the only node in the map and get garbage-collected prematurely.
-    toV8(document, info.Holder(), info.GetIsolate());
+    toV8(document, info.Holder(), isolate);
 
     {% if constructor.has_exception_state %}
-    ExceptionState exceptionState(ExceptionState::ConstructionContext, "{{interface_name}}", info.Holder(), info.GetIsolate());
+    ExceptionState exceptionState(ExceptionState::ConstructionContext, "{{interface_name}}", info.Holder(), isolate);
     {% endif %}
     {% if constructor.number_of_required_arguments %}
     if (UNLIKELY(info.Length() < {{constructor.number_of_required_arguments}})) {
@@ -437,18 +490,12 @@ static void {{v8_class}}ConstructorCallback(const v8::FunctionCallbackInfo<v8::V
     {% for argument in constructor.arguments %}
     {{generate_argument(constructor, argument) | indent}}
     {% endfor %}
-    RefPtr<{{cpp_class}}> impl = {{cpp_class}}::createForJSConstructor({{constructor.argument_list | join(', ')}});
+    {{constructor.cpp_type}} impl = {{cpp_class}}::createForJSConstructor({{constructor.argument_list | join(', ')}});
     {% if is_constructor_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
     {% endif %}
 
-    {% if has_custom_wrap %}
-    v8::Handle<v8::Object> wrapper = wrap(impl.get(), info.Holder(), info.GetIsolate());
-    {% else %}
-    v8::Handle<v8::Object> wrapper = info.Holder();
-    V8DOMWrapper::associateObjectWithWrapper<{{v8_class}}>(impl.release(), &{{v8_class}}Constructor::wrapperTypeInfo, wrapper, info.GetIsolate(), {{wrapper_configuration}});
-    {% endif %}
-    v8SetReturnValue(info, wrapper);
+    {{generate_constructor_wrapper(constructor) | indent}}
 }
 {% endmacro %}

@@ -76,6 +76,7 @@ HTMLSelectElement::HTMLSelectElement(Document& document, HTMLFormElement* form)
     , m_suggestedIndex(-1)
 {
     ScriptWrappable::init(this);
+    setHasCustomStyleCallbacks();
 }
 
 PassRefPtr<HTMLSelectElement> HTMLSelectElement::create(Document& document)
@@ -521,11 +522,12 @@ int HTMLSelectElement::nextValidIndex(int listIndex, SkipDirection direction, in
     int size = listItems.size();
     for (listIndex += direction; listIndex >= 0 && listIndex < size; listIndex += direction) {
         --skip;
-        if (!listItems[listIndex]->isDisabledFormControl() && isHTMLOptionElement(*listItems[listIndex])) {
-            lastGoodIndex = listIndex;
-            if (skip <= 0)
-                break;
-        }
+        HTMLElement* element = listItems[listIndex];
+        if (!isHTMLOptionElement(*element) || toHTMLOptionElement(element)->isDisabledFormControl() || toHTMLOptionElement(element)->isDisplayNone())
+            continue;
+        lastGoodIndex = listIndex;
+        if (skip <= 0)
+            break;
     }
     return lastGoodIndex;
 }
@@ -638,7 +640,7 @@ void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
     const Vector<HTMLElement*>& items = listItems();
     for (unsigned i = 0; i < items.size(); ++i) {
         HTMLElement* element = items[i];
-        if (!isHTMLOptionElement(*element) || toHTMLOptionElement(element)->isDisabledFormControl())
+        if (!isHTMLOptionElement(*element) || toHTMLOptionElement(element)->isDisabledFormControl() || toHTMLOptionElement(element)->isDisplayNone())
             continue;
 
         if (i >= start && i <= end)
@@ -1123,7 +1125,7 @@ bool HTMLSelectElement::platformHandleKeydownEvent(KeyboardEvent* event)
             // Calling focus() may cause us to lose our renderer. Return true so
             // that our caller doesn't process the event further, but don't set
             // the event as handled.
-            if (!renderer() || isDisabledFormControl())
+            if (!renderer() || !renderer()->isMenuList() || isDisabledFormControl())
                 return true;
 
             // Save the selection so it can be compared to the new selection
@@ -1283,6 +1285,11 @@ void HTMLSelectElement::updateSelectedState(int listIndex, bool multi, bool shif
 {
     ASSERT(listIndex >= 0);
 
+    HTMLElement* clickedElement = listItems()[listIndex];
+    ASSERT(clickedElement);
+    if (isHTMLOptGroupElement(clickedElement))
+        return;
+
     // Save the selection so it can be compared to the new selection when
     // dispatching change events during mouseup, or after autoscroll finishes.
     saveLastSelection();
@@ -1292,8 +1299,6 @@ void HTMLSelectElement::updateSelectedState(int listIndex, bool multi, bool shif
     bool shiftSelect = m_multiple && shift;
     bool multiSelect = m_multiple && multi && !shift;
 
-    HTMLElement* clickedElement = listItems()[listIndex];
-    ASSERT(clickedElement);
     if (isHTMLOptionElement(*clickedElement)) {
         // Keep track of whether an active selection (like during drag
         // selection), should select or deselect.
@@ -1351,7 +1356,7 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event* event)
     } else if (event->type() == EventTypeNames::mousedown && event->isMouseEvent() && toMouseEvent(event)->button() == LeftButton) {
         focus();
         // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
-        if (!renderer())
+        if (!renderer() || !renderer()->isListBox() || isDisabledFormControl())
             return;
 
         // Convert to coords relative to the list box if needed.
@@ -1650,6 +1655,11 @@ bool HTMLSelectElement::isInteractiveContent() const
 bool HTMLSelectElement::supportsAutofocus() const
 {
     return true;
+}
+
+void HTMLSelectElement::updateListOnRenderer()
+{
+    setOptionsChangedOnRenderer();
 }
 
 } // namespace

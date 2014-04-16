@@ -1519,7 +1519,7 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
         parsedValue = parseShapeProperty(propId);
         break;
     case CSSPropertyShapeMargin:
-        validPrimitive = (RuntimeEnabledFeatures::cssShapesEnabled() && !id && validUnit(value, FLength | FNonNeg));
+        validPrimitive = (RuntimeEnabledFeatures::cssShapesEnabled() && !id && validUnit(value, FLength | FPercent | FNonNeg));
         break;
     case CSSPropertyShapeImageThreshold:
         validPrimitive = (RuntimeEnabledFeatures::cssShapesEnabled() && !id && validUnit(value, FNumber));
@@ -3170,7 +3170,7 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseAnimationTimingFunction
     CSSParserValue* value = m_valueList->current();
     if (value->id == CSSValueEase || value->id == CSSValueLinear || value->id == CSSValueEaseIn || value->id == CSSValueEaseOut
         || value->id == CSSValueEaseInOut || value->id == CSSValueStepStart || value->id == CSSValueStepEnd
-        || (value->id == CSSValueStepMiddle && RuntimeEnabledFeatures::webAnimationsAPIEnabled()))
+        || (value->id == CSSValueStepMiddle && RuntimeEnabledFeatures::webAnimationsElementAnimateEnabled()))
         return cssValuePool().createIdentifierValue(value->id);
 
     // We must be a function.
@@ -8373,13 +8373,6 @@ bool CSSPropertyParser::parseSVGValue(CSSPropertyID propId, bool important)
         else
             parsedValue = parseSVGStrokeDasharray();
 
-        break;
-
-    case CSSPropertyKerning: // auto | normal | <length> | inherit
-        if (id == CSSValueAuto || id == CSSValueNormal)
-            validPrimitive = true;
-        else
-            validPrimitive = validUnit(value, FLength, SVGAttributeMode);
         break;
 
     case CSSPropertyClipPath: // <uri> | none | inherit

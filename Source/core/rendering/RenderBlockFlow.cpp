@@ -447,7 +447,7 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
     if (heightChanged)
         relayoutChildren = true;
 
-    layoutPositionedObjects(relayoutChildren || isRoot(), oldLeft != logicalLeft() ? ForcedLayoutAfterContainingBlockMoved : DefaultLayout);
+    layoutPositionedObjects(relayoutChildren || isDocumentElement(), oldLeft != logicalLeft() ? ForcedLayoutAfterContainingBlockMoved : DefaultLayout);
 
     computeRegionRangeForBlock(flowThreadContainingBlock());
 
@@ -764,7 +764,7 @@ void RenderBlockFlow::rebuildFloatsFromIntruding()
     }
 
     // Inline blocks are covered by the isReplaced() check in the avoidFloats method.
-    if (avoidsFloats() || isRoot() || isRenderView() || isFloatingOrOutOfFlowPositioned() || isTableCell()) {
+    if (avoidsFloats() || isDocumentElement() || isRenderView() || isFloatingOrOutOfFlowPositioned() || isTableCell()) {
         if (m_floatingObjects) {
             m_floatingObjects->clear();
         }
@@ -1866,7 +1866,8 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
         parentBlockFlow->markSiblingsWithFloatsForLayout();
     }
 
-    createMultiColumnFlowThreadIfNeeded();
+    if (diff == StyleDifferenceLayout || !oldStyle)
+        createOrDestroyMultiColumnFlowThreadIfNeeded();
 }
 
 void RenderBlockFlow::updateStaticInlinePositionForChild(RenderBox* child, LayoutUnit logicalTop)
@@ -2446,7 +2447,7 @@ void RenderBlockFlow::addIntrudingFloats(RenderBlockFlow* prev, LayoutUnit logic
 LayoutUnit RenderBlockFlow::addOverhangingFloats(RenderBlockFlow* child, bool makeChildPaintOtherFloats)
 {
     // Prevent floats from being added to the canvas by the root element, e.g., <html>.
-    if (child->hasOverflowClip() || !child->containsFloats() || child->isRoot() || child->hasColumns() || child->isWritingModeRoot())
+    if (child->hasOverflowClip() || !child->containsFloats() || child->isDocumentElement() || child->hasColumns() || child->isWritingModeRoot())
         return 0;
 
     LayoutUnit childLogicalTop = child->logicalTop();
@@ -2515,7 +2516,7 @@ LayoutUnit RenderBlockFlow::nextFloatLogicalBottomBelow(LayoutUnit logicalHeight
     if (!m_floatingObjects)
         return logicalHeight;
 
-    LayoutUnit logicalBottom = LayoutUnit::max();
+    LayoutUnit logicalBottom;
     const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
     FloatingObjectSetIterator end = floatingObjectSet.end();
     for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
@@ -2529,10 +2530,10 @@ LayoutUnit RenderBlockFlow::nextFloatLogicalBottomBelow(LayoutUnit logicalHeight
                 floatLogicalBottom = shapeLogicalBottom;
         }
         if (floatLogicalBottom > logicalHeight)
-            logicalBottom = min(floatLogicalBottom, logicalBottom);
+            logicalBottom = logicalBottom ? min(floatLogicalBottom, logicalBottom) : floatLogicalBottom;
     }
 
-    return logicalBottom == LayoutUnit::max() ? LayoutUnit() : logicalBottom;
+    return logicalBottom;
 }
 
 bool RenderBlockFlow::hitTestFloats(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset)
@@ -2778,20 +2779,25 @@ RootInlineBox* RenderBlockFlow::createRootInlineBox()
     return new RootInlineBox(*this);
 }
 
-void RenderBlockFlow::createMultiColumnFlowThreadIfNeeded()
+void RenderBlockFlow::createOrDestroyMultiColumnFlowThreadIfNeeded()
 {
-    if ((style()->hasAutoColumnCount() && style()->hasAutoColumnWidth()) || !document().regionBasedColumnsEnabled())
+    if (!document().regionBasedColumnsEnabled())
         return;
 
-    if (multiColumnFlowThread())
-        return;
-
-    setChildrenInline(false);
-    RenderMultiColumnFlowThread* flowThread = RenderMultiColumnFlowThread::createAnonymous(document(), style());
-    RenderBlock::addChild(flowThread);
-    RenderBlockFlowRareData& rareData = ensureRareData();
-    ASSERT(!rareData.m_multiColumnFlowThread);
-    rareData.m_multiColumnFlowThread = flowThread;
+    bool needsFlowThread = style()->specifiesColumns();
+    if (needsFlowThread != static_cast<bool>(multiColumnFlowThread())) {
+        if (needsFlowThread) {
+            RenderMultiColumnFlowThread* flowThread = RenderMultiColumnFlowThread::createAnonymous(document(), style());
+            addChild(flowThread);
+            flowThread->populate();
+            RenderBlockFlowRareData& rareData = ensureRareData();
+            ASSERT(!rareData.m_multiColumnFlowThread);
+            rareData.m_multiColumnFlowThread = flowThread;
+        } else {
+            multiColumnFlowThread()->evacuateAndDestroy();
+            ASSERT(!multiColumnFlowThread());
+        }
+    }
 }
 
 RenderBlockFlow::RenderBlockFlowRareData& RenderBlockFlow::ensureRareData()

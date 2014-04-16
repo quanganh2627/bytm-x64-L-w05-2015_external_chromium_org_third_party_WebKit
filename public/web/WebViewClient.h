@@ -31,7 +31,6 @@
 #ifndef WebViewClient_h
 #define WebViewClient_h
 
-#include "../platform/WebColor.h"
 #include "../platform/WebGraphicsContext3D.h"
 #include "../platform/WebString.h"
 #include "WebAXEnums.h"
@@ -50,8 +49,6 @@
 namespace blink {
 
 class WebAXObject;
-class WebColorChooser;
-class WebColorChooserClient;
 class WebCompositorOutputSurface;
 class WebDateTimeChooserCompletion;
 class WebDragData;
@@ -68,7 +65,6 @@ class WebInputElement;
 class WebKeyboardEvent;
 class WebMIDIClient;
 class WebNode;
-class WebNotificationPresenter;
 class WebPushClient;
 class WebRange;
 class WebSpeechInputController;
@@ -80,7 +76,6 @@ class WebURLRequest;
 class WebUserMediaClient;
 class WebView;
 class WebWidget;
-struct WebColorSuggestion;
 struct WebConsoleMessage;
 struct WebDateTimeChooserParams;
 struct WebPoint;
@@ -131,9 +126,6 @@ public:
     // should be printed.
     virtual void printPage(WebLocalFrame*) { }
 
-    // Called to retrieve the provider of desktop notifications.
-    virtual WebNotificationPresenter* notificationPresenter() { return 0; }
-
     // This method enumerates all the files in the path. It returns immediately
     // and asynchronously invokes the WebFileChooserCompletion with all the
     // files in the directory. Returns false if the WebFileChooserCompletion
@@ -158,22 +150,8 @@ public:
     // indicating that the default action should be suppressed.
     virtual bool handleCurrentKeyboardEvent() { return false; }
 
+
     // Dialogs -------------------------------------------------------------
-
-    // This method opens the color chooser and returns a new WebColorChooser
-    // instance. If there is a WebColorChooser already from the last time this
-    // was called, it ends the color chooser by calling endChooser, and replaces
-    // it with the new one. The given list of suggestions can be used to show a
-    // simple interface with a limited set of choices.
-
-    // FIXME: Should be removed when the chromium side change lands.
-    virtual WebColorChooser* createColorChooser(WebColorChooserClient*,
-                                                const WebColor&) { return 0; }
-
-    virtual WebColorChooser* createColorChooser(
-        WebColorChooserClient*,
-        const WebColor&,
-        const WebVector<WebColorSuggestion>&) { return 0; }
 
     // This method returns immediately after showing the dialog. When the
     // dialog is closed, it should call the WebFileChooserCompletion to
@@ -199,33 +177,6 @@ public:
 
     // Move the existing notifation popup to the new anchor position.
     virtual void moveValidationMessage(const WebRect& anchorInRootView) { }
-
-    // Displays a modal alert dialog containing the given message.  Returns
-    // once the user dismisses the dialog.
-    virtual void runModalAlertDialog(
-        WebLocalFrame*, const WebString& message) { }
-
-    // Displays a modal confirmation dialog with the given message as
-    // description and OK/Cancel choices.  Returns true if the user selects
-    // 'OK' or false otherwise.
-    virtual bool runModalConfirmDialog(
-        WebLocalFrame*, const WebString& message) { return false; }
-
-    // Displays a modal input dialog with the given message as description
-    // and OK/Cancel choices.  The input field is pre-filled with
-    // defaultValue.  Returns true if the user selects 'OK' or false
-    // otherwise.  Upon returning true, actualValue contains the value of
-    // the input field.
-    virtual bool runModalPromptDialog(
-        WebLocalFrame*, const WebString& message, const WebString& defaultValue,
-        WebString* actualValue) { return false; }
-
-    // Displays a modal confirmation dialog containing the given message as
-    // description and OK/Cancel choices, where 'OK' means that it is okay
-    // to proceed with closing the view.  Returns true if the user selects
-    // 'OK' or false otherwise.
-    virtual bool runModalBeforeUnloadDialog(
-        WebLocalFrame*, const WebString& message) { return true; }
 
 
     // UI ------------------------------------------------------------------
@@ -269,6 +220,7 @@ public:
     // Returns comma separated list of accept languages.
     virtual WebString acceptLanguages() { return WebString(); }
 
+
     // Session history -----------------------------------------------------
 
     // Tells the embedder to navigate back or forward in session history by
@@ -287,6 +239,7 @@ public:
     // Notifies embedder about an accessibility event.
     virtual void postAccessibilityEvent(const WebAXObject&, WebAXEvent) { }
 
+
     // Developer tools -----------------------------------------------------
 
     // Called to notify the client that the inspector's settings were
@@ -295,12 +248,14 @@ public:
 
     virtual void didUpdateInspectorSetting(const WebString& key, const WebString& value) { }
 
+
     // Geolocation ---------------------------------------------------------
 
     // Access the embedder API for (client-based) geolocation client .
     virtual WebGeolocationClient* geolocationClient() { return 0; }
     // Access the embedder API for (non-client-based) geolocation services.
     virtual WebGeolocationService* geolocationService() { return 0; }
+
 
     // Speech --------------------------------------------------------------
 
@@ -310,6 +265,7 @@ public:
 
     // Access the embedder API for speech recognition services.
     virtual WebSpeechRecognizer* speechRecognizer() { return 0; }
+
 
     // Zoom ----------------------------------------------------------------
 
@@ -321,41 +277,24 @@ public:
     // action that wasn't initiated by the client.
     virtual void zoomLevelChanged() { }
 
+
     // Navigator Content Utils  --------------------------------------------
 
     // Registers a new URL handler for the given protocol.
     virtual void registerProtocolHandler(const WebString& scheme,
         const WebURL& baseUrl,
         const WebURL& url,
-        const WebString& title)
-    {
-        registerProtocolHandler(scheme, baseUrl.string(), url.string(), title);
-    }
+        const WebString& title) { }
 
     // Unregisters a given URL handler for the given protocol.
-    virtual void unregisterProtocolHandler(const WebString& scheme, const WebURL& baseUrl, const WebURL& url)
-    {
-        unregisterProtocolHandler(scheme, baseUrl.string(), url.string());
-    }
+    virtual void unregisterProtocolHandler(const WebString& scheme, const WebURL& baseUrl, const WebURL& url) { }
 
     // Check if a given URL handler is registered for the given protocol.
     virtual WebCustomHandlersState isProtocolHandlerRegistered(const WebString& scheme, const WebURL& baseUrl, const WebURL& url)
     {
-        return isProtocolHandlerRegistered(scheme, baseUrl.string(), url.string());
-    }
-
-    // These old version APIs need to be removed after synching with chrome side.
-    virtual void registerProtocolHandler(const WebString& scheme,
-        const WebString& baseUrl,
-        const WebString& url,
-        const WebString& title) { }
-
-    virtual void unregisterProtocolHandler(const WebString& scheme, const WebString& baseUrl, const WebString& url) { }
-
-    virtual WebCustomHandlersState isProtocolHandlerRegistered(const WebString& scheme, const WebString& baseUrl, const WebString& url)
-    {
         return WebCustomHandlersNew;
     }
+
 
     // Visibility -----------------------------------------------------------
 
@@ -365,9 +304,11 @@ public:
         return WebPageVisibilityStateVisible;
     }
 
+
     // Media Streams -------------------------------------------------------
 
     virtual WebUserMediaClient* userMediaClient() { return 0; }
+
 
     // Web MIDI -------------------------------------------------------------
 
@@ -389,6 +330,7 @@ public:
 
     // Cancels any previously scheduled content intents that have not yet launched.
     virtual void cancelScheduledContentIntents() { }
+
 
     // Draggable regions ----------------------------------------------------
 

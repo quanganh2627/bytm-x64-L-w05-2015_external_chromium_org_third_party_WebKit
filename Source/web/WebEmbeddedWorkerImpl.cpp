@@ -193,7 +193,7 @@ void WebEmbeddedWorkerImpl::prepareShadowPageForLoader()
     // with SharedWorker.
     ASSERT(!m_webView);
     m_webView = WebView::create(0);
-    m_mainFrame = WebFrame::create(this);
+    m_mainFrame = WebLocalFrame::create(this);
     m_webView->setMainFrame(m_mainFrame);
 
     WebFrameImpl* webFrame = toWebFrameImpl(m_webView->mainFrame());
@@ -247,7 +247,7 @@ void WebEmbeddedWorkerImpl::onScriptLoaderFinished()
     // guaranteed to be around while the WorkerGlobalScope is alive.
     WebServiceWorkerContextClient* contextClient = m_workerContextClient.get();
 
-    OwnPtr<WorkerClients> workerClients = WorkerClients::create();
+    OwnPtrWillBeRawPtr<WorkerClients> workerClients = WorkerClients::create();
     providePermissionClientToWorker(workerClients.get(), m_permissionClient.release());
     provideServiceWorkerGlobalScopeClientToWorker(workerClients.get(), ServiceWorkerGlobalScopeClientImpl::create(m_workerContextClient.release()));
 

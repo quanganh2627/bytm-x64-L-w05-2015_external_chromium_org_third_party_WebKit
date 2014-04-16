@@ -46,7 +46,7 @@
 
 namespace WebCore {
 
-PassRefPtr<Animation> Animation::create(PassRefPtr<Element> target, PassRefPtrWillBeRawPtr<AnimationEffect> effect, const Timing& timing, Priority priority, PassOwnPtr<EventDelegate> eventDelegate)
+PassRefPtr<Animation> Animation::create(Element* target, PassRefPtrWillBeRawPtr<AnimationEffect> effect, const Timing& timing, Priority priority, PassOwnPtr<EventDelegate> eventDelegate)
 {
     return adoptRef(new Animation(target, effect, timing, priority, eventDelegate));
 }
@@ -85,13 +85,21 @@ PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionar
     return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), Timing());
 }
 
-Animation::Animation(PassRefPtr<Element> target, PassRefPtrWillBeRawPtr<AnimationEffect> effect, const Timing& timing, Priority priority, PassOwnPtr<EventDelegate> eventDelegate)
+Animation::Animation(Element* target, PassRefPtrWillBeRawPtr<AnimationEffect> effect, const Timing& timing, Priority priority, PassOwnPtr<EventDelegate> eventDelegate)
     : TimedItem(timing, eventDelegate)
     , m_target(target)
     , m_effect(effect)
-    , m_activeInAnimationStack(false)
+    , m_sampledEffect(0)
     , m_priority(priority)
 {
+    if (m_target)
+        m_target->ensureActiveAnimations().addAnimation(this);
+}
+
+Animation::~Animation()
+{
+    if (m_target)
+        m_target->activeAnimations()->notifyAnimationDestroyed(this);
 }
 
 void Animation::didAttach()
@@ -108,7 +116,7 @@ void Animation::willDetach()
         m_target->activeAnimations()->players().remove(player());
         m_target->setNeedsAnimationStyleRecalc();
     }
-    if (m_activeInAnimationStack)
+    if (m_sampledEffect)
         clearEffects();
 }
 
@@ -123,33 +131,38 @@ static AnimationStack& ensureAnimationStack(Element* element)
     return element->ensureActiveAnimations().defaultStack();
 }
 
-void Animation::applyEffects(bool previouslyInEffect)
+void Animation::applyEffects()
 {
     ASSERT(isInEffect());
     ASSERT(player());
     if (!m_target || !m_effect)
         return;
 
-    if (!previouslyInEffect) {
-        ensureAnimationStack(m_target.get()).add(this);
-        m_activeInAnimationStack = true;
-    }
-
     double iteration = currentIteration();
     ASSERT(iteration >= 0);
     // FIXME: Handle iteration values which overflow int.
-    m_activeInterpolations = m_effect->sample(static_cast<int>(iteration), timeFraction(), duration());
+    OwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > interpolations = m_effect->sample(static_cast<int>(iteration), timeFraction(), duration());
+    if (m_sampledEffect) {
+        m_sampledEffect->setInterpolations(interpolations.release());
+    } else if (!interpolations->isEmpty()) {
+        OwnPtr<SampledEffect> sampledEffect = SampledEffect::create(this, interpolations.release());
+        m_sampledEffect = sampledEffect.get();
+        ensureAnimationStack(m_target).add(sampledEffect.release());
+    } else {
+        return;
+    }
+
     m_target->setNeedsAnimationStyleRecalc();
 }
 
 void Animation::clearEffects()
 {
     ASSERT(player());
-    ASSERT(m_activeInAnimationStack);
-    ensureAnimationStack(m_target.get()).remove(this);
+    ASSERT(m_sampledEffect);
+
+    m_sampledEffect->clear();
+    m_sampledEffect = 0;
     cancelAnimationOnCompositor();
-    m_activeInAnimationStack = false;
-    m_activeInterpolations.clear();
     m_target->setNeedsAnimationStyleRecalc();
     invalidate();
 }
@@ -159,8 +172,8 @@ void Animation::updateChildrenAndEffects() const
     if (!m_effect)
         return;
     if (isInEffect())
-        const_cast<Animation*>(this)->applyEffects(m_activeInAnimationStack);
-    else if (m_activeInAnimationStack)
+        const_cast<Animation*>(this)->applyEffects();
+    else if (m_sampledEffect)
         const_cast<Animation*>(this)->clearEffects();
 }
 
@@ -204,6 +217,24 @@ double Animation::calculateTimeToEffectChange(bool forwards, double localTime, d
     }
 }
 
+void Animation::notifySampledEffectRemovedFromAnimationStack()
+{
+    ASSERT(m_sampledEffect);
+    m_sampledEffect = 0;
+}
+
+void Animation::notifyElementDestroyed()
+{
+    // If our player is kept alive just by the sampledEffect, we might get our
+    // destructor called when we call SampledEffect::clear(), so we need to
+    // clear m_sampledEffect first.
+    m_target = 0;
+    SampledEffect* sampledEffect = m_sampledEffect;
+    m_sampledEffect = 0;
+    if (sampledEffect)
+        sampledEffect->clear();
+}
+
 bool Animation::isCandidateForAnimationOnCompositor() const
 {
     if (!effect() || !m_target)
@@ -216,9 +247,9 @@ bool Animation::maybeStartAnimationOnCompositor(double startTime)
     ASSERT(!hasActiveAnimationsOnCompositor());
     if (!isCandidateForAnimationOnCompositor())
         return false;
-    if (!CompositorAnimations::instance()->canStartAnimationOnCompositor(*m_target.get()))
+    if (!CompositorAnimations::instance()->canStartAnimationOnCompositor(*m_target))
         return false;
-    if (!CompositorAnimations::instance()->startAnimationOnCompositor(*m_target.get(), startTime, specifiedTiming(), *effect(), m_compositorAnimationIds))
+    if (!CompositorAnimations::instance()->startAnimationOnCompositor(*m_target, startTime, specifiedTiming(), *effect(), m_compositorAnimationIds))
         return false;
     ASSERT(!m_compositorAnimationIds.isEmpty());
     return true;
@@ -250,7 +281,7 @@ void Animation::cancelAnimationOnCompositor()
     if (!m_target || !m_target->renderer())
         return;
     for (size_t i = 0; i < m_compositorAnimationIds.size(); ++i)
-        CompositorAnimations::instance()->cancelAnimationOnCompositor(*m_target.get(), m_compositorAnimationIds[i]);
+        CompositorAnimations::instance()->cancelAnimationOnCompositor(*m_target, m_compositorAnimationIds[i]);
     m_compositorAnimationIds.clear();
 }
 
@@ -260,7 +291,7 @@ void Animation::pauseAnimationForTestingOnCompositor(double pauseTime)
     if (!m_target || !m_target->renderer())
         return;
     for (size_t i = 0; i < m_compositorAnimationIds.size(); ++i)
-        CompositorAnimations::instance()->pauseAnimationForTestingOnCompositor(*m_target.get(), m_compositorAnimationIds[i], pauseTime);
+        CompositorAnimations::instance()->pauseAnimationForTestingOnCompositor(*m_target, m_compositorAnimationIds[i], pauseTime);
 }
 
 } // namespace WebCore

@@ -606,6 +606,12 @@ void FrameView::calculateScrollbarModesForLayoutAndSetViewportRenderer(Scrollbar
     }
 }
 
+void FrameView::updateAcceleratedCompositingSettings()
+{
+    if (RenderView* renderView = this->renderView())
+        renderView->compositor()->updateAcceleratedCompositingSettings();
+}
+
 void FrameView::updateCompositingLayersAfterStyleChange()
 {
     TRACE_EVENT0("webkit", "FrameView::updateCompositingLayersAfterStyleChange");
@@ -621,15 +627,6 @@ void FrameView::updateCompositingLayersAfterStyleChange()
     // https://code.google.com/p/chromium/issues/detail?id=343756
     DisableCompositingQueryAsserts disabler;
 
-    // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
-    renderView->compositor()->cacheAcceleratedCompositingFlags();
-
-    // Sometimes we will change a property (for example, z-index) that will not
-    // cause a layout, but will require us to update compositing state. We only
-    // need to do this if a layout is not already scheduled.
-    if (!needsLayout())
-        renderView->compositor()->updateCompositingRequirementsState();
-
     renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterStyleChange);
 }
 
@@ -644,9 +641,7 @@ void FrameView::updateCompositingLayersAfterLayout()
     // https://code.google.com/p/chromium/issues/detail?id=343756
     DisableCompositingQueryAsserts disabler;
 
-    // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
-    renderView->compositor()->cacheAcceleratedCompositingFlags();
-    renderView->compositor()->updateCompositingRequirementsState();
+    renderView->compositor()->updateForceCompositingMode();
     renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterLayout);
 }
 
@@ -888,6 +883,7 @@ void FrameView::layout(bool allowSubtree)
         return;
     }
 
+    bool shouldDoFullLayout = false;
     FontCachePurgePreventer fontCachePurgePreventer;
     RenderLayer* layer;
     {
@@ -913,7 +909,7 @@ void FrameView::layout(bool allowSubtree)
         ScrollbarMode vMode;
         calculateScrollbarModesForLayoutAndSetViewportRenderer(hMode, vMode);
 
-        bool shouldDoFullRepaint = !inSubtreeLayout && (m_firstLayout || toRenderView(rootForThisLayout)->document().printing());
+        shouldDoFullLayout = !inSubtreeLayout && (m_firstLayout || toRenderView(rootForThisLayout)->document().printing());
 
         if (!inSubtreeLayout) {
             // Now set our scrollbar state for the layout.
@@ -946,15 +942,7 @@ void FrameView::layout(bool allowSubtree)
             m_size = LayoutSize(layoutSize().width(), layoutSize().height());
 
             if (oldSize != m_size) {
-                // It's hard to predict here which of full repaint or per-descendant repaint costs less.
-                // For vertical writing mode or width change, it's more likely that per-descendant repaint
-                // eventually turns out to be full repaint but with the cost to handle layout states and
-                // discrete repaint rects, so marking full repaint here is more likely to cost less.
-                // For height only changes, per-descendant repaint is more likely to avoid unnecessary
-                // full repaints.
-                if (!renderView()->style()->isHorizontalWritingMode() || oldSize.width() != m_size.width())
-                    shouldDoFullRepaint = true;
-
+                shouldDoFullLayout = true;
                 if (!m_firstLayout) {
                     RenderBox* rootRenderer = document->documentElement() ? document->documentElement()->renderBox() : 0;
                     RenderBox* bodyRenderer = rootRenderer && document->body() ? document->body()->renderBox() : 0;
@@ -970,7 +958,7 @@ void FrameView::layout(bool allowSubtree)
 
         // We need to set m_doFullRepaint before triggering layout as RenderObject::checkForRepaint
         // checks the boolean to disable local repaints.
-        m_doFullRepaint |= shouldDoFullRepaint;
+        m_doFullRepaint |= shouldDoFullLayout;
 
         performLayout(rootForThisLayout, inSubtreeLayout);
 
@@ -1739,10 +1727,7 @@ void FrameView::contentsResized()
     }
 
     ScrollView::contentsResized();
-    if (RenderView* renderView = this->renderView()) {
-        // Don't directly repaint layer in setNeedsLayout. We'll handle repaint in layout().
-        renderView->setNeedsLayout(MarkContainingBlockChain, 0, DontRepaintLayer);
-    }
+    setNeedsLayout();
 }
 
 void FrameView::scrollbarExistenceDidChange()
@@ -1798,7 +1783,9 @@ void FrameView::scheduleRelayout()
     if (m_hasPendingLayout)
         return;
     m_hasPendingLayout = true;
+
     page()->animator().scheduleVisualUpdate();
+    lifecycle().ensureStateAtMost(DocumentLifecycle::StyleClean);
 }
 
 static bool isObjectAncestorContainerOf(RenderObject* ancestor, RenderObject* descendant)
@@ -1813,6 +1800,10 @@ static bool isObjectAncestorContainerOf(RenderObject* ancestor, RenderObject* de
 void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
 {
     ASSERT(m_frame->view() == this);
+
+    // FIXME: Should this call shouldScheduleLayout instead?
+    if (!m_frame->document()->isActive())
+        return;
 
     RenderView* renderView = this->renderView();
     if (renderView && renderView->needsLayout()) {
@@ -1847,7 +1838,9 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
         ASSERT(!m_layoutSubtreeRoot->container() || !m_layoutSubtreeRoot->container()->needsLayout());
         InspectorInstrumentation::didInvalidateLayout(m_frame.get());
         m_hasPendingLayout = true;
+
         page()->animator().scheduleVisualUpdate();
+        lifecycle().ensureStateAtMost(DocumentLifecycle::StyleClean);
     }
 }
 
@@ -3120,14 +3113,6 @@ bool FrameView::removeScrollableArea(ScrollableArea* scrollableArea)
 
     m_scrollableAreas->remove(it);
     return true;
-}
-
-bool FrameView::containsScrollableArea(const ScrollableArea* scrollableArea) const
-{
-    ASSERT(scrollableArea);
-    if (!m_scrollableAreas || !scrollableArea)
-        return false;
-    return m_scrollableAreas->contains(const_cast<ScrollableArea*>(scrollableArea));
 }
 
 void FrameView::removeChild(Widget* widget)

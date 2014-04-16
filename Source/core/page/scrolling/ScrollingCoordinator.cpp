@@ -95,11 +95,6 @@ ScrollingCoordinator::ScrollingCoordinator(Page* page)
 
 ScrollingCoordinator::~ScrollingCoordinator()
 {
-    ASSERT(!m_page);
-    for (ScrollbarMap::iterator it = m_horizontalScrollbars.begin(); it != m_horizontalScrollbars.end(); ++it)
-        GraphicsLayer::unregisterContentsLayer(it->value->layer());
-    for (ScrollbarMap::iterator it = m_verticalScrollbars.begin(); it != m_verticalScrollbars.end(); ++it)
-        GraphicsLayer::unregisterContentsLayer(it->value->layer());
 }
 
 bool ScrollingCoordinator::touchHitTestingEnabled() const
@@ -246,10 +241,10 @@ static PassOwnPtr<WebScrollbarLayer> createScrollbarLayer(Scrollbar* scrollbar)
     return scrollbarLayer.release();
 }
 
-PassOwnPtr<WebScrollbarLayer> ScrollingCoordinator::createSolidColorScrollbarLayer(ScrollbarOrientation orientation, int thumbThickness, bool isLeftSideVerticalScrollbar)
+PassOwnPtr<WebScrollbarLayer> ScrollingCoordinator::createSolidColorScrollbarLayer(ScrollbarOrientation orientation, int thumbThickness, int trackStart, bool isLeftSideVerticalScrollbar)
 {
     blink::WebScrollbar::Orientation webOrientation = (orientation == HorizontalScrollbar) ? blink::WebScrollbar::Horizontal : blink::WebScrollbar::Vertical;
-    OwnPtr<WebScrollbarLayer> scrollbarLayer = adoptPtr(blink::Platform::current()->compositorSupport()->createSolidColorScrollbarLayer(webOrientation, thumbThickness, isLeftSideVerticalScrollbar));
+    OwnPtr<WebScrollbarLayer> scrollbarLayer = adoptPtr(blink::Platform::current()->compositorSupport()->createSolidColorScrollbarLayer(webOrientation, thumbThickness, trackStart, isLeftSideVerticalScrollbar));
     GraphicsLayer::registerContentsLayer(scrollbarLayer->layer());
     return scrollbarLayer.release();
 }
@@ -327,7 +322,7 @@ void ScrollingCoordinator::scrollableAreaScrollbarLayerDidChange(ScrollableArea*
             OwnPtr<WebScrollbarLayer> webScrollbarLayer;
             if (settings->useSolidColorScrollbars()) {
                 ASSERT(RuntimeEnabledFeatures::overlayScrollbarsEnabled());
-                webScrollbarLayer = createSolidColorScrollbarLayer(orientation, scrollbar->theme()->thumbThickness(scrollbar), scrollableArea->shouldPlaceVerticalScrollbarOnLeft());
+                webScrollbarLayer = createSolidColorScrollbarLayer(orientation, scrollbar->theme()->thumbThickness(scrollbar), scrollbar->theme()->trackPosition(scrollbar), scrollableArea->shouldPlaceVerticalScrollbarOnLeft());
             } else {
                 webScrollbarLayer = createScrollbarLayer(scrollbar);
             }
@@ -652,15 +647,35 @@ void ScrollingCoordinator::willDestroyRenderLayer(RenderLayer* layer)
     m_layersWithTouchRects.remove(layer);
 }
 
-void ScrollingCoordinator::setWheelEventHandlerCount(unsigned count)
+void ScrollingCoordinator::updateHaveWheelEventHandlers()
 {
-    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling()))
-        scrollLayer->setHaveWheelEventHandlers(count > 0);
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+
+    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+        unsigned wheelEventHandlerCount = 0;
+
+        for (LocalFrame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+            wheelEventHandlerCount += WheelController::from(*frame->document())->wheelEventHandlerCount();
+        }
+
+        scrollLayer->setHaveWheelEventHandlers(wheelEventHandlerCount);
+    }
 }
 
-void ScrollingCoordinator::recomputeWheelEventHandlerCountForFrameView(FrameView*)
+void ScrollingCoordinator::updateHaveScrollEventHandlers()
 {
-    setWheelEventHandlerCount(computeCurrentWheelEventHandlerCount());
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+
+    // Currently the compositor only cares whether there are scroll handlers anywhere on the page
+    // instead on a per-layer basis. We therefore only update this information for the root
+    // scrolling layer.
+    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+        // TODO(skyostil): Hook this up.
+        bool haveHandlers = false;
+        scrollLayer->setHaveScrollEventHandlers(haveHandlers);
+    }
 }
 
 void ScrollingCoordinator::setShouldUpdateScrollLayerPositionOnMainThread(MainThreadScrollingReasons reasons)
@@ -671,10 +686,14 @@ void ScrollingCoordinator::setShouldUpdateScrollLayerPositionOnMainThread(MainTh
     }
 }
 
-void ScrollingCoordinator::pageDestroyed()
+void ScrollingCoordinator::willBeDestroyed()
 {
     ASSERT(m_page);
     m_page = 0;
+    for (ScrollbarMap::iterator it = m_horizontalScrollbars.begin(); it != m_horizontalScrollbars.end(); ++it)
+        GraphicsLayer::unregisterContentsLayer(it->value->layer());
+    for (ScrollbarMap::iterator it = m_verticalScrollbars.begin(); it != m_verticalScrollbars.end(); ++it)
+        GraphicsLayer::unregisterContentsLayer(it->value->layer());
 }
 
 bool ScrollingCoordinator::coordinatesScrollingForFrameView(FrameView* frameView) const
@@ -820,26 +839,6 @@ void ScrollingCoordinator::computeTouchEventTargetRects(LayerHitTestRects& rects
     accumulateDocumentTouchEventTargetRects(rects, document);
 }
 
-unsigned ScrollingCoordinator::computeCurrentWheelEventHandlerCount()
-{
-    unsigned wheelEventHandlerCount = 0;
-
-    for (LocalFrame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        if (frame->document())
-            wheelEventHandlerCount += WheelController::from(*frame->document())->wheelEventHandlerCount();
-    }
-
-    return wheelEventHandlerCount;
-}
-
-void ScrollingCoordinator::frameViewWheelEventHandlerCountChanged(FrameView* frameView)
-{
-    ASSERT(isMainThread());
-    ASSERT(m_page);
-
-    recomputeWheelEventHandlerCountForFrameView(frameView);
-}
-
 void ScrollingCoordinator::frameViewHasSlowRepaintObjectsDidChange(FrameView* frameView)
 {
     ASSERT(isMainThread());
@@ -889,7 +888,8 @@ void ScrollingCoordinator::frameViewRootLayerDidChange(FrameView* frameView)
         return;
 
     notifyLayoutUpdated();
-    recomputeWheelEventHandlerCountForFrameView(frameView);
+    updateHaveWheelEventHandlers();
+    updateHaveScrollEventHandlers();
 }
 
 #if OS(MACOSX)

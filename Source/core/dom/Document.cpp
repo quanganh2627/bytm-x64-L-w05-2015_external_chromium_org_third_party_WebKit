@@ -109,11 +109,11 @@
 #include "core/events/ScopedEventQueue.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/DOMWindow.h"
+#include "core/frame/FrameConsole.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/History.h"
 #include "core/frame/LocalFrame.h"
-#include "core/frame/PageConsole.h"
 #include "core/frame/Settings.h"
 #include "core/frame/csp/ContentSecurityPolicy.h"
 #include "core/html/HTMLAllCollection.h"
@@ -139,7 +139,8 @@
 #include "core/html/canvas/CanvasRenderingContext2D.h"
 #include "core/html/canvas/WebGLRenderingContext.h"
 #include "core/html/forms/FormController.h"
-#include "core/html/imports/HTMLImport.h"
+#include "core/html/imports/HTMLImportLoader.h"
+#include "core/html/imports/HTMLImportsController.h"
 #include "core/html/parser/HTMLDocumentParser.h"
 #include "core/html/parser/HTMLParserIdioms.h"
 #include "core/html/parser/NestingLevelIncrementer.h"
@@ -409,7 +410,7 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_pendingSheetLayout(NoLayoutWithPendingSheets)
     , m_frame(initializer.frame())
     , m_domWindow(m_frame ? m_frame->domWindow() : 0)
-    , m_import(initializer.import())
+    , m_importsController(initializer.importsController())
     , m_activeParserCount(0)
     , m_contextFeatures(ContextFeatures::defaultSwitch())
     , m_wellFormed(false)
@@ -545,9 +546,9 @@ Document::~Document()
     if (m_styleSheetList)
         m_styleSheetList->detachFromDocument();
 
-    if (m_import) {
-        m_import->wasDetachedFromDocument();
-        m_import = 0;
+    if (m_importsController) {
+        m_importsController->wasDetachedFrom(*this);
+        m_importsController = 0;
     }
 
     m_timeline->detachFromDocument();
@@ -600,9 +601,9 @@ void Document::dispose()
 
     m_registrationContext.clear();
 
-    if (m_import) {
-        m_import->wasDetachedFromDocument();
-        m_import = 0;
+    if (m_importsController) {
+        m_importsController->wasDetachedFrom(*this);
+        m_importsController = 0;
     }
 
     // removeDetachedChildren() doesn't always unregister IDs,
@@ -800,24 +801,31 @@ ScriptValue Document::registerElement(WebCore::NewScriptState* scriptState, cons
     return constructorBuilder.bindingsReturnValue();
 }
 
-void Document::setImport(HTMLImport* import)
+void Document::setImportsController(HTMLImportsController* controller)
 {
-    ASSERT(!m_import || !import);
-    m_import = import;
+    ASSERT(!m_importsController || !controller);
+    m_importsController = controller;
+}
+
+HTMLImportLoader* Document::importLoader() const
+{
+    if (!m_importsController)
+        return 0;
+    return m_importsController->loaderFor(*this);
 }
 
 bool Document::haveImportsLoaded() const
 {
-    if (!m_import)
+    if (!m_importsController)
         return true;
-    return !m_import->state().shouldBlockScriptExecution();
+    return !m_importsController->shouldBlockScriptExecution(*this);
 }
 
 DOMWindow* Document::executingWindow()
 {
     if (DOMWindow* owningWindow = domWindow())
         return owningWindow;
-    if (HTMLImport* import = this->import())
+    if (HTMLImportsController* import = this->importsController())
         return import->master()->domWindow();
     return 0;
 }
@@ -1383,6 +1391,21 @@ void Document::removeTitle(Element* titleElement)
         updateTitle(String());
 }
 
+const AtomicString& Document::dir()
+{
+    // FIXME(crbug.com/363107): This should be the root html element, not the body.
+    if (HTMLElement* b = body())
+        return b->getAttribute(dirAttr);
+    return nullAtom;
+}
+
+void Document::setDir(const AtomicString& value)
+{
+    // FIXME(crbug.com/363107): This should be the root html element, not the body.
+    if (HTMLElement* b = body())
+        b->setAttribute(dirAttr, value);
+}
+
 PageVisibilityState Document::pageVisibilityState() const
 {
     // The visibility of the document is inherited from the visibility of the
@@ -1580,7 +1603,7 @@ void Document::scheduleRenderTreeUpdate()
     ASSERT(needsRenderTreeUpdate());
 
     page()->animator().scheduleVisualUpdate();
-    m_lifecycle.advanceTo(DocumentLifecycle::StyleRecalcPending);
+    m_lifecycle.ensureStateAtMost(DocumentLifecycle::VisualUpdatePending);
 
     InspectorInstrumentation::didScheduleStyleRecalculation(this);
 }
@@ -1629,7 +1652,7 @@ void Document::setupFontBuilder(RenderStyle* documentStyle)
 {
     FontBuilder fontBuilder;
     fontBuilder.initForStyleResolve(*this, documentStyle, isSVGDocument());
-    RefPtr<CSSFontSelector> selector = m_styleEngine->fontSelector();
+    RefPtrWillBeRawPtr<CSSFontSelector> selector = m_styleEngine->fontSelector();
     fontBuilder.createFontForDocument(selector, documentStyle);
 }
 
@@ -2630,9 +2653,16 @@ bool Document::shouldScheduleLayout() const
     //
     //    (a) Only schedule a layout once the stylesheets are loaded.
     //    (b) Only schedule layout once we have a body element.
+    if (!isActive())
+        return false;
 
-    return (isRenderingReady() && body())
-        || (documentElement() && !isHTMLHtmlElement(*documentElement()));
+    if (isRenderingReady() && body())
+        return true;
+
+    if (documentElement() && !isHTMLHtmlElement(*documentElement()))
+        return true;
+
+    return false;
 }
 
 int Document::elapsedTime() const
@@ -2894,8 +2924,9 @@ void Document::didRemoveAllPendingStylesheet()
 
     styleResolverChanged(RecalcStyleDeferred, hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
 
-    if (m_import)
-        m_import->didRemoveAllPendingStylesheet();
+    if (HTMLImportLoader* import = importLoader())
+        import->didRemoveAllPendingStylesheet();
+
     if (!haveImportsLoaded())
         return;
 
@@ -2953,7 +2984,7 @@ void Document::processHttpEquiv(const AtomicString& equiv, const AtomicString& c
 
 void Document::processHttpEquivContentSecurityPolicy(const AtomicString& equiv, const AtomicString& content)
 {
-    if (import() && import()->isChild())
+    if (importLoader())
         return;
     if (equalIgnoringCase(equiv, "content-security-policy"))
         contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderTypeEnforce, ContentSecurityPolicyHeaderSourceMeta);
@@ -4495,8 +4526,8 @@ void Document::finishedParsing()
     // Parser should have picked up all preloads by now
     m_fetcher->clearPreloads();
 
-    if (m_import)
-        m_import->didFinishParsing();
+    if (HTMLImportLoader* import = importLoader())
+        import->didFinishParsing();
 }
 
 void Document::elementDataCacheClearTimerFired(Timer<Document>*)
@@ -4569,13 +4600,13 @@ bool Document::useSecureKeyboardEntryWhenActive() const
 
 void Document::initSecurityContext()
 {
-    initSecurityContext(DocumentInit(m_url, m_frame, contextDocument(), m_import));
+    initSecurityContext(DocumentInit(m_url, m_frame, contextDocument(), m_importsController));
 }
 
 static PassRefPtr<ContentSecurityPolicy> contentSecurityPolicyFor(Document* document)
 {
-    if (document->import() && document->import()->isChild())
-        return document->import()->master()->contentSecurityPolicy();
+    if (document->importsController())
+        return document->importsController()->master()->contentSecurityPolicy();
     return ContentSecurityPolicy::create(document);
 }
 
@@ -4815,8 +4846,8 @@ void Document::internalAddMessage(MessageSource source, MessageLevel level, cons
         m_taskRunner->postTask(AddConsoleMessageTask::create(source, level, message));
         return;
     }
-    FrameHost* host = frameHost();
-    if (!host)
+
+    if (!m_frame)
         return;
 
     String messageURL = sourceURL;
@@ -4828,7 +4859,7 @@ void Document::internalAddMessage(MessageSource source, MessageLevel level, cons
                 lineNumber = parser->lineNumber().oneBasedInt();
         }
     }
-    host->console().addMessage(source, level, message, messageURL, lineNumber, 0, callStack, state, 0);
+    m_frame->console().addMessage(source, level, message, messageURL, lineNumber, 0, callStack, state, 0);
 }
 
 void Document::addConsoleMessageWithRequestIdentifier(MessageSource source, MessageLevel level, const String& message, unsigned long requestIdentifier)
@@ -4838,8 +4869,8 @@ void Document::addConsoleMessageWithRequestIdentifier(MessageSource source, Mess
         return;
     }
 
-    if (FrameHost* host = frameHost())
-        host->console().addMessage(source, level, message, String(), 0, 0, nullptr, 0, requestIdentifier);
+    if (m_frame)
+        m_frame->console().addMessage(source, level, message, String(), 0, 0, nullptr, 0, requestIdentifier);
 }
 
 // FIXME(crbug.com/305497): This should be removed after ExecutionContext-DOMWindow migration.

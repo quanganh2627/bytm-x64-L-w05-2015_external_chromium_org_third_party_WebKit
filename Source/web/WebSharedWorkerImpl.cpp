@@ -193,7 +193,7 @@ void WebSharedWorkerImpl::initializeLoader(const WebURL& url)
     m_webView->settings()->setOfflineWebApplicationCacheEnabled(RuntimeEnabledFeatures::applicationCacheEnabled());
     // FIXME: Settings information should be passed to the Worker process from Browser process when the worker
     // is created (similar to RenderThread::OnCreateNewView).
-    m_mainFrame = WebFrame::create(this);
+    m_mainFrame = WebLocalFrame::create(this);
     m_webView->setMainFrame(m_mainFrame);
 
     WebFrameImpl* webFrame = toWebFrameImpl(m_webView->mainFrame());
@@ -347,7 +347,7 @@ void WebSharedWorkerImpl::onScriptLoaderFinished()
         return;
     }
     WorkerThreadStartMode startMode = m_pauseWorkerContextOnStart ? PauseWorkerGlobalScopeOnStart : DontPauseWorkerGlobalScopeOnStart;
-    OwnPtr<WorkerClients> workerClients = WorkerClients::create();
+    OwnPtrWillBeRawPtr<WorkerClients> workerClients = WorkerClients::create();
     provideLocalFileSystemToWorker(workerClients.get(), LocalFileSystemClient::create());
     provideDatabaseClientToWorker(workerClients.get(), DatabaseClientImpl::create());
     WebSecurityOrigin webSecurityOrigin(m_loadingDocument->securityOrigin());

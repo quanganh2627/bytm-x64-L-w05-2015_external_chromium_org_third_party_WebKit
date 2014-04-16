@@ -113,6 +113,7 @@ public:
 
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
+    void updateAcceleratedCompositingSettings();
     void updateCompositingLayersAfterStyleChange();
     void updateCompositingLayersAfterLayout();
 
@@ -263,7 +264,6 @@ public:
     void setTracksRepaints(bool);
     bool isTrackingRepaints() const { return m_isTrackingRepaints; }
     void resetTrackedRepaints();
-    const Vector<IntRect>& trackedRepaintRects() const { return m_trackedRepaintRects; }
     String trackedRepaintRectsAsText() const;
 
     typedef HashSet<ScrollableArea*> ScrollableAreaSet;
@@ -271,7 +271,6 @@ public:
     bool addScrollableArea(ScrollableArea*);
     // Returns whether the scrollable area has just been removed.
     bool removeScrollableArea(ScrollableArea*);
-    bool containsScrollableArea(const ScrollableArea*) const;
     const ScrollableAreaSet* scrollableAreas() const { return m_scrollableAreas.get(); }
 
     // With CSS style "resize:" enabled, a little resizer handle will appear at the bottom

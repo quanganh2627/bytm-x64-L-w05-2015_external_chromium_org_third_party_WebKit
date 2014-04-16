@@ -215,7 +215,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ExceptionState.cpp \
 	third_party/WebKit/Source/bindings/v8/ExceptionStatePlaceholder.cpp \
 	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
-	third_party/WebKit/Source/bindings/v8/MIDIAccessResolver.cpp \
 	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
 	third_party/WebKit/Source/bindings/v8/NewScriptState.cpp \
 	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
@@ -225,6 +224,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ScriptController.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptEventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptFunction.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptFunctionCall.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptGCEvent.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptHeapSnapshot.cpp \
@@ -233,6 +233,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ScriptProfiler.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptPromise.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolver.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolverWithContext.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptRegexp.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptScope.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptState.cpp \
@@ -409,8 +410,10 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -566,8 +569,10 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \

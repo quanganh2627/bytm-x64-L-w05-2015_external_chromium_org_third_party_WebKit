@@ -10,12 +10,13 @@
  * @implements {WebInspector.FlameChartDelegate}
  * @extends {WebInspector.VBox}
  * @param {!WebInspector.TimelineModeViewDelegate} delegate
+ * @param {!WebInspector.TracingModel} tracingModel
  */
-WebInspector.TimelineTracingView = function(delegate)
+WebInspector.TimelineTracingView = function(delegate, tracingModel)
 {
     WebInspector.VBox.call(this);
     this._delegate = delegate;
-    this._tracingModel = new WebInspector.TracingModel();
+    this._tracingModel = tracingModel;
     this.element.classList.add("timeline-flamechart");
     this.registerRequiredCSS("flameChart.css");
     this._dataProvider = new WebInspector.TraceViewFlameChartDataProvider(this._tracingModel);
@@ -25,30 +26,6 @@ WebInspector.TimelineTracingView = function(delegate)
 }
 
 WebInspector.TimelineTracingView.prototype = {
-    timelineStarted: function()
-    {
-        if (this._recordingTrace)
-            return;
-        this._recordingTrace = true;
-        this._tracingModel.start("*,disabled-by-default-cc.debug", "");
-    },
-
-    timelineStopped: function()
-    {
-        if (!this._recordingTrace)
-            return;
-
-        /**
-         * @this {WebInspector.TimelineTracingView}
-         */
-        function onTraceDataComplete()
-        {
-            this.refreshRecords(null);
-        }
-        this._tracingModel.stop(onTraceDataComplete.bind(this));
-        this._recordingTrace = false;
-    },
-
     /**
      * @param {number} windowStartTime
      * @param {number} windowEndTime
@@ -128,7 +105,17 @@ WebInspector.TimelineTracingView.prototype = {
         contentHelper.appendTextRow(WebInspector.UIString("Duration"), Number.millisToString(this._dataProvider._toTimelineTime(record.duration), true));
         if (!Object.isEmpty(record.args))
             contentHelper.appendElementRow(WebInspector.UIString("Arguments"), this._formatArguments(record.args));
-
+        function reveal()
+        {
+            WebInspector.Revealer.reveal(new WebInspector.TracingLayerSnapshot(record.args["snapshot"]["active_tree"]["root_layer"]));
+        }
+        if (record.name === "cc::LayerTreeHostImpl") {
+            var link = document.createElement("span");
+            link.classList.add("revealable-link");
+            link.textContent = "show";
+            link.addEventListener("click", reveal, false);
+            contentHelper.appendElementRow(WebInspector.UIString("Layer tree"), link);
+        }
         this._delegate.showInDetails(WebInspector.UIString("Selected Event"), contentHelper.element);
     },
 

@@ -154,7 +154,7 @@ void AnimationPlayer::setCurrentTime(double newCurrentTime)
     cancelAnimationOnCompositor();
 }
 
-void AnimationPlayer::setStartTime(double newStartTime)
+void AnimationPlayer::setStartTime(double newStartTime, bool isUpdateFromCompositor)
 {
     if (!std::isfinite(newStartTime))
         return;
@@ -163,7 +163,8 @@ void AnimationPlayer::setStartTime(double newStartTime)
     updateCurrentTimingState(); // Update the value of held
     m_startTime = newStartTime;
     m_sortInfo.m_startTime = newStartTime;
-    cancelAnimationOnCompositor();
+    if (!isUpdateFromCompositor)
+        cancelAnimationOnCompositor();
     if (m_held)
         return;
     updateCurrentTimingState();
@@ -317,45 +318,47 @@ bool AnimationPlayer::update(UpdateReason reason)
 {
     m_outdated = false;
 
-    // FIXME(ericwilligers): Support finish events with null m_content
-    if (!m_timeline || !m_content)
+    if (!m_timeline)
         return false;
 
-    double inheritedTime = isNull(m_timeline->currentTime()) ? nullValue() : currentTime();
-    m_content->updateInheritedTime(inheritedTime);
-
-    ASSERT(!m_outdated);
-    if (reason == UpdateForAnimationFrame) {
-        const AtomicString& eventType = EventTypeNames::finish;
-        if (finished() && !m_finished && executionContext() && hasEventListeners(eventType)) {
-            RefPtrWillBeRawPtr<AnimationPlayerEvent> event = AnimationPlayerEvent::create(eventType, currentTime(), timeline()->currentTime());
-            event->setTarget(this);
-            event->setCurrentTarget(this);
-            m_timeline->document()->enqueueAnimationFrameEvent(event.release());
-        }
-        m_finished = finished();
+    if (m_content) {
+        double inheritedTime = isNull(m_timeline->currentTime()) ? nullValue() : currentTime();
+        m_content->updateInheritedTime(inheritedTime);
     }
-    return !m_finished || m_content->isCurrent() || m_content->isInEffect();
+
+    if (finished() && !m_finished) {
+        const AtomicString& eventType = EventTypeNames::finish;
+        if (executionContext() && hasEventListeners(eventType)) {
+            if (reason == UpdateForAnimationFrame) {
+                RefPtrWillBeRawPtr<AnimationPlayerEvent> event = AnimationPlayerEvent::create(eventType, currentTime(), timeline()->currentTime());
+                event->setTarget(this);
+                event->setCurrentTarget(this);
+                m_timeline->document()->enqueueAnimationFrameEvent(event.release());
+                m_finished = true;
+            }
+        } else {
+            m_finished = true;
+        }
+    }
+    ASSERT(!m_outdated);
+    return !m_finished || !finished();
 }
 
 double AnimationPlayer::timeToEffectChange()
 {
     ASSERT(!m_outdated);
-    if (!m_content || !m_playbackRate)
+    if (m_held || !hasStartTime())
         return std::numeric_limits<double>::infinity();
+    if (!m_content)
+        return -currentTime() / m_playbackRate;
     if (m_playbackRate > 0)
         return m_content->timeToForwardsEffectChange() / m_playbackRate;
-    return m_content->timeToReverseEffectChange() / std::abs(m_playbackRate);
+    return m_content->timeToReverseEffectChange() / -m_playbackRate;
 }
 
 void AnimationPlayer::cancel()
 {
-    if (!m_content)
-        return;
-
-    ASSERT(m_content->player() == this);
-    m_content->detach();
-    m_content = nullptr;
+    setSource(0);
 }
 
 bool AnimationPlayer::SortInfo::operator<(const SortInfo& other) const
@@ -366,6 +369,12 @@ bool AnimationPlayer::SortInfo::operator<(const SortInfo& other) const
     if (m_startTime > other.m_startTime)
         return false;
     return m_sequenceNumber < other.m_sequenceNumber;
+}
+
+bool AnimationPlayer::canFree() const
+{
+    ASSERT(m_content);
+    return hasOneRef() && m_content->isAnimation() && m_content->hasOneRef();
 }
 
 bool AnimationPlayer::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)

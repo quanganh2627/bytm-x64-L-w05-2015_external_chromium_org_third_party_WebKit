@@ -49,7 +49,7 @@ class HTMLImportChild;
 class HTMLImportChildClient;
 class HTMLImportLoader;
 
-class HTMLImportsController FINAL : public HTMLImportRoot, public DocumentSupplement {
+class HTMLImportsController FINAL : public HTMLImport, public DocumentSupplement {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static void provideTo(Document&);
@@ -57,24 +57,24 @@ public:
     explicit HTMLImportsController(Document&);
     virtual ~HTMLImportsController();
 
+    bool isMaster(const Document& document) const { return m_master == &document; }
+    bool shouldBlockScriptExecution(const Document&) const;
+    void wasDetachedFrom(const Document&);
+
     // HTMLImport
-    virtual HTMLImportRoot* root() OVERRIDE;
     virtual Document* document() const OVERRIDE;
-    virtual void wasDetachedFromDocument() OVERRIDE;
     virtual bool isDone() const OVERRIDE;
     virtual bool hasLoader() const OVERRIDE;
+    virtual void stateWillChange() OVERRIDE;
     virtual void stateDidChange() OVERRIDE;
-
-    // HTMLImportRoot
-    virtual void scheduleRecalcState() OVERRIDE;
-    virtual HTMLImportsController* toController() OVERRIDE { return this; }
-    virtual HTMLImportChild* findLinkFor(const KURL&, HTMLImport* excluding = 0) const OVERRIDE;
 
     HTMLImportChild* load(HTMLImport* parent, HTMLImportChildClient*, FetchRequest);
     void showSecurityErrorMessage(const String&);
 
     SecurityOrigin* securityOrigin() const;
     ResourceFetcher* fetcher() const;
+    LocalFrame* frame() const;
+    Document* master() const { return m_master; }
 
     void recalcTimerFired(Timer<HTMLImportsController>*);
 
@@ -84,6 +84,10 @@ public:
 
     size_t loaderCount() const { return m_loaders.size(); }
     HTMLImportLoader* loaderAt(size_t i) const { return m_loaders[i].get(); }
+    HTMLImportLoader* loaderFor(const Document&) const;
+
+    void scheduleRecalcState();
+    HTMLImportChild* findLinkFor(const KURL&, HTMLImport* excluding = 0) const;
 
 private:
     HTMLImportChild* createChild(const KURL&, HTMLImport* parent, HTMLImportChildClient*);
@@ -99,6 +103,8 @@ private:
     typedef Vector<RefPtr<HTMLImportLoader> > LoaderList;
     LoaderList m_loaders;
 };
+
+DEFINE_TYPE_CASTS(HTMLImportsController, HTMLImport, import, import->isRoot(), import.isRoot());
 
 } // namespace WebCore
 

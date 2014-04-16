@@ -33,10 +33,10 @@
 
 #include "core/events/Event.h"
 #include "core/frame/DOMWindow.h"
+#include "core/frame/FrameConsole.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
-#include "core/frame/PageConsole.h"
 #include "core/inspector/IdentifiersFactory.h"
 #include "core/inspector/InspectorClient.h"
 #include "core/inspector/InspectorCounters.h"
@@ -216,16 +216,6 @@ struct TimelineThreadState {
     unsigned long long decodedPixelRefId;
 };
 
-struct TimelineGCEvent {
-    TimelineGCEvent(double startTime, double endTime, size_t collectedBytes)
-        : startTime(startTime), endTime(endTime), collectedBytes(collectedBytes)
-    {
-    }
-    double startTime;
-    double endTime;
-    size_t collectedBytes;
-};
-
 struct TimelineImageInfo {
     int backendNodeId;
     String url;
@@ -258,24 +248,15 @@ static bool eventHasListeners(const AtomicString& eventType, DOMWindow* window, 
     return false;
 }
 
-void InspectorTimelineAgent::pushGCEventRecords()
-{
-    if (!m_gcEvents.size())
-        return;
-
-    GCEvents events = m_gcEvents;
-    m_gcEvents.clear();
-    for (GCEvents::iterator i = events.begin(); i != events.end(); ++i) {
-        double ts = i->startTime * msPerSecond;
-        RefPtr<TimelineEvent> record = TimelineRecordFactory::createGenericRecord(ts, m_maxCallStackDepth, TimelineRecordType::GCEvent, TimelineRecordFactory::createGCEventData(i->collectedBytes));
-        record->setEndTime(i->endTime * msPerSecond);
-        addRecordToTimeline(record.release(), ts);
-    }
-}
-
 void InspectorTimelineAgent::didGC(double startTime, double endTime, size_t collectedBytesCount)
 {
-    m_gcEvents.append(TimelineGCEvent(startTime, endTime, collectedBytesCount));
+    RefPtr<TimelineEvent> record = TimelineRecordFactory::createGenericRecord(
+        startTime * msPerSecond,
+        0,
+        TimelineRecordType::GCEvent,
+        TimelineRecordFactory::createGCEventData(collectedBytesCount));
+    record->setEndTime(endTime * msPerSecond);
+    addRecordToTimeline(record.release(), timestamp());
 }
 
 InspectorTimelineAgent::~InspectorTimelineAgent()
@@ -429,7 +410,6 @@ void InspectorTimelineAgent::innerStop(bool fromConsole)
 
     clearRecordStack();
     m_threadStates.clear();
-    m_gcEvents.clear();
     m_gpuTask.clear();
     m_layerToNodeMap.clear();
     m_pixelRefToImageInfo.clear();
@@ -439,7 +419,7 @@ void InspectorTimelineAgent::innerStop(bool fromConsole)
 
     for (size_t i = 0; i < m_consoleTimelines.size(); ++i) {
         String message = String::format("Timeline '%s' terminated.", m_consoleTimelines[i].utf8().data());
-        frameHost()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message);
+        mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message);
     }
     m_consoleTimelines.clear();
 
@@ -813,7 +793,7 @@ void InspectorTimelineAgent::consoleTimeline(ExecutionContext* context, const St
         return;
 
     String message = String::format("Timeline '%s' started.", title.utf8().data());
-    frameHost()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
     m_consoleTimelines.append(title);
     if (!isStarted()) {
         innerStart();
@@ -831,7 +811,7 @@ void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const
     size_t index = m_consoleTimelines.find(title);
     if (index == kNotFound) {
         String message = String::format("Timeline '%s' was not started.", title.utf8().data());
-        frameHost()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+        mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
         return;
     }
 
@@ -842,7 +822,7 @@ void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const
         unwindRecordStack();
         innerStop(true);
     }
-    frameHost()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
 }
 
 void InspectorTimelineAgent::domContentLoadedEventFired(LocalFrame* frame)
@@ -1157,7 +1137,6 @@ void InspectorTimelineAgent::didCompleteCurrentRecord(const String& type)
             PlatformInstrumentation::setClient(0);
         }
 
-        pushGCEventRecords();
         TimelineRecordEntry entry = m_recordStack.last();
         m_recordStack.removeLast();
         while (entry.type != type && entry.skipWhenUnbalanced && !m_recordStack.isEmpty()) {
@@ -1210,7 +1189,6 @@ InspectorTimelineAgent::InspectorTimelineAgent(InspectorPageAgent* pageAgent, In
 
 void InspectorTimelineAgent::appendRecord(PassRefPtr<JSONObject> data, const String& type, bool captureCallStack, LocalFrame* frame)
 {
-    pushGCEventRecords();
     double ts = timestamp();
     RefPtr<TimelineEvent> record = TimelineRecordFactory::createGenericRecord(ts, captureCallStack ? m_maxCallStackDepth : 0, type, data);
     setFrameIdentifier(record.get(), frame);
@@ -1230,7 +1208,6 @@ void InspectorTimelineAgent::sendEvent(PassRefPtr<TimelineEvent> record)
 
 void InspectorTimelineAgent::pushCurrentRecord(PassRefPtr<JSONObject> data, const String& type, bool captureCallStack, LocalFrame* frame, bool hasLowLevelDetails)
 {
-    pushGCEventRecords();
     commitFrameRecord();
     RefPtr<TimelineEvent> record = TimelineRecordFactory::createGenericRecord(timestamp(), captureCallStack ? m_maxCallStackDepth : 0, type, data.get());
     setFrameIdentifier(record.get(), frame);
@@ -1300,11 +1277,11 @@ double InspectorTimelineAgent::timestamp()
     return WTF::monotonicallyIncreasingTime() * msPerSecond;
 }
 
-FrameHost* InspectorTimelineAgent::frameHost() const
+LocalFrame* InspectorTimelineAgent::mainFrame() const
 {
-    if (!m_pageAgent || !m_pageAgent->page())
+    if (!m_pageAgent)
         return 0;
-    return &m_pageAgent->page()->frameHost();
+    return m_pageAgent->mainFrame();
 }
 
 PassRefPtr<TimelineEvent> InspectorTimelineAgent::createRecordForEvent(const TraceEventDispatcher::TraceEvent& event, const String& type, PassRefPtr<JSONObject> data)

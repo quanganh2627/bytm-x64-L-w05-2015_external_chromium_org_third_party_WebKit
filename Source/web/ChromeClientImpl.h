@@ -100,7 +100,7 @@ public:
     virtual void setResizable(bool) OVERRIDE;
     virtual bool shouldReportDetailedMessageForSource(const WTF::String&) OVERRIDE;
     virtual void addMessageToConsole(
-        WebCore::MessageSource, WebCore::MessageLevel,
+        WebCore::LocalFrame*, WebCore::MessageSource, WebCore::MessageLevel,
         const WTF::String& message, unsigned lineNumber,
         const WTF::String& sourceID, const WTF::String& stackTrace) OVERRIDE;
     virtual bool canRunBeforeUnloadConfirmPanel() OVERRIDE;
@@ -134,7 +134,7 @@ public:
     virtual void print(WebCore::LocalFrame*) OVERRIDE;
     virtual void annotatedRegionsChanged() OVERRIDE;
     virtual bool paintCustomOverhangArea(WebCore::GraphicsContext*, const WebCore::IntRect&, const WebCore::IntRect&, const WebCore::IntRect&) OVERRIDE;
-    virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) OVERRIDE;
+    virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::LocalFrame*, WebCore::ColorChooserClient*, const WebCore::Color&) OVERRIDE;
     virtual PassRefPtr<WebCore::DateTimeChooser> openDateTimeChooser(WebCore::DateTimeChooserClient*, const WebCore::DateTimeChooserParameters&) OVERRIDE;
     virtual void openTextDataListChooser(WebCore::HTMLInputElement&) OVERRIDE;
     virtual void runOpenPanel(WebCore::LocalFrame*, PassRefPtr<WebCore::FileChooser>) OVERRIDE;

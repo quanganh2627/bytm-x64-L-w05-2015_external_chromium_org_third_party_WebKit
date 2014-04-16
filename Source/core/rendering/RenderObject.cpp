@@ -32,6 +32,7 @@
 #include "core/accessibility/AXObjectCache.h"
 #include "core/animation/ActiveAnimations.h"
 #include "core/css/resolver/StyleResolver.h"
+#include "core/dom/ElementTraversal.h"
 #include "core/editing/EditingBoundary.h"
 #include "core/editing/FrameSelection.h"
 #include "core/editing/htmlediting.h"
@@ -1788,7 +1789,7 @@ Color RenderObject::selectionBackgroundColor() const
     if (!isSelectable())
         return Color::transparent;
 
-    if (RefPtr<RenderStyle> pseudoStyle = getUncachedPseudoStyle(PseudoStyleRequest(SELECTION)))
+    if (RefPtr<RenderStyle> pseudoStyle = getUncachedPseudoStyleFromParentOrShadowHost())
         return resolveColor(pseudoStyle.get(), CSSPropertyBackgroundColor).blendWithWhite();
     return frame()->selection().isFocusedAndActive() ?
         RenderTheme::theme().activeSelectionBackgroundColor() :
@@ -1802,7 +1803,7 @@ Color RenderObject::selectionColor(int colorProperty) const
     if (!isSelectable() || (frame()->view()->paintBehavior() & PaintBehaviorSelectionOnly))
         return resolveColor(colorProperty);
 
-    if (RefPtr<RenderStyle> pseudoStyle = getUncachedPseudoStyle(PseudoStyleRequest(SELECTION)))
+    if (RefPtr<RenderStyle> pseudoStyle = getUncachedPseudoStyleFromParentOrShadowHost())
         return resolveColor(pseudoStyle.get(), colorProperty);
     if (!RenderTheme::theme().supportsSelectionForegroundColors())
         return resolveColor(colorProperty);
@@ -1885,6 +1886,10 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
             diff = StyleDifferenceRecompositeLayer;
     }
 
+    if ((contextSensitiveProperties & ContextSensitivePropertyTextOrColor) && diff < StyleDifferenceRepaint
+        && hasImmediateNonWhitespaceTextChildOrPropertiesDependentOnColor())
+        diff = StyleDifferenceRepaint;
+
     // The answer to layerTypeRequired() for plugins, iframes, and canvas can change without the actual
     // style changing, since it depends on whether we decide to composite these elements. When the
     // layer status of one of these elements changes, we need to force a layout.
@@ -1935,11 +1940,6 @@ inline bool RenderObject::hasImmediateNonWhitespaceTextChildOrPropertiesDependen
             return true;
     }
     return false;
-}
-
-inline bool RenderObject::shouldRepaintForStyleDifference(StyleDifference diff) const
-{
-    return diff == StyleDifferenceRepaint || (diff == StyleDifferenceRepaintIfTextOrColorChange && hasImmediateNonWhitespaceTextChildOrPropertiesDependentOnColor());
 }
 
 void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
@@ -2000,7 +2000,7 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
             setNeedsSimplifiedNormalFlowLayout();
     }
 
-    if (updatedDiff == StyleDifferenceRepaintLayer || shouldRepaintForStyleDifference(updatedDiff)) {
+    if (updatedDiff == StyleDifferenceRepaint || updatedDiff == StyleDifferenceRepaintLayer) {
         // Do a repaint with the new style now, e.g., for example if we go from
         // not having an outline to having an outline.
         repaint();
@@ -2040,7 +2040,7 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
             }
         }
 
-        if (m_parent && shouldRepaintForStyleDifference(diff))
+        if (m_parent && diff == StyleDifferenceRepaint)
             repaint();
         if (isFloating() && (m_style->floating() != newStyle.floating()))
             // For changes in float styles, we need to conceivably remove ourselves
@@ -2077,7 +2077,7 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
         bool newStyleSlowScroll = !shouldBlitOnFixedBackgroundImage && newStyle.hasFixedBackgroundImage();
         bool oldStyleSlowScroll = m_style && !shouldBlitOnFixedBackgroundImage && m_style->hasFixedBackgroundImage();
 
-        bool drawsRootBackground = isRoot() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
+        bool drawsRootBackground = isDocumentElement() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
         if (drawsRootBackground && !shouldBlitOnFixedBackgroundImage) {
             if (view()->compositor()->supportsFixedRootBackgroundCompositing()) {
                 if (newStyleSlowScroll && newStyle.hasEntirelyFixedBackground())
@@ -2495,7 +2495,7 @@ bool RenderObject::isRooted() const
 
 RenderObject* RenderObject::rendererForRootBackground()
 {
-    ASSERT(isRoot());
+    ASSERT(isDocumentElement());
     if (!hasBackground() && isHTMLHtmlElement(node())) {
         // Locate the <body> element using the DOM. This is easier than trying
         // to crawl around a render tree with potential :before/:after content and
@@ -2740,14 +2740,6 @@ void RenderObject::destroyAndCleanupAnonymousWrappers()
     // WARNING: |this| is deleted here.
 }
 
-void RenderObject::removeShapeImageClient(ShapeValue* shapeValue)
-{
-    if (!shapeValue)
-        return;
-    if (StyleImage* shapeImage = shapeValue->image())
-        shapeImage->removeClient(this);
-}
-
 void RenderObject::destroy()
 {
     willBeDestroyed();
@@ -2773,8 +2765,6 @@ void RenderObject::postDestroy()
 
         if (StyleImage* maskBoxImage = m_style->maskBoxImage().image())
             maskBoxImage->removeClient(this);
-
-        removeShapeImageClient(m_style->shapeOutside());
     }
 
     delete this;
@@ -2966,13 +2956,12 @@ PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(const PseudoStyleRe
         parentStyle = style();
     }
 
-    // FIXME: This "find nearest element parent" should be a helper function.
-    Node* n = node();
-    while (n && !n->isElementNode())
-        n = n->parentNode();
-    if (!n)
+    if (!node())
         return nullptr;
-    Element* element = toElement(n);
+
+    Element* element = Traversal<Element>::firstAncestorOrSelf(*node());
+    if (!element)
+        return nullptr;
 
     if (pseudoStyleRequest.pseudoId == FIRST_LINE_INHERITED) {
         RefPtr<RenderStyle> result = document().ensureStyleResolver().styleForElement(element, parentStyle, DisallowStyleSharing);
@@ -2981,6 +2970,19 @@ PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(const PseudoStyleRe
     }
 
     return document().ensureStyleResolver().pseudoStyleForElement(element, pseudoStyleRequest, parentStyle);
+}
+
+PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyleFromParentOrShadowHost() const
+{
+    if (!node())
+        return nullptr;
+
+    if (Element* shadowHost = node()->shadowHost()) {
+        if (shadowHost->isFormControlElement())
+            return shadowHost->renderer()->getUncachedPseudoStyle(PseudoStyleRequest(SELECTION));
+    }
+
+    return getUncachedPseudoStyle(PseudoStyleRequest(SELECTION));
 }
 
 bool RenderObject::hasBlendMode() const
@@ -3145,6 +3147,20 @@ bool RenderObject::isInert() const
     return renderer->node()->isInert();
 }
 
+// touch-action applies to all elements with both width AND height properties.
+// According to the CSS Box Model Spec (http://dev.w3.org/csswg/css-box/#the-width-and-height-properties)
+// width applies to all elements but non-replaced inline elements, table rows, and row groups and
+// height applies to all elements but non-replaced inline elements, table columns, and column groups.
+bool RenderObject::visibleForTouchAction() const
+{
+    if (isInline() && !isReplaced())
+        return false;
+    if (isTableRow() || isRenderTableCol())
+        return false;
+
+    return true;
+}
+
 void RenderObject::imageChanged(ImageResource* image, const IntRect* rect)
 {
     imageChanged(static_cast<WrappedImagePtr>(image), rect);
@@ -3152,7 +3168,7 @@ void RenderObject::imageChanged(ImageResource* image, const IntRect* rect)
 
 Element* RenderObject::offsetParent() const
 {
-    if (isRoot() || isBody())
+    if (isDocumentElement() || isBody())
         return 0;
 
     if (isOutOfFlowPositioned() && style()->position() == FixedPosition)

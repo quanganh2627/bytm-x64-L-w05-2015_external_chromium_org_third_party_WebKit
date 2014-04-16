@@ -146,6 +146,11 @@ var allDescriptors = [
                 className: "WebInspector.ElementsPanel.DOMNodeRevealer"
             },
             {
+                type: "@WebInspector.Revealer",
+                contextTypes: ["WebInspector.RemoteObject"],
+                className: "WebInspector.ElementsPanel.NodeRemoteObjectRevealer"
+            },
+            {
                 type: "ui-setting",
                 section: "Elements",
                 title: "Color format",
@@ -529,7 +534,7 @@ var allDescriptors = [
                  name: "search",
                  title: "Search",
                  order: "1",
-                 className: "WebInspector.SearchView"
+                 className: "WebInspector.AdvancedSearchView"
              },
              {
                  type: "@WebInspector.ActionDelegate",
@@ -543,10 +548,10 @@ var allDescriptors = [
                          shortcut: "Ctrl+Shift+F"
                      }
                  ],
-                 className: "WebInspector.AdvancedSearchController.ToggleDrawerViewActionDelegate"
+                 className: "WebInspector.AdvancedSearchView.ToggleDrawerViewActionDelegate"
              }
         ],
-        scripts: [ "AdvancedSearchController.js" ]
+        scripts: [ "AdvancedSearchView.js" ]
     },
     {
         name: "settings",
@@ -584,7 +589,7 @@ var allDescriptors = [
             },
             {
                 type: "@WebInspector.Revealer",
-                contextTypes: ["WebInspector.LayerTreeSnapshot"],
+                contextTypes: ["WebInspector.LayerTreeSnapshot", "WebInspector.TracingLayerSnapshot"],
                 className: "WebInspector.LayersPanel.LayerTreeRevealer"
             }
         ],

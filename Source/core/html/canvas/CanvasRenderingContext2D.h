@@ -152,22 +152,22 @@ public:
     PassRefPtr<Path2D> currentPath();
     void setCurrentPath(Path2D*);
     void fill(const String& winding = "nonzero");
-    void fill(Path2D*, ExceptionState&);
-    void fill(Path2D*, const String& winding, ExceptionState&);
+    void fill(Path2D*);
+    void fill(Path2D*, const String& winding);
     void stroke();
-    void stroke(Path2D*, ExceptionState&);
+    void stroke(Path2D*);
     void clip(const String& winding = "nonzero");
-    void clip(Path2D*, ExceptionState&);
-    void clip(Path2D*, const String& winding, ExceptionState&);
+    void clip(Path2D*);
+    void clip(Path2D*, const String& winding);
 
     bool isPointInPath(const float x, const float y, const String& winding = "nonzero");
-    bool isPointInPath(Path2D*, const float x, const float y, ExceptionState&);
-    bool isPointInPath(Path2D*, const float x, const float y, const String& winding, ExceptionState&);
+    bool isPointInPath(Path2D*, const float x, const float y);
+    bool isPointInPath(Path2D*, const float x, const float y, const String& winding);
     bool isPointInStroke(const float x, const float y);
-    bool isPointInStroke(Path2D*, const float x, const float y, ExceptionState&);
+    bool isPointInStroke(Path2D*, const float x, const float y);
 
     void scrollPathIntoView();
-    void scrollPathIntoView(Path2D*, ExceptionState&);
+    void scrollPathIntoView(Path2D*);
 
     void clearRect(float x, float y, float width, float height);
     void fillRect(float x, float y, float width, float height);
@@ -198,7 +198,7 @@ public:
     PassRefPtr<CanvasGradient> createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1, ExceptionState&);
     PassRefPtr<CanvasPattern> createPattern(CanvasImageSource*, const String& repetitionType, ExceptionState&);
 
-    PassRefPtrWillBeRawPtr<ImageData> createImageData(PassRefPtrWillBeRawPtr<ImageData>, ExceptionState&) const;
+    PassRefPtrWillBeRawPtr<ImageData> createImageData(PassRefPtrWillBeRawPtr<ImageData>) const;
     PassRefPtrWillBeRawPtr<ImageData> createImageData(float width, float height, ExceptionState&) const;
     PassRefPtrWillBeRawPtr<ImageData> getImageData(float sx, float sy, float sw, float sh, ExceptionState&) const;
     void putImageData(ImageData*, float dx, float dy, ExceptionState&);
@@ -329,6 +329,7 @@ private:
     void inflateStrokeRect(FloatRect&) const;
 
     template<class T> void fullCanvasCompositedFill(const T&);
+    template<class T> void fullCanvasCompositedStroke(const T&);
     template<class T> void fullCanvasCompositedDrawImage(T*, const FloatRect&, const FloatRect&, CompositeOperator);
 
     bool focusRingCallIsValid(const Path&, Element*);

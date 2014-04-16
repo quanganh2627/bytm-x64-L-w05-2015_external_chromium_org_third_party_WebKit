@@ -43,8 +43,8 @@
       'GeolocationClientProxy.h',
       'GraphicsLayerFactoryChromium.cpp',
       'GraphicsLayerFactoryChromium.h',
-      'IDBFactoryBackendProxy.cpp',
-      'IDBFactoryBackendProxy.h',
+      'IndexedDBClientImpl.cpp',
+      'IndexedDBClientImpl.h',
       'InspectorClientImpl.cpp',
       'InspectorClientImpl.h',
       'InspectorFrontendClientImpl.cpp',
@@ -104,6 +104,7 @@
       'WebAXObject.cpp',
       'WebArrayBufferConverter.cpp',
       'WebArrayBufferView.cpp',
+      'WebAutocompleteParams.cpp',
       'WebBindings.cpp',
       'WebBlob.cpp',
       'WebCache.cpp',
@@ -171,7 +172,6 @@
       'WebInputElement.cpp',
       'WebInputEvent.cpp',
       'WebInputEventFactoryAndroid.cpp',
-      'WebInputEventFactoryGtk.cpp',
       'WebInputEventFactoryMac.mm',
       'WebInputEventFactoryWin.cpp',
       'WebInputEventConversion.cpp',
@@ -338,14 +338,6 @@
         {
           'web_unittest_files': [
             'tests/LocaleICUTest.cpp',
-          ],
-        }
-      ],
-      ['toolkit_uses_gtk == 1',
-        {
-          'web_unittest_files': [
-            'tests/KeyCodeConversionTestGtk.cpp',
-            'tests/WebInputEventFactoryTestGtk.cpp',
           ],
         }
       ],

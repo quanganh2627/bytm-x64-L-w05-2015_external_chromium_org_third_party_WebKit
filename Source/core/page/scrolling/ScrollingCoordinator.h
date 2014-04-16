@@ -52,10 +52,11 @@ class ViewportConstraints;
 
 class ScrollingCoordinator {
 public:
-    static PassOwnPtr<ScrollingCoordinator> create(Page*);
     ~ScrollingCoordinator();
 
-    void pageDestroyed();
+    static PassOwnPtr<ScrollingCoordinator> create(Page*);
+
+    void willBeDestroyed();
 
     // Return whether this scrolling coordinator handles scrolling for the given frame view.
     bool coordinatesScrollingForFrameView(FrameView*) const;
@@ -68,9 +69,8 @@ public:
 
     bool needsToUpdateAfterCompositingChange() const { return m_scrollGestureRegionIsDirty || m_touchEventTargetRectsAreDirty || frameViewIsDirty(); }
 
-    // Should be called whenever a wheel event handler is added or removed in the
-    // frame view's underlying document.
-    void frameViewWheelEventHandlerCountChanged(FrameView*);
+    void updateHaveWheelEventHandlers();
+    void updateHaveScrollEventHandlers();
 
     // Should be called whenever the slow repaint objects counter changes between zero and one.
     void frameViewHasSlowRepaintObjectsDidChange(FrameView*);
@@ -95,7 +95,7 @@ public:
     MainThreadScrollingReasons mainThreadScrollingReasons() const;
     bool shouldUpdateScrollLayerPositionOnMainThread() const { return mainThreadScrollingReasons() != 0; }
 
-    PassOwnPtr<blink::WebScrollbarLayer> createSolidColorScrollbarLayer(ScrollbarOrientation, int thumbThickness, bool isLeftSideVerticalScrollbar);
+    PassOwnPtr<blink::WebScrollbarLayer> createSolidColorScrollbarLayer(ScrollbarOrientation, int thumbThickness, int trackStart, bool isLeftSideVerticalScrollbar);
 
     void willDestroyScrollableArea(ScrollableArea*);
     // Returns true if the coordinator handled this change.
@@ -124,7 +124,6 @@ protected:
 
     bool isForMainFrame(ScrollableArea*) const;
 
-    unsigned computeCurrentWheelEventHandlerCount();
     GraphicsLayer* scrollLayerForFrameView(FrameView*);
     GraphicsLayer* counterScrollingLayerForFrameView(FrameView*);
 
@@ -136,7 +135,6 @@ protected:
     bool m_shouldScrollOnMainThreadDirty;
 
 private:
-    void recomputeWheelEventHandlerCountForFrameView(FrameView*);
     void setShouldUpdateScrollLayerPositionOnMainThread(MainThreadScrollingReasons);
 
     bool hasVisibleSlowRepaintViewportConstrainedObjects(FrameView*) const;
@@ -145,7 +143,6 @@ private:
     void setShouldHandleScrollGestureOnMainThreadRegion(const Region&);
     void setTouchEventTargetRects(LayerHitTestRects&);
     void computeTouchEventTargetRects(LayerHitTestRects&);
-    void setWheelEventHandlerCount(unsigned);
 
     blink::WebScrollbarLayer* addWebScrollbarLayer(ScrollableArea*, ScrollbarOrientation, PassOwnPtr<blink::WebScrollbarLayer>);
     blink::WebScrollbarLayer* getWebScrollbarLayer(ScrollableArea*, ScrollbarOrientation);

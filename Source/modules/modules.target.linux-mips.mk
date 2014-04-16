@@ -121,11 +121,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/indexeddb/IDBRequest.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBTransaction.cpp \
 	third_party/WebKit/Source/modules/indexeddb/IDBVersionChangeEvent.cpp \
+	third_party/WebKit/Source/modules/indexeddb/IndexedDBClient.cpp \
 	third_party/WebKit/Source/modules/indexeddb/InspectorIndexedDBAgent.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WebIDBDatabaseCallbacksImpl.cpp \
 	third_party/WebKit/Source/modules/indexeddb/WorkerGlobalScopeIndexedDatabase.cpp \
-	third_party/WebKit/Source/modules/indexeddb/chromium/IDBFactoryBackendInterfaceChromium.cpp \
 	third_party/WebKit/Source/modules/mediasource/HTMLVideoElementMediaSource.cpp \
 	third_party/WebKit/Source/modules/mediasource/MediaSource.cpp \
 	third_party/WebKit/Source/modules/mediasource/MediaSourceBase.cpp \
@@ -395,8 +395,10 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
@@ -533,8 +535,10 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
-	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \

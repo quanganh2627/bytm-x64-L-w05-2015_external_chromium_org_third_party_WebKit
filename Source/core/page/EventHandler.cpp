@@ -1039,45 +1039,12 @@ static bool isSubmitImage(Node* node)
     return isHTMLInputElement(node) && toHTMLInputElement(node)->isImageButton();
 }
 
-// Returns true if the node's editable block is not current focused for editing
-static bool nodeIsNotBeingEdited(Node* node, LocalFrame* frame)
-{
-    return frame->selection().rootEditableElement() != node->rootEditableElement();
-}
-
-bool EventHandler::useHandCursor(Node* node, bool isOverLink, bool shiftKey)
+bool EventHandler::useHandCursor(Node* node, bool isOverLink)
 {
     if (!node)
         return false;
 
-    bool editable = node->rendererIsEditable();
-    bool editableLinkEnabled = false;
-
-    // If the link is editable, then we need to check the settings to see whether or not the link should be followed
-    if (editable) {
-        ASSERT(m_frame->settings());
-        switch (m_frame->settings()->editableLinkBehavior()) {
-        default:
-        case EditableLinkDefaultBehavior:
-        case EditableLinkAlwaysLive:
-            editableLinkEnabled = true;
-            break;
-
-        case EditableLinkNeverLive:
-            editableLinkEnabled = false;
-            break;
-
-        case EditableLinkLiveWhenNotFocused:
-            editableLinkEnabled = nodeIsNotBeingEdited(node, m_frame) || shiftKey;
-            break;
-
-        case EditableLinkOnlyLiveWithShiftKey:
-            editableLinkEnabled = shiftKey;
-            break;
-        }
-    }
-
-    return ((isOverLink || isSubmitImage(node)) && (!editable || editableLinkEnabled));
+    return ((isOverLink || isSubmitImage(node)) && !node->rendererIsEditable());
 }
 
 void EventHandler::cursorUpdateTimerFired(Timer<EventHandler>*)
@@ -1101,26 +1068,20 @@ void EventHandler::updateCursor()
     if (!renderView)
         return;
 
-    bool shiftKey;
-    bool ctrlKey;
-    bool altKey;
-    bool metaKey;
-    PlatformKeyboardEvent::getCurrentModifierState(shiftKey, ctrlKey, altKey, metaKey);
-
     m_frame->document()->updateLayout();
 
     HitTestRequest request(HitTestRequest::ReadOnly);
     HitTestResult result(view->windowToContents(m_lastKnownMousePosition));
     renderView->hitTest(request, result);
 
-    OptionalCursor optionalCursor = selectCursor(result, shiftKey);
+    OptionalCursor optionalCursor = selectCursor(result);
     if (optionalCursor.isCursorChange()) {
         m_currentMouseCursor = optionalCursor.cursor();
         view->setCursor(m_currentMouseCursor);
     }
 }
 
-OptionalCursor EventHandler::selectCursor(const HitTestResult& result, bool shiftKey)
+OptionalCursor EventHandler::selectCursor(const HitTestResult& result)
 {
     if (m_resizeScrollableArea && m_resizeScrollableArea->inResizeMode())
         return NoCursorChange;
@@ -1135,7 +1096,7 @@ OptionalCursor EventHandler::selectCursor(const HitTestResult& result, bool shif
 
     Node* node = result.innerPossiblyPseudoNode();
     if (!node)
-        return selectAutoCursor(result, node, iBeamCursor(), shiftKey);
+        return selectAutoCursor(result, node, iBeamCursor());
 
     RenderObject* renderer = node->renderer();
     RenderStyle* style = renderer ? renderer->style() : 0;
@@ -1186,7 +1147,7 @@ OptionalCursor EventHandler::selectCursor(const HitTestResult& result, bool shif
     case CURSOR_AUTO: {
         bool horizontalText = !style || style->isHorizontalWritingMode();
         const Cursor& iBeam = horizontalText ? iBeamCursor() : verticalTextCursor();
-        return selectAutoCursor(result, node, iBeam, shiftKey);
+        return selectAutoCursor(result, node, iBeam);
     }
     case CURSOR_CROSS:
         return crossCursor();
@@ -1262,11 +1223,11 @@ OptionalCursor EventHandler::selectCursor(const HitTestResult& result, bool shif
     return pointerCursor();
 }
 
-OptionalCursor EventHandler::selectAutoCursor(const HitTestResult& result, Node* node, const Cursor& iBeam, bool shiftKey)
+OptionalCursor EventHandler::selectAutoCursor(const HitTestResult& result, Node* node, const Cursor& iBeam)
 {
     bool editable = (node && node->rendererIsEditable());
 
-    if (useHandCursor(node, result.isOverLink(), shiftKey))
+    if (useHandCursor(node, result.isOverLink()))
         return handCursor();
 
     bool inResizer = false;
@@ -1389,6 +1350,7 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
     m_frame->selection().setCaretBlinkingSuspended(true);
 
     bool swallowEvent = !dispatchMouseEvent(EventTypeNames::mousedown, mev.targetNode(), m_clickCount, mouseEvent, true);
+    swallowEvent = swallowEvent || !handleMouseFocus(mouseEvent);
     m_capturesDragging = !swallowEvent || mev.scrollbar();
 
     // If the hit testing originally determined the event was in a scrollbar, refetch the MouseEventWithHitTestResults
@@ -1449,13 +1411,9 @@ static RenderLayer* layerForNode(Node* node)
 
 ScrollableArea* EventHandler::associatedScrollableArea(const RenderLayer* layer) const
 {
-    ScrollableArea* layerScrollableArea = layer->scrollableArea();
-    if (!layerScrollableArea)
-        return 0;
-
-    if (FrameView* frameView = m_frame->view()) {
-        if (frameView->containsScrollableArea(layerScrollableArea))
-            return layerScrollableArea;
+    if (RenderLayerScrollableArea* scrollableArea = layer->scrollableArea()) {
+        if (scrollableArea->scrollsOverflow())
+            return scrollableArea;
     }
 
     return 0;
@@ -1595,7 +1553,7 @@ bool EventHandler::handleMouseMoveOrLeaveEvent(const PlatformMouseEvent& mouseEv
         if (scrollbar && !m_mousePressed)
             scrollbar->mouseMoved(mouseEvent); // Handle hover effects on platforms that support visual feedback on scrollbar hovering.
         if (FrameView* view = m_frame->view()) {
-            OptionalCursor optionalCursor = selectCursor(mev.hitTestResult(), mouseEvent.shiftKey());
+            OptionalCursor optionalCursor = selectCursor(mev.hitTestResult());
             if (optionalCursor.isCursorChange()) {
                 m_currentMouseCursor = optionalCursor.cursor();
                 view->setCursor(m_currentMouseCursor);
@@ -2049,15 +2007,12 @@ void EventHandler::updateMouseEventTargetNode(Node* targetNode, const PlatformMo
 bool EventHandler::dispatchMouseEvent(const AtomicString& eventType, Node* targetNode, int clickCount, const PlatformMouseEvent& mouseEvent, bool setUnder)
 {
     updateMouseEventTargetNode(targetNode, mouseEvent, setUnder);
+    return !m_nodeUnderMouse || m_nodeUnderMouse->dispatchMouseEvent(mouseEvent, eventType, clickCount);
+}
 
-    bool proceedDefault = true;
-
-    if (m_nodeUnderMouse)
-        proceedDefault = m_nodeUnderMouse->dispatchMouseEvent(mouseEvent, eventType, clickCount);
-
-    if (!proceedDefault || eventType != EventTypeNames::mousedown)
-        return proceedDefault;
-
+// The return value means 'continue default handling.'
+bool EventHandler::handleMouseFocus(const PlatformMouseEvent& mouseEvent)
+{
     // If clicking on a frame scrollbar, do not mess up with content focus.
     if (FrameView* view = m_frame->view()) {
         if (view->scrollbarAtPoint(mouseEvent.position()))
@@ -3942,16 +3897,13 @@ TouchAction EventHandler::computeEffectiveTouchAction(const LayoutPoint& point)
     if (!node)
         return TouchActionAuto;
 
-    // Start by permitting all actions, then walk the block level elements from
-    // the target node up to the nearest scrollable ancestor and exclude any
-    // prohibited actions. For now this is trivial, but when we add more types
-    // of actions it'll get a little more complex.
+    // Start by permitting all actions, then walk the elements supporting
+    // touch-action from the target node up to the nearest scrollable ancestor
+    // and exclude any prohibited actions.
     TouchAction effectiveTouchAction = TouchActionAuto;
     for (const Node* curNode = node; curNode; curNode = NodeRenderingTraversal::parent(curNode)) {
-        // The spec says only block and SVG elements get touch-action.
-        // FIXME(rbyers): Add correct support for SVG, crbug.com/247396.
         if (RenderObject* renderer = curNode->renderer()) {
-            if (renderer->isRenderBlockFlow()) {
+            if (renderer->visibleForTouchAction()) {
                 TouchAction action = renderer->style()->touchAction();
                 effectiveTouchAction = intersectTouchAction(action, effectiveTouchAction);
                 if (effectiveTouchAction == TouchActionNone)

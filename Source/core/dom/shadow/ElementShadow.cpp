@@ -142,6 +142,9 @@ ShadowRoot& ElementShadow::addShadowRoot(Element& shadowHost, ShadowRoot::Shadow
 {
     RefPtr<ShadowRoot> shadowRoot = ShadowRoot::create(shadowHost.document(), type);
 
+    if (type == ShadowRoot::AuthorShadowRoot && (!youngestShadowRoot() || youngestShadowRoot()->type() == ShadowRoot::UserAgentShadowRoot))
+        shadowHost.willAddFirstAuthorShadowRoot();
+
     for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot())
         root->lazyReattachIfAttached();
 
@@ -151,7 +154,6 @@ ShadowRoot& ElementShadow::addShadowRoot(Element& shadowHost, ShadowRoot::Shadow
     ChildNodeInsertionNotifier(shadowHost).notify(*shadowRoot);
     setNeedsDistributionRecalc();
 
-    shadowHost.didAddShadowRoot(*shadowRoot);
     InspectorInstrumentation::didPushShadowRoot(&shadowHost, shadowRoot.get());
 
     ASSERT(m_shadowRoots.head());
@@ -206,18 +208,7 @@ void ElementShadow::setNeedsDistributionRecalc()
     clearDistribution();
 }
 
-bool ElementShadow::containsActiveStyles() const
-{
-    for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot()) {
-        if (root->hasScopedHTMLStyleChild())
-            return true;
-        if (!root->containsShadowElements())
-            return false;
-    }
-    return false;
-}
-
-bool ElementShadow::hasSameStyles(ElementShadow *other) const
+bool ElementShadow::hasSameStyles(const ElementShadow* other) const
 {
     ShadowRoot* root = youngestShadowRoot();
     ShadowRoot* otherRoot = other->youngestShadowRoot();

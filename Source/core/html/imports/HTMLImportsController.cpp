@@ -45,12 +45,13 @@ void HTMLImportsController::provideTo(Document& master)
 {
     DEFINE_STATIC_LOCAL(const char*, name, ("HTMLImportsController"));
     OwnPtr<HTMLImportsController> controller = adoptPtr(new HTMLImportsController(master));
-    master.setImport(controller.get());
+    master.setImportsController(controller.get());
     DocumentSupplement::provideTo(master, name, controller.release());
 }
 
 HTMLImportsController::HTMLImportsController(Document& master)
-    : m_master(&master)
+    : HTMLImport(HTMLImport::Sync)
+    , m_master(&master)
     , m_recalcTimer(this, &HTMLImportsController::recalcTimerFired)
 {
     recalcTreeState(this); // This recomputes initial state.
@@ -66,9 +67,15 @@ void HTMLImportsController::clear()
     for (size_t i = 0; i < m_imports.size(); ++i)
         m_imports[i]->importDestroyed();
     m_imports.clear();
+
+    for (size_t i = 0; i < m_loaders.size(); ++i)
+        m_loaders[i]->importDestroyed();
+    m_loaders.clear();
+
     if (m_master)
-        m_master->setImport(0);
+        m_master->setImportsController(0);
     m_master = 0;
+
     m_recalcTimer.stop();
 }
 
@@ -133,9 +140,9 @@ ResourceFetcher* HTMLImportsController::fetcher() const
     return m_master->fetcher();
 }
 
-HTMLImportRoot* HTMLImportsController::root()
+LocalFrame* HTMLImportsController::frame() const
 {
-    return this;
+    return m_master->frame();
 }
 
 Document* HTMLImportsController::document() const
@@ -143,9 +150,19 @@ Document* HTMLImportsController::document() const
     return m_master;
 }
 
-void HTMLImportsController::wasDetachedFromDocument()
+bool HTMLImportsController::shouldBlockScriptExecution(const Document& document) const
 {
-    clear();
+    ASSERT(document.importsController() == this);
+    if (HTMLImportLoader* loader = loaderFor(document))
+        return loader->firstImport()->state().shouldBlockScriptExecution();
+    return state().shouldBlockScriptExecution();
+}
+
+void HTMLImportsController::wasDetachedFrom(const Document& document)
+{
+    ASSERT(document.importsController() == this);
+    if (m_master == &document)
+        clear();
 }
 
 bool HTMLImportsController::hasLoader() const
@@ -156,6 +173,11 @@ bool HTMLImportsController::hasLoader() const
 bool HTMLImportsController::isDone() const
 {
     return !m_master->parsing() && m_master->styleEngine()->haveStylesheetsLoaded();
+}
+
+void HTMLImportsController::stateWillChange()
+{
+    scheduleRecalcState();
 }
 
 void HTMLImportsController::stateDidChange()
@@ -187,8 +209,18 @@ void HTMLImportsController::recalcTimerFired(Timer<HTMLImportsController>*)
 
 HTMLImportLoader* HTMLImportsController::createLoader()
 {
-    m_loaders.append(HTMLImportLoader::create());
+    m_loaders.append(HTMLImportLoader::create(this));
     return m_loaders.last().get();
+}
+
+HTMLImportLoader* HTMLImportsController::loaderFor(const Document& document) const
+{
+    for (size_t i = 0; i < m_loaders.size(); ++i) {
+        if (m_loaders[i]->document() == &document)
+            return m_loaders[i].get();
+    }
+
+    return 0;
 }
 
 } // namespace WebCore

@@ -113,7 +113,8 @@ def scoped_name(interface, definition, base_name):
     partial_interface_implemented_as = definition.extended_attributes.get('PartialInterfaceImplementedAs')
     if partial_interface_implemented_as:
         return '%s::%s' % (partial_interface_implemented_as, base_name)
-    if definition.is_static:
+    if (definition.is_static or
+        definition.name in ('Constructor', 'NamedConstructor')):
         return '%s::%s' % (cpp_name(interface), base_name)
     return 'impl->%s' % base_name
 
@@ -199,6 +200,16 @@ def deprecate_as(member):
         return None
     includes.add('core/frame/UseCounter.h')
     return extended_attributes['DeprecateAs']
+
+
+# [GarbageCollected], [WillBeGarbageCollected]
+def gc_type(definition):
+    extended_attributes = definition.extended_attributes
+    if 'GarbageCollected' in extended_attributes:
+        return 'GarbageCollectedObject'
+    elif 'WillBeGarbageCollected' in extended_attributes:
+        return 'WillBeGarbageCollectedObject'
+    return 'RefCountedObject'
 
 
 # [ImplementedAs]

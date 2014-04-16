@@ -47,11 +47,11 @@ class StickyPositionViewportConstraints;
 
 enum CompositingUpdateType {
     CompositingUpdateNone,
-    CompositingUpdateAfterCanvasContextChange,
-    CompositingUpdateOnCompositedScroll,
     CompositingUpdateAfterStyleChange,
     CompositingUpdateAfterLayout,
     CompositingUpdateOnScroll,
+    CompositingUpdateOnCompositedScroll,
+    CompositingUpdateAfterCanvasContextChange,
 };
 
 // RenderLayerCompositor manages the hierarchy of
@@ -89,8 +89,10 @@ public:
 
     bool canRender3DTransforms() const;
 
+    void updateForceCompositingMode();
+
     // Copy the accelerated compositing related flags from Settings
-    void cacheAcceleratedCompositingFlags();
+    void updateAcceleratedCompositingSettings();
 
     // Called when the layer hierarchy needs to be updated (compositing layers have been
     // created, destroyed or re-parented).
@@ -123,6 +125,7 @@ public:
     bool supportsFixedRootBackgroundCompositing() const;
     bool needsFixedRootBackgroundLayer(const RenderLayer*) const;
     GraphicsLayer* fixedRootBackgroundLayer() const;
+    void setNeedsUpdateFixedBackground() { m_needsUpdateFixedBackground = true; }
 
     // Repaint the appropriate layers when the given RenderLayer starts or stops being composited.
     void repaintOnCompositingChange(RenderLayer*);
@@ -210,7 +213,8 @@ private:
         SquashingState()
             : mostRecentMapping(0)
             , hasMostRecentMapping(false)
-            , nextSquashedLayerIndex(0) { }
+            , nextSquashedLayerIndex(0)
+            , totalAreaOfSquashedRects(0) { }
 
         void updateSquashingStateForNewMapping(CompositedLayerMappingPtr, bool hasNewCompositedLayerMapping, LayoutPoint newOffsetFromAbsoluteForSquashingCLM);
 
@@ -224,10 +228,18 @@ private:
 
         // Counter that tracks what index the next RenderLayer would be if it gets squashed to the current squashing layer.
         size_t nextSquashedLayerIndex;
+
+        // The absolute bounding rect of all the squashed layers.
+        IntRect boundingRect;
+
+        // This is simply the sum of the areas of the squashed rects. This can be very skewed if the rects overlap,
+        // but should be close enough to drive a heuristic.
+        uint64_t totalAreaOfSquashedRects;
     };
 
     bool hasUnresolvedDirtyBits();
 
+    bool squashingWouldExceedSparsityTolerance(const RenderLayer* candidate, const SquashingState&);
     bool canSquashIntoCurrentSquashingOwner(const RenderLayer* candidate, const SquashingState&);
 
     CompositingStateTransitionType computeCompositedLayerUpdate(RenderLayer*);
@@ -315,6 +327,7 @@ private:
     bool m_compositingLayersNeedRebuild;
     bool m_forceCompositingMode;
     bool m_needsUpdateCompositingRequirementsState;
+    bool m_needsUpdateFixedBackground;
 
     bool m_isTrackingRepaints; // Used for testing.
 

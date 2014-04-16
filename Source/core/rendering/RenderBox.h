@@ -428,7 +428,7 @@ public:
 
     bool stretchesToViewport() const
     {
-        return document().inQuirksMode() && style()->logicalHeight().isAuto() && !isFloatingOrOutOfFlowPositioned() && (isRoot() || isBody()) && !isInline();
+        return document().inQuirksMode() && style()->logicalHeight().isAuto() && !isFloatingOrOutOfFlowPositioned() && (isDocumentElement() || isBody()) && !isInline();
     }
 
     virtual LayoutSize intrinsicSize() const { return LayoutSize(); }
@@ -624,6 +624,7 @@ public:
 
 protected:
     virtual void willBeDestroyed() OVERRIDE;
+    void clearShapeOutside();
 
     virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle) OVERRIDE;
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) OVERRIDE;
