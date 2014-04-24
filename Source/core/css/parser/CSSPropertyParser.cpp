@@ -127,7 +127,6 @@ public:
     AnimationParseContext()
         : m_animationPropertyKeywordAllowed(true)
         , m_firstAnimationCommitted(false)
-        , m_hasSeenAnimationPropertyKeyword(false)
     {
     }
 
@@ -151,20 +150,9 @@ public:
         return m_animationPropertyKeywordAllowed;
     }
 
-    bool hasSeenAnimationPropertyKeyword() const
-    {
-        return m_hasSeenAnimationPropertyKeyword;
-    }
-
-    void sawAnimationPropertyKeyword()
-    {
-        m_hasSeenAnimationPropertyKeyword = true;
-    }
-
 private:
     bool m_animationPropertyKeywordAllowed;
     bool m_firstAnimationCommitted;
-    bool m_hasSeenAnimationPropertyKeyword;
 };
 
 CSSPropertyParser::CSSPropertyParser(OwnPtr<CSSParserValueList>& valueList,
@@ -3120,13 +3108,10 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseAnimationProperty(Anima
     CSSPropertyID result = cssPropertyID(value->string);
     if (result && RuntimeCSSEnabled::isCSSPropertyEnabled(result))
         return cssValuePool().createIdentifierValue(result);
-    if (equalIgnoringCase(value, "all")) {
-        context.sawAnimationPropertyKeyword();
+    if (equalIgnoringCase(value, "all"))
         return cssValuePool().createIdentifierValue(CSSValueAll);
-    }
     if (equalIgnoringCase(value, "none")) {
         context.commitAnimationPropertyKeyword();
-        context.sawAnimationPropertyKeyword();
         return cssValuePool().createIdentifierValue(CSSValueNone);
     }
     return nullptr;
@@ -4393,14 +4378,15 @@ PassRefPtrWillBeRawPtr<CSSBasicShape> CSSPropertyParser::parseBasicShapePolygon(
 
     CSSParserValue* argumentX = argument;
     while (argumentX) {
+
         if (!validUnit(argumentX, FLength | FPercent))
             return nullptr;
+        RefPtrWillBeRawPtr<CSSPrimitiveValue> xLength = createPrimitiveNumericValue(argumentX);
 
         CSSParserValue* argumentY = args->next();
         if (!argumentY || !validUnit(argumentY, FLength | FPercent))
             return nullptr;
 
-        RefPtrWillBeRawPtr<CSSPrimitiveValue> xLength = createPrimitiveNumericValue(argumentX);
         RefPtrWillBeRawPtr<CSSPrimitiveValue> yLength = createPrimitiveNumericValue(argumentY);
 
         shape->appendPoint(xLength.release(), yLength.release());
@@ -5199,14 +5185,12 @@ static inline bool fastParseColorInternal(RGBA32& rgb, const CharacterType* char
 {
     CSSPrimitiveValue::UnitTypes expect = CSSPrimitiveValue::CSS_UNKNOWN;
 
+    if (length >= 4 && characters[0] == '#')
+        return Color::parseHexColor(characters + 1, length - 1, rgb);
+
     if (!strict && length >= 3) {
-        if (characters[0] == '#') {
-            if (Color::parseHexColor(characters + 1, length - 1, rgb))
-                return true;
-        } else {
-            if (Color::parseHexColor(characters, length, rgb))
-                return true;
-        }
+        if (Color::parseHexColor(characters, length, rgb))
+            return true;
     }
 
     // Try rgba() syntax.
@@ -6161,7 +6145,6 @@ public:
         m_allowFinalCommit = true;
     }
 
-    void setAllowFinalCommit() { m_allowFinalCommit = true; }
     void setTop(PassRefPtrWillBeRawPtr<CSSPrimitiveValue> val) { m_top = val; }
 
     PassRefPtrWillBeRawPtr<CSSPrimitiveValue> commitBorderImageQuad()
@@ -7280,19 +7263,6 @@ bool CSSPropertyParser::parseWillChange(bool important)
     return true;
 }
 
-bool CSSPropertyParser::isBlendMode(CSSValueID valueID)
-{
-    return (valueID >= CSSValueMultiply && valueID <= CSSValueLuminosity)
-        || valueID == CSSValueNormal
-        || valueID == CSSValueOverlay;
-}
-
-bool CSSPropertyParser::isCompositeOperator(CSSValueID valueID)
-{
-    // FIXME: Add CSSValueDestination and CSSValueLighter when the Compositing spec updates.
-    return valueID >= CSSValueClear && valueID <= CSSValueXor;
-}
-
 static void filterInfoForName(const CSSParserString& name, CSSFilterValue::FilterOperationType& filterType, unsigned& maximumArgumentCount)
 {
     if (equalIgnoringCase(name, "grayscale("))
@@ -7769,45 +7739,39 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseTextIndent()
 {
     RefPtrWillBeRawPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
 
-    // <length> | <percentage> | inherit
-    if (m_valueList->size() == 1) {
-        CSSParserValue* value = m_valueList->current();
-        if (!value->id && validUnit(value, FLength | FPercent)) {
+    bool hasLengthOrPercentage = false;
+    bool hasEachLine = false;
+    bool hasHanging = false;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        // <length> | <percentage> | inherit when RuntimeEnabledFeatures::css3TextEnabled() returns false
+        if (!hasLengthOrPercentage && validUnit(value, FLength | FPercent)) {
             list->append(createPrimitiveNumericValue(value));
-            m_valueList->next();
-            return list.release();
+            hasLengthOrPercentage = true;
+            continue;
         }
+
+        // [ <length> | <percentage> ] && hanging? && each-line? | inherit
+        // when RuntimeEnabledFeatures::css3TextEnabled() returns true
+        if (RuntimeEnabledFeatures::css3TextEnabled()) {
+            if (!hasEachLine && value->id == CSSValueEachLine) {
+                list->append(cssValuePool().createIdentifierValue(CSSValueEachLine));
+                hasEachLine = true;
+                continue;
+            }
+            if (!hasHanging && value->id == CSSValueHanging) {
+                list->append(cssValuePool().createIdentifierValue(CSSValueHanging));
+                hasHanging = true;
+                continue;
+            }
+        }
+        return nullptr;
     }
 
-    if (!RuntimeEnabledFeatures::css3TextEnabled())
+    if (!hasLengthOrPercentage)
         return nullptr;
 
-    // The case where text-indent has only <length>(or <percentage>) value
-    // is handled above if statement even though css3TextEnabled() returns true.
-
-    // [ [ <length> | <percentage> ] && each-line ] | inherit
-    if (m_valueList->size() != 2)
-        return nullptr;
-
-    CSSParserValue* firstValue = m_valueList->current();
-    CSSParserValue* secondValue = m_valueList->next();
-    CSSParserValue* lengthOrPercentageValue = 0;
-
-    // [ <length> | <percentage> ] each-line
-    if (validUnit(firstValue, FLength | FPercent) && secondValue->id == CSSValueEachLine)
-        lengthOrPercentageValue = firstValue;
-    // each-line [ <length> | <percentage> ]
-    else if (firstValue->id == CSSValueEachLine && validUnit(secondValue, FLength | FPercent))
-        lengthOrPercentageValue = secondValue;
-
-    if (lengthOrPercentageValue) {
-        list->append(createPrimitiveNumericValue(lengthOrPercentageValue));
-        list->append(cssValuePool().createIdentifierValue(CSSValueEachLine));
-        m_valueList->next();
-        return list.release();
-    }
-
-    return nullptr;
+    return list.release();
 }
 
 bool CSSPropertyParser::parseLineBoxContain(bool important)
@@ -8253,11 +8217,6 @@ bool CSSPropertyParser::parseSVGValue(CSSPropertyID propId, bool important)
 
     case CSSPropertyBufferedRendering: // auto | dynamic | static
         if (id == CSSValueAuto || id == CSSValueDynamic || id == CSSValueStatic)
-            validPrimitive = true;
-        break;
-
-    case CSSPropertyColorProfile: // auto | sRGB | <name> | <uri> inherit
-        if (id == CSSValueAuto || id == CSSValueSrgb)
             validPrimitive = true;
         break;
 

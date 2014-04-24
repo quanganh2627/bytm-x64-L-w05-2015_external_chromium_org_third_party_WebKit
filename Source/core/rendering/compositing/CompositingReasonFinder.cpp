@@ -40,24 +40,35 @@ CompositingReasonFinder::CompositingReasonFinder(RenderView& renderView)
 
 void CompositingReasonFinder::updateTriggers()
 {
-    m_compositingTriggers = m_renderView.document().page()->chrome().client().allowedCompositingTriggers();
+    m_compositingTriggers = 0;
 
-    // FIXME: This monkeying with the accelerated triggers is temporary and should
-    // be removed once the feature ships.
+    Settings& settings = m_renderView.document().page()->settings();
+    if (settings.acceleratedCompositingFor3DTransformsEnabled())
+        m_compositingTriggers |= ThreeDTransformTrigger;
+    if (settings.acceleratedCompositingForVideoEnabled())
+        m_compositingTriggers |= VideoTrigger;
+    if (settings.acceleratedCompositingForPluginsEnabled())
+        m_compositingTriggers |= PluginTrigger;
+    if (settings.acceleratedCompositingForCanvasEnabled())
+        m_compositingTriggers |= CanvasTrigger;
+    if (settings.acceleratedCompositingForAnimationEnabled())
+        m_compositingTriggers |= AnimationTrigger;
+    if (settings.compositedScrollingForFramesEnabled())
+        m_compositingTriggers |= ScrollableInnerFrameTrigger;
+    if (settings.acceleratedCompositingForFiltersEnabled())
+        m_compositingTriggers |= FilterTrigger;
+    if (settings.acceleratedCompositingForGpuRasterizationHintEnabled())
+        m_compositingTriggers |= GPURasterizationTrigger;
 
-    // Currently, we must have the legacy path enabled to use the new path.
-    if (!(m_compositingTriggers & LegacyOverflowScrollTrigger))
-        m_compositingTriggers &= ~OverflowScrollTrigger;
-
-    // Enable universal overflow scrolling (and only universal overflow scrolling)
-    // on the new bleeding edge path. The above requirement (having legacy enabled)
-    // was only necessary to avoid explosions; the legacy path created far fewer
-    // layers. In the world of squashing, this doesn't make sense. We never want
-    // to use the old path in that case.
-    if (RuntimeEnabledFeatures::bleedingEdgeFastPathsEnabled()) {
+    // We map both these settings to universal overlow scrolling.
+    // FIXME: Replace these settings with a generic compositing setting for HighDPI.
+    if (settings.acceleratedCompositingForOverflowScrollEnabled() || settings.compositorDrivenAcceleratedScrollingEnabled())
         m_compositingTriggers |= OverflowScrollTrigger;
-        m_compositingTriggers &= ~LegacyOverflowScrollTrigger;
-    }
+
+    // FIXME: acceleratedCompositingForFixedPositionEnabled should be renamed acceleratedCompositingForViewportConstrainedPositionEnabled().
+    // Or the sticky and fixed position elements should be behind different flags.
+    if (settings.acceleratedCompositingForFixedPositionEnabled())
+        m_compositingTriggers |= ViewportConstrainedPositionedTrigger;
 }
 
 bool CompositingReasonFinder::has3DTransformTrigger() const
@@ -87,6 +98,19 @@ bool CompositingReasonFinder::isMainFrame() const
 {
     // FIXME: LocalFrame::isMainFrame() is probably better.
     return !m_renderView.document().ownerElement();
+}
+
+CompositingReasons CompositingReasonFinder::suppressWillChangeAndAnimationForGpuRasterization(const RenderLayer* layer, CompositingReasons styleReasons) const
+{
+    CompositingReasons adjustedReasons = styleReasons;
+    adjustedReasons &= ~(CompositingReasonWillChangeCompositingHint | CompositingReasonWillChangeGpuRasterizationHint);
+
+    // We can suppress layer creation for animations before animations start, but not
+    // once they're already running on the compositor.
+    if (!layer->renderer()->style()->isRunningAnimationOnCompositor())
+        adjustedReasons &= ~CompositingReasonActiveAnimation;
+
+    return adjustedReasons;
 }
 
 CompositingReasons CompositingReasonFinder::directReasons(const RenderLayer* layer, bool* needToRecomputeCompositingRequirements) const
@@ -127,8 +151,11 @@ CompositingReasons CompositingReasonFinder::styleDeterminedReasons(RenderObject*
     if (requiresCompositingForFilters(renderer))
         directReasons |= CompositingReasonFilters;
 
-    if (requiresCompositingForWillChange(renderer))
-        directReasons |= CompositingReasonWillChange;
+    if (requiresCompositingForWillChangeCompositingHint(renderer))
+        directReasons |= CompositingReasonWillChangeCompositingHint;
+
+    if (requiresCompositingForWillChangeGpuRasterizationHint(renderer))
+        directReasons |= CompositingReasonWillChangeGpuRasterizationHint;
 
     ASSERT(!(directReasons & ~CompositingReasonComboAllStyleDeterminedReasons));
     return directReasons;
@@ -160,11 +187,13 @@ bool CompositingReasonFinder::requiresCompositingForFilters(RenderObject* render
     return renderer->hasFilter();
 }
 
-bool CompositingReasonFinder::requiresCompositingForWillChange(const RenderObject* renderer) const
+bool CompositingReasonFinder::requiresCompositingForWillChangeCompositingHint(const RenderObject* renderer) const
 {
-    if (renderer->style()->hasWillChangeCompositingHint())
-        return true;
+    return renderer->style()->hasWillChangeCompositingHint();
+}
 
+bool CompositingReasonFinder::requiresCompositingForWillChangeGpuRasterizationHint(const RenderObject* renderer) const
+{
     if (!(m_compositingTriggers & GPURasterizationTrigger))
         return false;
 

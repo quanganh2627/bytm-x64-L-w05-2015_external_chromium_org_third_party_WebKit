@@ -28,8 +28,8 @@
 #include "LinkHighlight.h"
 
 #include "SkMatrix44.h"
-#include "WebFrameImpl.h"
 #include "WebKit.h"
+#include "WebLocalFrameImpl.h"
 #include "WebViewImpl.h"
 #include "core/dom/Node.h"
 #include "core/frame/FrameView.h"
@@ -116,6 +116,7 @@ RenderLayer* LinkHighlight::computeEnclosingCompositingLayer()
     RenderLayerModelObject* repaintContainer;
     do {
         repaintContainer = renderer->containerForRepaint();
+        // FIXME: Repaint container should never be null. crbug.com/363699
         if (!repaintContainer) {
             renderer = renderer->frame()->ownerRenderer();
             if (!renderer)

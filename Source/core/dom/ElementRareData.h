@@ -40,7 +40,10 @@ class HTMLElement;
 
 class ElementRareData : public NodeRareData {
 public:
-    static PassOwnPtr<ElementRareData> create(RenderObject* renderer) { return adoptPtr(new ElementRareData(renderer)); }
+    static PassOwnPtr<ElementRareData> create(RenderObject* renderer)
+    {
+        return adoptPtr(new ElementRareData(renderer));
+    }
 
     ~ElementRareData();
 
@@ -62,9 +65,6 @@ public:
         m_tabindex = 0;
         clearElementFlag(TabIndexWasSetExplicitly);
     }
-
-    unsigned childIndex() const { return m_childIndex; }
-    void setChildIndex(unsigned index) { m_childIndex = index; }
 
     CSSStyleDeclaration& ensureInlineCSSStyleDeclaration(Element* ownerElement);
 
@@ -124,7 +124,6 @@ public:
 
 private:
     short m_tabindex;
-    unsigned short m_childIndex;
 
     LayoutSize m_minimumSizeForResizing;
     IntSize m_savedLayerScrollOffset;
@@ -155,7 +154,6 @@ inline IntSize defaultMinimumSizeForResizing()
 inline ElementRareData::ElementRareData(RenderObject* renderer)
     : NodeRareData(renderer)
     , m_tabindex(0)
-    , m_childIndex(0)
     , m_minimumSizeForResizing(defaultMinimumSizeForResizing())
 {
 }
@@ -220,7 +218,6 @@ inline PseudoElement* ElementRareData::pseudoElement(PseudoId pseudoId) const
 inline void ElementRareData::resetStyleState()
 {
     clearElementFlag(StyleAffectedByEmpty);
-    setChildIndex(0);
 }
 
 } // namespace

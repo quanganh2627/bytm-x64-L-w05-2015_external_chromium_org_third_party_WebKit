@@ -42,6 +42,7 @@
 #include "core/dom/Element.h"
 #include "core/dom/ElementRareData.h"
 #include "core/dom/ElementTraversal.h"
+#include "core/dom/EventHandlerRegistry.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/LiveNodeList.h"
 #include "core/dom/NodeRareData.h"
@@ -291,6 +292,7 @@ void Node::willBeDeletedFromDocument()
     if (hasEventTargetData()) {
         clearEventTargetData();
         document.didClearTouchEventHandlers(this);
+        EventHandlerRegistry::from(document)->didRemoveAllEventHandlers(*this);
     }
 
     if (AXObjectCache* cache = document.existingAXObjectCache())
@@ -328,10 +330,15 @@ void Node::clearRareData()
     ASSERT(!transientMutationObserverRegistry() || transientMutationObserverRegistry()->isEmpty());
 
     RenderObject* renderer = m_data.m_rareData->renderer();
-    if (isElementNode())
-        delete static_cast<ElementRareData*>(m_data.m_rareData);
-    else
-        delete static_cast<NodeRareData*>(m_data.m_rareData);
+    if (isElementNode()) {
+        ElementRareData* rareData = static_cast<ElementRareData*>(m_data.m_rareData);
+        rareData->dispose();
+        delete rareData;
+    } else {
+        NodeRareData* rareData = static_cast<NodeRareData*>(m_data.m_rareData);
+        rareData->dispose();
+        delete rareData;
+    }
     m_data.m_renderer = renderer;
     clearFlag(HasRareDataFlag);
 }
@@ -363,7 +370,7 @@ PassRefPtr<NodeList> Node::childNodes()
     return ensureRareData().ensureNodeLists().ensureEmptyChildNodeList(*this);
 }
 
-Node& Node::lastDescendant() const
+Node& Node::lastDescendantOrSelf() const
 {
     Node* n = const_cast<Node*>(this);
     while (n && n->lastChild())
@@ -1941,15 +1948,16 @@ void Node::didMoveToNewDocument(Document& oldDocument)
             document().didAddTouchEventHandler(this);
         }
     }
+    EventHandlerRegistry::from(document())->didMoveFromOtherDocument(*this, oldDocument);
 
-    if (Vector<OwnPtr<MutationObserverRegistration> >* registry = mutationObserverRegistry()) {
+    if (WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* registry = mutationObserverRegistry()) {
         for (size_t i = 0; i < registry->size(); ++i) {
             document().addMutationObserverTypes(registry->at(i)->mutationTypes());
         }
     }
 
-    if (HashSet<MutationObserverRegistration*>* transientRegistry = transientMutationObserverRegistry()) {
-        for (HashSet<MutationObserverRegistration*>::iterator iter = transientRegistry->begin(); iter != transientRegistry->end(); ++iter) {
+    if (WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* transientRegistry = transientMutationObserverRegistry()) {
+        for (WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >::iterator iter = transientRegistry->begin(); iter != transientRegistry->end(); ++iter) {
             document().addMutationObserverTypes((*iter)->mutationTypes());
         }
     }
@@ -1966,6 +1974,7 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomicString& eve
         WheelController::from(document)->didAddWheelEventHandler(document);
     else if (isTouchEventType(eventType))
         document.didAddTouchEventHandler(targetNode);
+    EventHandlerRegistry::from(document)->didAddEventHandler(*targetNode, eventType);
 
     return true;
 }
@@ -1987,6 +1996,7 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomicString& 
         WheelController::from(document)->didRemoveWheelEventHandler(document);
     else if (isTouchEventType(eventType))
         document.didRemoveTouchEventHandler(targetNode);
+    EventHandlerRegistry::from(document)->didRemoveEventHandler(*targetNode, eventType);
 
     return true;
 }
@@ -1998,6 +2008,8 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
 
 void Node::removeAllEventListeners()
 {
+    if (hasEventListeners())
+        EventHandlerRegistry::from(document())->didRemoveAllEventHandlers(*this);
     EventTarget::removeAllEventListeners();
     document().didClearTouchEventHandlers(this);
 }
@@ -2039,7 +2051,7 @@ void Node::clearEventTargetData()
     eventTargetDataMap().remove(this);
 }
 
-Vector<OwnPtr<MutationObserverRegistration> >* Node::mutationObserverRegistry()
+WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* Node::mutationObserverRegistry()
 {
     if (!hasRareData())
         return 0;
@@ -2049,7 +2061,7 @@ Vector<OwnPtr<MutationObserverRegistration> >* Node::mutationObserverRegistry()
     return &data->registry;
 }
 
-HashSet<MutationObserverRegistration*>* Node::transientMutationObserverRegistry()
+WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* Node::transientMutationObserverRegistry()
 {
     if (!hasRareData())
         return 0;
@@ -2060,7 +2072,7 @@ HashSet<MutationObserverRegistration*>* Node::transientMutationObserverRegistry(
 }
 
 template<typename Registry>
-static inline void collectMatchingObserversForMutation(HashMap<MutationObserver*, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
+static inline void collectMatchingObserversForMutation(WillBeHeapHashMap<RawPtrWillBeMember<MutationObserver>, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
     if (!registry)
         return;
@@ -2068,14 +2080,14 @@ static inline void collectMatchingObserversForMutation(HashMap<MutationObserver*
         const MutationObserverRegistration& registration = **iter;
         if (registration.shouldReceiveMutationFrom(target, type, attributeName)) {
             MutationRecordDeliveryOptions deliveryOptions = registration.deliveryOptions();
-            HashMap<MutationObserver*, MutationRecordDeliveryOptions>::AddResult result = observers.add(&registration.observer(), deliveryOptions);
+            WillBeHeapHashMap<RawPtrWillBeMember<MutationObserver>, MutationRecordDeliveryOptions>::AddResult result = observers.add(&registration.observer(), deliveryOptions);
             if (!result.isNewEntry)
                 result.storedValue->value |= deliveryOptions;
         }
     }
 }
 
-void Node::getRegisteredMutationObserversOfType(HashMap<MutationObserver*, MutationRecordDeliveryOptions>& observers, MutationObserver::MutationType type, const QualifiedName* attributeName)
+void Node::getRegisteredMutationObserversOfType(WillBeHeapHashMap<RawPtrWillBeMember<MutationObserver>, MutationRecordDeliveryOptions>& observers, MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
     ASSERT((type == MutationObserver::Attributes && attributeName) || !attributeName);
     collectMatchingObserversForMutation(observers, mutationObserverRegistry(), *this, type, attributeName);
@@ -2089,7 +2101,7 @@ void Node::getRegisteredMutationObserversOfType(HashMap<MutationObserver*, Mutat
 void Node::registerMutationObserver(MutationObserver& observer, MutationObserverOptions options, const HashSet<AtomicString>& attributeFilter)
 {
     MutationObserverRegistration* registration = 0;
-    Vector<OwnPtr<MutationObserverRegistration> >& registry = ensureRareData().ensureMutationObserverData().registry;
+    WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >& registry = ensureRareData().ensureMutationObserverData().registry;
     for (size_t i = 0; i < registry.size(); ++i) {
         if (&registry[i]->observer() == &observer) {
             registration = registry[i].get();
@@ -2107,7 +2119,7 @@ void Node::registerMutationObserver(MutationObserver& observer, MutationObserver
 
 void Node::unregisterMutationObserver(MutationObserverRegistration* registration)
 {
-    Vector<OwnPtr<MutationObserverRegistration> >* registry = mutationObserverRegistry();
+    WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* registry = mutationObserverRegistry();
     ASSERT(registry);
     if (!registry)
         return;
@@ -2121,6 +2133,9 @@ void Node::unregisterMutationObserver(MutationObserverRegistration* registration
     // before that, in case |this| is destroyed (see MutationObserverRegistration::m_registrationNodeKeepAlive).
     // FIXME: Simplify the registration/transient registration logic to make this understandable by humans.
     RefPtr<Node> protect(this);
+    // The explicit dispose() is motivated by Oilpan; the registration
+    // object needs to unregister itself promptly.
+    registration->dispose();
     registry->remove(index);
 }
 
@@ -2131,7 +2146,7 @@ void Node::registerTransientMutationObserver(MutationObserverRegistration* regis
 
 void Node::unregisterTransientMutationObserver(MutationObserverRegistration* registration)
 {
-    HashSet<MutationObserverRegistration*>* transientRegistry = transientMutationObserverRegistry();
+    WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* transientRegistry = transientMutationObserverRegistry();
     ASSERT(transientRegistry);
     if (!transientRegistry)
         return;
@@ -2146,14 +2161,14 @@ void Node::notifyMutationObserversNodeWillDetach()
         return;
 
     for (Node* node = parentNode(); node; node = node->parentNode()) {
-        if (Vector<OwnPtr<MutationObserverRegistration> >* registry = node->mutationObserverRegistry()) {
+        if (WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* registry = node->mutationObserverRegistry()) {
             const size_t size = registry->size();
             for (size_t i = 0; i < size; ++i)
                 registry->at(i)->observedSubtreeNodeWillDetach(*this);
         }
 
-        if (HashSet<MutationObserverRegistration*>* transientRegistry = node->transientMutationObserverRegistry()) {
-            for (HashSet<MutationObserverRegistration*>::iterator iter = transientRegistry->begin(); iter != transientRegistry->end(); ++iter)
+        if (WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* transientRegistry = node->transientMutationObserverRegistry()) {
+            for (WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >::iterator iter = transientRegistry->begin(); iter != transientRegistry->end(); ++iter)
                 (*iter)->observedSubtreeNodeWillDetach(*this);
         }
     }

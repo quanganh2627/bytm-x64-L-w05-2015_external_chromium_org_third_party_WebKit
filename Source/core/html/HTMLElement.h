@@ -65,6 +65,9 @@ public:
     bool translate() const;
     void setTranslate(bool);
 
+    const AtomicString& dir();
+    void setDir(const AtomicString&);
+
     void click();
 
     virtual void accessKeyAction(bool sendMouseEvents) OVERRIDE;
@@ -87,6 +90,9 @@ public:
     virtual void defaultEventHandler(Event*) OVERRIDE;
 
     static const AtomicString& eventNameForAttributeName(const QualifiedName& attrName);
+
+    virtual bool matchesReadOnlyPseudoClass() const OVERRIDE;
+    virtual bool matchesReadWritePseudoClass() const OVERRIDE;
 
 protected:
     HTMLElement(const QualifiedName& tagName, Document&, ConstructionType);

@@ -130,15 +130,13 @@ WebInspector.CompilerScriptMapping.prototype = {
                 this._sourceMapForURL.put(sourceURL, sourceMap);
                 if (!this._workspace.hasMappingForURL(sourceURL) && !this._workspace.uiSourceCodeForURL(sourceURL)) {
                     var contentProvider = sourceMap.sourceContentProvider(sourceURL, WebInspector.resourceTypes.Script);
-                    this._networkWorkspaceBinding.addFileForURL(sourceURL, contentProvider, true);
+                    this._networkWorkspaceBinding.addFileForURL(sourceURL, contentProvider, true, script.isContentScript());
                 }
                 var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
-                if (uiSourceCode) {
+                if (uiSourceCode)
                     this._bindUISourceCode(uiSourceCode);
-                    uiSourceCode.isContentScript = script.isContentScript;
-                } else {
+                else
                     WebInspector.console.showErrorMessage(WebInspector.UIString("Failed to locate workspace file mapped to URL %s from source map %s", sourceURL, sourceMap.url()));
-                }
             }
             script.updateLocations();
         }
@@ -240,22 +238,18 @@ WebInspector.CompilerScriptMapping.prototype = {
     _debuggerReset: function()
     {
         /**
-         * @param {!WebInspector.SourceMap} sourceMap
+         * @param {string} sourceURL
          * @this {WebInspector.CompilerScriptMapping}
          */
-        function unbindUISourceCodesForSourceMap(sourceMap)
+        function unbindUISourceCodeForURL(sourceURL)
         {
-            var sourceURLs = sourceMap.sources();
-            for (var i = 0; i < sourceURLs.length; ++i) {
-                var sourceURL = sourceURLs[i];
-                var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
-                if (!uiSourceCode)
-                    continue;
-                this._unbindUISourceCode(uiSourceCode);
-            }
+            var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
+            if (!uiSourceCode)
+                return;
+            this._unbindUISourceCode(uiSourceCode);
         }
 
-        this._sourceMapForURL.values().forEach(unbindUISourceCodesForSourceMap.bind(this));
+        this._sourceMapForURL.keys().forEach(unbindUISourceCodeForURL.bind(this));
 
         this._sourceMapForSourceMapURL = {};
         this._pendingSourceMapLoadingCallbacks = {};

@@ -14,6 +14,7 @@ namespace WebCore {
 
 class DOMWrapperWorld;
 class ExecutionContext;
+class LocalFrame;
 
 // NewScriptState is created when v8::Context is created.
 // NewScriptState is destroyed when v8::Context is garbage-collected and
@@ -61,6 +62,8 @@ public:
         return scriptState;
     }
 
+    static NewScriptState* forMainWorld(LocalFrame*);
+
     v8::Isolate* isolate() const { return m_isolate; }
     DOMWrapperWorld& world() const { return *m_world; }
     // This can return an empty handle if the v8::Context is gone.
@@ -75,9 +78,16 @@ private:
     NewScriptState(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
 
     v8::Isolate* m_isolate;
+    // This persistent handle is weak.
     ScopedPersistent<v8::Context> m_context;
+
     // This RefPtr doesn't cause a cycle because all persistent handles that DOMWrapperWorld holds are weak.
     RefPtr<DOMWrapperWorld> m_world;
+
+    // This OwnPtr causes a cycle:
+    // V8PerContextData --(Persistent)--> v8::Context --(RefPtr)--> NewScriptState --(OwnPtr)--> V8PerContextData
+    // So you must explicitly clear the OwnPtr by calling disposePerContextData()
+    // once you no longer need V8PerContextData. Otherwise, the v8::Context will leak.
     OwnPtr<V8PerContextData> m_perContextData;
 };
 

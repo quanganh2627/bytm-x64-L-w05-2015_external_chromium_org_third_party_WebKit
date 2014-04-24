@@ -66,6 +66,13 @@ public:
     // Called to resize the WebWidget.
     virtual void resize(const WebSize&) { }
 
+    // Resizes the unscaled pinch viewport. Normally the unscaled pinch
+    // viewport is the same size as the main frame. The passed size becomes the
+    // size of the viewport when unscaled (i.e. scale = 1). This is used to
+    // shrink the visible viewport to allow things like the ChromeOS virtual
+    // keyboard to overlay over content but allow scrolling it into view.
+    virtual void resizePinchViewport(const WebSize&) { }
+
     // Ends a group of resize events that was started with a call to
     // willStartLiveResize.
     virtual void willEndLiveResize() { }
@@ -92,6 +99,8 @@ public:
 
     // Called to notify the WebWidget that the widget has exited compositing
     // mode and cannot reenter.
+    // FIXME: Now that GTK Linux is gone, this should be dead code.
+    // Remove it once the content side calling code is deleted.
     virtual void didExitCompositingMode() { }
 
     enum PaintOptions {

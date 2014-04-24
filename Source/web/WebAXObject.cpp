@@ -91,16 +91,6 @@ void WebAXObject::enableInlineTextBoxAccessibility()
     AXObjectCache::setInlineTextBoxAccessibility(true);
 }
 
-void WebAXObject::startCachingComputedObjectAttributesUntilTreeMutates()
-{
-    m_private->axObjectCache()->startCachingComputedObjectAttributesUntilTreeMutates();
-}
-
-void WebAXObject::stopCachingComputedObjectAttributes()
-{
-    m_private->axObjectCache()->stopCachingComputedObjectAttributes();
-}
-
 bool WebAXObject::isDetached() const
 {
     if (m_private.isNull())
@@ -550,13 +540,7 @@ WebRect WebAXObject::boundingBoxRect() const
 
     // It's not safe to call boundingBoxRect if a layout is pending.
     // Clients should call updateBackingStoreAndCheckValidity first.
-    ASSERT(m_private->document()
-        && !m_private->document()->needsStyleRecalc()
-        && !m_private->document()->childNeedsStyleRecalc()
-        && m_private->document()->view()
-        && !m_private->document()->view()->layoutPending()
-        && m_private->document()->renderView()
-        && !m_private->document()->renderView()->needsLayout());
+    ASSERT(m_private->document() && m_private->document()->lifecycle().state() >= DocumentLifecycle::LayoutClean);
 
     return pixelSnappedIntRect(m_private->elementRect());
 }

@@ -41,9 +41,6 @@ public:
     }
     virtual ~HTMLDocument();
 
-    String designMode() const;
-    void setDesignMode(const String&);
-
     const AtomicString& bgColor() const;
     void setBgColor(const AtomicString&);
     const AtomicString& fgColor() const;
@@ -70,8 +67,8 @@ public:
 
     using Document::write;
     using Document::writeln;
-    void write(DOMWindow*, const Vector<String>& text);
-    void writeln(DOMWindow*, const Vector<String>& text);
+    void write(DOMWindow*, const Vector<String>& text, ExceptionState&);
+    void writeln(DOMWindow*, const Vector<String>& text, ExceptionState&);
 
     static bool isCaseSensitiveAttribute(const QualifiedName&);
 

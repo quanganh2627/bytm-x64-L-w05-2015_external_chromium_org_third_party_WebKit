@@ -183,6 +183,9 @@ CompositedLayerMapping::CompositedLayerMapping(RenderLayer& layer)
 
 CompositedLayerMapping::~CompositedLayerMapping()
 {
+    // Hits in compositing/squashing/squash-onto-nephew.html.
+    DisableCompositingQueryAsserts disabler;
+
     // Do not leave the destroyed pointer dangling on any RenderLayers that painted to this mapping's squashing layer.
     for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
         RenderLayer* oldSquashedLayer = m_squashedLayers[i].renderLayer;
@@ -476,7 +479,7 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdat
     bool hasPerspective = false;
     if (RenderStyle* style = renderer->style())
         hasPerspective = style->hasPerspective();
-    bool needsChildTransformLayer = hasPerspective && (layerForChildrenTransform() == m_childTransformLayer.get());
+    bool needsChildTransformLayer = hasPerspective && (layerForChildrenTransform() == m_childTransformLayer.get()) && renderer->isBox();
     if (updateChildTransformLayer(needsChildTransformLayer))
         layerConfigChanged = true;
 
@@ -563,7 +566,9 @@ void CompositedLayerMapping::adjustBoundsForSubPixelAccumulation(const RenderLay
 {
     LayoutRect localRawCompositingBounds = compositedBounds();
     LayoutPoint rawDelta = computeOffsetFromCompositedAncestor(&m_owningLayer, compositedAncestor);
-    delta = flooredIntPoint(rawDelta);
+    // We call toInt and not floor here because toInt truncates, but floor will floor negative numbers
+    // down e.g. floor(-1.1) would become -2.
+    delta = IntPoint(rawDelta.x().toInt(), rawDelta.y().toInt());
     LayoutSize subpixelAccumulation = toLayoutSize(rawDelta).fraction();
     m_owningLayer.setSubpixelAccumulation(subpixelAccumulation);
 
@@ -630,7 +635,7 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
     }
 }
 
-void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType)
+void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType, const RenderLayer* compositingContainer)
 {
     // If we haven't built z-order lists yet, wait until later.
     if (m_owningLayer.stackingNode()->isStackingContainer() && m_owningLayer.stackingNode()->zOrderListsDirty())
@@ -664,51 +669,49 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
     RenderStyle* style = renderer()->style();
     m_graphicsLayer->setBackfaceVisibility(style->backfaceVisibility() == BackfaceVisibilityVisible);
 
-    RenderLayer* compAncestor = m_owningLayer.ancestorCompositingLayer();
-
     // We compute everything relative to the enclosing compositing layer.
     IntRect ancestorCompositingBounds;
-    if (compAncestor) {
-        ASSERT(compAncestor->hasCompositedLayerMapping());
-        ancestorCompositingBounds = compAncestor->compositedLayerMapping()->pixelSnappedCompositedBounds();
+    if (compositingContainer) {
+        ASSERT(compositingContainer->hasCompositedLayerMapping());
+        ancestorCompositingBounds = compositingContainer->compositedLayerMapping()->pixelSnappedCompositedBounds();
     }
 
     IntRect localCompositingBounds;
     IntRect relativeCompositingBounds;
     IntPoint delta;
-    adjustBoundsForSubPixelAccumulation(compAncestor, localCompositingBounds, relativeCompositingBounds, delta);
+    adjustBoundsForSubPixelAccumulation(compositingContainer, localCompositingBounds, relativeCompositingBounds, delta);
 
     IntPoint graphicsLayerParentLocation;
-    if (compAncestor && compAncestor->compositedLayerMapping()->hasClippingLayer()) {
+    if (compositingContainer && compositingContainer->compositedLayerMapping()->hasClippingLayer()) {
         // If the compositing ancestor has a layer to clip children, we parent in that, and therefore
         // position relative to it.
-        IntRect clippingBox = clipBox(toRenderBox(compAncestor->renderer()));
-        graphicsLayerParentLocation = clippingBox.location() + roundedIntSize(compAncestor->subpixelAccumulation());
-    } else if (compAncestor && compAncestor->compositedLayerMapping()->childTransformLayer()) {
+        IntRect clippingBox = clipBox(toRenderBox(compositingContainer->renderer()));
+        graphicsLayerParentLocation = clippingBox.location() + roundedIntSize(compositingContainer->subpixelAccumulation());
+    } else if (compositingContainer && compositingContainer->compositedLayerMapping()->childTransformLayer()) {
         // Similarly, if the compositing ancestor has a child transform layer, we parent in that, and therefore
         // position relative to it. It's already taken into account the contents offset, so we do not need to here.
-        graphicsLayerParentLocation = roundedIntPoint(compAncestor->subpixelAccumulation());
-    } else if (compAncestor) {
+        graphicsLayerParentLocation = roundedIntPoint(compositingContainer->subpixelAccumulation());
+    } else if (compositingContainer) {
         graphicsLayerParentLocation = ancestorCompositingBounds.location();
     } else {
         graphicsLayerParentLocation = renderer()->view()->documentRect().location();
     }
 
-    if (compAncestor && compAncestor->needsCompositedScrolling()) {
-        RenderBox* renderBox = toRenderBox(compAncestor->renderer());
+    if (compositingContainer && compositingContainer->needsCompositedScrolling()) {
+        RenderBox* renderBox = toRenderBox(compositingContainer->renderer());
         IntSize scrollOffset = renderBox->scrolledContentOffset();
         IntPoint scrollOrigin(renderBox->borderLeft(), renderBox->borderTop());
         graphicsLayerParentLocation = scrollOrigin - scrollOffset;
     }
 
-    if (compAncestor && m_ancestorClippingLayer) {
-        ClipRectsContext clipRectsContext(compAncestor, CompositingClipRects, IgnoreOverlayScrollbarSize, IgnoreOverflowClip);
+    if (compositingContainer && m_ancestorClippingLayer) {
+        ClipRectsContext clipRectsContext(compositingContainer, CompositingClipRects, IgnoreOverlayScrollbarSize, IgnoreOverflowClip);
         IntRect parentClipRect = pixelSnappedIntRect(m_owningLayer.clipper().backgroundClipRect(clipRectsContext).rect());
         ASSERT(parentClipRect != PaintInfo::infiniteRect());
         m_ancestorClippingLayer->setPosition(FloatPoint(parentClipRect.location() - graphicsLayerParentLocation));
         m_ancestorClippingLayer->setSize(parentClipRect.size());
 
-        // backgroundRect is relative to compAncestor, so subtract deltaX/deltaY to get back to local coords.
+        // backgroundRect is relative to compositingContainer, so subtract deltaX/deltaY to get back to local coords.
         m_ancestorClippingLayer->setOffsetFromRenderer(parentClipRect.location() - delta);
 
         // The primary layer is then parented in, and positioned relative to this clipping layer.
@@ -754,7 +757,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
     if (m_owningLayer.hasTransform()) {
         const LayoutRect borderBox = toRenderBox(renderer())->borderBoxRect();
 
-        // Get layout bounds in the coords of compAncestor to match relativeCompositingBounds.
+        // Get layout bounds in the coords of compositingContainer to match relativeCompositingBounds.
         IntRect layerBounds = pixelSnappedIntRect(toLayoutPoint(m_owningLayer.subpixelAccumulation()), borderBox.size());
         layerBounds.moveBy(delta);
 
@@ -804,7 +807,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     if (m_owningLayer.reflectionInfo() && m_owningLayer.reflectionInfo()->reflectionLayer()->hasCompositedLayerMapping()) {
         CompositedLayerMappingPtr reflectionCompositedLayerMapping = m_owningLayer.reflectionInfo()->reflectionLayer()->compositedLayerMapping();
-        reflectionCompositedLayerMapping->updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate);
+        reflectionCompositedLayerMapping->updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate, &m_owningLayer);
 
         // The reflection layer has the bounds of m_owningLayer.reflectionLayer(),
         // but the reflected layer is the bounds of this layer, so we need to position it appropriately.
@@ -863,10 +866,6 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     if (m_owningLayer.scrollableArea() && m_owningLayer.scrollableArea()->scrollsOverflow())
         m_owningLayer.scrollableArea()->positionOverflowControls();
-
-    // We can't make this call in RenderLayerCompositor::allocateOrClearCompositedLayerMapping
-    // since it depends on whether compAncestor draws content, which gets updated later.
-    updateRequiresOwnBackingStoreForAncestorReasons(compAncestor);
 
     if (RuntimeEnabledFeatures::cssCompositingEnabled()) {
         updateLayerBlendMode(style);
@@ -1439,17 +1438,25 @@ bool CompositedLayerMapping::updateSquashingLayers(bool needsSquashingLayers)
         ASSERT(compositor()->layerSquashingEnabled());
 
         if (!m_squashingLayer) {
-            ASSERT(!m_squashingContainmentLayer);
-
             m_squashingLayer = createGraphicsLayer(CompositingReasonLayerForSquashingContents);
             m_squashingLayer->setDrawsContent(true);
-
-            // FIXME: containment layer needs a new CompositingReason, CompositingReasonOverlap is not appropriate.
-            if (!m_ancestorClippingLayer)
-                m_squashingContainmentLayer = createGraphicsLayer(CompositingReasonLayerForSquashingContainer);
             layersChanged = true;
         }
 
+        if (m_ancestorClippingLayer) {
+            if (m_squashingContainmentLayer) {
+                m_squashingContainmentLayer->removeFromParent();
+                m_squashingContainmentLayer = nullptr;
+                layersChanged = true;
+            }
+        } else {
+            if (!m_squashingContainmentLayer) {
+                m_squashingContainmentLayer = createGraphicsLayer(CompositingReasonLayerForSquashingContainer);
+                layersChanged = true;
+            }
+        }
+
+        ASSERT((m_ancestorClippingLayer && !m_squashingContainmentLayer) || (!m_ancestorClippingLayer && m_squashingContainmentLayer));
         ASSERT(m_squashingLayer);
     } else {
         if (m_squashingLayer) {
@@ -1693,20 +1700,6 @@ FloatPoint3D CompositedLayerMapping::computeTransformOrigin(const IntRect& borde
     origin.setX(floatValueForLength(style->transformOriginX(), borderBox.width()));
     origin.setY(floatValueForLength(style->transformOriginY(), borderBox.height()));
     origin.setZ(style->transformOriginZ());
-
-    return origin;
-}
-
-FloatPoint CompositedLayerMapping::computePerspectiveOrigin(const IntRect& borderBox) const
-{
-    RenderStyle* style = renderer()->style();
-
-    float boxWidth = borderBox.width();
-    float boxHeight = borderBox.height();
-
-    FloatPoint origin;
-    origin.setX(floatValueForLength(style->perspectiveOriginX(), boxWidth));
-    origin.setY(floatValueForLength(style->perspectiveOriginY(), boxHeight));
 
     return origin;
 }

@@ -88,6 +88,8 @@ SVGElement::~SVGElement()
 {
     ASSERT(inDocument() || !hasRelativeLengths());
 
+    // The below teardown is all handled by weak pointer processing in oilpan.
+#if !ENABLE(OILPAN)
     if (!hasSVGRareData())
         ASSERT(!SVGElementRareData::rareDataMap().contains(this));
     else {
@@ -96,9 +98,8 @@ SVGElement::~SVGElement()
         ASSERT_WITH_SECURITY_IMPLICATION(it != rareDataMap.end());
 
         SVGElementRareData* rareData = it->value;
-        rareData->destroyAnimatedSMILStyleProperties();
         if (SVGCursorElement* cursorElement = rareData->cursorElement())
-            cursorElement->removeClient(this);
+            cursorElement->removeReferencedElement(this);
         if (CSSCursorImageValue* cursorImageValue = rareData->cursorImageValue())
             cursorImageValue->removeReferencedElement(this);
 
@@ -113,6 +114,7 @@ SVGElement::~SVGElement()
         // removeAllElementReferencesForTarget() below.
         clearHasSVGRareData();
     }
+#endif
     document().accessSVGExtensions().rebuildAllElementReferencesForTarget(this);
     document().accessSVGExtensions().removeAllElementReferencesForTarget(this);
 }
@@ -130,7 +132,7 @@ void SVGElement::willRecalcStyle(StyleRecalcChange change)
 void SVGElement::buildPendingResourcesIfNeeded()
 {
     Document& document = this->document();
-    if (!needsPendingResourceHandling() || !inDocument() || isInShadowTree())
+    if (!needsPendingResourceHandling() || !inDocument() || inUseShadowTree())
         return;
 
     SVGDocumentExtensions& extensions = document.accessSVGExtensions();
@@ -176,7 +178,7 @@ SVGElementRareData* SVGElement::ensureSVGRareData()
         return svgRareData();
 
     ASSERT(!SVGElementRareData::rareDataMap().contains(this));
-    SVGElementRareData* data = new SVGElementRareData;
+    SVGElementRareData* data = new SVGElementRareData(this);
     SVGElementRareData::rareDataMap().set(this, data);
     setHasSVGRareData();
     return data;
@@ -198,7 +200,7 @@ bool SVGElement::isOutermostSVGSVGElement() const
     // If we're living in a shadow tree, we're a <svg> element that got created as replacement
     // for a <symbol> element or a cloned <svg> element in the referenced tree. In that case
     // we're always an inner <svg> element.
-    if (isInShadowTree() && parentOrShadowHostElement() && parentOrShadowHostElement()->isSVGElement())
+    if (inUseShadowTree() && parentOrShadowHostElement() && parentOrShadowHostElement()->isSVGElement())
         return false;
 
     // This is true whenever this is the outermost SVG, even if there are HTML elements outside it
@@ -233,17 +235,10 @@ String SVGElement::title() const
     if (isOutermostSVGSVGElement())
         return String();
 
-    // Walk up the tree, to find out whether we're inside a <use> shadow tree, to find the right title.
-    if (isInShadowTree()) {
-        Element* shadowHostElement = toShadowRoot(treeScope().rootNode()).host();
-        if (isSVGUseElement(shadowHostElement)) {
-            SVGUseElement& useElement = toSVGUseElement(*shadowHostElement);
-
-            // If the <use> title is not empty we found the title to use.
-            String useTitle(useElement.title());
-            if (!useTitle.isEmpty())
-                return useTitle;
-        }
+    if (inUseShadowTree()) {
+        String useTitle(shadowHost()->title());
+        if (!useTitle.isEmpty())
+            return useTitle;
     }
 
     // If we aren't an instance in a <use> or the <use> title was not found, then find the first
@@ -366,7 +361,6 @@ CSSPropertyID SVGElement::cssPropertyIdForSVGAttributeName(const QualifiedName& 
         mapAttributeToCSSProperty(propertyNameToIdMap, SVGNames::colorAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, color_interpolationAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, color_interpolation_filtersAttr);
-        mapAttributeToCSSProperty(propertyNameToIdMap, color_profileAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, color_renderingAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, cursorAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, SVGNames::directionAttr);
@@ -573,28 +567,34 @@ void SVGElement::setCursorElement(SVGCursorElement* cursorElement)
     rareData->setCursorElement(cursorElement);
 }
 
+#if !ENABLE(OILPAN)
 void SVGElement::cursorElementRemoved()
 {
     ASSERT(hasSVGRareData());
     svgRareData()->setCursorElement(0);
 }
+#endif
 
 void SVGElement::setCursorImageValue(CSSCursorImageValue* cursorImageValue)
 {
     SVGElementRareData* rareData = ensureSVGRareData();
+#if !ENABLE(OILPAN)
     if (CSSCursorImageValue* oldCursorImageValue = rareData->cursorImageValue()) {
         if (cursorImageValue == oldCursorImageValue)
             return;
         oldCursorImageValue->removeReferencedElement(this);
     }
+#endif
     rareData->setCursorImageValue(cursorImageValue);
 }
 
+#if !ENABLE(OILPAN)
 void SVGElement::cursorImageValueRemoved()
 {
     ASSERT(hasSVGRareData());
     svgRareData()->setCursorImageValue(0);
 }
+#endif
 
 SVGElement* SVGElement::correspondingElement()
 {
@@ -605,6 +605,13 @@ SVGElement* SVGElement::correspondingElement()
 void SVGElement::setCorrespondingElement(SVGElement* correspondingElement)
 {
     ensureSVGRareData()->setCorrespondingElement(correspondingElement);
+}
+
+bool SVGElement::inUseShadowTree() const
+{
+    if (ShadowRoot* root = containingShadowRoot())
+        return isSVGUseElement(root->host()) && (root->type() == ShadowRoot::UserAgentShadowRoot);
+    return false;
 }
 
 void SVGElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -644,7 +651,6 @@ AnimatedPropertyType SVGElement::animatedPropertyTypeForCSSAttribute(const Quali
         cssPropertyMap.set(SVGNames::colorAttr, AnimatedColor);
         cssPropertyMap.set(color_interpolationAttr, AnimatedString);
         cssPropertyMap.set(color_interpolation_filtersAttr, AnimatedString);
-        cssPropertyMap.set(color_profileAttr, AnimatedString);
         cssPropertyMap.set(color_renderingAttr, AnimatedString);
         cssPropertyMap.set(cursorAttr, AnimatedString);
         cssPropertyMap.set(displayAttr, AnimatedString);

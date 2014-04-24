@@ -512,15 +512,19 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
         break;
     }
 
+    // Don't send CSP messages for preloads, we might never actually display those items.
+    ContentSecurityPolicy::ReportingStatus cspReporting = forPreload ?
+        ContentSecurityPolicy::SuppressReport : ContentSecurityPolicy::SendReport;
+
     switch (type) {
     case Resource::XSLStyleSheet:
         ASSERT(RuntimeEnabledFeatures::xsltEnabled());
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowScriptFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowScriptFromSource(url, cspReporting))
             return false;
         break;
     case Resource::Script:
     case Resource::ImportResource:
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowScriptFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowScriptFromSource(url, cspReporting))
             return false;
 
         if (frame()) {
@@ -534,16 +538,16 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
     case Resource::Shader:
         // Since shaders are referenced from CSS Styles use the same rules here.
     case Resource::CSSStyleSheet:
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowStyleFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowStyleFromSource(url, cspReporting))
             return false;
         break;
     case Resource::SVGDocument:
     case Resource::Image:
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowImageFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowImageFromSource(url, cspReporting))
             return false;
         break;
     case Resource::Font: {
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowFontFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowFontFromSource(url, cspReporting))
             return false;
         break;
     }
@@ -554,7 +558,7 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
         break;
     case Resource::Media:
     case Resource::TextTrack:
-        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowMediaFromSource(url))
+        if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowMediaFromSource(url, cspReporting))
             return false;
         break;
     }
@@ -584,15 +588,18 @@ bool ResourceFetcher::canAccessResource(Resource* resource, SecurityOrigin* sour
 
     String errorDescription;
     if (!resource->passesAccessControlCheck(sourceOrigin, errorDescription)) {
-        if (frame() && frame()->document()) {
-            String resourceType = Resource::resourceTypeToString(resource->type(), resource->options().initiatorInfo);
-            frame()->document()->addConsoleMessage(JSMessageSource, ErrorMessageLevel, resourceType + " from origin '" + SecurityOrigin::create(url)->toString() + "' has been blocked from loading by Cross-Origin Resource Sharing policy: " + errorDescription);
-        }
-
         // FIXME: Remove later, http://crbug.com/286681
         if (resource->type() == Resource::Font) {
             FontResource* fontResource = toFontResource(resource);
             fontResource->setCORSFailed();
+            if (frame() && frame()->document())
+                frame()->document()->addConsoleMessage(JSMessageSource, WarningMessageLevel, "Blink is considering rejecting non spec-compliant cross-origin web font requests: " + url.string() + ". Please use Access-Control-Allow-Origin to make these requests spec-compliant.");
+            return false;
+        }
+
+        if (frame() && frame()->document()) {
+            String resourceType = Resource::resourceTypeToString(resource->type(), resource->options().initiatorInfo);
+            frame()->document()->addConsoleMessage(JSMessageSource, ErrorMessageLevel, resourceType + " from origin '" + SecurityOrigin::create(url)->toString() + "' has been blocked from loading by Cross-Origin Resource Sharing policy: " + errorDescription);
         }
         return false;
     }
@@ -1247,10 +1254,10 @@ void ResourceFetcher::didDownloadData(const Resource* resource, int dataLength, 
 
 void ResourceFetcher::subresourceLoaderFinishedLoadingOnePart(ResourceLoader* loader)
 {
-    if (m_multipartLoaders)
-        m_multipartLoaders->add(loader);
-    if (m_loaders)
-        m_loaders->remove(loader);
+    if (!m_multipartLoaders)
+        m_multipartLoaders = adoptPtr(new ResourceLoaderSet());
+    m_multipartLoaders->add(loader);
+    m_loaders->remove(loader);
     if (LocalFrame* frame = this->frame())
         return frame->loader().checkLoadComplete(m_documentLoader);
 }
@@ -1267,9 +1274,10 @@ void ResourceFetcher::didInitializeResourceLoader(ResourceLoader* loader)
 
 void ResourceFetcher::willTerminateResourceLoader(ResourceLoader* loader)
 {
-    if (!m_loaders || !m_loaders->contains(loader))
-        return;
-    m_loaders->remove(loader);
+    if (m_loaders && m_loaders->contains(loader))
+        m_loaders->remove(loader);
+    if (m_multipartLoaders && m_multipartLoaders->contains(loader))
+        m_multipartLoaders->remove(loader);
     if (LocalFrame* frame = this->frame())
         frame->loader().checkLoadComplete(m_documentLoader);
 }

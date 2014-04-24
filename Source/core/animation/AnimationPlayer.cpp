@@ -84,7 +84,7 @@ AnimationPlayer::~AnimationPlayer()
 
 double AnimationPlayer::sourceEnd() const
 {
-    return m_content ? m_content->endTime() : 0;
+    return m_content ? m_content->endTimeInternal() : 0;
 }
 
 bool AnimationPlayer::limited(double currentTime) const
@@ -139,6 +139,11 @@ void AnimationPlayer::updateCurrentTimingState()
 
 double AnimationPlayer::currentTime()
 {
+    return currentTimeInternal() * 1000;
+}
+
+double AnimationPlayer::currentTimeInternal()
+{
     updateCurrentTimingState();
     if (m_held)
         return m_holdTime;
@@ -147,14 +152,19 @@ double AnimationPlayer::currentTime()
 
 void AnimationPlayer::setCurrentTime(double newCurrentTime)
 {
+    setCurrentTimeInternal(newCurrentTime / 1000);
+}
+
+void AnimationPlayer::setCurrentTimeInternal(double newCurrentTime)
+{
     if (!std::isfinite(newCurrentTime))
         return;
     updateTimingState(newCurrentTime);
-    // FIXME: Restart animation on compositor.
     cancelAnimationOnCompositor();
+    schedulePendingAnimationOnCompositor();
 }
 
-void AnimationPlayer::setStartTime(double newStartTime, bool isUpdateFromCompositor)
+void AnimationPlayer::setStartTimeInternal(double newStartTime, bool isUpdateFromCompositor)
 {
     if (!std::isfinite(newStartTime))
         return;
@@ -169,14 +179,16 @@ void AnimationPlayer::setStartTime(double newStartTime, bool isUpdateFromComposi
         return;
     updateCurrentTimingState();
     setOutdated();
-    // FIXME: Restart animation on compositor.
+    if (!isUpdateFromCompositor)
+        schedulePendingAnimationOnCompositor();
 }
 
 void AnimationPlayer::setSource(TimedItem* newSource)
 {
     if (m_content == newSource)
         return;
-    double storedCurrentTime = currentTime();
+    cancelAnimationOnCompositor();
+    double storedCurrentTime = currentTimeInternal();
     if (m_content)
         m_content->detach();
     m_content = newSource;
@@ -187,6 +199,7 @@ void AnimationPlayer::setSource(TimedItem* newSource)
         newSource->attach(this);
     }
     updateTimingState(storedCurrentTime);
+    schedulePendingAnimationOnCompositor();
 }
 
 void AnimationPlayer::pause()
@@ -194,7 +207,7 @@ void AnimationPlayer::pause()
     if (m_paused)
         return;
     m_paused = true;
-    updateTimingState(currentTime());
+    updateTimingState(currentTimeInternal());
     cancelAnimationOnCompositor();
 }
 
@@ -203,23 +216,23 @@ void AnimationPlayer::unpause()
     if (!m_paused)
         return;
     m_paused = false;
-    updateTimingState(currentTime());
-    // FIXME: Resume compositor animation.
+    updateTimingState(currentTimeInternal());
+    schedulePendingAnimationOnCompositor();
 }
 
 void AnimationPlayer::play()
 {
+    cancelAnimationOnCompositor();
+    // Note, unpause schedules pending animation on compositor if necessary.
     unpause();
     if (!m_content)
         return;
-    double currentTime = this->currentTime();
+    double currentTime = this->currentTimeInternal();
     if (m_playbackRate > 0 && (currentTime < 0 || currentTime >= sourceEnd()))
-        setCurrentTime(0);
+        setCurrentTimeInternal(0);
     else if (m_playbackRate < 0 && (currentTime <= 0 || currentTime > sourceEnd()))
-        setCurrentTime(sourceEnd());
+        setCurrentTimeInternal(sourceEnd());
     m_finished = false;
-    // FIXME: Restart animation on compositor.
-    cancelAnimationOnCompositor();
 }
 
 void AnimationPlayer::reverse()
@@ -227,15 +240,15 @@ void AnimationPlayer::reverse()
     if (!m_playbackRate)
         return;
     if (m_content) {
-        if (m_playbackRate > 0 && currentTime() > sourceEnd())
-            setCurrentTime(sourceEnd());
-        else if (m_playbackRate < 0 && currentTime() < 0)
-            setCurrentTime(0);
+        if (m_playbackRate > 0 && currentTimeInternal() > sourceEnd())
+            setCurrentTimeInternal(sourceEnd());
+        else if (m_playbackRate < 0 && currentTimeInternal() < 0)
+            setCurrentTimeInternal(0);
     }
     setPlaybackRate(-m_playbackRate);
-    unpause();
-    // FIXME: Restart animation on compositor.
     cancelAnimationOnCompositor();
+    // Note, unpause schedules pending animation on compositor if necessary.
+    unpause();
 }
 
 void AnimationPlayer::finish(ExceptionState& exceptionState)
@@ -243,13 +256,13 @@ void AnimationPlayer::finish(ExceptionState& exceptionState)
     if (!m_playbackRate)
         return;
     if (m_playbackRate < 0) {
-        setCurrentTime(0);
+        setCurrentTimeInternal(0);
     } else {
         if (sourceEnd() == std::numeric_limits<double>::infinity()) {
             exceptionState.throwDOMException(InvalidStateError, "AnimationPlayer has source content whose end time is infinity.");
             return;
         }
-        setCurrentTime(sourceEnd());
+        setCurrentTimeInternal(sourceEnd());
     }
     ASSERT(finished());
     cancelAnimationOnCompositor();
@@ -273,13 +286,13 @@ void AnimationPlayer::setPlaybackRate(double playbackRate)
 {
     if (!std::isfinite(playbackRate))
         return;
-    double storedCurrentTime = currentTime();
+    double storedCurrentTime = currentTimeInternal();
     if ((m_playbackRate < 0 && playbackRate >= 0) || (m_playbackRate > 0 && playbackRate <= 0))
         m_finished = false;
     m_playbackRate = playbackRate;
     updateTimingState(storedCurrentTime);
-    // FIXME: Restart animation on compositor.
     cancelAnimationOnCompositor();
+    schedulePendingAnimationOnCompositor();
 }
 
 void AnimationPlayer::setOutdated()
@@ -289,22 +302,36 @@ void AnimationPlayer::setOutdated()
         m_timeline->setOutdatedAnimationPlayer(this);
 }
 
-bool AnimationPlayer::maybeStartAnimationOnCompositor()
+bool AnimationPlayer::canStartAnimationOnCompositor()
 {
     // FIXME: Need compositor support for playback rate != 1.
     if (playbackRate() != 1)
         return false;
 
-    if (!m_content || !m_content->isAnimation() || paused())
+    return m_timeline && m_content && m_content->isAnimation() && !m_held;
+}
+
+bool AnimationPlayer::maybeStartAnimationOnCompositor()
+{
+    if (!canStartAnimationOnCompositor())
         return false;
 
-    return toAnimation(m_content.get())->maybeStartAnimationOnCompositor(startTime());
+    return toAnimation(m_content.get())->maybeStartAnimationOnCompositor(timeline()->zeroTime() + startTimeInternal() + timeLagInternal());
+}
+
+void AnimationPlayer::schedulePendingAnimationOnCompositor()
+{
+    ASSERT(!hasActiveAnimationsOnCompositor());
+
+    if (canStartAnimationOnCompositor())
+        timeline()->document()->compositorPendingAnimations().add(this);
 }
 
 bool AnimationPlayer::hasActiveAnimationsOnCompositor()
 {
     if (!m_content || !m_content->isAnimation())
         return false;
+
     return toAnimation(m_content.get())->hasActiveAnimationsOnCompositor();
 }
 
@@ -322,7 +349,7 @@ bool AnimationPlayer::update(UpdateReason reason)
         return false;
 
     if (m_content) {
-        double inheritedTime = isNull(m_timeline->currentTime()) ? nullValue() : currentTime();
+        double inheritedTime = isNull(m_timeline->currentTimeInternal()) ? nullValue() : currentTimeInternal();
         m_content->updateInheritedTime(inheritedTime);
     }
 
@@ -350,7 +377,7 @@ double AnimationPlayer::timeToEffectChange()
     if (m_held || !hasStartTime())
         return std::numeric_limits<double>::infinity();
     if (!m_content)
-        return -currentTime() / m_playbackRate;
+        return -currentTimeInternal() / m_playbackRate;
     if (m_playbackRate > 0)
         return m_content->timeToForwardsEffectChange() / m_playbackRate;
     return m_content->timeToReverseEffectChange() / -m_playbackRate;
@@ -389,7 +416,7 @@ void AnimationPlayer::pauseForTesting(double pauseTime)
     RELEASE_ASSERT(!paused());
     updateTimingState(pauseTime);
     if (!m_isPausedForTesting && hasActiveAnimationsOnCompositor())
-        toAnimation(m_content.get())->pauseAnimationForTestingOnCompositor(currentTime());
+        toAnimation(m_content.get())->pauseAnimationForTestingOnCompositor(currentTimeInternal());
     m_isPausedForTesting = true;
     pause();
 }

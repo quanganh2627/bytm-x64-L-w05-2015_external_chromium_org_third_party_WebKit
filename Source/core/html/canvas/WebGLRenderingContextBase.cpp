@@ -51,6 +51,7 @@
 #include "core/html/canvas/WebGLActiveInfo.h"
 #include "core/html/canvas/WebGLBuffer.h"
 #include "core/html/canvas/WebGLCompressedTextureATC.h"
+#include "core/html/canvas/WebGLCompressedTextureETC1.h"
 #include "core/html/canvas/WebGLCompressedTexturePVRTC.h"
 #include "core/html/canvas/WebGLCompressedTextureS3TC.h"
 #include "core/html/canvas/WebGLContextAttributes.h"
@@ -2273,6 +2274,10 @@ WebGLGetInfo WebGLRenderingContextBase::getParameter(GLenum pname)
         return getUnsignedIntParameter(pname);
     case GL_GREEN_BITS:
         return getIntParameter(pname);
+    case GL_IMPLEMENTATION_COLOR_READ_FORMAT:
+        return getIntParameter(pname);
+    case GL_IMPLEMENTATION_COLOR_READ_TYPE:
+        return getIntParameter(pname);
     case GL_LINE_WIDTH:
         return getFloatParameter(pname);
     case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:
@@ -3025,23 +3030,41 @@ void WebGLRenderingContextBase::readPixels(GLint x, GLint y, GLsizei width, GLsi
         synthesizeGLError(GL_INVALID_ENUM, "readPixels", "invalid format");
         return;
     }
+
+    ArrayBufferView::ViewType expectedViewType;
+
     switch (type) {
     case GL_UNSIGNED_BYTE:
+        expectedViewType = ArrayBufferView::TypeUint8;
+        break;
     case GL_UNSIGNED_SHORT_5_6_5:
     case GL_UNSIGNED_SHORT_4_4_4_4:
     case GL_UNSIGNED_SHORT_5_5_5_1:
+        expectedViewType = ArrayBufferView::TypeUint16;
+        break;
+    case GL_FLOAT:
+        expectedViewType = ArrayBufferView::TypeFloat32;
+        break;
+    case GL_HALF_FLOAT_OES:
+        expectedViewType = ArrayBufferView::TypeUint16;
         break;
     default:
         synthesizeGLError(GL_INVALID_ENUM, "readPixels", "invalid type");
         return;
     }
     if (format != GL_RGBA || type != GL_UNSIGNED_BYTE) {
-        synthesizeGLError(GL_INVALID_OPERATION, "readPixels", "format not RGBA or type not UNSIGNED_BYTE");
-        return;
+        // Check against the implementation color read format and type.
+        blink::WGC3Dint implFormat = 0, implType = 0;
+        webContext()->getIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &implFormat);
+        webContext()->getIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &implType);
+        if (!implFormat || !implType || format != static_cast<GLenum>(implFormat) || type != static_cast<GLenum>(implType)) {
+            synthesizeGLError(GL_INVALID_OPERATION, "readPixels", "format/type not RGBA/UNSIGNED_BYTE or implementation-defined values");
+            return;
+        }
     }
     // Validate array type against pixel type.
-    if (pixels->type() != ArrayBufferView::TypeUint8) {
-        synthesizeGLError(GL_INVALID_OPERATION, "readPixels", "ArrayBufferView not Uint8Array");
+    if (pixels->type() != expectedViewType) {
+        synthesizeGLError(GL_INVALID_OPERATION, "readPixels", "ArrayBufferView was the wrong type for the pixel format");
         return;
     }
     const char* reason = "framebuffer incomplete";
@@ -4810,6 +4833,7 @@ bool WebGLRenderingContextBase::validateCompressedTexFuncData(const char* functi
         }
         break;
     case GC3D_COMPRESSED_ATC_RGB_AMD:
+    case GL_ETC1_RGB8_OES:
         {
             bytesRequired = floor(static_cast<double>((width + 3) / 4)) * floor(static_cast<double>((height + 3) / 4)) * 8;
         }
@@ -4823,13 +4847,13 @@ bool WebGLRenderingContextBase::validateCompressedTexFuncData(const char* functi
     case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
     case GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
         {
-            bytesRequired = max(width, 8) * max(height, 8) / 2;
+            bytesRequired = (max(width, 8) * max(height, 8) * 4 + 7) / 8;
         }
         break;
     case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
     case GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:
         {
-            bytesRequired = max(width, 8) * max(height, 8) / 4;
+            bytesRequired = (max(width, 16) * max(height, 8) * 2 + 7) / 8;
         }
         break;
     default:
@@ -4850,24 +4874,47 @@ bool WebGLRenderingContextBase::validateCompressedTexDimensions(const char* func
     if (!validateTexFuncDimensions(functionName, functionType, target, level, width, height))
         return false;
 
+    bool widthValid = false;
+    bool heightValid = false;
+
     switch (format) {
+    case GC3D_COMPRESSED_ATC_RGB_AMD:
+    case GC3D_COMPRESSED_ATC_RGBA_EXPLICIT_ALPHA_AMD:
+    case GC3D_COMPRESSED_ATC_RGBA_INTERPOLATED_ALPHA_AMD:
     case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
     case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
     case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
     case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT: {
         const int kBlockWidth = 4;
         const int kBlockHeight = 4;
-        bool widthValid = (level && width == 1) || (level && width == 2) || !(width % kBlockWidth);
-        bool heightValid = (level && height == 1) || (level && height == 2) || !(height % kBlockHeight);
-        if (!widthValid || !heightValid) {
-            synthesizeGLError(GL_INVALID_OPERATION, functionName, "width or height invalid for level");
-            return false;
-        }
-        return true;
+        widthValid = (level && width == 1) || (level && width == 2) || !(width % kBlockWidth);
+        heightValid = (level && height == 1) || (level && height == 2) || !(height % kBlockHeight);
+        break;
+    }
+    case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG: {
+        // Must be a power of two
+        widthValid = (width & (width - 1)) == 0;
+        heightValid = (height & (height - 1)) == 0;
+        break;
+    }
+    case GL_ETC1_RGB8_OES: {
+        widthValid = true;
+        heightValid = true;
+        break;
     }
     default:
         return false;
     }
+
+    if (!widthValid || !heightValid) {
+        synthesizeGLError(GL_INVALID_OPERATION, functionName, "width or height invalid for level");
+        return false;
+    }
+
+    return true;
 }
 
 bool WebGLRenderingContextBase::validateCompressedTexSubDimensions(const char* functionName, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, WebGLTexture* tex)
@@ -4894,6 +4941,28 @@ bool WebGLRenderingContextBase::validateCompressedTexSubDimensions(const char* f
             return false;
         }
         return validateCompressedTexDimensions(functionName, TexSubImage2D, target, level, width, height, format);
+    }
+    case GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:
+    case GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG:
+    case GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG: {
+        if ((xoffset != 0) || (yoffset != 0)) {
+            synthesizeGLError(GL_INVALID_OPERATION, functionName, "xoffset and yoffset must be zero");
+            return false;
+        }
+        if (width != tex->getWidth(target, level)
+            || height != tex->getHeight(target, level)) {
+            synthesizeGLError(GL_INVALID_OPERATION, functionName, "dimensions must match existing level");
+            return false;
+        }
+        return validateCompressedTexDimensions(functionName, TexSubImage2D, target, level, width, height, format);
+    }
+    case GC3D_COMPRESSED_ATC_RGB_AMD:
+    case GC3D_COMPRESSED_ATC_RGBA_EXPLICIT_ALPHA_AMD:
+    case GC3D_COMPRESSED_ATC_RGBA_INTERPOLATED_ALPHA_AMD:
+    case GL_ETC1_RGB8_OES: {
+        synthesizeGLError(GL_INVALID_OPERATION, functionName, "unable to update sub-images with this format");
+        return false;
     }
     default:
         return false;

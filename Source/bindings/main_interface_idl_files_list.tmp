@@ -230,6 +230,7 @@
 ../core/html/canvas/WebGLActiveInfo.idl
 ../core/html/canvas/WebGLBuffer.idl
 ../core/html/canvas/WebGLCompressedTextureATC.idl
+../core/html/canvas/WebGLCompressedTextureETC1.idl
 ../core/html/canvas/WebGLCompressedTexturePVRTC.idl
 ../core/html/canvas/WebGLCompressedTextureS3TC.idl
 ../core/html/canvas/WebGLContextAttributes.idl
@@ -507,9 +508,6 @@
 ../modules/mediasource/SourceBuffer.idl
 ../modules/mediasource/SourceBufferList.idl
 ../modules/mediasource/VideoPlaybackQuality.idl
-../modules/mediasource/WebKitMediaSource.idl
-../modules/mediasource/WebKitSourceBuffer.idl
-../modules/mediasource/WebKitSourceBufferList.idl
 ../modules/mediastream/MediaStream.idl
 ../modules/mediastream/MediaStreamEvent.idl
 ../modules/mediastream/MediaStreamTrack.idl
@@ -545,11 +543,13 @@
 ../modules/quota/StorageQuotaCallback.idl
 ../modules/quota/StorageUsageCallback.idl
 ../modules/serviceworkers/Cache.idl
+../modules/serviceworkers/Client.idl
 ../modules/serviceworkers/FetchEvent.idl
 ../modules/serviceworkers/InstallEvent.idl
 ../modules/serviceworkers/InstallPhaseEvent.idl
 ../modules/serviceworkers/Response.idl
 ../modules/serviceworkers/ServiceWorker.idl
+../modules/serviceworkers/ServiceWorkerClients.idl
 ../modules/serviceworkers/ServiceWorkerContainer.idl
 ../modules/serviceworkers/ServiceWorkerGlobalScope.idl
 ../modules/speech/SpeechGrammar.idl

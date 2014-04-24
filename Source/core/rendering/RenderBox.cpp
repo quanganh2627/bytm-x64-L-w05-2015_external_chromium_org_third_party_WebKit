@@ -105,19 +105,9 @@ void RenderBox::willBeDestroyed()
 
     RenderBlock::removePercentHeightDescendantIfNeeded(this);
 
-    clearShapeOutside();
+    ShapeOutsideInfo::removeInfo(*this);
 
     RenderBoxModelObject::willBeDestroyed();
-}
-
-void RenderBox::clearShapeOutside()
-{
-    if (const ShapeValue* shapeValue = style() ? style()->shapeOutside() : 0) {
-        if (StyleImage* shapeImage = shapeValue->image())
-            shapeImage->removeClient(this);
-    }
-
-    ShapeOutsideInfo::removeInfo(*this);
 }
 
 void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
@@ -153,11 +143,9 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
     if (oldStyle) {
         // The background of the root element or the body element could propagate up to
         // the canvas.  Just dirty the entire canvas when our style changes substantially.
-        if (diff >= StyleDifferenceRepaint && node() &&
-            (isHTMLHtmlElement(*node()) || isHTMLBodyElement(*node()))) {
-
-            if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled() || diff != StyleDifferenceLayout)
-                view()->repaint();
+        if ((diff.needsRepaint() || diff.needsLayout()) && node()
+            && (isHTMLHtmlElement(*node()) || isHTMLBodyElement(*node()))) {
+            view()->repaint();
 
             if (oldStyle->hasEntirelyFixedBackground() != newStyle.hasEntirelyFixedBackground())
                 view()->compositor()->setNeedsUpdateFixedBackground();
@@ -165,7 +153,7 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
 
         // When a layout hint happens and an object's position style changes, we have to do a layout
         // to dirty the render tree using the old position value now.
-        if (diff == StyleDifferenceLayout && parent() && oldStyle->position() != newStyle.position()) {
+        if (diff.needsFullLayout() && parent() && oldStyle->position() != newStyle.position()) {
             markContainingBlocksForLayout();
             if (oldStyle->position() == StaticPosition)
                 repaint();
@@ -221,7 +209,7 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     }
 
     // Our opaqueness might have changed without triggering layout.
-    if (diff == StyleDifferenceRepaint || diff == StyleDifferenceRepaintLayer) {
+    if (diff.needsRepaint()) {
         RenderObject* parentToInvalidate = parent();
         for (unsigned i = 0; i < backgroundObscurationTestMaxDepth && parentToInvalidate; ++i) {
             parentToInvalidate->invalidateBackgroundObscurationStatus();
@@ -369,28 +357,6 @@ int RenderBox::pixelSnappedOffsetWidth() const
 int RenderBox::pixelSnappedOffsetHeight() const
 {
     return snapSizeToPixel(offsetHeight(), y() + clientTop());
-}
-
-bool RenderBox::canDetermineWidthWithoutLayout() const
-{
-    // FIXME: Remove function and callers.
-    return false;
-}
-
-LayoutUnit RenderBox::fixedOffsetWidth() const
-{
-    ASSERT(canDetermineWidthWithoutLayout());
-
-    RenderStyle* style = this->style();
-
-    LayoutUnit width = std::max(LayoutUnit(style->minWidth().value()), LayoutUnit(style->width().value()));
-    if (style->maxWidth().isFixed())
-        width = std::min(LayoutUnit(style->maxWidth().value()), width);
-
-    LayoutUnit borderLeft = style->borderLeft().nonZero() ? style->borderLeft().width() : 0;
-    LayoutUnit borderRight = style->borderRight().nonZero() ? style->borderRight().width() : 0;
-
-    return width + borderLeft + borderRight + style->paddingLeft().value() + style->paddingRight().value();
 }
 
 int RenderBox::scrollWidth() const
@@ -620,30 +586,6 @@ void RenderBox::computeSelfHitTestRects(Vector<LayoutRect>& rects, const LayoutP
 {
     if (!size().isEmpty())
         rects.append(LayoutRect(layerOffset, size()));
-}
-
-LayoutRect RenderBox::reflectionBox() const
-{
-    LayoutRect result;
-    if (!style()->boxReflect())
-        return result;
-    LayoutRect box = borderBoxRect();
-    result = box;
-    switch (style()->boxReflect()->direction()) {
-        case ReflectionBelow:
-            result.move(0, box.height() + reflectionOffset());
-            break;
-        case ReflectionAbove:
-            result.move(0, -box.height() - reflectionOffset());
-            break;
-        case ReflectionLeft:
-            result.move(-box.width() - reflectionOffset(), 0);
-            break;
-        case ReflectionRight:
-            result.move(box.width() + reflectionOffset(), 0);
-            break;
-    }
-    return result;
 }
 
 int RenderBox::reflectionOffset() const
@@ -950,7 +892,7 @@ LayoutUnit RenderBox::minPreferredLogicalWidth() const
 {
     if (preferredLogicalWidthsDirty()) {
 #ifndef NDEBUG
-        SetLayoutNeededForbiddenScope layoutForbiddenScope(const_cast<RenderBox*>(this));
+        SetLayoutNeededForbiddenScope layoutForbiddenScope(const_cast<RenderBox&>(*this));
 #endif
         const_cast<RenderBox*>(this)->computePreferredLogicalWidths();
     }
@@ -962,7 +904,7 @@ LayoutUnit RenderBox::maxPreferredLogicalWidth() const
 {
     if (preferredLogicalWidthsDirty()) {
 #ifndef NDEBUG
-        SetLayoutNeededForbiddenScope layoutForbiddenScope(const_cast<RenderBox*>(this));
+        SetLayoutNeededForbiddenScope layoutForbiddenScope(const_cast<RenderBox&>(*this));
 #endif
         const_cast<RenderBox*>(this)->computePreferredLogicalWidths();
     }
@@ -1398,7 +1340,7 @@ bool RenderBox::backgroundHasOpaqueTopLayer() const
     if (hasOverflowClip() && fillLayer->attachment() == LocalBackgroundAttachment)
         return false;
 
-    if (fillLayer->hasOpaqueImage(this) && fillLayer->hasRepeatXY() && fillLayer->image()->canRender(this, style()->effectiveZoom()))
+    if (fillLayer->hasOpaqueImage(this) && fillLayer->hasRepeatXY() && fillLayer->image()->canRender(*this, style()->effectiveZoom()))
         return true;
 
     // If there is only one layer and no image, check whether the background color is opaque
@@ -1472,30 +1414,6 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
         paintInfo.context->endLayer();
 }
 
-LayoutRect RenderBox::maskClipRect()
-{
-    const NinePieceImage& maskBoxImage = style()->maskBoxImage();
-    if (maskBoxImage.image()) {
-        LayoutRect borderImageRect = borderBoxRect();
-
-        // Apply outsets to the border box.
-        borderImageRect.expand(style()->maskBoxImageOutsets());
-        return borderImageRect;
-    }
-
-    LayoutRect result;
-    LayoutRect borderBox = borderBoxRect();
-    for (const FillLayer* maskLayer = style()->maskLayers(); maskLayer; maskLayer = maskLayer->next()) {
-        if (maskLayer->image()) {
-            BackgroundImageGeometry geometry;
-            // Masks should never have fixed attachment, so it's OK for paintContainer to be null.
-            calculateBackgroundImageGeometry(0, maskLayer, borderBox, geometry);
-            result.unite(geometry.destRect());
-        }
-    }
-    return result;
-}
-
 void RenderBox::paintFillLayers(const PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer, const LayoutRect& rect,
     BackgroundBleedAvoidance bleedAvoidance, CompositeOperator op, RenderObject* backgroundObject)
 {
@@ -1516,7 +1434,7 @@ void RenderBox::paintFillLayers(const PaintInfo& paintInfo, const Color& c, cons
             shouldDrawBackgroundInSeparateBuffer = true;
 
         // The clipOccludesNextLayers condition must be evaluated first to avoid short-circuiting.
-        if (curLayer->clipOccludesNextLayers(curLayer == fillLayer) && curLayer->hasOpaqueImage(this) && curLayer->image()->canRender(this, style()->effectiveZoom()) && curLayer->hasRepeatXY() && curLayer->blendMode() == blink::WebBlendModeNormal && !boxShadowShouldBeAppliedToBackground(bleedAvoidance))
+        if (curLayer->clipOccludesNextLayers(curLayer == fillLayer) && curLayer->hasOpaqueImage(this) && curLayer->image()->canRender(*this, style()->effectiveZoom()) && curLayer->hasRepeatXY() && curLayer->blendMode() == blink::WebBlendModeNormal && !boxShadowShouldBeAppliedToBackground(bleedAvoidance))
             break;
         curLayer = curLayer->next();
     }
@@ -1584,7 +1502,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
     RenderBox* layerRenderer = 0;
 
     for (const FillLayer* curLayer = layers; curLayer; curLayer = curLayer->next()) {
-        if (curLayer->image() && image == curLayer->image()->data() && curLayer->image()->canRender(this, style()->effectiveZoom())) {
+        if (curLayer->image() && image == curLayer->image()->data() && curLayer->image()->canRender(*this, style()->effectiveZoom())) {
             // Now that we know this image is being used, compute the renderer and the rect if we haven't already.
             if (!layerRenderer) {
                 bool drawingRootBackground = drawingBackground && (isDocumentElement() || (isBody() && !document().documentElement()->renderer()->hasBackground()));
@@ -1659,17 +1577,9 @@ void RenderBox::repaintTreeAfterLayout()
         setShouldDoFullRepaintAfterLayout(true);
     }
 
-    bool didFullRepaint = false;
-    if (!layoutDidGetCalled()) {
-        if (shouldDoFullRepaintAfterLayout()) {
-            repaint();
-            didFullRepaint = true;
-        }
-    } else {
-        const LayoutRect newRepaintRect = previousRepaintRect();
-        didFullRepaint = repaintAfterLayoutIfNeeded(containerForRepaint(),
-            shouldDoFullRepaintAfterLayout(), oldRepaintRect, &newRepaintRect);
-    }
+    const LayoutRect newRepaintRect = previousRepaintRect();
+    bool didFullRepaint = repaintAfterLayoutIfNeeded(containerForRepaint(),
+        shouldDoFullRepaintAfterLayout(), oldRepaintRect, &newRepaintRect);
 
     if (!didFullRepaint)
         repaintOverflowIfNeeded();
@@ -2216,12 +2126,9 @@ static float getMaxWidthListMarker(const RenderBox* renderer)
             if (!itemChild->isListMarker())
                 continue;
             RenderBox* itemMarker = toRenderBox(itemChild);
-            // FIXME: canDetermineWidthWithoutLayout expects us to use fixedOffsetWidth, which this code
-            // does not do! This check is likely wrong.
-            if (!itemMarker->canDetermineWidthWithoutLayout() && itemMarker->needsLayout()) {
-                // Make sure to compute the autosized width.
+            // Make sure to compute the autosized width.
+            if (itemMarker->needsLayout())
                 itemMarker->layout();
-            }
             maxWidth = max<float>(maxWidth, toRenderListMarker(itemMarker)->logicalWidth().toFloat());
             break;
         }

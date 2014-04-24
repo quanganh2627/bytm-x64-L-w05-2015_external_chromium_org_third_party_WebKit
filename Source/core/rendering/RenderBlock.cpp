@@ -285,7 +285,7 @@ void RenderBlock::styleWillChange(StyleDifference diff, const RenderStyle& newSt
 
     setReplaced(newStyle.isDisplayInlineType());
 
-    if (oldStyle && parent() && diff == StyleDifferenceLayout && oldStyle->position() != newStyle.position()) {
+    if (oldStyle && parent() && diff.needsFullLayout() && oldStyle->position() != newStyle.position()) {
         if (newStyle.position() == StaticPosition)
             // Clear our positioned objects list. Our absolutely positioned descendants will be
             // inserted into our containing block's positioned objects list during layout.
@@ -348,7 +348,7 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
 
     // It's possible for our border/padding to change, but for the overall logical width of the block to
     // end up being the same. We keep track of this change so in layoutBlock, we can know to set relayoutChildren=true.
-    m_hasBorderOrPaddingLogicalWidthChanged = oldStyle && diff == StyleDifferenceLayout && needsLayout() && borderOrPaddingLogicalWidthChanged(oldStyle, newStyle);
+    m_hasBorderOrPaddingLogicalWidthChanged = oldStyle && diff.needsFullLayout() && needsLayout() && borderOrPaddingLogicalWidthChanged(oldStyle, newStyle);
 
     // If the style has unloaded images, want to notify the ResourceLoadPriorityOptimizer so that
     // network priorities can be set.
@@ -789,7 +789,7 @@ void RenderBlock::addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, 
     }
 
     // Check for a spanning element in columns.
-    if (gColumnFlowSplitEnabled) {
+    if (gColumnFlowSplitEnabled && !document().regionBasedColumnsEnabled()) {
         RenderBlockFlow* columnsBlockAncestor = columnsBlockForSpanningElement(newChild);
         if (columnsBlockAncestor) {
             TemporaryChange<bool> columnFlowSplitEnabled(gColumnFlowSplitEnabled, false);
@@ -1332,38 +1332,6 @@ bool RenderBlock::updateImageLoadingPriorities()
     return true;
 }
 
-LayoutSize RenderBlock::logicalOffsetFromShapeAncestorContainer(const RenderBlock* container) const
-{
-    const RenderBlock* currentBlock = this;
-    LayoutRect blockRect(currentBlock->borderBoxRect());
-    while (currentBlock && !currentBlock->isRenderFlowThread() && currentBlock != container) {
-        RenderBlock* containerBlock = currentBlock->containingBlock();
-        ASSERT(containerBlock);
-        if (!containerBlock)
-            return LayoutSize();
-
-        if (containerBlock->style()->writingMode() != currentBlock->style()->writingMode()) {
-            // We have to put the block rect in container coordinates
-            // and we have to take into account both the container and current block flipping modes
-            // Bug: Flipping inline and block directions at the same time will not work,
-            // as one of the flipped dimensions will not yet have been set to its final size
-            if (containerBlock->style()->isFlippedBlocksWritingMode()) {
-                if (containerBlock->isHorizontalWritingMode())
-                    blockRect.setY(currentBlock->height() - blockRect.maxY());
-                else
-                    blockRect.setX(currentBlock->width() - blockRect.maxX());
-            }
-            currentBlock->flipForWritingMode(blockRect);
-        }
-
-        blockRect.moveBy(currentBlock->location());
-        currentBlock = containerBlock;
-    }
-
-    LayoutSize result = isHorizontalWritingMode() ? LayoutSize(blockRect.x(), blockRect.y()) : LayoutSize(blockRect.y(), blockRect.x());
-    return result;
-}
-
 void RenderBlock::computeRegionRangeForBlock(RenderFlowThread* flowThread)
 {
     if (flowThread)
@@ -1475,7 +1443,7 @@ void RenderBlock::addVisualOverflowFromTheme()
 bool RenderBlock::createsBlockFormattingContext() const
 {
     return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || (parent() && parent()->isFlexibleBoxIncludingDeprecated())
-        || style()->specifiesColumns() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
+        || style()->specifiesColumns() || isRenderFlowThread() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
 }
 
 void RenderBlock::updateBlockChildDirtyBitsBeforeLayout(bool relayoutChildren, RenderBox* child)
@@ -1523,7 +1491,12 @@ void RenderBlock::simplifiedNormalFlowLayout()
 
 bool RenderBlock::simplifiedLayout()
 {
-    if ((!posChildNeedsLayout() && !needsSimplifiedNormalFlowLayout()) || normalChildNeedsLayout() || selfNeedsLayout())
+    // Check if we need to do a full layout.
+    if (normalChildNeedsLayout() || selfNeedsLayout())
+        return false;
+
+    // Check that we actually need to do a simplified layout.
+    if (!posChildNeedsLayout() && !(needsSimplifiedNormalFlowLayout() || needsPositionedMovementLayout()))
         return false;
 
 
@@ -1551,8 +1524,8 @@ bool RenderBlock::simplifiedLayout()
         // relative positioned container. So if we can have fixed pos objects in our positioned objects list check if any of them
         // are statically positioned and thus need to move with their absolute ancestors.
         bool canContainFixedPosObjects = canContainFixedPositionObjects();
-        if (posChildNeedsLayout() || canContainFixedPosObjects)
-            layoutPositionedObjects(false, !posChildNeedsLayout() && canContainFixedPosObjects ? LayoutOnlyFixedPositionedObjects : DefaultLayout);
+        if (posChildNeedsLayout() || needsPositionedMovementLayout() || canContainFixedPosObjects)
+            layoutPositionedObjects(false, needsPositionedMovementLayout() ? ForcedLayoutAfterContainingBlockMoved : (!posChildNeedsLayout() && canContainFixedPosObjects ? LayoutOnlyFixedPositionedObjects : DefaultLayout));
 
         // Recompute our overflow information.
         // FIXME: We could do better here by computing a temporary overflow object from layoutPositionedObjects and only
@@ -1636,7 +1609,7 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren, PositionedLayou
         // FIXME: this should only be set from clearNeedsLayout crbug.com/361250
         r->setLayoutDidGetCalled(true);
 
-        SubtreeLayoutScope layoutScope(r);
+        SubtreeLayoutScope layoutScope(*r);
         // A fixed position element with an absolute positioned ancestor has no way of knowing if the latter has changed position. So
         // if this is a fixed position element, mark it for layout if it has an abspos ancestor and needs to move with that ancestor, i.e.
         // it has static position.
@@ -1659,11 +1632,6 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren, PositionedLayou
 
         if (!r->needsLayout())
             r->markForPaginationRelayoutIfNeeded(layoutScope);
-
-        // We don't have to do a full layout.  We just have to update our position. Try that first. If we have shrink-to-fit width
-        // and we hit the available width constraint, the layoutIfNeeded() will catch it and do a full layout.
-        if (r->needsPositionedMovementLayoutOnly() && r->tryLayoutDoingPositionedMovementOnly())
-            r->clearNeedsLayout();
 
         // If we are paginated or in a line grid, go ahead and compute a vertical position for our object now.
         // If it's wrong we'll lay out again.
@@ -2190,7 +2158,7 @@ bool RenderBlock::isSelectionRoot() const
         || isPositioned() || isFloating()
         || isTableCell() || isInlineBlockOrInlineTable()
         || hasTransform() || hasReflection() || hasMask() || isWritingModeRoot()
-        || isRenderFlowThread())
+        || isRenderFlowThread() || isFlexItemIncludingDeprecated())
         return true;
 
     if (view() && view()->selectionStart()) {
@@ -2749,7 +2717,8 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
 
     if (!isRenderView()) {
         // Check if we need to do anything at all.
-        LayoutRect overflowBox = visualOverflowRect();
+        // If we have clipping, then we can't have any spillout.
+        LayoutRect overflowBox = hasOverflowClip() ? borderBoxRect() : visualOverflowRect();
         flipForWritingMode(overflowBox);
         overflowBox.moveBy(adjustedLocation);
         if (!locationInContainer.intersects(overflowBox))
@@ -4612,12 +4581,6 @@ LayoutUnit RenderBlock::adjustForUnsplittableChild(RenderBox* child, LayoutUnit 
     return logicalOffset;
 }
 
-bool RenderBlock::pushToNextPageWithMinimumLogicalHeight(LayoutUnit& adjustment, LayoutUnit logicalOffset, LayoutUnit minimumLogicalHeight) const
-{
-    // FIXME: multicol will need to do some work here, when we implement support for multiple rows.
-    return false;
-}
-
 void RenderBlock::setPageBreak(LayoutUnit offset, LayoutUnit spaceShortage)
 {
     if (RenderFlowThread* flowThread = flowThreadContainingBlock())
@@ -4695,9 +4658,6 @@ void RenderBlock::adjustLinePositionForPagination(RootInlineBox* lineBox, Layout
             clearShouldBreakAtLineToAvoidWidow();
             setDidBreakAtLineToAvoidWidow();
         }
-        // If we have a non-uniform page height, then we have to shift further possibly.
-        if (!hasUniformPageLogicalHeight && !pushToNextPageWithMinimumLogicalHeight(remainingLogicalHeight, logicalOffset, lineHeight))
-            return;
         if (lineHeight > pageLogicalHeight) {
             // Split the top margin in order to avoid splitting the visible part of the line.
             remainingLogicalHeight -= min(lineHeight - pageLogicalHeight, max<LayoutUnit>(0, logicalVisualOverflow.y() - lineBox->lineTopWithLeading()));

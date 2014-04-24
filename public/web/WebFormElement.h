@@ -68,7 +68,9 @@ namespace blink {
         // FIXME: Deprecate and replace with WebVector<WebElement>.
         BLINK_EXPORT void getNamedElements(const WebString&, WebVector<WebNode>&);
         BLINK_EXPORT void getFormControlElements(WebVector<WebFormControlElement>&) const;
-        BLINK_EXPORT bool checkValidityWithoutDispatchingEvents();
+
+        // NOTE: This function dispatches "invalid" events. Only call this if required by a specification (e.g. requestAutocomplete()).
+        BLINK_EXPORT bool checkValidity();
 
         enum AutocompleteResult {
             AutocompleteResultSuccess,

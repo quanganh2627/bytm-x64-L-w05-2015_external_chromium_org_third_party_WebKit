@@ -34,7 +34,7 @@ namespace WebCore {
 static void initializeScriptWrappableForInterface(TestInterfaceImplementation* object)
 {
     if (ScriptWrappable::wrapperCanBeStoredInObject(object))
-        ScriptWrappable::setTypeInfoInObject(object, &V8TestInterface::wrapperTypeInfo);
+        ScriptWrappable::fromObject(object)->setTypeInfo(&V8TestInterface::wrapperTypeInfo);
     else
         ASSERT_NOT_REACHED();
 }
@@ -726,7 +726,8 @@ static void TestInterfaceImplementationConstructorGetter(v8::Local<v8::String>, 
 
 static void TestInterfaceImplementationReplaceableAttributeSetter(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
-    info.This()->ForceSet(name, v8Value);
+    if (info.This()->IsObject())
+        v8::Handle<v8::Object>::Cast(info.This())->ForceSet(name, v8Value);
 }
 
 static void TestInterfaceImplementationReplaceableAttributeSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
@@ -812,10 +813,8 @@ static void implementsComplexMethodMethod(const v8::FunctionCallbackInfo<v8::Val
     TONATIVE_VOID(TestInterfaceEmpty*, testInterfaceEmptyArg, V8TestInterfaceEmpty::toNativeWithTypeCheck(info.GetIsolate(), info[1]));
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     RefPtr<TestInterfaceEmpty> result = impl->implementsComplexMethod(scriptContext, strArg, testInterfaceEmptyArg, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValue(info, result.release());
 }
 
@@ -951,10 +950,8 @@ static void partialCallWithExecutionContextRaisesExceptionVoidMethodMethod(const
     ASSERT(impl);
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     TestPartialInterface::partialCallWithExecutionContextRaisesExceptionVoidMethod(scriptContext, *impl, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
 }
 #endif // ENABLE(PARTIAL_CONDITION)
 

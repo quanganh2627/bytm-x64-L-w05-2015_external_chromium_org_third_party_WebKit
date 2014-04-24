@@ -65,6 +65,7 @@ namespace WebCore {
 class DataObject;
 class Frame;
 class RenderLayerCompositor;
+class UserGestureToken;
 }
 
 namespace blink {
@@ -74,7 +75,7 @@ class PopupContainer;
 class UserMediaClientImpl;
 class WebActiveGestureAnimation;
 class WebDevToolsAgentPrivate;
-class WebFrameImpl;
+class WebLocalFrameImpl;
 class WebImage;
 class WebPagePopupImpl;
 class WebPlugin;
@@ -94,6 +95,7 @@ public:
     virtual WebSize size() OVERRIDE;
     virtual void willStartLiveResize() OVERRIDE;
     virtual void resize(const WebSize&) OVERRIDE;
+    virtual void resizePinchViewport(const WebSize&) OVERRIDE;
     virtual void willEndLiveResize() OVERRIDE;
     virtual void willEnterFullScreen() OVERRIDE;
     virtual void didEnterFullScreen() OVERRIDE;
@@ -179,9 +181,11 @@ public:
     virtual void setInitialPageScaleOverride(float) OVERRIDE;
     virtual bool zoomToMultipleTargetsRect(const WebRect&) OVERRIDE;
     virtual float pageScaleFactor() const OVERRIDE;
-    virtual void setPageScaleFactorPreservingScrollOffset(float) OVERRIDE;
-    virtual void setPageScaleFactor(float scaleFactor, const WebPoint& origin) OVERRIDE;
     virtual void setPageScaleFactorLimits(float minPageScale, float maxPageScale) OVERRIDE;
+    virtual void setMainFrameScrollOffset(const WebPoint&) OVERRIDE;
+    virtual void setPageScaleFactor(float) OVERRIDE;
+    virtual void setPinchViewportOffset(const WebFloatPoint&) OVERRIDE;
+    virtual WebFloatPoint pinchViewportOffset() const OVERRIDE;
     virtual float minimumPageScaleFactor() const OVERRIDE;
     virtual float maximumPageScaleFactor() const OVERRIDE;
     virtual void saveScrollAndScaleState() OVERRIDE;
@@ -315,7 +319,7 @@ public:
 
     // Returns the main frame associated with this view. This may be null when
     // the page is shutting down, but will be valid at all other times.
-    WebFrameImpl* mainFrameImpl();
+    WebLocalFrameImpl* mainFrameImpl();
 
     // Event related methods:
     void mouseContextMenu(const WebMouseEvent&);
@@ -349,9 +353,9 @@ public:
     //   2) Calling layout() is a no-op.
     // After calling WebWidget::layout(), expect to get this notification
     // unless the view did not need a layout.
-    void layoutUpdated(WebFrameImpl*);
+    void layoutUpdated(WebLocalFrameImpl*);
 
-    void willInsertBody(WebFrameImpl*);
+    void willInsertBody(WebLocalFrameImpl*);
     void didChangeContentsSize();
     void deviceOrPageScaleFactorChanged();
 
@@ -409,7 +413,6 @@ public:
     }
 
     WebCore::GraphicsLayer* rootGraphicsLayer();
-    bool allowsAcceleratedCompositing();
     void setRootGraphicsLayer(WebCore::GraphicsLayer*);
     void scheduleCompositingLayerSync();
     void scrollRootLayer();
@@ -485,6 +488,12 @@ public:
     WebLayerTreeView* layerTreeView() const { return m_layerTreeView; }
 
 private:
+    // TODO(bokan): Remains for legacy pinch. Remove once it's gone. Made private to
+    // prevent external usage
+    virtual void setPageScaleFactor(float scaleFactor, const WebPoint& origin) OVERRIDE;
+
+    bool pinchVirtualViewportEnabled() const;
+
     float legibleScale() const;
     void refreshPageScaleFactorAfterLayout();
     void resumeTreeViewCommits();
@@ -536,7 +545,7 @@ private:
 
     void configureAutoResizeMode();
 
-    void setCompositorCreationFailed(bool);
+    void setCompositorCreationFailed();
     void setIsAcceleratedCompositingActive(bool);
     void doComposite();
     void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
@@ -560,10 +569,6 @@ private:
     virtual bool handleGestureEvent(const WebGestureEvent&) OVERRIDE;
     virtual bool handleKeyEvent(const WebKeyboardEvent&) OVERRIDE;
     virtual bool handleCharEvent(const WebKeyboardEvent&) OVERRIDE;
-
-    virtual void updateForCommit(WebFrame*, const WebHistoryItem&, WebHistoryCommitType, bool navigationWithinPage) OVERRIDE;
-    virtual WebHistoryItem itemForNewChildFrame(WebFrame*) const OVERRIDE;
-    virtual void removeChildrenForRedirect(WebFrame*) OVERRIDE;
 
     WebCore::InputMethodContext* inputMethodContext();
     WebPlugin* focusedPluginIfInputMethodSupported(WebCore::LocalFrame*);
@@ -685,6 +690,7 @@ private:
 
     // If set, the (plugin) node which has mouse capture.
     RefPtr<WebCore::Node> m_mouseCaptureNode;
+    RefPtr<WebCore::UserGestureToken> m_mouseCaptureGestureToken;
 
     WebCore::IntRect m_rootLayerScrollDamage;
     WebLayerTreeView* m_layerTreeView;
@@ -694,7 +700,6 @@ private:
     OwnPtr<WebCore::GraphicsLayerFactory> m_graphicsLayerFactory;
     bool m_isAcceleratedCompositingActive;
     bool m_layerTreeViewCommitsDeferred;
-    bool m_compositorCreationFailed;
     // If true, the graphics context is being restored.
     bool m_recreatingGraphicsContext;
     static const WebInputEvent* m_currentInputEvent;
@@ -719,6 +724,8 @@ private:
     WebColor m_baseBackgroundColor;
     WebColor m_backgroundColorOverride;
     float m_zoomFactorOverride;
+
+    bool m_userGestureObserved;
 };
 
 // We have no ways to check if the specified WebView is an instance of

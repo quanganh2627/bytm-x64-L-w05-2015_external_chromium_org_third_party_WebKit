@@ -173,33 +173,10 @@ void WebPluginContainerImpl::hide()
     Widget::hide();
 }
 
-static bool eventHasUserGesture(const WebInputEvent* webEvent, const Event* event)
-{
-    if (!WebInputEvent::isUserGestureEventType(webEvent->type))
-        return false;
-    if (WebInputEvent::isKeyboardEventType(webEvent->type))
-        return event->isKeyboardEvent();
-    switch (webEvent->type) {
-    case WebInputEvent::MouseDown:
-        return event->type() == EventTypeNames::mousedown;
-    case WebInputEvent::MouseUp:
-        return event->type() == EventTypeNames::mouseup;
-    case WebInputEvent::TouchStart:
-        return event->type() == EventTypeNames::touchstart;
-    case WebInputEvent::TouchEnd:
-        return event->type() == EventTypeNames::touchend;
-    default:
-        return false;
-    }
-}
-
 void WebPluginContainerImpl::handleEvent(Event* event)
 {
     if (!m_webPlugin->acceptsInputEvents())
         return;
-
-    const WebInputEvent* currentInputEvent = WebViewImpl::currentInputEvent();
-    UserGestureIndicator gestureIndicator(currentInputEvent && eventHasUserGesture(currentInputEvent, event) ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
 
     RefPtr<WebPluginContainerImpl> protector(this);
     // The events we pass are defined at:
@@ -340,6 +317,8 @@ int WebPluginContainerImpl::printBegin(const WebPrintParams& printParams) const
 bool WebPluginContainerImpl::printPage(int pageNumber,
                                        WebCore::GraphicsContext* gc)
 {
+    if (gc->paintingDisabled())
+        return true;
     gc->save();
     WebCanvas* canvas = gc->canvas();
     bool ret = m_webPlugin->printPage(pageNumber, canvas);
@@ -461,9 +440,9 @@ WebString WebPluginContainerImpl::executeScriptURL(const WebURL& url, bool popup
     ScriptValue result = frame->script().executeScriptInMainWorldAndReturnValue(ScriptSourceCode(script));
 
     // Failure is reported as a null string.
-    String resultStr;
-    result.getString(resultStr);
-    return resultStr;
+    String resultString;
+    result.toString(resultString);
+    return resultString;
 }
 
 void WebPluginContainerImpl::loadFrameRequest(const WebURLRequest& request, const WebString& target, bool notifyNeeded, void* notifyData)

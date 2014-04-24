@@ -71,12 +71,12 @@ public:
 
     // Return true if this RenderView is in "compositing mode" (i.e. has one or more
     // composited RenderLayers)
-    bool inCompositingMode() const { return m_compositing; }
+    bool inCompositingMode() const;
+    // FIXME: Replace all callers with inCompositingMdoe and remove this function.
+    bool staleInCompositingMode() const;
     // This will make a compositing layer at the root automatically, and hook up to
     // the native view/window system.
-    void enableCompositingMode(bool enable = true);
-
-    bool inForcedCompositingMode() const { return m_forceCompositingMode; }
+    void setCompositingModeEnabled(bool);
 
     // Returns true if the accelerated compositing is enabled
     bool hasAcceleratedCompositing() const { return m_hasAcceleratedCompositing; }
@@ -89,7 +89,7 @@ public:
 
     bool canRender3DTransforms() const;
 
-    void updateForceCompositingMode();
+    bool rootShouldAlwaysComposite() const;
 
     // Copy the accelerated compositing related flags from Settings
     void updateAcceleratedCompositingSettings();
@@ -274,7 +274,6 @@ private:
 
     // Hook compositing layers together
     void setCompositingParent(RenderLayer* childLayer, RenderLayer* parentLayer);
-    void removeCompositedChildren(RenderLayer*);
 
     bool hasAnyAdditionalCompositedLayers(const RenderLayer* rootLayer) const;
 
@@ -283,8 +282,6 @@ private:
 
     void attachRootLayer(RootLayerAttachment);
     void detachRootLayer();
-
-    bool isMainFrame() const;
 
     void updateOverflowControlsLayers();
 
@@ -297,6 +294,10 @@ private:
 
     void addViewportConstrainedLayer(RenderLayer*);
 
+    bool compositingLayersNeedRebuild();
+
+    void enableCompositingModeIfNeeded();
+
     bool requiresHorizontalScrollbarLayer() const;
     bool requiresVerticalScrollbarLayer() const;
     bool requiresScrollCornerLayer() const;
@@ -307,7 +308,6 @@ private:
     void applyUpdateLayerCompositingStateChickenEggHacks(RenderLayer*, CompositingStateTransitionType compositedLayerUpdate);
     void assignLayersToBackingsForReflectionLayer(RenderLayer* reflectionLayer, bool& layersChanged);
 
-private:
     DocumentLifecycle& lifecycle() const;
 
     RenderView& m_renderView;
@@ -319,16 +319,20 @@ private:
     CompositingUpdateType m_pendingUpdateType;
 
     bool m_hasAcceleratedCompositing;
-    bool m_showRepaintCounter;
-
     bool m_needsToRecomputeCompositingRequirements;
-
     bool m_compositing;
     bool m_compositingLayersNeedRebuild;
-    bool m_forceCompositingMode;
+
+    // The root layer doesn't composite if it's a non-scrollable frame.
+    // So, after a layout we set this dirty bit to know that we need
+    // to recompute whether the root layer should composite even if
+    // none of its descendants composite.
+    // FIXME: Get rid of all the callers of setCompositingModeEnabled
+    // except the one in updateIfNeeded, then rename this to
+    // m_compositingDirty.
+    bool m_rootShouldAlwaysCompositeDirty;
     bool m_needsUpdateCompositingRequirementsState;
     bool m_needsUpdateFixedBackground;
-
     bool m_isTrackingRepaints; // Used for testing.
 
     RootLayerAttachment m_rootLayerAttachment;

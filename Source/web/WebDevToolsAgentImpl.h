@@ -50,6 +50,7 @@ class GraphicsContext;
 class InspectorClient;
 class InspectorController;
 class Node;
+class Page;
 class PlatformKeyboardEvent;
 }
 
@@ -57,7 +58,7 @@ namespace blink {
 
 class WebDevToolsAgentClient;
 class WebFrame;
-class WebFrameImpl;
+class WebLocalFrameImpl;
 class WebString;
 class WebURLRequest;
 class WebURLResponse;
@@ -77,7 +78,7 @@ public:
     virtual ~WebDevToolsAgentImpl();
 
     // WebDevToolsAgentPrivate implementation.
-    virtual void didCreateScriptContext(WebFrameImpl*, int worldId) OVERRIDE;
+    virtual void didCreateScriptContext(WebLocalFrameImpl*, int worldId) OVERRIDE;
     virtual void webViewResized(const WebSize&) OVERRIDE;
     virtual bool handleInputEvent(WebCore::Page*, const WebInputEvent&) OVERRIDE;
 
@@ -108,6 +109,7 @@ public:
     virtual void clearBrowserCookies() OVERRIDE;
 
     virtual void overrideDeviceMetrics(int width, int height, float deviceScaleFactor, bool emulateViewport, bool fitWindow) OVERRIDE;
+    virtual void setTouchEventEmulationEnabled(bool) OVERRIDE;
 
     virtual void getAllocatedObjects(HashSet<const void*>&) OVERRIDE;
     virtual void dumpUncountedAllocatedObjects(const HashMap<const void*, size_t>&) OVERRIDE;
@@ -140,10 +142,16 @@ private:
     WebViewImpl* m_webViewImpl;
     bool m_attached;
     bool m_generatingEvent;
+
     bool m_deviceMetricsEnabled;
     bool m_emulateViewportEnabled;
     bool m_originalViewportEnabled;
     bool m_isOverlayScrollbarsEnabled;
+
+    bool m_touchEventEmulationEnabled;
+    OwnPtr<WebCore::IntPoint> m_lastPinchAnchorCss;
+    OwnPtr<WebCore::IntPoint> m_lastPinchAnchorDip;
+
     typedef Vector<RefPtr<WebCore::JSONObject> > FrontendMessageQueue;
     FrontendMessageQueue m_frontendMessageQueue;
 };

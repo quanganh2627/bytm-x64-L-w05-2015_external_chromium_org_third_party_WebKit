@@ -99,8 +99,6 @@ private:
     void transferUseAttributesToReplacedElement(SVGElement* from, SVGElement* to) const;
     void transferEventListenersToShadowTree(SVGElementInstance* target);
 
-    bool isInUserAgentShadowTree() const;
-
     RefPtr<SVGAnimatedLength> m_x;
     RefPtr<SVGAnimatedLength> m_y;
     RefPtr<SVGAnimatedLength> m_width;
@@ -110,7 +108,7 @@ private:
     Document* externalDocument() const;
     bool instanceTreeIsLoading(SVGElementInstance*);
     virtual void notifyFinished(Resource*) OVERRIDE;
-    Document* referencedDocument() const;
+    TreeScope* referencedScope() const;
     void setDocumentResource(ResourcePtr<DocumentResource>);
 
     virtual Timer<SVGElement>* svgLoadEventTimer() OVERRIDE { return &m_svgLoadEventTimer; }

@@ -69,19 +69,22 @@ PassRefPtr<Animation> Animation::create(Element* element, PassRefPtrWillBeRawPtr
 PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, const Dictionary& timingInputDictionary, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectObjectTiming);
+    if (element)
+        UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectObjectTiming);
     return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), TimingInput::convert(timingInputDictionary));
 }
 PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, double duration, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectDoubleTiming);
+    if (element)
+        UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectDoubleTiming);
     return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), TimingInput::convert(duration));
 }
 PassRefPtr<Animation> Animation::create(Element* element, const Vector<Dictionary>& keyframeDictionaryVector, ExceptionState& exceptionState)
 {
     ASSERT(RuntimeEnabledFeatures::webAnimationsAPIEnabled());
-    UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectNoTiming);
+    if (element)
+        UseCounter::count(element->document(), UseCounter::AnimationConstructorKeyframeListEffectNoTiming);
     return create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState), Timing());
 }
 
@@ -122,8 +125,12 @@ void Animation::willDetach()
 
 void Animation::specifiedTimingChanged()
 {
-    // FIXME: Restart on compositor.
     cancelAnimationOnCompositor();
+    if (player()) {
+        // FIXME: Needs to consider groups when added.
+        ASSERT(player()->source() == this);
+        player()->schedulePendingAnimationOnCompositor();
+    }
 }
 
 static AnimationStack& ensureAnimationStack(Element* element)
@@ -141,7 +148,7 @@ void Animation::applyEffects()
     double iteration = currentIteration();
     ASSERT(iteration >= 0);
     // FIXME: Handle iteration values which overflow int.
-    OwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > interpolations = m_effect->sample(static_cast<int>(iteration), timeFraction(), duration());
+    OwnPtrWillBeRawPtr<WillBeHeapVector<RefPtrWillBeMember<Interpolation> > > interpolations = m_effect->sample(static_cast<int>(iteration), timeFraction(), iterationDuration());
     if (m_sampledEffect) {
         m_sampledEffect->setInterpolations(interpolations.release());
     } else if (!interpolations->isEmpty()) {
@@ -179,8 +186,8 @@ void Animation::updateChildrenAndEffects() const
 
 double Animation::calculateTimeToEffectChange(bool forwards, double localTime, double timeToNextIteration) const
 {
-    const double start = startTime() + specifiedTiming().startDelay;
-    const double end = start + activeDuration();
+    const double start = startTimeInternal() + specifiedTiming().startDelay;
+    const double end = start + activeDurationInternal();
 
     switch (phase()) {
     case PhaseBefore:
@@ -229,6 +236,7 @@ void Animation::notifyElementDestroyed()
     // destructor called when we call SampledEffect::clear(), so we need to
     // clear m_sampledEffect first.
     m_target = 0;
+    clearEventDelegate();
     SampledEffect* sampledEffect = m_sampledEffect;
     m_sampledEffect = 0;
     if (sampledEffect)

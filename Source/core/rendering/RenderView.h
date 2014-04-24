@@ -141,7 +141,12 @@ public:
     bool layoutStateEnabled() const { return m_layoutStateDisableCount == 0 && m_layoutState; }
     LayoutState* layoutState() const { return m_layoutState; }
 
-    bool canUseLayoutStateForContainer(const RenderObject* container) const { return layoutStateEnabled() && (!container || container == this); }
+    bool canUseLayoutStateForContainer(const RenderObject* repaintContainer) const
+    {
+        // FIXME: Repaint container should never be null. crbug.com/363699
+        // FIXME: LayoutState should be enabled for other repaint containers than the RenderView. crbug.com/363834
+        return layoutStateEnabled() && (!repaintContainer || repaintContainer == this);
+    }
 
     virtual void updateHitTestResult(HitTestResult&, const LayoutPoint&) OVERRIDE;
 
@@ -261,22 +266,35 @@ DEFINE_RENDER_OBJECT_TYPE_CASTS(RenderView, isRenderView());
 
 class RootLayoutStateScope {
 public:
-    explicit RootLayoutStateScope(RenderView& view)
-        : m_view(view)
-        , m_rootLayoutState(view.pageLogicalHeight(), view.pageLogicalHeightChanged())
+    explicit RootLayoutStateScope(RenderObject& obj)
+        : m_view(*obj.view())
+        , m_rootLayoutState(m_view.pageLogicalHeight(), m_view.pageLogicalHeightChanged())
+        , m_isRenderView(obj.isRenderView())
     {
-        ASSERT(!m_view.m_layoutState);
-        m_view.m_layoutState = &m_rootLayoutState;
+        // If the invalidation root isn't the renderView we have to make sure it
+        // gets added correctly to LayoutState otherwise we'll lose the margins that
+        // are set in the ancestors of the roots.
+        if (m_isRenderView) {
+            ASSERT(!m_view.m_layoutState);
+            m_view.m_layoutState = &m_rootLayoutState;
+        } else {
+            m_view.pushLayoutState(obj);
+        }
     }
 
     ~RootLayoutStateScope()
     {
-        ASSERT(m_view.m_layoutState == &m_rootLayoutState);
-        m_view.m_layoutState = 0;
+        if (m_isRenderView) {
+            ASSERT(m_view.m_layoutState == &m_rootLayoutState);
+            m_view.m_layoutState = 0;
+        } else {
+            m_view.popLayoutState();
+        }
     }
 private:
     RenderView& m_view;
     LayoutState m_rootLayoutState;
+    bool m_isRenderView;
 };
 
 // Stack-based class to assist with LayoutState push/pop

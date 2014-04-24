@@ -304,7 +304,6 @@ WebInspector.TimelineFlameChartDataProvider.prototype = {
         var record = this._records[entryIndex];
         var timelineData = this._timelineData;
 
-        var decorated = false;
         if (record.children.length) {
             var category = WebInspector.TimelineUIUtils.categoryForRecord(record);
             // Paint text using white color on dark background.
@@ -330,8 +329,6 @@ WebInspector.TimelineFlameChartDataProvider.prototype = {
                 context.fillText(text, barX + this.textPadding(), barY + barHeight - this.textBaseline());
                 context.restore();
             }
-
-            decorated = true;
         }
 
         if (record.warnings() || record.childHasWarnings()) {
@@ -348,10 +345,9 @@ WebInspector.TimelineFlameChartDataProvider.prototype = {
             context.fill();
 
             context.restore();
-            decorated = true;
         }
 
-        return decorated;
+        return record.children.length;
     },
 
     /**
@@ -421,6 +417,12 @@ WebInspector.TimelineFlameChart = function(delegate, model, frameModel)
 }
 
 WebInspector.TimelineFlameChart.prototype = {
+    dispose: function()
+    {
+        this._model.removeEventListener(WebInspector.TimelineModel.Events.RecordingStarted, this._onRecordingStarted, this);
+        this._mainView.removeEventListener(WebInspector.FlameChart.Events.EntrySelected, this._onEntrySelected, this);
+    },
+
     /**
      * @param {number} windowStartTime
      * @param {number} windowEndTime
@@ -442,6 +444,15 @@ WebInspector.TimelineFlameChart.prototype = {
     wasShown: function()
     {
         this._mainView._scheduleUpdate();
+    },
+
+
+    /**
+     * @return {!WebInspector.View}
+     */
+    view: function()
+    {
+        return this;
     },
 
     reset: function()

@@ -191,6 +191,15 @@ var InspectorFrontendAPI = {
     },
 
     /**
+     * @param {!Array.<!Adb.Device>} targets
+     */
+    populateRemoteDevices: function(targets)
+    {
+        // FIXME: this needs to be changed for the sake of modularity.
+        WebInspector.devicesModel.populateRemoteDevices(targets);
+    },
+
+    /**
      * @param {string} url
      */
     savedURL: function(url)
@@ -243,19 +252,6 @@ var InspectorFrontendAPI = {
     {
         if (dispatchParameter)
             InspectorFrontendAPI._dispatch(JSON.parse(window.decodeURI(dispatchParameter)));
-    },
-
-    // Testing harness support
-    //////////////////////////
-
-    evaluateForTest: function(callId, script)
-    {
-        WebInspector.evaluateForTestInFrontend(callId, script);
-    },
-
-    dispatchMessageAsync: function(messageObject)
-    {
-        WebInspector.dispatch(messageObject);
     },
 
     // Implementation details

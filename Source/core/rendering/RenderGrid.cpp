@@ -558,9 +558,9 @@ const GridTrackSize& RenderGrid::gridTrackSize(GridTrackSizingDirection directio
     return trackSize;
 }
 
-LayoutUnit RenderGrid::logicalContentHeightForChild(RenderBox* child, Vector<GridTrack>& columnTracks)
+LayoutUnit RenderGrid::logicalHeightForChild(RenderBox* child, Vector<GridTrack>& columnTracks)
 {
-    SubtreeLayoutScope layoutScope(child);
+    SubtreeLayoutScope layoutScope(*child);
     LayoutUnit oldOverrideContainingBlockContentLogicalWidth = child->hasOverrideContainingBlockLogicalWidth() ? child->overrideContainingBlockContentLogicalWidth() : LayoutUnit();
     LayoutUnit overrideContainingBlockContentLogicalWidth = gridAreaBreadthForChild(child, ForColumns, columnTracks);
     if (child->style()->logicalHeight().isPercent() || oldOverrideContainingBlockContentLogicalWidth != overrideContainingBlockContentLogicalWidth)
@@ -571,7 +571,7 @@ LayoutUnit RenderGrid::logicalContentHeightForChild(RenderBox* child, Vector<Gri
     // what we are interested in here. Thus we need to set the override logical height to -1 (no possible resolution).
     child->setOverrideContainingBlockContentLogicalHeight(-1);
     child->layoutIfNeeded();
-    return child->logicalHeight();
+    return child->logicalHeight() + child->marginLogicalHeight();
 }
 
 LayoutUnit RenderGrid::minContentForChild(RenderBox* child, GridTrackSizingDirection direction, Vector<GridTrack>& columnTracks)
@@ -587,7 +587,7 @@ LayoutUnit RenderGrid::minContentForChild(RenderBox* child, GridTrackSizingDirec
         return child->minPreferredLogicalWidth() + marginIntrinsicLogicalWidthForChild(child);
     }
 
-    return logicalContentHeightForChild(child, columnTracks);
+    return logicalHeightForChild(child, columnTracks);
 }
 
 LayoutUnit RenderGrid::maxContentForChild(RenderBox* child, GridTrackSizingDirection direction, Vector<GridTrack>& columnTracks)
@@ -603,7 +603,7 @@ LayoutUnit RenderGrid::maxContentForChild(RenderBox* child, GridTrackSizingDirec
         return child->maxPreferredLogicalWidth() + marginIntrinsicLogicalWidthForChild(child);
     }
 
-    return logicalContentHeightForChild(child, columnTracks);
+    return logicalHeightForChild(child, columnTracks);
 }
 
 void RenderGrid::resolveContentBasedTrackSizingFunctions(GridTrackSizingDirection direction, GridSizingData& sizingData, LayoutUnit& availableLogicalSpace)
@@ -914,7 +914,7 @@ void RenderGrid::layoutGridItems()
         LayoutUnit overrideContainingBlockContentLogicalWidth = gridAreaBreadthForChild(child, ForColumns, sizingData.columnTracks);
         LayoutUnit overrideContainingBlockContentLogicalHeight = gridAreaBreadthForChild(child, ForRows, sizingData.rowTracks);
 
-        SubtreeLayoutScope layoutScope(child);
+        SubtreeLayoutScope layoutScope(*child);
         if (oldOverrideContainingBlockContentLogicalWidth != overrideContainingBlockContentLogicalWidth || (oldOverrideContainingBlockContentLogicalHeight != overrideContainingBlockContentLogicalHeight && child->hasRelativeLogicalHeight()))
             layoutScope.setNeedsLayout(child);
 

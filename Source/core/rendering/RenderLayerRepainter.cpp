@@ -57,7 +57,7 @@ RenderLayerRepainter::RenderLayerRepainter(RenderLayerModelObject* renderer)
 {
 }
 
-void RenderLayerRepainter::repaintAfterLayout(RenderGeometryMap* geometryMap, bool shouldCheckForRepaint)
+void RenderLayerRepainter::repaintAfterLayout(bool shouldCheckForRepaint)
 {
     if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
         return;
@@ -75,7 +75,7 @@ void RenderLayerRepainter::repaintAfterLayout(RenderGeometryMap* geometryMap, bo
 
         RenderLayerModelObject* repaintContainer = m_renderer->containerForRepaint();
         LayoutRect oldRepaintRect = m_repaintRect;
-        computeRepaintRects(repaintContainer, geometryMap);
+        computeRepaintRects(repaintContainer);
         shouldCheckForRepaint &= shouldRepaintLayer();
 
         if (shouldCheckForRepaint) {
@@ -104,15 +104,7 @@ void RenderLayerRepainter::clearRepaintRects()
     m_repaintRect = IntRect();
 }
 
-void RenderLayerRepainter::computeRepaintRects(const RenderLayerModelObject* repaintContainer, const RenderGeometryMap* geometryMap)
-{
-    if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-        return;
-
-    m_repaintRect = m_renderer->clippedOverflowRectForRepaint(repaintContainer);
-}
-
-void RenderLayerRepainter::computeRepaintRectsIncludingDescendants()
+void RenderLayerRepainter::computeRepaintRects(const RenderLayerModelObject* repaintContainer)
 {
     if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
         // FIXME: We want RenderLayerRepainter to go away when
@@ -120,11 +112,16 @@ void RenderLayerRepainter::computeRepaintRectsIncludingDescendants()
         // handle this update.
         m_renderer->setPreviousRepaintRect(m_renderer->clippedOverflowRectForRepaint(m_renderer->containerForRepaint()));
     } else {
-        // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
-        // We should make this more efficient.
-        // FIXME: it's wrong to call this when layout is not up-to-date, which we do.
-        computeRepaintRects(m_renderer->containerForRepaint());
+        m_repaintRect = m_renderer->clippedOverflowRectForRepaint(repaintContainer);
     }
+}
+
+void RenderLayerRepainter::computeRepaintRectsIncludingDescendants()
+{
+    // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
+    // We should make this more efficient.
+    // FIXME: it's wrong to call this when layout is not up-to-date, which we do.
+    computeRepaintRects(m_renderer->containerForRepaint());
 
     for (RenderLayer* layer = m_renderer->layer()->firstChild(); layer; layer = layer->nextSibling())
         layer->repainter().computeRepaintRectsIncludingDescendants();
@@ -200,19 +197,17 @@ void RenderLayerRepainter::setBackingNeedsRepaintInRect(const LayoutRect& r)
         RenderView* view = m_renderer->view();
         if (view)
             view->repaintViewRectangle(absRect);
+        return;
+    }
+    IntRect repaintRect = pixelSnappedIntRect(r);
+    if (m_renderer->compositingState() == PaintsIntoGroupedBacking) {
+        // FIXME: Add a LayoutTest that hits this code path.
+        // See https://code.google.com/p/chromium/issues/detail?id=365597 for real-world
+        // examples that can execute this code.
+        repaintRect.move(-m_renderer->layer()->offsetFromSquashingLayerOrigin());
+        m_renderer->groupedMapping()->squashingLayer()->setNeedsDisplayInRect(repaintRect);
     } else {
-        if (m_renderer->compositingState() == PaintsIntoGroupedBacking) {
-            // FIXME: LayoutRect rounding to IntRect is probably not a good idea.
-            IntRect offsetRect = pixelSnappedIntRect(r);
-            if (m_renderer->hasTransform())
-                offsetRect = m_renderer->layer()->transform()->mapRect(pixelSnappedIntRect(r));
-
-            offsetRect.move(-m_renderer->layer()->offsetFromSquashingLayerOrigin());
-            m_renderer->groupedMapping()->squashingLayer()->setNeedsDisplayInRect(offsetRect);
-        } else {
-            IntRect repaintRect = pixelSnappedIntRect(r.location() +  m_renderer->layer()->subpixelAccumulation(), r.size());
-            m_renderer->compositedLayerMapping()->setContentsNeedDisplayInRect(repaintRect);
-        }
+        m_renderer->compositedLayerMapping()->setContentsNeedDisplayInRect(repaintRect);
     }
 }
 

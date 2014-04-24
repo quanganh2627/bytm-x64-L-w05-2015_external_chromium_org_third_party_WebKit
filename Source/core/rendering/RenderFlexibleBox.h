@@ -89,8 +89,10 @@ private:
     bool isLeftToRightFlow() const;
     bool isMultiline() const;
     Length flexBasisForChild(RenderBox* child) const;
-    void setCrossAxisExtent(LayoutUnit);
     LayoutUnit crossAxisExtentForChild(RenderBox* child) const;
+    LayoutUnit crossAxisIntrinsicExtentForChild(RenderBox* child) const;
+    LayoutUnit childIntrinsicHeight(RenderBox* child) const;
+    LayoutUnit childIntrinsicWidth(RenderBox* child) const;
     LayoutUnit mainAxisExtentForChild(RenderBox* child) const;
     LayoutUnit crossAxisExtent() const;
     LayoutUnit mainAxisExtent() const;
@@ -109,7 +111,6 @@ private:
     LayoutUnit flowAwareMarginStartForChild(RenderBox* child) const;
     LayoutUnit flowAwareMarginEndForChild(RenderBox* child) const;
     LayoutUnit flowAwareMarginBeforeForChild(RenderBox* child) const;
-    LayoutUnit flowAwareMarginAfterForChild(RenderBox* child) const;
     LayoutUnit crossAxisMarginExtentForChild(RenderBox* child) const;
     LayoutUnit crossAxisScrollbarExtent() const;
     LayoutPoint flowAwareLocationForChild(RenderBox* child) const;
@@ -118,9 +119,9 @@ private:
     void adjustAlignmentForChild(RenderBox* child, LayoutUnit);
     ItemPosition alignmentForChild(RenderBox* child) const;
     LayoutUnit mainAxisBorderAndPaddingExtentForChild(RenderBox* child) const;
-    LayoutUnit mainAxisScrollbarExtentForChild(RenderBox* child) const;
     LayoutUnit preferredMainAxisContentExtentForChild(RenderBox* child, bool hasInfiniteLineLength, bool relayoutChildren = false);
     bool childPreferredMainAxisContentExtentRequiresLayout(RenderBox* child, bool hasInfiniteLineLength) const;
+    bool needToStretchChildLogicalHeight(RenderBox* child) const;
 
     void layoutFlexItems(bool relayoutChildren);
     LayoutUnit autoMarginOffsetInMainAxis(const OrderedFlexItemList&, LayoutUnit& availableFreeSpace);
@@ -133,6 +134,7 @@ private:
     void repaintChildrenDuringLayoutIfMoved(const ChildFrameRects&);
 
     LayoutUnit availableAlignmentSpaceForChild(LayoutUnit lineCrossAxisExtent, RenderBox*);
+    LayoutUnit availableAlignmentSpaceForChildBeforeStretching(LayoutUnit lineCrossAxisExtent, RenderBox*);
     LayoutUnit marginBoxAscentForChild(RenderBox*);
 
     LayoutUnit computeChildMarginValue(Length margin);

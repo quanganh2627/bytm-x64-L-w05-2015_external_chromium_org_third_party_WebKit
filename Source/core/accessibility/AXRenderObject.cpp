@@ -217,15 +217,6 @@ RenderBoxModelObject* AXRenderObject::renderBoxModelObject() const
     return toRenderBoxModelObject(m_renderer);
 }
 
-RenderView* AXRenderObject::topRenderer() const
-{
-    Document* topDoc = topDocument();
-    if (!topDoc)
-        return 0;
-
-    return topDoc->renderView();
-}
-
 Document* AXRenderObject::topDocument() const
 {
     if (!document())
@@ -392,6 +383,9 @@ AccessibilityRole AXRenderObject::determineAccessibilityRole()
 
     if (node && node->hasTagName(iframeTag))
         return IframeRole;
+
+    if (isEmbeddedObject())
+        return EmbeddedObjectRole;
 
     // There should only be one banner/contentInfo per page. If header/footer are being used within an article or section
     // then it should not be exposed as whole page's banner/contentInfo
@@ -855,18 +849,6 @@ String AXRenderObject::actionVerb() const
     default:
         return emptyString();
     }
-}
-
-void AXRenderObject::selectedChildren(AccessibilityChildrenVector& result)
-{
-    ASSERT(result.isEmpty());
-
-    // only listboxes should be asked for their selected children.
-    AccessibilityRole role = roleValue();
-    if (role == ListBoxRole) // native list boxes would be AXListBoxes, so only check for aria list boxes
-        ariaListboxSelectedChildren(result);
-    else if (role == TreeRole || role == TreeGridRole || role == TableRole)
-        ariaSelectedRows(result);
 }
 
 String AXRenderObject::stringValue() const
@@ -1923,32 +1905,6 @@ bool AXRenderObject::isTabItemSelected() const
     }
 
     return false;
-}
-
-AXObject* AXRenderObject::internalLinkElement() const
-{
-    Element* element = anchorElement();
-    // Right now, we do not support ARIA links as internal link elements
-    if (!isHTMLAnchorElement(element))
-        return 0;
-    HTMLAnchorElement& anchor = toHTMLAnchorElement(*element);
-
-    KURL linkURL = anchor.href();
-    String fragmentIdentifier = linkURL.fragmentIdentifier();
-    if (fragmentIdentifier.isEmpty())
-        return 0;
-
-    // check if URL is the same as current URL
-    KURL documentURL = m_renderer->document().url();
-    if (!equalIgnoringFragmentIdentifier(documentURL, linkURL))
-        return 0;
-
-    Node* linkedNode = m_renderer->document().findAnchor(fragmentIdentifier);
-    if (!linkedNode)
-        return 0;
-
-    // The element we find may not be accessible, so find the first accessible object.
-    return firstAccessibleObjectFromNode(linkedNode);
 }
 
 AXObject* AXRenderObject::accessibilityImageMapHitTest(HTMLAreaElement* area, const IntPoint& point) const

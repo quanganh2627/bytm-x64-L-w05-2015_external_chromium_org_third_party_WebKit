@@ -988,7 +988,7 @@ void CanvasRenderingContext2D::fillInternal(const Path& path, const String& wind
         return;
     }
     FloatRect clipBounds;
-    if (!drawingContext()->getTransformedClipBounds(&clipBounds)) {
+    if (!c->getTransformedClipBounds(&clipBounds)) {
         return;
     }
 
@@ -1022,11 +1022,6 @@ void CanvasRenderingContext2D::fillInternal(const Path& path, const String& wind
 void CanvasRenderingContext2D::fill(const String& windingRuleString)
 {
     fillInternal(m_path, windingRuleString);
-}
-
-void CanvasRenderingContext2D::fill(Path2D* domPath)
-{
-    fill(domPath, "nonzero");
 }
 
 void CanvasRenderingContext2D::fill(Path2D* domPath, const String& windingRuleString)
@@ -1067,7 +1062,7 @@ void CanvasRenderingContext2D::strokeInternal(const Path& path)
         FloatRect bounds = path.boundingRect();
         inflateStrokeRect(bounds);
         FloatRect dirtyRect;
-        if (computeDirtyRect(bounds, &dirtyRect)) {
+        if (computeDirtyRect(bounds, clipBounds, &dirtyRect)) {
             c->strokePath(path);
             didDraw(dirtyRect);
         }
@@ -1103,11 +1098,6 @@ void CanvasRenderingContext2D::clip(const String& windingRuleString)
     clipInternal(m_path, windingRuleString);
 }
 
-void CanvasRenderingContext2D::clip(Path2D* domPath)
-{
-    clip(domPath, "nonzero");
-}
-
 void CanvasRenderingContext2D::clip(Path2D* domPath, const String& windingRuleString)
 {
     clipInternal(domPath->path(), windingRuleString);
@@ -1116,11 +1106,6 @@ void CanvasRenderingContext2D::clip(Path2D* domPath, const String& windingRuleSt
 bool CanvasRenderingContext2D::isPointInPath(const float x, const float y, const String& windingRuleString)
 {
     return isPointInPathInternal(m_path, x, y, windingRuleString);
-}
-
-bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y)
-{
-    return isPointInPath(domPath, x, y, "nonzero");
 }
 
 bool CanvasRenderingContext2D::isPointInPath(Path2D* domPath, const float x, const float y, const String& windingRuleString)
@@ -1270,7 +1255,7 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
     if (!state().m_invertibleCTM)
         return;
     FloatRect clipBounds;
-    if (!drawingContext()->getTransformedClipBounds(&clipBounds))
+    if (!c->getTransformedClipBounds(&clipBounds))
         return;
 
     // from the HTML5 Canvas spec:
@@ -1335,7 +1320,7 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
         FloatRect boundingRect = rect;
         boundingRect.inflate(state().m_lineWidth / 2);
         FloatRect dirtyRect;
-        if (computeDirtyRect(boundingRect, &dirtyRect)) {
+        if (computeDirtyRect(boundingRect, clipBounds, &dirtyRect)) {
             c->strokeRect(rect);
             didDraw(dirtyRect);
         }
@@ -1607,9 +1592,10 @@ template<class T> void  CanvasRenderingContext2D::fullCanvasCompositedDrawImage(
 {
     ASSERT(isFullCanvasCompositeMode(op));
 
-    drawingContext()->beginLayer(1, op);
-    drawImageToContext(image, drawingContext(), dest, src, CompositeSourceOver);
-    drawingContext()->endLayer();
+    GraphicsContext* c = drawingContext();
+    c->beginLayer(1, op);
+    drawImageToContext(image, c, dest, src, CompositeSourceOver);
+    c->endLayer();
 }
 
 static void fillPrimitive(const FloatRect& rect, GraphicsContext* context)
@@ -2225,21 +2211,40 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     if (!fill)
         inflateStrokeRect(textRunPaintInfo.bounds);
 
-    FloatRect dirtyRect;
-    if (!computeDirtyRect(textRunPaintInfo.bounds, &dirtyRect))
-        return;
-
     c->setTextDrawingMode(fill ? TextModeFill : TextModeStroke);
+
+    GraphicsContextStateSaver stateSaver(*c);
     if (useMaxWidth) {
-        GraphicsContextStateSaver stateSaver(*c);
         c->translate(location.x(), location.y());
         // We draw when fontWidth is 0 so compositing operations (eg, a "copy" op) still work.
         c->scale(FloatSize((fontWidth > 0 ? (width / fontWidth) : 0), 1));
-        c->drawBidiText(font, textRunPaintInfo, FloatPoint(0, 0), Font::UseFallbackIfFontNotReady);
-    } else
-        c->drawBidiText(font, textRunPaintInfo, location, Font::UseFallbackIfFontNotReady);
+        location = FloatPoint();
+    }
 
-    didDraw(dirtyRect);
+    FloatRect clipBounds;
+    if (!c->getTransformedClipBounds(&clipBounds)) {
+        return;
+    }
+
+    if (isFullCanvasCompositeMode(state().m_globalComposite)) {
+        c->beginLayer(1, state().m_globalComposite);
+        CompositeOperator previousOperator = c->compositeOperation();
+        c->setCompositeOperation(CompositeSourceOver);
+        c->drawBidiText(font, textRunPaintInfo, location, Font::UseFallbackIfFontNotReady);
+        c->setCompositeOperation(previousOperator);
+        c->endLayer();
+        didDraw(clipBounds);
+    } else if (state().m_globalComposite == CompositeCopy) {
+        clearCanvas();
+        c->drawBidiText(font, textRunPaintInfo, location, Font::UseFallbackIfFontNotReady);
+        didDraw(clipBounds);
+    } else {
+        FloatRect dirtyRect;
+        if (computeDirtyRect(textRunPaintInfo.bounds, clipBounds, &dirtyRect)) {
+            c->drawBidiText(font, textRunPaintInfo, location, Font::UseFallbackIfFontNotReady);
+            didDraw(dirtyRect);
+        }
+    }
 }
 
 void CanvasRenderingContext2D::inflateStrokeRect(FloatRect& rect) const
@@ -2319,15 +2324,25 @@ PassRefPtr<Canvas2DContextAttributes> CanvasRenderingContext2D::getContextAttrib
 
 void CanvasRenderingContext2D::drawFocusIfNeeded(Element* element)
 {
-    if (!focusRingCallIsValid(m_path, element))
+    drawFocusIfNeededInternal(m_path, element);
+}
+
+void CanvasRenderingContext2D::drawFocusIfNeeded(Path2D* path2d, Element* element)
+{
+    drawFocusIfNeededInternal(path2d->path(), element);
+}
+
+void CanvasRenderingContext2D::drawFocusIfNeededInternal(const Path& path, Element* element)
+{
+    if (!focusRingCallIsValid(path, element))
         return;
 
-    updateFocusRingAccessibility(m_path, element);
+    updateFocusRingAccessibility(path, element);
     // Note: we need to check document->focusedElement() rather than just calling
     // element->focused(), because element->focused() isn't updated until after
     // focus events fire.
     if (element->document().focusedElement() == element)
-        drawFocusRing(m_path);
+        drawFocusRing(path);
 }
 
 bool CanvasRenderingContext2D::drawCustomFocusRing(Element* element)
@@ -2367,7 +2382,7 @@ void CanvasRenderingContext2D::updateFocusRingAccessibility(const Path& path, El
     if (AXObjectCache* axObjectCache = element->document().existingAXObjectCache()) {
         if (AXObject* obj = axObjectCache->getOrCreate(element)) {
             // Get the bounding rect and apply transformations.
-            FloatRect bounds = m_path.boundingRect();
+            FloatRect bounds = path.boundingRect();
             AffineTransform ctm = state().m_transform;
             FloatRect transformedBounds = ctm.mapRect(bounds);
             LayoutRect elementRect = LayoutRect(transformedBounds);

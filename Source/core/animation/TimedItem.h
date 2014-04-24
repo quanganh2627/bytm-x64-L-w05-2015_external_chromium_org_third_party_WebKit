@@ -81,20 +81,28 @@ public:
     double timeToReverseEffectChange() const { return ensureCalculated().timeToReverseEffectChange; }
 
     double currentIteration() const { return ensureCalculated().currentIteration; }
-    double duration() const { return iterationDuration(); }
-    double activeDuration() const;
+    double iterationDuration() const;
+
+    // This method returns time in ms as it is unused except via the API.
+    double duration() const { return iterationDuration() * 1000; }
+
+    double activeDuration() const { return activeDurationInternal() * 1000; }
+    double activeDurationInternal() const;
     double timeFraction() const { return ensureCalculated().timeFraction; }
-    double startTime() const { return m_startTime; }
-    double endTime() const { return startTime() + specifiedTiming().startDelay + activeDuration() + specifiedTiming().endDelay; }
+    double startTime() const { return m_startTime * 1000; }
+    double startTimeInternal() const { return m_startTime; }
+    double endTime() const { return endTimeInternal() * 1000; }
+    double endTimeInternal() const { return startTime() + specifiedTiming().startDelay + activeDurationInternal() + specifiedTiming().endDelay; }
 
     const AnimationPlayer* player() const { return m_player; }
     AnimationPlayer* player() { return m_player; }
     AnimationPlayer* player(bool& isNull) { isNull = !m_player; return m_player; }
-    const Timing& specifiedTiming() const { return m_specified; }
-    PassRefPtr<TimedItemTiming> specified();
+    const Timing& specifiedTiming() const { return m_timing; }
+    PassRefPtr<TimedItemTiming> timing();
     void updateSpecifiedTiming(const Timing&);
 
-    double localTime(bool& isNull) const { isNull = !m_player; return ensureCalculated().localTime; }
+    // This method returns time in ms as it is unused except via the API.
+    double localTime(bool& isNull) const { isNull = !m_player; return ensureCalculated().localTime * 1000; }
     double currentIteration(bool& isNull) const { isNull = !ensureCalculated().isInEffect; return ensureCalculated().currentIteration; }
 
 protected:
@@ -106,10 +114,10 @@ protected:
     void updateInheritedTime(double inheritedTime) const;
     void invalidate() const { m_needsUpdate = true; };
     bool hasEvents() const { return m_eventDelegate; }
+    void clearEventDelegate() { m_eventDelegate = nullptr; }
 
 private:
 
-    double iterationDuration() const;
     double repeatedDuration() const;
 
     virtual void updateChildrenAndEffects() const = 0;
@@ -136,7 +144,7 @@ private:
     TimedItem* const m_parent;
     const double m_startTime;
     AnimationPlayer* m_player;
-    Timing m_specified;
+    Timing m_timing;
     OwnPtr<EventDelegate> m_eventDelegate;
 
     mutable struct CalculatedTiming {

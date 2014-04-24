@@ -235,10 +235,10 @@ public:
     // Helper class forbidding calls to setNeedsLayout() during its lifetime.
     class SetLayoutNeededForbiddenScope {
     public:
-        explicit SetLayoutNeededForbiddenScope(RenderObject*);
+        explicit SetLayoutNeededForbiddenScope(RenderObject&);
         ~SetLayoutNeededForbiddenScope();
     private:
-        RenderObject* m_renderObject;
+        RenderObject& m_renderObject;
         bool m_preexistingForbidden;
     };
 
@@ -1075,6 +1075,8 @@ private:
     StyleDifference adjustStyleDifference(StyleDifference, unsigned contextSensitiveProperties) const;
 
     Color selectionColor(int colorProperty) const;
+
+    void removeShapeImageClient(ShapeValue*);
 
 #ifndef NDEBUG
     void checkBlockPositionedObjectsNeedLayout();

@@ -28,7 +28,6 @@
 #include "Internals.h"
 
 #include <v8.h>
-#include "InspectorFrontendClientLocal.h"
 #include "InternalProfilers.h"
 #include "InternalRuntimeFlags.h"
 #include "InternalSettings.h"
@@ -57,6 +56,7 @@
 #include "core/dom/DocumentMarker.h"
 #include "core/dom/DocumentMarkerController.h"
 #include "core/dom/Element.h"
+#include "core/dom/EventHandlerRegistry.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/NodeRenderStyle.h"
@@ -142,27 +142,6 @@ namespace WebCore {
 static MockPagePopupDriver* s_pagePopupDriver = 0;
 
 using namespace HTMLNames;
-
-class InspectorFrontendChannelDummy : public InspectorFrontendChannel {
-public:
-    explicit InspectorFrontendChannelDummy(Page*);
-    virtual ~InspectorFrontendChannelDummy() { }
-    virtual void sendMessageToFrontend(PassRefPtr<JSONObject> message) OVERRIDE;
-    virtual void flush() OVERRIDE { }
-
-private:
-    Page* m_frontendPage;
-};
-
-InspectorFrontendChannelDummy::InspectorFrontendChannelDummy(Page* page)
-    : m_frontendPage(page)
-{
-}
-
-void InspectorFrontendChannelDummy::sendMessageToFrontend(PassRefPtr<JSONObject> message)
-{
-    InspectorClient::doDispatchMessageOnFrontendPage(m_frontendPage, message->toJSONString());
-}
 
 static bool markerTypesFrom(const String& markerType, DocumentMarker::MarkerTypes& result)
 {
@@ -742,6 +721,7 @@ void Internals::setFormControlStateOfHistoryItem(const Vector<String>& state, Ex
         exceptionState.throwDOMException(InvalidAccessError, "No history item is available.");
         return;
     }
+    mainItem->clearDocumentState();
     mainItem->setDocumentState(state);
 }
 
@@ -1278,6 +1258,18 @@ unsigned Internals::activeDOMObjectCount(Document* document, ExceptionState& exc
     return document->activeDOMObjectCount();
 }
 
+static unsigned eventHandlerCount(Document& document, EventHandlerRegistry::EventHandlerClass handlerClass)
+{
+    EventHandlerRegistry* registry = EventHandlerRegistry::from(document);
+    unsigned count = 0;
+    const EventTargetSet* targets = registry->eventHandlerTargets(handlerClass);
+    if (targets) {
+        for (EventTargetSet::const_iterator iter = targets->begin(); iter != targets->end(); ++iter)
+            count += iter->value;
+    }
+    return count;
+}
+
 unsigned Internals::wheelEventHandlerCount(Document* document, ExceptionState& exceptionState)
 {
     if (!document) {
@@ -1286,6 +1278,16 @@ unsigned Internals::wheelEventHandlerCount(Document* document, ExceptionState& e
     }
 
     return WheelController::from(*document)->wheelEventHandlerCount();
+}
+
+unsigned Internals::scrollEventHandlerCount(Document* document, ExceptionState& exceptionState)
+{
+    if (!document) {
+        exceptionState.throwDOMException(InvalidAccessError, "No context document is available.");
+        return 0;
+    }
+
+    return eventHandlerCount(*document, EventHandlerRegistry::ScrollEvent);
 }
 
 unsigned Internals::touchEventHandlerCount(Document* document, ExceptionState& exceptionState)
@@ -1570,45 +1572,6 @@ Vector<String> Internals::consoleMessageArgumentCounts(Document* document) const
     return result;
 }
 
-PassRefPtrWillBeRawPtr<DOMWindow> Internals::openDummyInspectorFrontend(const String& url)
-{
-    Page* page = contextDocument()->frame()->page();
-    ASSERT(page);
-
-    DOMWindow* window = page->mainFrame()->domWindow();
-    ASSERT(window);
-
-    m_frontendWindow = window->open(url, "", "", window, window);
-    ASSERT(m_frontendWindow);
-
-    Page* frontendPage = m_frontendWindow->document()->page();
-    ASSERT(frontendPage);
-
-    OwnPtr<InspectorFrontendClientLocal> frontendClient = adoptPtr(new InspectorFrontendClientLocal(page->inspectorController(), frontendPage));
-
-    frontendPage->inspectorController().setInspectorFrontendClient(frontendClient.release());
-
-    m_frontendChannel = adoptPtr(new InspectorFrontendChannelDummy(frontendPage));
-
-    page->inspectorController().connectFrontend(m_frontendChannel.get());
-
-    return m_frontendWindow;
-}
-
-void Internals::closeDummyInspectorFrontend()
-{
-    Page* page = contextDocument()->frame()->page();
-    ASSERT(page);
-    ASSERT(m_frontendWindow);
-
-    page->inspectorController().disconnectFrontend();
-
-    m_frontendChannel.release();
-
-    m_frontendWindow->close(m_frontendWindow->executionContext());
-    m_frontendWindow.release();
-}
-
 Vector<unsigned long> Internals::setMemoryCacheCapacities(unsigned long minDeadBytes, unsigned long maxDeadBytes, unsigned long totalBytes)
 {
     Vector<unsigned long> result;
@@ -1680,42 +1643,6 @@ String Internals::elementLayerTreeAsText(Element* element, ExceptionState& excep
     return elementLayerTreeAsText(element, 0, exceptionState);
 }
 
-static PassRefPtr<NodeList> paintOrderList(Element* element, ExceptionState& exceptionState, RenderLayerStackingNode::PaintOrderListType type)
-{
-    if (!element) {
-        exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
-        return nullptr;
-    }
-
-    element->document().updateLayout();
-
-    RenderObject* renderer = element->renderer();
-    if (!renderer || !renderer->isBox()) {
-        exceptionState.throwDOMException(InvalidAccessError, renderer ? "The provided element's renderer is not a box." : "The provided element has no renderer.");
-        return nullptr;
-    }
-
-    RenderLayer* layer = toRenderBox(renderer)->layer();
-    if (!layer) {
-        exceptionState.throwDOMException(InvalidAccessError, "No render layer can be obtained from the provided element.");
-        return nullptr;
-    }
-
-    Vector<RefPtr<Node> > nodes;
-    layer->stackingNode()->computePaintOrderList(type, nodes);
-    return StaticNodeList::adopt(nodes);
-}
-
-PassRefPtr<NodeList> Internals::paintOrderListBeforePromote(Element* element, ExceptionState& exceptionState)
-{
-    return paintOrderList(element, exceptionState, RenderLayerStackingNode::BeforePromote);
-}
-
-PassRefPtr<NodeList> Internals::paintOrderListAfterPromote(Element* element, ExceptionState& exceptionState)
-{
-    return paintOrderList(element, exceptionState, RenderLayerStackingNode::AfterPromote);
-}
-
 bool Internals::scrollsWithRespectTo(Element* element1, Element* element2, ExceptionState& exceptionState)
 {
     if (!element1 || !element2) {
@@ -1768,30 +1695,6 @@ bool Internals::isUnclippedDescendant(Element* element, ExceptionState& exceptio
     }
 
     return layer->isUnclippedDescendant();
-}
-
-bool Internals::needsCompositedScrolling(Element* element, ExceptionState& exceptionState)
-{
-    if (!element) {
-        exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
-        return 0;
-    }
-
-    element->document().view()->updateLayoutAndStyleForPainting();
-
-    RenderObject* renderer = element->renderer();
-    if (!renderer || !renderer->isBox()) {
-        exceptionState.throwDOMException(InvalidAccessError, renderer ? "The provided element's renderer is not a box." : "The provided element has no renderer.");
-        return 0;
-    }
-
-    RenderLayer* layer = toRenderBox(renderer)->layer();
-    if (!layer) {
-        exceptionState.throwDOMException(InvalidAccessError, "No render layer can be obtained from the provided element.");
-        return 0;
-    }
-
-    return layer->needsCompositedScrolling();
 }
 
 String Internals::layerTreeAsText(Document* document, unsigned flags, ExceptionState& exceptionState) const
@@ -2099,8 +2002,7 @@ PassRefPtrWillBeRawPtr<TypeConversions> Internals::typeConversions() const
 
 Vector<String> Internals::getReferencedFilePaths() const
 {
-    frame()->loader().saveDocumentState();
-    return FormController::getReferencedFilePaths(frame()->loader().currentItem()->documentState());
+    return frame()->loader().currentItem()->getReferencedFilePaths();
 }
 
 void Internals::startTrackingRepaints(Document* document, ExceptionState& exceptionState)
@@ -2442,27 +2344,8 @@ ScriptPromise Internals::addOneToPromise(ExecutionContext* context, ScriptPromis
     return promise.then(AddOneFunction::create(context));
 }
 
-ScriptPromise Internals::promiseCheck(ExecutionContext* context, long arg1, bool arg2, const Dictionary& arg3, const String& arg4, const Vector<String>& arg5, ExceptionState& exceptionState)
-{
-    if (arg2)
-        return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
-    exceptionState.throwDOMException(InvalidStateError, "Thrown from the native implementation.");
-    return ScriptPromise();
-}
-
-ScriptPromise Internals::promiseCheckWithoutExceptionState(ExecutionContext* context, const Dictionary& arg1, const String& arg2, const Vector<String>& arg3)
-{
-    return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
-}
-
-ScriptPromise Internals::promiseCheckRange(ExecutionContext* context, long arg1)
-{
-    return ScriptPromise::cast(v8String(toIsolate(context), "done"), toIsolate(context));
-}
-
 void Internals::trace(Visitor* visitor)
 {
-    visitor->trace(m_frontendWindow);
     visitor->trace(m_runtimeFlags);
     visitor->trace(m_profilers);
 }

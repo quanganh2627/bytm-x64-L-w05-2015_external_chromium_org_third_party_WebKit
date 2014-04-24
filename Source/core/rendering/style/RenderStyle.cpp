@@ -368,13 +368,18 @@ static bool positionedObjectMovedOnly(const LengthBox& a, const LengthBox& b, co
 
 StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const
 {
+    return StyleDifference(visualInvalidationDiffLegacy(other, changedContextSensitiveProperties));
+}
+
+StyleDifferenceLegacy RenderStyle::visualInvalidationDiffLegacy(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const
+{
     changedContextSensitiveProperties = ContextSensitivePropertyNone;
 
     // Note, we use .get() on each DataRef below because DataRef::operator== will do a deep
     // compare, which is duplicate work when we're going to compare each property inside
     // this function anyway.
 
-    StyleDifference svgChange = StyleDifferenceEqual;
+    StyleDifferenceLegacy svgChange = StyleDifferenceEqual;
     if (m_svgStyle.get() != other.m_svgStyle.get()) {
         svgChange = m_svgStyle->diff(other.m_svgStyle.get());
         if (svgChange == StyleDifferenceLayout)
@@ -593,12 +598,12 @@ StyleDifference RenderStyle::visualInvalidationDiff(const RenderStyle& other, un
         return StyleDifferenceLayout;
     }
 
-    StyleDifference repaintDifference = repaintOnlyDiff(other, changedContextSensitiveProperties);
+    StyleDifferenceLegacy repaintDifference = repaintOnlyDiff(other, changedContextSensitiveProperties);
     ASSERT(repaintDifference <= StyleDifferenceRepaintLayer);
     return repaintDifference;
 }
 
-StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const
+StyleDifferenceLegacy RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const
 {
     if (position() != StaticPosition && (m_box->zIndex() != other.m_box->zIndex() || m_box->hasAutoZIndex() != other.m_box->hasAutoZIndex()
         || visual->clip != other.visual->clip || visual->hasClip != other.visual->hasClip))
@@ -639,11 +644,6 @@ StyleDifference RenderStyle::repaintOnlyDiff(const RenderStyle& other, unsigned&
         || rareInheritedData->m_imageRendering != other.rareInheritedData->m_imageRendering)
         return StyleDifferenceRepaint;
 
-        // FIXME: The current spec is being reworked to remove dependencies between exclusions and affected
-        // content. There's a proposal to use floats instead. In that case, wrap-shape should actually relayout
-        // the parent container. For sure, I will have to revisit this code, but for now I've added this in order
-        // to avoid having diff() == StyleDifferenceEqual where wrap-shapes actually differ.
-        // Tracking bug: https://bugs.webkit.org/show_bug.cgi?id=62991
         if (rareNonInheritedData->m_shapeOutside != other.rareNonInheritedData->m_shapeOutside)
             return StyleDifferenceRepaint;
 
@@ -1169,19 +1169,6 @@ CSSAnimationDataList* RenderStyle::accessTransitions()
     if (!rareNonInheritedData.access()->m_transitions)
         rareNonInheritedData.access()->m_transitions = adoptPtrWillBeNoop(new CSSAnimationDataList());
     return rareNonInheritedData->m_transitions.get();
-}
-
-const CSSAnimationData* RenderStyle::transitionForProperty(CSSPropertyID property) const
-{
-    if (transitions()) {
-        for (size_t i = 0; i < transitions()->size(); ++i) {
-            const CSSAnimationData* p = transitions()->animation(i);
-            if (p->animationMode() == CSSAnimationData::AnimateAll || p->property() == property) {
-                return p;
-            }
-        }
-    }
-    return 0;
 }
 
 const Font& RenderStyle::font() const { return inherited->font; }

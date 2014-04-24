@@ -28,6 +28,7 @@
 #ifndef Document_h
 #define Document_h
 
+#include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptValue.h"
 #include "core/animation/CompositorPendingAnimations.h"
 #include "core/dom/ContainerNode.h"
@@ -88,6 +89,7 @@ class DocumentLifecycleObserver;
 class DocumentLoader;
 class DocumentMarkerController;
 class DocumentParser;
+class DocumentState;
 class DocumentTimeline;
 class DocumentType;
 class Element;
@@ -320,6 +322,7 @@ public:
     PassRefPtr<CDATASection> createCDATASection(const String& data, ExceptionState&);
     PassRefPtr<ProcessingInstruction> createProcessingInstruction(const String& target, const String& data, ExceptionState&);
     PassRefPtr<Attr> createAttribute(const AtomicString& name, ExceptionState&);
+    PassRefPtr<Attr> createAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState&, bool shouldIgnoreNamespaceChecks = false);
     PassRefPtr<Node> importNode(Node* importedNode, ExceptionState& ec) { return importNode(importedNode, true, ec); }
     PassRefPtr<Node> importNode(Node* importedNode, bool deep, ExceptionState&);
     PassRefPtr<Element> createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState&);
@@ -392,8 +395,8 @@ public:
     PassRefPtr<HTMLCollection> forms();
     PassRefPtr<HTMLCollection> anchors();
     PassRefPtr<HTMLCollection> scripts();
-    PassRefPtr<HTMLCollection> allForBinding();
-    PassRefPtr<HTMLCollection> all();
+    PassRefPtr<HTMLAllCollection> allForBinding();
+    PassRefPtr<HTMLAllCollection> all();
 
     PassRefPtr<HTMLCollection> windowNamedItems(const AtomicString& name);
     PassRefPtr<HTMLCollection> documentNamedItems(const AtomicString& name);
@@ -456,7 +459,7 @@ public:
     void evaluateMediaQueryList();
 
     FormController& formController();
-    Vector<String> formElementsState() const;
+    DocumentState* formElementsState() const;
     void setStateForNewFormElements(const Vector<String>&);
 
     FrameView* view() const; // can be null
@@ -521,11 +524,11 @@ public:
 
     DocumentLoader* loader() const;
 
-    void open(Document* ownerDocument = 0);
+    void open(Document* ownerDocument = 0, ExceptionState& = ASSERT_NO_EXCEPTION);
     PassRefPtr<DocumentParser> implicitOpen();
 
     // close() is the DOM API document.close()
-    void close();
+    void close(ExceptionState& = ASSERT_NO_EXCEPTION);
     // In some situations (see the code), we ignore document.close().
     // explicitClose() bypass these checks and actually tries to close the
     // input stream.
@@ -546,9 +549,9 @@ public:
 
     void cancelParsing();
 
-    void write(const SegmentedString& text, Document* ownerDocument = 0);
-    void write(const String& text, Document* ownerDocument = 0);
-    void writeln(const String& text, Document* ownerDocument = 0);
+    void write(const SegmentedString& text, Document* ownerDocument = 0, ExceptionState& = ASSERT_NO_EXCEPTION);
+    void write(const String& text, Document* ownerDocument = 0, ExceptionState& = ASSERT_NO_EXCEPTION);
+    void writeln(const String& text, Document* ownerDocument = 0, ExceptionState& = ASSERT_NO_EXCEPTION);
 
     bool wellFormed() const { return m_wellFormed; }
 
@@ -590,7 +593,6 @@ public:
     enum CompatibilityMode { QuirksMode, LimitedQuirksMode, NoQuirksMode };
 
     void setCompatibilityMode(CompatibilityMode m);
-    void lockCompatibilityMode() { m_compatibilityModeLocked = true; }
     CompatibilityMode compatibilityMode() const { return m_compatibilityMode; }
 
     String compatMode() const;
@@ -609,9 +611,6 @@ public:
 
     void setParsing(bool);
     bool parsing() const { return m_isParsing; }
-
-    void setHistoryItemDocumentStateDirty(bool dirty) { m_historyItemDocumentStateDirty = dirty; }
-    bool historyItemDocumentStateDirty() const { return m_historyItemDocumentStateDirty; }
 
     bool shouldScheduleLayout() const;
     int elapsedTime() const;
@@ -821,6 +820,8 @@ public:
     void setDesignMode(InheritedBool value);
     InheritedBool getDesignMode() const;
     bool inDesignMode() const;
+    String designMode() const;
+    void setDesignMode(const String&);
 
     Document* parentDocument() const;
     Document& topDocument() const;
@@ -1064,6 +1065,8 @@ public:
 
     virtual void trace(Visitor*) OVERRIDE;
 
+    bool hasElementsRequiringLayerUpdate() const { return m_layerUpdateElements.size(); }
+
 protected:
     Document(const DocumentInit&, DocumentClassFlags = DefaultDocumentClass);
 
@@ -1076,6 +1079,7 @@ protected:
     virtual PassRefPtr<Document> cloneDocumentWithoutChildren();
 
     bool importContainerNodeChildren(ContainerNode* oldContainerNode, PassRefPtr<ContainerNode> newContainerNode, ExceptionState&);
+    void lockCompatibilityMode() { m_compatibilityModeLocked = true; }
 
 private:
     friend class Node;
@@ -1085,10 +1089,14 @@ private:
     virtual SecurityContext& securityContext() OVERRIDE FINAL { return *this; }
     virtual EventQueue* eventQueue() const OVERRIDE FINAL;
 
-    void scheduleRenderTreeUpdate();
-
     // FIXME: Rename the StyleRecalc state to RenderTreeUpdate.
     bool hasPendingStyleRecalc() const { return m_lifecycle.state() == DocumentLifecycle::VisualUpdatePending; }
+
+    bool shouldScheduleRenderTreeUpdate() const;
+    void scheduleRenderTreeUpdate();
+
+    bool needsFullRenderTreeUpdate() const;
+    bool needsRenderTreeUpdate() const;
 
     void inheritHtmlAndBodyElementStyles(StyleRecalcChange);
 
@@ -1160,8 +1168,6 @@ private:
 
     void didRemoveTouchEventHandler(Node*, bool clearAll);
 
-    bool needsRenderTreeUpdate() const;
-    bool shouldScheduleRenderTreeUpdate() const;
     bool haveStylesheetsLoaded() const;
 
     DocumentLifecycle m_lifecycle;
@@ -1239,7 +1245,6 @@ private:
     bool m_visuallyOrdered;
     ReadyState m_readyState;
     bool m_isParsing;
-    bool m_historyItemDocumentStateDirty;
 
     bool m_gotoAnchorNeededAfterStylesheetsLoad;
     bool m_isDNSPrefetchEnabled;

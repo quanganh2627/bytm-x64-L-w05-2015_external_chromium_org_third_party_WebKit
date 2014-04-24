@@ -36,8 +36,9 @@
 #include "WebViewImpl.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/frame/DOMWindow.h"
-#include "core/page/Page.h"
+#include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
+#include "core/page/Page.h"
 #include "platform/JSONValues.h"
 #include "platform/geometry/FloatRect.h"
 #include "public/platform/WebRect.h"
@@ -107,6 +108,12 @@ void InspectorClientImpl::overrideDeviceMetrics(int width, int height, float dev
         agent->overrideDeviceMetrics(width, height, deviceScaleFactor, emulateViewport, fitWindow);
 }
 
+void InspectorClientImpl::setTouchEventEmulationEnabled(bool enabled)
+{
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->setTouchEventEmulationEnabled(enabled);
+}
+
 bool InspectorClientImpl::overridesShowPaintRects()
 {
     return m_inspectedWebView->isAcceleratedCompositingActive();
@@ -139,7 +146,8 @@ void InspectorClientImpl::setShowScrollBottleneckRects(bool show)
 
 void InspectorClientImpl::requestPageScaleFactor(float scale, const IntPoint& origin)
 {
-    m_inspectedWebView->setPageScaleFactor(scale, origin);
+    m_inspectedWebView->setPageScaleFactor(scale);
+    m_inspectedWebView->setMainFrameScrollOffset(origin);
 }
 
 void InspectorClientImpl::getAllocatedObjects(HashSet<const void*>& set)

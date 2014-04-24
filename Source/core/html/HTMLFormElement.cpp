@@ -136,13 +136,13 @@ void HTMLFormElement::removedFrom(ContainerNode* insertionPoint)
     // We don't need to take care of form association by 'form' content
     // attribute becuse IdTargetObserver handles it.
     if (m_hasElementsAssociatedByParser) {
-        Node& root = highestAncestor();
+        Node& root = highestAncestorOrSelf();
         if (!m_associatedElementsAreDirty) {
             Vector<FormAssociatedElement*> elements(associatedElements());
             notifyFormRemovedFromTree(elements, root);
         } else {
             Vector<FormAssociatedElement*> elements;
-            collectAssociatedElements(insertionPoint->highestAncestor(), elements);
+            collectAssociatedElements(insertionPoint->highestAncestorOrSelf(), elements);
             notifyFormRemovedFromTree(elements, root);
             collectAssociatedElements(root, elements);
             notifyFormRemovedFromTree(elements, root);
@@ -153,7 +153,7 @@ void HTMLFormElement::removedFrom(ContainerNode* insertionPoint)
             notifyFormRemovedFromTree(images, root);
         } else {
             Vector<HTMLImageElement*> images;
-            collectImageElements(insertionPoint->highestAncestor(), images);
+            collectImageElements(insertionPoint->highestAncestorOrSelf(), images);
             notifyFormRemovedFromTree(images, root);
             collectImageElements(root, images);
             notifyFormRemovedFromTree(images, root);
@@ -418,10 +418,21 @@ void HTMLFormElement::reset()
 
 void HTMLFormElement::requestAutocomplete(const Dictionary& details)
 {
-    if (!document().frame() || !shouldAutocomplete() || !UserGestureIndicator::processingUserGesture())
+    String errorMessage;
+
+    if (!document().frame())
+        errorMessage = "requestAutocomplete: form is not owned by a displayed document.";
+    else if (!shouldAutocomplete())
+        errorMessage = "requestAutocomplete: form autocomplete attribute is set to off.";
+    else if (!UserGestureIndicator::processingUserGesture())
+        errorMessage = "requestAutocomplete: must be called in response to a user gesture.";
+
+    if (!errorMessage.isEmpty()) {
+        document().addConsoleMessage(RenderingMessageSource, LogMessageLevel, errorMessage);
         finishRequestAutocomplete(AutocompleteResultErrorDisabled);
-    else
+    } else {
         document().frame()->loader().client()->didRequestAutocomplete(this, details);
+    }
 }
 
 void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
@@ -553,7 +564,7 @@ const Vector<FormAssociatedElement*>& HTMLFormElement::associatedElements() cons
     HTMLFormElement* mutableThis = const_cast<HTMLFormElement*>(this);
     Node* scope = mutableThis;
     if (m_hasElementsAssociatedByParser)
-        scope = &highestAncestor();
+        scope = &highestAncestorOrSelf();
     if (inDocument() && treeScope().idTargetObserverRegistry().hasObservers(fastGetAttribute(idAttr)))
         scope = &treeScope().rootNode();
     ASSERT(scope);
@@ -575,7 +586,7 @@ const Vector<HTMLImageElement*>& HTMLFormElement::imageElements()
 {
     if (!m_imageElementsAreDirty)
         return m_imageElements;
-    collectImageElements(m_hasElementsAssociatedByParser ? highestAncestor() : *this, m_imageElements);
+    collectImageElements(m_hasElementsAssociatedByParser ? highestAncestorOrSelf() : *this, m_imageElements);
     m_imageElementsAreDirty = false;
     return m_imageElements;
 }
@@ -634,16 +645,10 @@ HTMLFormControlElement* HTMLFormElement::defaultButton() const
 
 bool HTMLFormElement::checkValidity()
 {
-    Vector<RefPtr<FormAssociatedElement> > controls;
-    return !checkInvalidControlsAndCollectUnhandled(&controls);
+    return !checkInvalidControlsAndCollectUnhandled(0);
 }
 
-bool HTMLFormElement::checkValidityWithoutDispatchingEvents()
-{
-    return !checkInvalidControlsAndCollectUnhandled(0, HTMLFormControlElement::CheckValidityDispatchEventsNone);
-}
-
-bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<FormAssociatedElement> >* unhandledInvalidControls, HTMLFormControlElement::CheckValidityDispatchEvents dispatchEvents)
+bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<FormAssociatedElement> >* unhandledInvalidControls)
 {
     RefPtr<HTMLFormElement> protector(this);
     // Copy associatedElements because event handlers called from
@@ -657,7 +662,7 @@ bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<Form
     for (unsigned i = 0; i < elements.size(); ++i) {
         if (elements[i]->form() == this && elements[i]->isFormControlElement()) {
             HTMLFormControlElement* control = toHTMLFormControlElement(elements[i].get());
-            if (!control->checkValidity(unhandledInvalidControls, dispatchEvents) && control->formOwner() == this)
+            if (!control->checkValidity(unhandledInvalidControls) && control->formOwner() == this)
                 hasInvalidControls = true;
         }
     }

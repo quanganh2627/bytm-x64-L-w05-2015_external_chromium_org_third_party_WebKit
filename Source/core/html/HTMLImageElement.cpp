@@ -27,6 +27,8 @@
 #include "HTMLNames.h"
 #include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/css/MediaValuesCached.h"
+#include "core/css/parser/SizesAttributeParser.h"
 #include "core/dom/Attribute.h"
 #include "core/fetch/ImageResource.h"
 #include "core/html/HTMLAnchorElement.h"
@@ -127,7 +129,7 @@ HTMLFormElement* HTMLImageElement::formOwner() const
 void HTMLImageElement::formRemovedFromTree(const Node& formRoot)
 {
     ASSERT(m_form);
-    if (highestAncestor() != formRoot)
+    if (highestAncestorOrSelf() != formRoot)
         resetFormOwner();
 }
 
@@ -153,11 +155,14 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
     if (name == altAttr) {
         if (renderer() && renderer()->isImage())
             toRenderImage(renderer())->updateAltText();
-    } else if (name == srcAttr || name == srcsetAttr) {
-        int effectiveSize = -1; // FIXME - hook up the real value from `sizes`
+    } else if (name == srcAttr || name == srcsetAttr || name == sizesAttr) {
+        int effectiveSize = 0;
+        if (RuntimeEnabledFeatures::pictureSizesEnabled())
+            effectiveSize = SizesAttributeParser::findEffectiveSize(fastGetAttribute(sizesAttr), MediaValuesCached::create(document()));
         ImageCandidate candidate = bestFitSourceForImageAttributes(document().devicePixelRatio(), effectiveSize, fastGetAttribute(srcAttr), fastGetAttribute(srcsetAttr));
         m_bestFitImageURL = candidate.toAtomicString();
         float candidateScaleFactor = candidate.scaleFactor();
+        // FIXME: Make this ">0" part match the spec, once it settles.
         if (candidateScaleFactor > 0)
             m_imageDevicePixelRatio = 1 / candidateScaleFactor;
         if (renderer() && renderer()->isImage())
@@ -228,7 +233,7 @@ void HTMLImageElement::attach(const AttachContext& context)
 
 Node::InsertionNotificationRequest HTMLImageElement::insertedInto(ContainerNode* insertionPoint)
 {
-    if (!m_formWasSetByParser || insertionPoint->highestAncestor() != m_form->highestAncestor())
+    if (!m_formWasSetByParser || insertionPoint->highestAncestorOrSelf() != m_form->highestAncestorOrSelf())
         resetFormOwner();
 
     // If we have been inserted from a renderer-less document,
@@ -241,7 +246,7 @@ Node::InsertionNotificationRequest HTMLImageElement::insertedInto(ContainerNode*
 
 void HTMLImageElement::removedFrom(ContainerNode* insertionPoint)
 {
-    if (!m_form || m_form->highestAncestor() != highestAncestor())
+    if (!m_form || m_form->highestAncestorOrSelf() != highestAncestorOrSelf())
         resetFormOwner();
     HTMLElement::removedFrom(insertionPoint);
 }
@@ -306,6 +311,11 @@ int HTMLImageElement::naturalHeight() const
         return 0;
 
     return m_imageLoader.image()->imageSizeForRenderer(renderer(), 1.0f).height();
+}
+
+const AtomicString& HTMLImageElement::currentSrc() const
+{
+    return m_bestFitImageURL;
 }
 
 bool HTMLImageElement::isURLAttribute(const Attribute& attribute) const

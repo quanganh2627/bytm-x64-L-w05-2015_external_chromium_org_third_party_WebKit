@@ -117,7 +117,6 @@ Page::Page(PageClients& pageClients)
     , m_contextMenuController(ContextMenuController::create(this, pageClients.contextMenuClient))
     , m_inspectorController(InspectorController::create(this, pageClients.inspectorClient))
     , m_pointerLockController(PointerLockController::create(this))
-    , m_historyController(adoptPtr(new HistoryController(this)))
     , m_undoStack(UndoStack::create())
     , m_backForwardClient(pageClients.backForwardClient)
     , m_editorClient(pageClients.editorClient)
@@ -127,7 +126,6 @@ Page::Page(PageClients& pageClients)
     , m_openedByDOM(false)
     , m_tabKeyCyclesThroughElements(true)
     , m_defersLoading(false)
-    , m_pageScaleFactor(1)
     , m_deviceScaleFactor(1)
     , m_timerAlignmentInterval(DOMTimer::visiblePageAlignmentInterval())
     , m_visibilityState(PageVisibilityStateVisible)
@@ -318,9 +316,10 @@ void Page::setDefersLoading(bool defers)
 void Page::setPageScaleFactor(float scale, const IntPoint& origin)
 {
     FrameView* view = mainFrame()->view();
+    PinchViewport& viewport = frameHost().pinchViewport();
 
-    if (scale != m_pageScaleFactor) {
-        m_pageScaleFactor = scale;
+    if (scale != viewport.scale()) {
+        viewport.setScale(scale);
 
         if (view)
             view->setVisibleContentScaleFactor(scale);
@@ -336,6 +335,11 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin)
 
     if (view && view->scrollPosition() != origin)
         view->notifyScrollPositionChanged(origin);
+}
+
+float Page::pageScaleFactor() const
+{
+    return frameHost().pinchViewport().scale();
 }
 
 void Page::setDeviceScaleFactor(float scaleFactor)
@@ -430,6 +434,11 @@ void Page::setVisibilityState(PageVisibilityState visibilityState, bool isInitia
 PageVisibilityState Page::visibilityState() const
 {
     return m_visibilityState;
+}
+
+bool Page::isCursorVisible() const
+{
+    return m_isCursorVisible && settings().deviceSupportsMouse();
 }
 
 void Page::addMultisamplingChangedObserver(MultisamplingChangedObserver* observer)
@@ -544,10 +553,8 @@ void Page::willBeDestroyed()
     if (ordinaryPages().contains(this))
         ordinaryPages().remove(this);
 
-    for (LocalFrame* frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        frame->willDetachFrameHost();
-        frame->detachFromFrameHost();
-    }
+    for (LocalFrame* frame = mainFrame(); frame; frame = frame->tree().traverseNext())
+        frame->loader().frameDetached();
 
     if (m_scrollingCoordinator)
         m_scrollingCoordinator->willBeDestroyed();

@@ -94,7 +94,8 @@ static void {{cpp_class}}ReplaceableAttributeSetter(v8::Local<v8::String> name, 
         return;
     }
     {% endif %}
-    info.This()->ForceSet(name, v8Value);
+    if (info.This()->IsObject())
+        v8::Handle<v8::Object>::Cast(info.This())->ForceSet(name, v8Value);
 }
 
 {# FIXME: rename to ForceSetAttributeOnThisCallback, since also used for Constructors #}
@@ -538,7 +539,8 @@ static void {{cpp_class}}OriginSafeMethodSetter(v8::Local<v8::String> name, v8::
         return;
     }
 
-    V8HiddenValue::setHiddenValue(isolate, info.This(), name, v8Value);
+    {# The findInstanceInPrototypeChain() call above only returns a non-empty handle if info.This() is an Object. #}
+    V8HiddenValue::setHiddenValue(isolate, v8::Handle<v8::Object>(info.This()), name, v8Value);
 }
 
 static void {{cpp_class}}OriginSafeMethodSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
@@ -1265,7 +1267,7 @@ v8::Handle<v8::Object> {{v8_class}}::createWrapper({{pass_cpp_type}} impl, v8::H
     ASSERT(impl);
     ASSERT(!DOMDataStore::containsWrapper<{{v8_class}}>(impl.get(), isolate));
     if (ScriptWrappable::wrapperCanBeStoredInObject(impl.get())) {
-        const WrapperTypeInfo* actualInfo = ScriptWrappable::getTypeInfoFromObject(impl.get());
+        const WrapperTypeInfo* actualInfo = ScriptWrappable::fromObject(impl.get())->typeInfo();
         // Might be a XXXConstructor::wrapperTypeInfo instead of an XXX::wrapperTypeInfo. These will both have
         // the same object de-ref functions, though, so use that as the basis of the check.
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(actualInfo->derefObjectFunction == wrapperTypeInfo.derefObjectFunction);

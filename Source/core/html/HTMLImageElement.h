@@ -47,6 +47,7 @@ public:
 
     int naturalWidth() const;
     int naturalHeight() const;
+    const AtomicString& currentSrc() const;
 
     bool isServerMap() const;
 

@@ -149,6 +149,7 @@ public:
         ElementRemoveAttributeNode = 109, // Removed from DOM4.
         ElementGetAttributeNodeNS = 110, // Removed from DOM4.
         DocumentCreateAttribute = 111, // Removed from DOM4.
+        DocumentCreateAttributeNS = 112, // Removed from DOM4.
         DocumentCreateCDATASection = 113, // Removed from DOM4.
         DocumentInputEncoding = 114, // Removed from DOM4.
         DocumentXMLEncoding = 115, // Removed from DOM4.
@@ -189,6 +190,7 @@ public:
         HTMLObjectElementLegacyCall = 153,
         GetMatchedCSSRules = 155,
         SVGFontInCSS = 156,
+        AttributeOwnerElement = 160, // Removed in DOM4.
         AttributeSpecified = 162, // Removed in DOM4.
         PrefixedAudioDecodedByteCount = 164,
         PrefixedVideoDecodedByteCount = 165,
@@ -234,8 +236,8 @@ public:
         HTMLElementInnerText = 213,
         HTMLElementOuterText = 214,
         ReplaceDocumentViaJavaScriptURL = 215,
+        ElementSetAttributeNodeNS = 216, // Removed from DOM4.
         ElementPrefixedMatchesSelector = 217,
-        DOMImplementationCreateCSSStyleSheet = 218,
         CSSStyleSheetRules = 219,
         CSSStyleSheetAddRule = 220,
         CSSStyleSheetRemoveRule = 221,
@@ -265,7 +267,6 @@ public:
         FormNameAccessForImageElement = 246,
         FormNameAccessForPastNamesMap = 247,
         FormAssociationByParser = 248,
-        HTMLSourceElementMedia = 249,
         SVGSVGElementInDocument = 250,
         SVGDocumentRootElement = 251,
         DocumentCreateEventOptionalArgument = 252,
@@ -345,6 +346,18 @@ public:
         PrefixedElementRequestPointerLock = 326,
         SelectionSetPosition = 327,
         AnimationPlayerFinishEvent = 328,
+        SVGSVGElementInXMLDocument = 329,
+        CanvasRenderingContext2DSetAlpha = 330,
+        CanvasRenderingContext2DSetCompositeOperation = 331,
+        CanvasRenderingContext2DSetLineWidth = 332,
+        CanvasRenderingContext2DSetLineCap = 333,
+        CanvasRenderingContext2DSetLineJoin = 334,
+        CanvasRenderingContext2DSetMiterLimit = 335,
+        CanvasRenderingContext2DClearShadow = 336,
+        CanvasRenderingContext2DSetStrokeColor = 337,
+        CanvasRenderingContext2DSetFillColor = 338,
+        CanvasRenderingContext2DDrawImageFromRect = 339,
+        CanvasRenderingContext2DSetShadow = 340,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         NumberOfFeatures, // This enum value must be last.

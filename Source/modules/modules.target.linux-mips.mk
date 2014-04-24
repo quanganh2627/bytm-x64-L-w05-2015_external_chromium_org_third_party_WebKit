@@ -27,6 +27,7 @@ LOCAL_GENERATED_SOURCES :=
 GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 
 LOCAL_SRC_FILES := \
+	third_party/WebKit/Source/modules/battery/BatteryDispatcher.cpp \
 	third_party/WebKit/Source/modules/battery/BatteryManager.cpp \
 	third_party/WebKit/Source/modules/battery/BatteryStatus.cpp \
 	third_party/WebKit/Source/modules/battery/NavigatorBattery.cpp \
@@ -134,9 +135,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediasource/SourceBufferList.cpp \
 	third_party/WebKit/Source/modules/mediasource/URLMediaSource.cpp \
 	third_party/WebKit/Source/modules/mediasource/VideoPlaybackQuality.cpp \
-	third_party/WebKit/Source/modules/mediasource/WebKitMediaSource.cpp \
-	third_party/WebKit/Source/modules/mediasource/WebKitSourceBuffer.cpp \
-	third_party/WebKit/Source/modules/mediasource/WebKitSourceBufferList.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaConstraintsImpl.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaDeviceInfo.cpp \
 	third_party/WebKit/Source/modules/mediastream/MediaDevicesRequest.cpp \
@@ -191,6 +189,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientationController.cpp \
 	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientationDispatcher.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/Cache.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/Client.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/FetchEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallPhaseEvent.cpp \
@@ -198,6 +197,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/serviceworkers/RespondWithObserver.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/Response.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorker.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerClients.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerContainer.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerContainerClient.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorkerError.cpp \
@@ -397,12 +397,15 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -537,12 +540,15 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -624,7 +630,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
 	-Wl,--as-needed

@@ -141,6 +141,7 @@
 
     [RaisesException] unsigned long activeDOMObjectCount(Document document);
     [RaisesException] unsigned long wheelEventHandlerCount(Document document);
+    [RaisesException] unsigned long scrollEventHandlerCount(Document document);
     [RaisesException] unsigned long touchEventHandlerCount(Document document);
     [RaisesException] LayerRectList touchEventTargetLayerRects(Document document);
 
@@ -177,12 +178,8 @@
     [RaisesException] DOMString layerTreeAsText(Document document, optional unsigned short flags);
     [RaisesException] DOMString elementLayerTreeAsText(Element element, optional unsigned short flags);
 
-    [RaisesException] NodeList paintOrderListBeforePromote(Element element);
-    [RaisesException] NodeList paintOrderListAfterPromote(Element element);
-
     [RaisesException] boolean scrollsWithRespectTo(Element element1, Element element2);
     [RaisesException] boolean isUnclippedDescendant(Element element);
-    [RaisesException] boolean needsCompositedScrolling(Element element);
 
     // The values of these constants must be kept in sync with those in RenderLayer.
     const unsigned short DO_NOT_FORCE_COMPOSITED_SCROLLING = 0;
@@ -206,8 +203,6 @@
     unsigned long numberOfLiveDocuments();
     DOMString dumpRefCountedInstanceCounts();
     sequence<DOMString> consoleMessageArgumentCounts(Document document);
-    Window openDummyInspectorFrontend(DOMString url);
-    void closeDummyInspectorFrontend();
     unsigned long[] setMemoryCacheCapacities(unsigned long minDeadBytes, unsigned long maxDeadBytes, unsigned long totalBytes);
     [RaisesException] void setInspectorResourcesDataSizeLimits(long maximumResourcesContentSize, long maximumSingleResourceContentSize);
 
@@ -283,9 +278,6 @@
     [CallWith=ExecutionContext] Promise createResolvedPromise(any value);
     [CallWith=ExecutionContext] Promise createRejectedPromise(any reason);
     [CallWith=ExecutionContext] Promise addOneToPromise(Promise promise);
-    [CallWith=ExecutionContext, RaisesException] Promise promiseCheck(long arg1, boolean arg2, Dictionary arg3, DOMString arg4, DOMString[] arg5);
-    [CallWith=ExecutionContext] Promise promiseCheckWithoutExceptionState(Dictionary arg1, DOMString arg2, DOMString... variadic);
-    [CallWith=ExecutionContext] Promise promiseCheckRange([EnforceRange] octet arg1);
 
     void startSpeechInput(Element element);
     void setValueForUser(Element element, DOMString value);

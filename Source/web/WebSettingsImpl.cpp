@@ -349,11 +349,6 @@ void WebSettingsImpl::setMaxTouchPoints(int maxTouchPoints)
     m_settings->setMaxTouchPoints(maxTouchPoints);
 }
 
-void WebSettingsImpl::setEditableLinkBehaviorNeverLive()
-{
-    // FIXME: remove once Chromium call site goes away
-}
-
 void WebSettingsImpl::setAllowUniversalAccessFromFileURLs(bool allow)
 {
     m_settings->setAllowUniversalAccessFromFileURLs(allow);
@@ -498,11 +493,6 @@ void WebSettingsImpl::setAcceleratedCompositingForCanvasEnabled(bool enabled)
 void WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingForAnimationEnabled(enabled);
-}
-
-void WebSettingsImpl::setAcceleratedCompositingForScrollableFramesEnabled(bool enabled)
-{
-    m_settings->setAcceleratedCompositingForScrollableFramesEnabled(enabled);
 }
 
 void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)

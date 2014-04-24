@@ -31,7 +31,6 @@
             "ContentProvider.js",
             "ContentProviderBasedProjectDelegate.js",
             "ContentProviders.js",
-            "Context.js",
             "CookieParser.js",
             "CPUProfilerModel.js",
             "CSSMetadata.js",
@@ -39,11 +38,12 @@
             "CSSStyleModel.js",
             "CSSStyleSheetMapping.js",
             "BreakpointManager.js",
-            "Database.js",
             "DOMModel.js",
             "DOMStorage.js",
+            "Database.js",
             "DebuggerModel.js",
             "DebuggerScriptMapping.js",
+            "DevicesModel.js",
             "FileManager.js",
             "FileSystemMapping.js",
             "FileSystemModel.js",
@@ -96,7 +96,9 @@
         "name": "ui",
         "dependencies": ["common"],
         "sources": [
+            "ActionRegistry.js",
             "Checkbox.js",
+            "Context.js",
             "ContextMenu.js",
             "CompletionDictionary.js",
             "DataGrid.js",
@@ -123,6 +125,7 @@
             "SettingsUI.js",
             "SidebarPane.js",
             "SidebarTreeElement.js",
+            "ShortcutRegistry.js",
             "ShortcutsScreen.js",
             "ShowMoreDataGridNode.js",
             "SoftContextMenu.js",
@@ -155,7 +158,9 @@
         "name": "components",
         "dependencies": ["sdk", "ui"],
         "sources": [
+            "ExecutionContextSelector.js",
             "HandlerRegistry.js",
+            "CPUProfileModel.js",
             "CookiesTable.js",
             "DOMBreakpointsSidebarPane.js",
             "DOMPresentationUtils.js",
@@ -266,6 +271,13 @@
             "FileBasedSearchResultsPane.js",
             "SearchConfig.js",
             "SourcesSearchScope.js"
+            ]
+    },
+    {
+        "name": "devices",
+        "dependencies": ["sdk", "ui"],
+        "sources": [
+            "DevicesView.js"
         ]
     },
     {
@@ -312,6 +324,7 @@
             "TimelineEventOverview.js",
             "TimelineFrameModel.js",
             "TimelineFrameOverview.js",
+            "TimelineJSProfile.js",
             "TimelineMemoryOverview.js",
             "TimelinePowerGraph.js",
             "TimelinePowerOverview.js",
@@ -393,7 +406,6 @@
             "CPUProfileBottomUpDataGrid.js",
             "CPUProfileDataGrid.js",
             "CPUProfileFlameChart.js",
-            "CPUProfileModel.js",
             "CPUProfileTopDownDataGrid.js",
             "CPUProfileView.js",
             "HeapSnapshotCommon.js",

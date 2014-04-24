@@ -88,8 +88,6 @@ WebInspector.TimelinePresentationModel.prototype = {
         this._rootRecord = new WebInspector.TimelinePresentationModel.Record(rootRecord, null);
         /** @type {!Object.<string, !WebInspector.TimelinePresentationModel.Record>} */
         this._coalescingBuckets = {};
-        this._windowStartTime = 0;
-        this._windowEndTime = Infinity;
     },
 
     /**
@@ -176,7 +174,6 @@ WebInspector.TimelinePresentationModel.prototype = {
         var rawRecord = {
             type: record.type,
             startTime: record.startTime,
-            endTime: record.endTime,
             data: { }
         };
         if (record.thread)
@@ -210,12 +207,8 @@ WebInspector.TimelinePresentationModel.prototype = {
         var record = presentationRecord.record();
         var parentRecord = presentationRecord._presentationParent.record();
         WebInspector.TimelineUIUtils.aggregateTimeByCategory(parentRecord.aggregatedStats, record.aggregatedStats);
-        if (parentRecord.startTime > record.startTime)
-            parentRecord.startTime = record.startTime;
-        if (parentRecord.endTime < record.endTime) {
+        if (parentRecord.endTime < record.endTime)
             parentRecord.endTime = record.endTime;
-            parentRecord.lastChildEndTime = parentRecord.endTime;
-        }
     },
 
     /**

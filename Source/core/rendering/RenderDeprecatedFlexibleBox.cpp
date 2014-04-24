@@ -228,19 +228,21 @@ void RenderDeprecatedFlexibleBox::computePreferredLogicalWidths()
     ASSERT(preferredLogicalWidthsDirty());
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = 0;
-    if (style()->width().isFixed() && style()->width().value() > 0)
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style()->width().value());
+    RenderStyle* styleToUse = style();
+
+    if (styleToUse->width().isFixed() && styleToUse->width().value() > 0)
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(styleToUse->width().value());
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
-    if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
-        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style()->minWidth().value()));
-        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style()->minWidth().value()));
+    if (styleToUse->minWidth().isFixed() && styleToUse->minWidth().value() > 0) {
+        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(styleToUse->minWidth().value()));
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(styleToUse->minWidth().value()));
     }
 
-    if (style()->maxWidth().isFixed()) {
-        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style()->maxWidth().value()));
-        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(style()->maxWidth().value()));
+    if (styleToUse->maxWidth().isFixed()) {
+        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(styleToUse->maxWidth().value()));
+        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(styleToUse->maxWidth().value()));
     }
 
     LayoutUnit borderAndPadding = borderAndPaddingLogicalWidth();
@@ -369,7 +371,7 @@ void RenderDeprecatedFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
             if (child->isOutOfFlowPositioned())
                 continue;
 
-            SubtreeLayoutScope layoutScope(child);
+            SubtreeLayoutScope layoutScope(*child);
             if (relayoutChildren || (child->isReplaced() && (child->style()->width().isPercent() || child->style()->height().isPercent())))
                 layoutScope.setChildNeedsLayout(child);
 
@@ -437,7 +439,7 @@ void RenderDeprecatedFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
                 continue;
             }
 
-            SubtreeLayoutScope layoutScope(child);
+            SubtreeLayoutScope layoutScope(*child);
 
             // We need to see if this child's height has changed, since we make block elements
             // fill the height of a containing box by default.
@@ -668,7 +670,7 @@ void RenderDeprecatedFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                 continue;
             }
 
-            SubtreeLayoutScope layoutScope(child);
+            SubtreeLayoutScope layoutScope(*child);
             if (!haveLineClamp && (relayoutChildren || (child->isReplaced() && (child->style()->width().isPercent() || child->style()->height().isPercent()))))
                 layoutScope.setChildNeedsLayout(child);
 

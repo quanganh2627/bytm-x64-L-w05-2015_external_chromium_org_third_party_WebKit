@@ -38,8 +38,8 @@
 #include "WebDataSource.h"
 #include "WebDevToolsAgentClient.h"
 #include "WebDeviceEmulationParams.h"
-#include "WebFrameImpl.h"
 #include "WebInputEventConversion.h"
+#include "WebLocalFrameImpl.h"
 #include "WebMemoryUsageInfo.h"
 #include "WebSettings.h"
 #include "WebViewClient.h"
@@ -51,6 +51,7 @@
 #include "core/fetch/MemoryCache.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
+#include "core/frame/Settings.h"
 #include "core/inspector/InjectedScriptHost.h"
 #include "core/inspector/InspectorController.h"
 #include "core/page/Page.h"
@@ -205,6 +206,7 @@ WebDevToolsAgentImpl::WebDevToolsAgentImpl(
     , m_emulateViewportEnabled(false)
     , m_originalViewportEnabled(false)
     , m_isOverlayScrollbarsEnabled(false)
+    , m_touchEventEmulationEnabled(false)
 {
     ASSERT(m_hostId > 0);
     ClientMessageLoopAdapter::ensureClientMessageLoopCreated(m_client);
@@ -278,7 +280,7 @@ void WebDevToolsAgentImpl::didComposite()
         ic->didComposite();
 }
 
-void WebDevToolsAgentImpl::didCreateScriptContext(WebFrameImpl* webframe, int worldId)
+void WebDevToolsAgentImpl::didCreateScriptContext(WebLocalFrameImpl* webframe, int worldId)
 {
     // Skip non main world contexts.
     if (worldId)
@@ -297,6 +299,32 @@ bool WebDevToolsAgentImpl::handleInputEvent(WebCore::Page* page, const WebInputE
 {
     if (!m_attached && !m_generatingEvent)
         return false;
+
+    // FIXME: This workaround is required for touch emulation on Mac, where
+    // compositor-side pinch handling is not enabled. See http://crbug.com/138003.
+    bool isPinch = inputEvent.type == WebInputEvent::GesturePinchBegin || inputEvent.type == WebInputEvent::GesturePinchUpdate || inputEvent.type == WebInputEvent::GesturePinchEnd;
+    if (isPinch && m_touchEventEmulationEnabled && m_emulateViewportEnabled) {
+        FrameView* frameView = page->mainFrame()->view();
+        PlatformGestureEventBuilder gestureEvent(frameView, *static_cast<const WebGestureEvent*>(&inputEvent));
+        float pageScaleFactor = page->pageScaleFactor();
+        if (gestureEvent.type() == PlatformEvent::GesturePinchBegin) {
+            m_lastPinchAnchorCss = adoptPtr(new WebCore::IntPoint(frameView->scrollPosition() + gestureEvent.position()));
+            m_lastPinchAnchorDip = adoptPtr(new WebCore::IntPoint(gestureEvent.position()));
+            m_lastPinchAnchorDip->scale(pageScaleFactor, pageScaleFactor);
+        }
+        if (gestureEvent.type() == PlatformEvent::GesturePinchUpdate && m_lastPinchAnchorCss) {
+            float newPageScaleFactor = pageScaleFactor * gestureEvent.scale();
+            WebCore::IntPoint anchorCss(*m_lastPinchAnchorDip.get());
+            anchorCss.scale(1.f / newPageScaleFactor, 1.f / newPageScaleFactor);
+            m_webViewImpl->setPageScaleFactor(newPageScaleFactor);
+            m_webViewImpl->setMainFrameScrollOffset(*m_lastPinchAnchorCss.get() - toIntSize(anchorCss));
+        }
+        if (gestureEvent.type() == PlatformEvent::GesturePinchEnd) {
+            m_lastPinchAnchorCss.clear();
+            m_lastPinchAnchorDip.clear();
+        }
+        return true;
+    }
 
     InspectorController* ic = inspectorController();
     if (!ic)
@@ -352,6 +380,12 @@ void WebDevToolsAgentImpl::overrideDeviceMetrics(int width, int height, float de
     }
 }
 
+void WebDevToolsAgentImpl::setTouchEventEmulationEnabled(bool enabled)
+{
+    m_client->setTouchEventEmulationEnabled(enabled, m_emulateViewportEnabled);
+    m_touchEventEmulationEnabled = enabled;
+}
+
 void WebDevToolsAgentImpl::enableViewportEmulation()
 {
     if (m_emulateViewportEnabled)
@@ -367,6 +401,9 @@ void WebDevToolsAgentImpl::enableViewportEmulation()
     m_webViewImpl->setIgnoreViewportTagScaleLimits(true);
     m_webViewImpl->setPageScaleFactorLimits(-1, -1);
     m_webViewImpl->setZoomFactorOverride(1);
+    // FIXME: with touch and viewport emulation enabled, we may want to disable overscroll navigation.
+    if (m_touchEventEmulationEnabled)
+        m_client->setTouchEventEmulationEnabled(m_touchEventEmulationEnabled, m_emulateViewportEnabled);
 }
 
 void WebDevToolsAgentImpl::disableViewportEmulation()
@@ -382,6 +419,8 @@ void WebDevToolsAgentImpl::disableViewportEmulation()
     m_webViewImpl->setPageScaleFactorLimits(1, 1);
     m_webViewImpl->setZoomFactorOverride(0);
     m_emulateViewportEnabled = false;
+    if (m_touchEventEmulationEnabled)
+        m_client->setTouchEventEmulationEnabled(m_touchEventEmulationEnabled, m_emulateViewportEnabled);
 }
 
 void WebDevToolsAgentImpl::getAllocatedObjects(HashSet<const void*>& set)
@@ -664,9 +703,7 @@ bool WebDevToolsAgent::shouldInterruptForMessage(const WebString& message)
         || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kDebugger_setBreakpointCmd)
         || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kDebugger_setBreakpointByUrlCmd)
         || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kDebugger_removeBreakpointCmd)
-        || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kDebugger_setBreakpointsActiveCmd)
-        || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kProfiler_startCmd)
-        || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kProfiler_stopCmd);
+        || commandName == InspectorBackendDispatcher::commandName(InspectorBackendDispatcher::kDebugger_setBreakpointsActiveCmd);
 }
 
 void WebDevToolsAgent::processPendingMessages()

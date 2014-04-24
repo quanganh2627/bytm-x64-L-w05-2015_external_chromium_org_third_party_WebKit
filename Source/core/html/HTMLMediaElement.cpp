@@ -249,7 +249,6 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_lastTimeUpdateEventMovieTime(numeric_limits<double>::max())
     , m_loadState(WaitingForSource)
     , m_webLayer(0)
-    , m_opaque(false)
     , m_preload(MediaPlayer::Auto)
     , m_displayMode(Unknown)
     , m_cachedTime(MediaPlayer::invalidTime())
@@ -1718,6 +1717,7 @@ void HTMLMediaElement::seek(double time, ExceptionState& exceptionState)
 
     // 3 - Set the seeking IDL attribute to true.
     // The flag will be cleared when the engine tells us the time has actually changed.
+    bool previousSeekStillPending = m_seeking;
     m_seeking = true;
 
     // 5 - If the new playback position is later than the end of the media resource, then let it be the end
@@ -1758,6 +1758,8 @@ void HTMLMediaElement::seek(double time, ExceptionState& exceptionState)
     if (noSeekRequired) {
         if (time == now) {
             scheduleEvent(EventTypeNames::seeking);
+            if (previousSeekStillPending)
+                return;
             // FIXME: There must be a stable state before timeupdate+seeked are dispatched and seeking
             // is reset to false. See http://crbug.com/266631
             scheduleTimeupdateEvent(false);
@@ -3629,16 +3631,8 @@ void HTMLMediaElement::mediaPlayerSetWebLayer(blink::WebLayer* webLayer)
         GraphicsLayer::unregisterContentsLayer(m_webLayer);
     m_webLayer = webLayer;
     if (m_webLayer) {
-        m_webLayer->setOpaque(m_opaque);
         GraphicsLayer::registerContentsLayer(m_webLayer);
     }
-}
-
-void HTMLMediaElement::mediaPlayerSetOpaque(bool opaque)
-{
-    m_opaque = opaque;
-    if (m_webLayer)
-        m_webLayer->setOpaque(m_opaque);
 }
 
 void HTMLMediaElement::mediaPlayerMediaSourceOpened(blink::WebMediaSource* webMediaSource)

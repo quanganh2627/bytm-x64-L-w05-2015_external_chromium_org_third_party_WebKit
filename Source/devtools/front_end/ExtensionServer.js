@@ -493,6 +493,7 @@ WebInspector.ExtensionServer.prototype = {
                 resources[contentProvider.contentURL()] = this._makeResource(contentProvider);
         }
         var uiSourceCodes = WebInspector.workspace.uiSourceCodesForProjectType(WebInspector.projectTypes.Network);
+        uiSourceCodes = uiSourceCodes.concat(WebInspector.workspace.uiSourceCodesForProjectType(WebInspector.projectTypes.ContentScripts));
         uiSourceCodes.forEach(pushResourceData.bind(this));
         WebInspector.resourceTreeModel.forAllResources(pushResourceData.bind(this));
         return Object.values(resources);
@@ -709,7 +710,7 @@ WebInspector.ExtensionServer.prototype = {
          */
         function onTimelineSubscriptionStopped()
         {
-            WebInspector.timelineManager.stop();
+            WebInspector.timelineManager.stop(function() {});
             WebInspector.timelineManager.removeEventListener(WebInspector.TimelineManager.EventTypes.TimelineEventRecorded,
                 this._notifyTimelineEventRecorded, this);
         }

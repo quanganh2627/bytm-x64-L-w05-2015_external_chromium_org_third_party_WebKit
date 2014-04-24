@@ -29,7 +29,7 @@ namespace WebCore {
 static void initializeScriptWrappableForInterface(TestTypedefs* object)
 {
     if (ScriptWrappable::wrapperCanBeStoredInObject(object))
-        ScriptWrappable::setTypeInfoInObject(object, &V8TestTypedefs::wrapperTypeInfo);
+        ScriptWrappable::fromObject(object)->setTypeInfo(&V8TestTypedefs::wrapperTypeInfo);
     else
         ASSERT_NOT_REACHED();
 }
@@ -90,7 +90,8 @@ static void TestTypedefsConstructorGetter(v8::Local<v8::String>, const v8::Prope
 
 static void TestTypedefsReplaceableAttributeSetter(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
-    info.This()->ForceSet(name, v8Value);
+    if (info.This()->IsObject())
+        v8::Handle<v8::Object>::Cast(info.This())->ForceSet(name, v8Value);
 }
 
 static void TestTypedefsReplaceableAttributeSetterCallback(v8::Local<v8::String> name, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
@@ -338,7 +339,7 @@ v8::Handle<v8::Object> V8TestTypedefs::createWrapper(PassRefPtr<TestTypedefs> im
     ASSERT(impl);
     ASSERT(!DOMDataStore::containsWrapper<V8TestTypedefs>(impl.get(), isolate));
     if (ScriptWrappable::wrapperCanBeStoredInObject(impl.get())) {
-        const WrapperTypeInfo* actualInfo = ScriptWrappable::getTypeInfoFromObject(impl.get());
+        const WrapperTypeInfo* actualInfo = ScriptWrappable::fromObject(impl.get())->typeInfo();
         // Might be a XXXConstructor::wrapperTypeInfo instead of an XXX::wrapperTypeInfo. These will both have
         // the same object de-ref functions, though, so use that as the basis of the check.
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(actualInfo->derefObjectFunction == wrapperTypeInfo.derefObjectFunction);

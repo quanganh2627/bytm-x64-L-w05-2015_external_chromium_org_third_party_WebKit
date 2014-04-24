@@ -39,8 +39,6 @@ class ExternalStringVisitor;
 // to manage the life-cycle of the underlying buffer of the external string.
 class WebCoreStringResourceBase {
 public:
-    static WebCoreStringResourceBase* toWebCoreStringResourceBase(v8::Handle<v8::String>);
-
     explicit WebCoreStringResourceBase(const String& string)
         : m_plainString(string)
     {
@@ -88,8 +86,6 @@ public:
         }
         return m_atomicString;
     }
-
-    void visitStrings(ExternalStringVisitor*);
 
 protected:
     // A shallow copy of the string. Keeps the string buffer alive until the V8 engine garbage collects it.
@@ -199,9 +195,14 @@ private:
         }
 
         m_mode = DoNotExternalize;
+        v8::TryCatch block;
         m_v8Object = m_v8Object->ToString();
-        // Returns false when an exception is thrown from toString.
-        return !m_v8Object.IsEmpty();
+        // Handle the case where an exception is thrown as part of invoking toString on the object.
+        if (block.HasCaught()) {
+            block.ReThrow();
+            return false;
+        }
+        return true;
     }
 
     void setString(const String& string)

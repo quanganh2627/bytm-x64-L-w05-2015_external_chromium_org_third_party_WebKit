@@ -342,6 +342,10 @@ InspectorPageAgent::InspectorPageAgent(Page* page, InjectedScriptManager* inject
     , m_ignoreScriptsEnabledNotification(false)
     , m_deviceMetricsOverridden(false)
     , m_emulateViewportEnabled(false)
+    , m_touchEmulationEnabled(false)
+    , m_originalTouchEnabled(false)
+    , m_originalDeviceSupportsMouse(false)
+    , m_originalDeviceSupportsTouch(false)
     , m_embedderTextAutosizingEnabled(m_page->settings().textAutosizingEnabled())
     , m_embedderFontScaleFactor(m_page->settings().deviceScaleAdjustment())
 {
@@ -370,7 +374,6 @@ void InspectorPageAgent::clearFrontend()
 {
     ErrorString error;
     disable(&error);
-    updateTouchEventEmulationInPage(false);
     m_frontend = 0;
 }
 
@@ -435,6 +438,11 @@ void InspectorPageAgent::disable(ErrorString*)
     setContinuousPaintingEnabled(0, false);
     setShowScrollBottleneckRects(0, false);
     setShowViewportSizeOnResize(0, false, 0);
+
+    if (m_state->getBoolean(PageAgentState::touchEventEmulationEnabled)) {
+        updateTouchEventEmulationInPage(false);
+        m_state->setBoolean(PageAgentState::touchEventEmulationEnabled, false);
+    }
 
     if (!deviceMetricsChanged(0, 0, 0, false, false, 1, false))
         return;
@@ -547,29 +555,30 @@ static void cachedResourcesForDocument(Document* document, Vector<Resource*>& re
     }
 }
 
-static Vector<Resource*> cachedResourcesForFrame(LocalFrame* frame)
+static Vector<Document*> importsForFrame(LocalFrame* frame)
 {
-    Vector<Resource*> result;
+    Vector<Document*> result;
     Document* rootDocument = frame->document();
 
-    cachedResourcesForDocument(rootDocument, result);
     if (HTMLImportsController* controller = rootDocument->importsController()) {
-        for (size_t i = 0; i < controller->loaderCount(); ++i)
-            cachedResourcesForDocument(controller->loaderAt(i)->document(), result);
+        for (size_t i = 0; i < controller->loaderCount(); ++i) {
+            if (Document* document = controller->loaderAt(i)->document())
+                result.append(document);
+        }
     }
 
     return result;
 }
 
-static Vector<HTMLImportLoader*> importsForFrame(LocalFrame* frame)
+static Vector<Resource*> cachedResourcesForFrame(LocalFrame* frame)
 {
-    Vector<HTMLImportLoader*> result;
+    Vector<Resource*> result;
     Document* rootDocument = frame->document();
+    Vector<Document*> loaders = importsForFrame(frame);
 
-    if (HTMLImportsController* controller = rootDocument->importsController()) {
-        for (size_t i = 0; i < controller->loaderCount(); ++i)
-            result.append(controller->loaderAt(i));
-    }
+    cachedResourcesForDocument(rootDocument, result);
+    for (size_t i = 0; i < loaders.size(); ++i)
+        cachedResourcesForDocument(loaders[i], result);
 
     return result;
 }
@@ -1109,13 +1118,13 @@ PassRefPtr<TypeBuilder::Page::FrameResourceTree> InspectorPageAgent::buildObject
         subresources->addItem(resourceObject);
     }
 
-    Vector<HTMLImportLoader*> allImports = importsForFrame(frame);
-    for (Vector<HTMLImportLoader*>::const_iterator it = allImports.begin(); it != allImports.end(); ++it) {
-        HTMLImportLoader* import = *it;
+    Vector<Document*> allImports = importsForFrame(frame);
+    for (Vector<Document*>::const_iterator it = allImports.begin(); it != allImports.end(); ++it) {
+        Document* import = *it;
         RefPtr<TypeBuilder::Page::FrameResourceTree::Resources> resourceObject = TypeBuilder::Page::FrameResourceTree::Resources::create()
-            .setUrl(urlWithoutFragment(import->document()->url()).string())
+            .setUrl(urlWithoutFragment(import->url()).string())
             .setType(resourceTypeJson(InspectorPageAgent::DocumentResource))
-            .setMimeType(import->document()->suggestedMIMEType());
+            .setMimeType(import->suggestedMIMEType());
         subresources->addItem(resourceObject);
     }
 
@@ -1159,15 +1168,38 @@ void InspectorPageAgent::updateViewMetrics(int width, int height, double deviceS
 
 void InspectorPageAgent::updateTouchEventEmulationInPage(bool enabled)
 {
-    m_state->setBoolean(PageAgentState::touchEventEmulationEnabled, enabled);
-    if (mainFrame() && mainFrame()->settings())
-        mainFrame()->settings()->setTouchEventEmulationEnabled(enabled);
+    if (!m_touchEmulationEnabled) {
+        m_originalTouchEnabled = RuntimeEnabledFeatures::touchEnabled();
+        m_originalDeviceSupportsMouse = m_page->settings().deviceSupportsMouse();
+        m_originalDeviceSupportsTouch = m_page->settings().deviceSupportsTouch();
+    }
+    RuntimeEnabledFeatures::setTouchEnabled(enabled ? true : m_originalTouchEnabled);
+    m_page->settings().setDeviceSupportsMouse(enabled ? false : m_originalDeviceSupportsMouse);
+    m_page->settings().setDeviceSupportsTouch(enabled ? true : m_originalDeviceSupportsTouch);
+    m_touchEmulationEnabled = enabled;
+    m_client->setTouchEventEmulationEnabled(enabled);
+    m_page->mainFrame()->view()->layout();
 }
 
-void InspectorPageAgent::setTouchEmulationEnabled(ErrorString*, bool enabled)
+void InspectorPageAgent::hasTouchInputs(ErrorString*, bool* result)
+{
+    *result = m_touchEmulationEnabled ? m_originalDeviceSupportsTouch : m_page->settings().deviceSupportsTouch();
+}
+
+void InspectorPageAgent::setTouchEmulationEnabled(ErrorString* error, bool enabled)
 {
     if (m_state->getBoolean(PageAgentState::touchEventEmulationEnabled) == enabled)
         return;
+
+    bool hasTouch = false;
+    hasTouchInputs(error, &hasTouch);
+    if (enabled && hasTouch) {
+        if (error)
+            *error = "Device already supports touch input";
+        return;
+    }
+
+    m_state->setBoolean(PageAgentState::touchEventEmulationEnabled, enabled);
     updateTouchEventEmulationInPage(enabled);
 }
 

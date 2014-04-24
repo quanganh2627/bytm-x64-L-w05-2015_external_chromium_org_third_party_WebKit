@@ -470,7 +470,7 @@ Object.defineProperty(Array.prototype, "rotate",
 });
 
 Object.defineProperty(Uint32Array.prototype, "sort", {
-   value: Array.prototype.sort
+    value: Array.prototype.sort
 });
 
 (function() {
@@ -697,6 +697,14 @@ Object.defineProperty(Array.prototype, "upperBound",
         }
         return r;
     }
+});
+
+Object.defineProperty(Uint32Array.prototype, "lowerBound", {
+    value: Array.prototype.lowerBound
+});
+
+Object.defineProperty(Uint32Array.prototype, "upperBound", {
+    value: Array.prototype.upperBound
 });
 
 Object.defineProperty(Array.prototype, "binaryIndexOf",
@@ -1114,6 +1122,18 @@ var Set = function()
     this._size = 0;
 }
 
+/**
+ * @param {!Array.<!T>} array
+ * @return {!Set.<T>}
+ * @template T
+ */
+Set.fromArray = function(array)
+{
+    var result = new Set();
+    array.forEach(function(item) { result.add(item); });
+    return result;
+}
+
 Set.prototype = {
     /**
      * @param {!T} item
@@ -1160,7 +1180,7 @@ Set.prototype = {
      * @param {!T} item
      * @return {boolean}
      */
-    hasItem: function(item)
+    contains: function(item)
     {
         return !!this._set[item.__identifier];
     },
@@ -1454,6 +1474,7 @@ var StringSet = function()
 
 /**
  * @param {!Array.<string>} array
+ * @return {!StringSet}
  */
 StringSet.fromArray = function(array)
 {
@@ -1588,9 +1609,8 @@ function CallbackBarrier()
 
 CallbackBarrier.prototype = {
     /**
-     * @param {function(!T)=} userCallback
-     * @return {function(!T=)}
-     * @template T
+     * @param {function(...)=} userCallback
+     * @return {function(...)}
      */
     createCallback: function(userCallback)
     {

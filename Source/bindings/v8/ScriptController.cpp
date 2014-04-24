@@ -150,7 +150,7 @@ static bool resourceInfo(const v8::Handle<v8::Function> function, String& resour
         resourceName = "undefined";
         lineNumber = 1;
     } else {
-        TOSTRING_BOOL(V8StringResource<>, stringResourceName, origin.ResourceName(), false);
+        TOSTRING_DEFAULT(V8StringResource<>, stringResourceName, origin.ResourceName(), false);
         resourceName = stringResourceName;
         lineNumber = function->GetScriptLineNumber() + 1;
     }
@@ -539,7 +539,7 @@ bool ScriptController::executeScriptIfJavaScriptURL(const KURL& url)
         return true;
 
     String scriptResult;
-    if (!result.getString(scriptResult))
+    if (!result.toString(scriptResult))
         return true;
 
     // We're still in a frame, so there should be a DocumentLoader.

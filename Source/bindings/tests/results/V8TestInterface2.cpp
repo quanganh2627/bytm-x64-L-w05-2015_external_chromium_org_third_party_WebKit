@@ -29,7 +29,7 @@ namespace WebCore {
 static void initializeScriptWrappableForInterface(TestInterface2* object)
 {
     if (ScriptWrappable::wrapperCanBeStoredInObject(object))
-        ScriptWrappable::setTypeInfoInObject(object, &V8TestInterface2::wrapperTypeInfo);
+        ScriptWrappable::fromObject(object)->setTypeInfo(&V8TestInterface2::wrapperTypeInfo);
     else
         ASSERT_NOT_REACHED();
 }
@@ -58,10 +58,8 @@ static void itemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
     TestInterface2* impl = V8TestInterface2::toNative(info.Holder());
     TONATIVE_VOID_EXCEPTIONSTATE(unsigned, index, toUInt32(info[0], exceptionState), exceptionState);
     RefPtr<TestInterfaceEmpty> result = impl->item(index, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValue(info, result.release());
 }
 
@@ -83,10 +81,8 @@ static void setItemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
     TONATIVE_VOID_EXCEPTIONSTATE(unsigned, index, toUInt32(info[0], exceptionState), exceptionState);
     TOSTRING_VOID(V8StringResource<>, value, info[1]);
     String result = impl->setItem(index, value, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValueString(info, result, info.GetIsolate());
 }
 
@@ -107,10 +103,8 @@ static void deleteItemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
     TestInterface2* impl = V8TestInterface2::toNative(info.Holder());
     TONATIVE_VOID_EXCEPTIONSTATE(unsigned, index, toUInt32(info[0], exceptionState), exceptionState);
     bool result = impl->deleteItem(index, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValueBool(info, result);
 }
 
@@ -131,10 +125,8 @@ static void namedItemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
     TestInterface2* impl = V8TestInterface2::toNative(info.Holder());
     TOSTRING_VOID(V8StringResource<>, name, info[0]);
     RefPtr<TestInterfaceEmpty> result = impl->namedItem(name, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValue(info, result.release());
 }
 
@@ -156,10 +148,8 @@ static void setNamedItemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
     TOSTRING_VOID(V8StringResource<>, name, info[0]);
     TOSTRING_VOID(V8StringResource<>, value, info[1]);
     String result = impl->setNamedItem(name, value, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValueString(info, result, info.GetIsolate());
 }
 
@@ -180,10 +170,8 @@ static void deleteNamedItemMethod(const v8::FunctionCallbackInfo<v8::Value>& inf
     TestInterface2* impl = V8TestInterface2::toNative(info.Holder());
     TOSTRING_VOID(V8StringResource<>, name, info[0]);
     bool result = impl->deleteNamedItem(name, exceptionState);
-    if (exceptionState.hadException()) {
-        exceptionState.throwIfNeeded();
+    if (exceptionState.throwIfNeeded())
         return;
-    }
     v8SetReturnValueBool(info, result);
 }
 
@@ -481,7 +469,7 @@ v8::Handle<v8::Object> V8TestInterface2::createWrapper(PassRefPtr<TestInterface2
     ASSERT(impl);
     ASSERT(!DOMDataStore::containsWrapper<V8TestInterface2>(impl.get(), isolate));
     if (ScriptWrappable::wrapperCanBeStoredInObject(impl.get())) {
-        const WrapperTypeInfo* actualInfo = ScriptWrappable::getTypeInfoFromObject(impl.get());
+        const WrapperTypeInfo* actualInfo = ScriptWrappable::fromObject(impl.get())->typeInfo();
         // Might be a XXXConstructor::wrapperTypeInfo instead of an XXX::wrapperTypeInfo. These will both have
         // the same object de-ref functions, though, so use that as the basis of the check.
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(actualInfo->derefObjectFunction == wrapperTypeInfo.derefObjectFunction);

@@ -54,7 +54,6 @@ class ExceptionState;
 class ExecutionContext;
 class GCObservation;
 class HTMLMediaElement;
-class InspectorFrontendChannelDummy;
 class InternalProfilers;
 class InternalRuntimeFlags;
 class InternalSettings;
@@ -185,6 +184,7 @@ public:
 
     unsigned activeDOMObjectCount(Document*, ExceptionState&);
     unsigned wheelEventHandlerCount(Document*, ExceptionState&);
+    unsigned scrollEventHandlerCount(Document*, ExceptionState&);
     unsigned touchEventHandlerCount(Document*, ExceptionState&);
     PassRefPtrWillBeRawPtr<LayerRectList> touchEventTargetLayerRects(Document*, ExceptionState&);
 
@@ -225,7 +225,6 @@ public:
 
     bool scrollsWithRespectTo(Element*, Element*, ExceptionState&);
     bool isUnclippedDescendant(Element*, ExceptionState&);
-    bool needsCompositedScrolling(Element*, ExceptionState&);
 
     void setNeedsCompositedScrolling(Element*, unsigned value, ExceptionState&);
 
@@ -317,9 +316,6 @@ public:
     ScriptPromise createResolvedPromise(ExecutionContext*, ScriptValue);
     ScriptPromise createRejectedPromise(ExecutionContext*, ScriptValue);
     ScriptPromise addOneToPromise(ExecutionContext*, ScriptPromise);
-    ScriptPromise promiseCheck(ExecutionContext*, long, bool, const Dictionary&, const String&, const Vector<String>&, ExceptionState&);
-    ScriptPromise promiseCheckWithoutExceptionState(ExecutionContext*, const Dictionary&, const String&, const Vector<String>&);
-    ScriptPromise promiseCheckRange(ExecutionContext*, long);
 
     void trace(Visitor*);
 
@@ -336,8 +332,6 @@ private:
     PassRefPtrWillBeRawPtr<ClientRectList> annotatedRegions(Document*, bool draggable, ExceptionState&);
 
     DocumentMarker* markerAt(Node*, const String& markerType, unsigned index, ExceptionState&);
-    RefPtrWillBeMember<DOMWindow> m_frontendWindow;
-    OwnPtr<InspectorFrontendChannelDummy> m_frontendChannel;
     RefPtrWillBeMember<InternalRuntimeFlags> m_runtimeFlags;
     RefPtrWillBeMember<InternalProfilers> m_profilers;
 };

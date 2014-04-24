@@ -58,19 +58,13 @@ RenderSVGRoot::~RenderSVGRoot()
 {
 }
 
-void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio, bool& isPercentageIntrinsicSize) const
+void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio) const
 {
     // Spec: http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
     // SVG needs to specify how to calculate some intrinsic sizing properties to enable inclusion within other languages.
     // The intrinsic width and height of the viewport of SVG content must be determined from the ‘width’ and ‘height’ attributes.
-    // If either of these are not specified, a value of '100%' must be assumed. Note: the ‘width’ and ‘height’ attributes are not
-    // the same as the CSS width and height properties. Specifically, percentage values do not provide an intrinsic width or height,
-    // and do not indicate a percentage of the containing block. Rather, once the viewport is established, they indicate the portion
-    // of the viewport that is actually covered by image data.
     SVGSVGElement* svg = toSVGSVGElement(node());
     ASSERT(svg);
-    Length intrinsicWidthAttribute = svg->intrinsicWidth(SVGSVGElement::IgnoreCSSProperties);
-    Length intrinsicHeightAttribute = svg->intrinsicHeight(SVGSVGElement::IgnoreCSSProperties);
 
     // The intrinsic aspect ratio of the viewport of SVG content is necessary for example, when including SVG from an ‘object’
     // element in HTML styled with CSS. It is possible (indeed, common) for an SVG graphic to have an intrinsic aspect ratio but
@@ -79,33 +73,21 @@ void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, d
     // - If the ‘width’ and ‘height’ of the rootmost ‘svg’ element are both specified with unit identifiers (in, mm, cm, pt, pc,
     //   px, em, ex) or in user units, then the aspect ratio is calculated from the ‘width’ and ‘height’ attributes after
     //   resolving both values to user units.
-    if (intrinsicWidthAttribute.isFixed() || intrinsicHeightAttribute.isFixed()) {
-        if (intrinsicWidthAttribute.isFixed())
-            intrinsicSize.setWidth(floatValueForLength(intrinsicWidthAttribute, 0));
-        if (intrinsicHeightAttribute.isFixed())
-            intrinsicSize.setHeight(floatValueForLength(intrinsicHeightAttribute, 0));
-        if (!intrinsicSize.isEmpty())
-            intrinsicRatio = intrinsicSize.width() / static_cast<double>(intrinsicSize.height());
-        return;
-    }
+    intrinsicSize.setWidth(floatValueForLength(svg->intrinsicWidth(), 0));
+    intrinsicSize.setHeight(floatValueForLength(svg->intrinsicHeight(), 0));
 
-    // - If either/both of the ‘width’ and ‘height’ of the rootmost ‘svg’ element are in percentage units (or omitted), the
-    //   aspect ratio is calculated from the width and height values of the ‘viewBox’ specified for the current SVG document
-    //   fragment. If the ‘viewBox’ is not correctly specified, or set to 'none', the intrinsic aspect ratio cannot be
-    //   calculated and is considered unspecified.
-    intrinsicSize = svg->viewBox()->currentValue()->value().size();
     if (!intrinsicSize.isEmpty()) {
-        // The viewBox can only yield an intrinsic ratio, not an intrinsic size.
         intrinsicRatio = intrinsicSize.width() / static_cast<double>(intrinsicSize.height());
-        intrinsicSize = FloatSize();
-        return;
-    }
-
-    // If our intrinsic size is in percentage units, return those to the caller through the intrinsicSize. Notify the caller
-    // about the special situation, by setting isPercentageIntrinsicSize=true, so it knows how to interpret the return values.
-    if (intrinsicWidthAttribute.isPercent() && intrinsicHeightAttribute.isPercent()) {
-        isPercentageIntrinsicSize = true;
-        intrinsicSize = FloatSize(intrinsicWidthAttribute.percent(), intrinsicHeightAttribute.percent());
+    } else {
+        // - If either/both of the ‘width’ and ‘height’ of the rootmost ‘svg’ element are in percentage units (or omitted), the
+        //   aspect ratio is calculated from the width and height values of the ‘viewBox’ specified for the current SVG document
+        //   fragment. If the ‘viewBox’ is not correctly specified, or set to 'none', the intrinsic aspect ratio cannot be
+        //   calculated and is considered unspecified.
+        FloatSize viewBoxSize = svg->viewBox()->currentValue()->value().size();
+        if (!viewBoxSize.isEmpty()) {
+            // The viewBox can only yield an intrinsic ratio, not an intrinsic size.
+            intrinsicRatio = viewBoxSize.width() / static_cast<double>(viewBoxSize.height());
+        }
     }
 }
 
@@ -144,15 +126,14 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalWidth(ShouldComputePreferred sho
     if (!m_containerSize.isEmpty())
         return m_containerSize.width();
 
+    if (isEmbeddedThroughFrameContainingSVGDocument())
+        return containingBlock()->availableLogicalWidth();
+
     if (style()->logicalWidth().isSpecified() || style()->logicalMaxWidth().isSpecified())
         return RenderReplaced::computeReplacedLogicalWidth(shouldComputePreferred);
 
-    if (svg->widthAttributeEstablishesViewport())
-        return resolveLengthAttributeForSVG(svg->intrinsicWidth(SVGSVGElement::IgnoreCSSProperties), style()->effectiveZoom(), containingBlock()->availableLogicalWidth().toFloat());
-
-    // SVG embedded through object/embed/iframe.
-    if (isEmbeddedThroughFrameContainingSVGDocument())
-        return document().frame()->ownerRenderer()->availableLogicalWidth();
+    if (svg->hasIntrinsicWidth())
+        return resolveLengthAttributeForSVG(svg->intrinsicWidth(), style()->effectiveZoom(), containingBlock()->availableLogicalWidth().toFloat());
 
     // SVG embedded via SVGImage (background-image/border-image/etc) / Inline SVG.
     return RenderReplaced::computeReplacedLogicalWidth(shouldComputePreferred);
@@ -167,26 +148,14 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalHeight() const
     if (!m_containerSize.isEmpty())
         return m_containerSize.height();
 
+    if (isEmbeddedThroughFrameContainingSVGDocument())
+        return containingBlock()->availableLogicalHeight(IncludeMarginBorderPadding);
+
     if (style()->logicalHeight().isSpecified() || style()->logicalMaxHeight().isSpecified())
         return RenderReplaced::computeReplacedLogicalHeight();
 
-    if (svg->heightAttributeEstablishesViewport()) {
-        Length height = svg->intrinsicHeight(SVGSVGElement::IgnoreCSSProperties);
-        if (height.isPercent()) {
-            RenderBlock* cb = containingBlock();
-            ASSERT(cb);
-            while (cb->isAnonymous())
-                cb = cb->containingBlock();
-            cb->addPercentHeightDescendant(const_cast<RenderSVGRoot*>(this));
-        } else
-            RenderBlock::removePercentHeightDescendant(const_cast<RenderSVGRoot*>(this));
-
-        return resolveLengthAttributeForSVG(height, style()->effectiveZoom(), containingBlock()->availableLogicalHeight(IncludeMarginBorderPadding).toFloat());
-    }
-
-    // SVG embedded through object/embed/iframe.
-    if (isEmbeddedThroughFrameContainingSVGDocument())
-        return document().frame()->ownerRenderer()->availableLogicalHeight(IncludeMarginBorderPadding);
+    if (svg->hasIntrinsicHeight())
+        return resolveLengthAttributeForSVG(svg->intrinsicHeight(), style()->effectiveZoom(), containingBlock()->availableLogicalHeight(IncludeMarginBorderPadding).toFloat());
 
     // SVG embedded via SVGImage (background-image/border-image/etc) / Inline SVG.
     return RenderReplaced::computeReplacedLogicalHeight();
@@ -223,12 +192,30 @@ void RenderSVGRoot::layout()
 
     m_overflow.clear();
     addVisualEffectOverflow();
+
+    if (!shouldApplyViewportClip()) {
+        FloatRect contentRepaintRect = repaintRectInLocalCoordinates();
+        contentRepaintRect = m_localToBorderBoxTransform.mapRect(contentRepaintRect);
+        addVisualOverflow(enclosingLayoutRect(contentRepaintRect));
+    }
+
     updateLayerTransform();
     m_hasBoxDecorations = isDocumentElement() ? calculateHasBoxDecorations() : hasBoxDecorations();
     invalidateBackgroundObscurationStatus();
 
     repainter.repaintAfterLayout();
     clearNeedsLayout();
+}
+
+bool RenderSVGRoot::shouldApplyViewportClip() const
+{
+    // the outermost svg is clipped if auto, and svg document roots are always clipped
+    // When the svg is stand-alone (isDocumentElement() == true) the viewport clipping should always
+    // be applied, noting that the window scrollbars should be hidden if overflow=hidden.
+    return style()->overflowX() == OHIDDEN
+        || style()->overflowX() == OAUTO
+        || style()->overflowX() == OSCROLL
+        || this->isDocumentElement();
 }
 
 void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -259,8 +246,9 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
     PaintInfo childPaintInfo(paintInfo);
     childPaintInfo.context->save();
 
-    // Apply initial viewport clip - not affected by overflow handling
-    childPaintInfo.context->clip(pixelSnappedIntRect(overflowClipRect(paintOffset)));
+    // Apply initial viewport clip
+    if (shouldApplyViewportClip())
+        childPaintInfo.context->clip(pixelSnappedIntRect(overflowClipRect(paintOffset)));
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
     // Transform from our paint container's coordinate system to our local coords.
@@ -294,9 +282,10 @@ void RenderSVGRoot::willBeDestroyed()
 
 void RenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    if (diff == StyleDifferenceLayout)
+    if (diff.needsFullLayout())
         setNeedsBoundariesUpdate();
-    if (diff == StyleDifferenceRepaint) {
+    // FIXME: How about other diff flags?
+    if (diff.needsRepaintObjectOnly()) {
         // Box decorations may have appeared/disappeared - recompute status.
         m_hasBoxDecorations = calculateHasBoxDecorations();
     }
@@ -375,7 +364,8 @@ LayoutRect RenderSVGRoot::clippedOverflowRectForRepaint(const RenderLayerModelOb
     FloatRect contentRepaintRect = repaintRectInLocalCoordinates();
     contentRepaintRect = m_localToBorderBoxTransform.mapRect(contentRepaintRect);
 
-    // Apply initial viewport clip - not affected by overflow settings
+    // Apply initial viewport clip, overflow:visible content is added to visualOverflow
+    // but the most common case is that overflow is hidden, so always intersect.
     contentRepaintRect.intersect(pixelSnappedBorderBoxRect());
 
     LayoutRect repaintRect = enclosingLayoutRect(contentRepaintRect);
@@ -399,8 +389,9 @@ void RenderSVGRoot::computeFloatRectForRepaint(const RenderLayerModelObject* rep
     // and then call RenderBox's method to handle all the normal CSS Box model bits
     repaintRect = m_localToBorderBoxTransform.mapRect(repaintRect);
 
-    // Apply initial viewport clip - not affected by overflow settings
-    repaintRect.intersect(pixelSnappedBorderBoxRect());
+    // Apply initial viewport clip
+    if (shouldApplyViewportClip())
+        repaintRect.intersect(pixelSnappedBorderBoxRect());
 
     LayoutRect rect = enclosingIntRect(repaintRect);
     RenderReplaced::computeRectForRepaint(repaintContainer, rect, fixed);
@@ -413,7 +404,9 @@ void RenderSVGRoot::computeFloatRectForRepaint(const RenderLayerModelObject* rep
 void RenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState& transformState, MapCoordinatesFlags mode, bool* wasFixed) const
 {
     ASSERT(mode & ~IsFixed); // We should have no fixed content in the SVG rendering tree.
-    ASSERT(mode & UseTransforms); // mapping a point through SVG w/o respecting trasnforms is useless.
+    // We used to have this ASSERT here, but we removed it when enabling layer squashing.
+    // See http://crbug.com/364901
+    // ASSERT(mode & UseTransforms); // mapping a point through SVG w/o respecting trasnforms is useless.
 
     RenderReplaced::mapLocalToContainer(repaintContainer, transformState, mode | ApplyContainerFlip, wasFixed);
 }
@@ -464,21 +457,6 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     }
 
     return false;
-}
-
-bool RenderSVGRoot::hasRelativeIntrinsicLogicalWidth() const
-{
-    SVGSVGElement* svg = toSVGSVGElement(node());
-    ASSERT(svg);
-    return svg->intrinsicWidth(SVGSVGElement::IgnoreCSSProperties).isPercent();
-}
-
-bool RenderSVGRoot::hasRelativeLogicalHeight() const
-{
-    SVGSVGElement* svg = toSVGSVGElement(node());
-    ASSERT(svg);
-
-    return svg->intrinsicHeight(SVGSVGElement::IgnoreCSSProperties).isPercent();
 }
 
 }

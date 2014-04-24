@@ -68,6 +68,7 @@ WebInspector.TimelineUIUtils._initRecordStyles = function()
     recordStyles[recordTypes.RecalculateStyles] = { title: WebInspector.UIString("Recalculate Style"), category: categories["rendering"] };
     recordStyles[recordTypes.InvalidateLayout] = { title: WebInspector.UIString("Invalidate Layout"), category: categories["rendering"] };
     recordStyles[recordTypes.Layout] = { title: WebInspector.UIString("Layout"), category: categories["rendering"] };
+    recordStyles[recordTypes.UpdateLayerTree] = { title: WebInspector.UIString("Update layer tree"), category: categories["rendering"] };
     recordStyles[recordTypes.AutosizeText] = { title: WebInspector.UIString("Autosize Text"), category: categories["rendering"] };
     recordStyles[recordTypes.PaintSetup] = { title: WebInspector.UIString("Paint Setup"), category: categories["painting"] };
     recordStyles[recordTypes.Paint] = { title: WebInspector.UIString("Paint"), category: categories["painting"] };
@@ -89,6 +90,7 @@ WebInspector.TimelineUIUtils._initRecordStyles = function()
     recordStyles[recordTypes.FunctionCall] = { title: WebInspector.UIString("Function Call"), category: categories["scripting"] };
     recordStyles[recordTypes.ResourceReceivedData] = { title: WebInspector.UIString("Receive Data"), category: categories["loading"] };
     recordStyles[recordTypes.GCEvent] = { title: WebInspector.UIString("GC Event"), category: categories["scripting"] };
+    recordStyles[recordTypes.JSFrame] = { title: WebInspector.UIString("JS Frame"), category: categories["scripting"] };
     recordStyles[recordTypes.MarkDOMContent] = { title: WebInspector.UIString("DOMContentLoaded event"), category: categories["scripting"] };
     recordStyles[recordTypes.MarkLoad] = { title: WebInspector.UIString("Load event"), category: categories["scripting"] };
     recordStyles[recordTypes.MarkFirstPaint] = { title: WebInspector.UIString("First paint"), category: categories["painting"] };
@@ -233,14 +235,17 @@ WebInspector.TimelineUIUtils.generateMainThreadBarPopupContent = function(model,
 
 /**
  * @param {!WebInspector.TimelineModel.Record} record
+ * @param {!WebInspector.TimelineModel} model
  * @return {string}
  */
-WebInspector.TimelineUIUtils.recordTitle = function(record)
+WebInspector.TimelineUIUtils.recordTitle = function(record, model)
 {
     if (record.type === WebInspector.TimelineModel.RecordType.TimeStamp)
         return record.data["message"];
+    if (record.type === WebInspector.TimelineModel.RecordType.JSFrame)
+        return record.data["functionName"];
     if (WebInspector.TimelineUIUtils.isEventDivider(record)) {
-        var startTime = Number.millisToString(record.startTimeOffset);
+        var startTime = Number.millisToString(record.startTime - model.minimumRecordTime());
         return WebInspector.UIString("%s at %s", WebInspector.TimelineUIUtils.recordStyle(record).title, startTime, true);
     }
     return WebInspector.TimelineUIUtils.recordStyle(record).title;
@@ -438,11 +443,12 @@ WebInspector.TimelineUIUtils.createStyleRuleForCategory = function(category)
 
 /**
  * @param {!WebInspector.TimelineModel.Record} record
+ * @param {!WebInspector.TimelineModel} model
  * @param {!WebInspector.Linkifier} linkifier
  * @param {function(!DocumentFragment)} callback
  * @param {boolean} loadedFromFile
  */
-WebInspector.TimelineUIUtils.generatePopupContent = function(record, linkifier, callback, loadedFromFile)
+WebInspector.TimelineUIUtils.generatePopupContent = function(record, model, linkifier, callback, loadedFromFile)
 {
     var imageElement = /** @type {?Element} */ (record.getUserObject("TimelineUIUtils::preview-element") || null);
     var relatedNode = null;
@@ -474,19 +480,20 @@ WebInspector.TimelineUIUtils.generatePopupContent = function(record, linkifier, 
 
     function callbackWrapper()
     {
-        callback(WebInspector.TimelineUIUtils._generatePopupContentSynchronously(record, linkifier, imageElement, relatedNode, loadedFromFile));
+        callback(WebInspector.TimelineUIUtils._generatePopupContentSynchronously(record, model, linkifier, imageElement, relatedNode, loadedFromFile));
     }
 }
 
 /**
  * @param {!WebInspector.TimelineModel.Record} record
+ * @param {!WebInspector.TimelineModel} model
  * @param {!WebInspector.Linkifier} linkifier
  * @param {?Element} imagePreviewElement
  * @param {?WebInspector.DOMNode} relatedNode
  * @param {boolean} loadedFromFile
  * @return {!DocumentFragment}
  */
-WebInspector.TimelineUIUtils._generatePopupContentSynchronously = function(record, linkifier, imagePreviewElement, relatedNode, loadedFromFile)
+WebInspector.TimelineUIUtils._generatePopupContentSynchronously = function(record, model, linkifier, imagePreviewElement, relatedNode, loadedFromFile)
 {
     var fragment = document.createDocumentFragment();
     if (record.children.length)
@@ -503,7 +510,7 @@ WebInspector.TimelineUIUtils._generatePopupContentSynchronously = function(recor
 
     var contentHelper = new WebInspector.TimelineDetailsContentHelper(record.target(), linkifier, true);
     contentHelper.appendTextRow(WebInspector.UIString("Self Time"), Number.millisToString(record.selfTime, true));
-    contentHelper.appendTextRow(WebInspector.UIString("Start Time"), Number.millisToString(record.startTimeOffset));
+    contentHelper.appendTextRow(WebInspector.UIString("Start Time"), Number.millisToString(record.startTime - model.minimumRecordTime()));
 
     switch (record.type) {
         case recordTypes.GCEvent:
@@ -627,15 +634,6 @@ WebInspector.TimelineUIUtils._generatePopupContentSynchronously = function(recor
 
     if (record.scriptName && record.type !== recordTypes.FunctionCall)
         contentHelper.appendLocationRow(WebInspector.UIString("Function Call"), record.scriptName, record.scriptLine);
-
-    if (record.jsHeapSizeUsed) {
-        if (record.usedHeapSizeDelta) {
-            var sign = record.usedHeapSizeDelta > 0 ? "+" : "-";
-            contentHelper.appendTextRow(WebInspector.UIString("Used JavaScript Heap Size"),
-                WebInspector.UIString("%s (%s%s)", Number.bytesToString(record.jsHeapSizeUsed), sign, Number.bytesToString(Math.abs(record.usedHeapSizeDelta))));
-        } else if (record.category === WebInspector.TimelineUIUtils.categories().scripting)
-            contentHelper.appendTextRow(WebInspector.UIString("Used JavaScript Heap Size"), Number.bytesToString(record.jsHeapSizeUsed));
-    }
 
     if (record.callSiteStackTrace)
         contentHelper.appendStackTrace(callSiteStackTraceLabel || WebInspector.UIString("Call Site stack"), record.callSiteStackTrace);

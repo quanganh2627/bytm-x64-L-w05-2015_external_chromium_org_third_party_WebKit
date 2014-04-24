@@ -153,7 +153,9 @@ public:
     bool willLayout(LocalFrame*);
     void didLayout(RenderObject*);
 
+    void willUpdateLayerTree();
     void layerTreeDidChange();
+    void didUpdateLayerTree();
 
     void willAutosizeText(RenderObject*);
     void didAutosizeText(RenderObject*);
@@ -263,7 +265,6 @@ private:
     void pushCurrentRecord(PassRefPtr<JSONObject> data, const String& type, bool captureCallStack, LocalFrame*, bool hasLowLevelDetails = false);
     TimelineThreadState& threadState(ThreadIdentifier);
 
-    void setCounters(TypeBuilder::Timeline::TimelineEvent*);
     void setFrameIdentifier(TypeBuilder::Timeline::TimelineEvent* record, LocalFrame*);
     void populateImageDetails(JSONObject* data, const RenderImage&);
 
@@ -274,6 +275,7 @@ private:
 
     void addRecordToTimeline(PassRefPtr<TypeBuilder::Timeline::TimelineEvent>, double ts);
     void innerAddRecordToTimeline(PassRefPtr<TypeBuilder::Timeline::TimelineEvent>);
+    PassRefPtr<TypeBuilder::Timeline::TimelineEvent> createCountersUpdate();
     void clearRecordStack();
     PassRefPtr<TypeBuilder::Timeline::TimelineEvent> createRecordForEvent(const TraceEventDispatcher::TraceEvent&, const String& type, PassRefPtr<JSONObject> data);
 
@@ -318,6 +320,7 @@ private:
     double m_paintSetupStart;
     double m_paintSetupEnd;
     RefPtr<JSONObject> m_gpuTask;
+    RefPtr<JSONValue> m_pendingLayerTreeData;
     unsigned m_styleRecalcElementCounter;
     typedef HashMap<ThreadIdentifier, TimelineThreadState> ThreadStateMap;
     ThreadStateMap m_threadStates;

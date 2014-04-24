@@ -32,8 +32,8 @@
 #define WorkerGlobalScopeCrypto_h
 
 #include "core/workers/WorkerGlobalScope.h"
-#include "heap/Handle.h"
 #include "platform/Supplementable.h"
+#include "platform/heap/Handle.h"
 
 namespace WebCore {
 
@@ -54,7 +54,7 @@ private:
     WorkerGlobalScopeCrypto();
     static const char* supplementName();
 
-    mutable RefPtrWillBeMember<Crypto> m_crypto;
+    mutable PersistentWillBeMember<Crypto> m_crypto;
 };
 
 } // namespace WebCore

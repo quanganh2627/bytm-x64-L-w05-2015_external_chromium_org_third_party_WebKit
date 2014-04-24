@@ -174,7 +174,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebFontImpl.cpp \
 	third_party/WebKit/Source/web/WebFormControlElement.cpp \
 	third_party/WebKit/Source/web/WebFormElement.cpp \
-	third_party/WebKit/Source/web/WebFrameImpl.cpp \
 	third_party/WebKit/Source/web/WebGeolocationController.cpp \
 	third_party/WebKit/Source/web/WebGeolocationError.cpp \
 	third_party/WebKit/Source/web/WebGeolocationPermissionRequest.cpp \
@@ -194,11 +193,11 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebImageDecoder.cpp \
 	third_party/WebKit/Source/web/WebInputElement.cpp \
 	third_party/WebKit/Source/web/WebInputEvent.cpp \
-	third_party/WebKit/Source/web/WebInputEventFactoryAndroid.cpp \
 	third_party/WebKit/Source/web/WebInputEventConversion.cpp \
 	third_party/WebKit/Source/web/WebKit.cpp \
 	third_party/WebKit/Source/web/WebLabelElement.cpp \
 	third_party/WebKit/Source/web/WebLeakDetector.cpp \
+	third_party/WebKit/Source/web/WebLocalFrameImpl.cpp \
 	third_party/WebKit/Source/web/WebMIDIClientMock.cpp \
 	third_party/WebKit/Source/web/WebMIDIPermissionRequest.cpp \
 	third_party/WebKit/Source/web/WebMediaDevicesRequest.cpp \
@@ -333,12 +332,15 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -477,12 +479,15 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-D__STDC_CONSTANT_MACROS' \
@@ -568,7 +573,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
 	-Wl,--as-needed

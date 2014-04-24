@@ -235,7 +235,8 @@ bool BitmapImage::dataChanged(bool allDataReceived)
 
     // Feed all the data we've seen so far to the image decoder.
     m_allDataReceived = allDataReceived;
-    m_source.setData(data(), allDataReceived);
+    ASSERT(data());
+    m_source.setData(*data(), allDataReceived);
 
     m_haveFrameCount = false;
     m_hasUniformFrameSize = true;
@@ -414,7 +415,7 @@ bool BitmapImage::shouldAnimate()
     return (repetitionCount(false) != cAnimationNone && !m_animationFinished && imageObserver());
 }
 
-void BitmapImage::startAnimation(bool catchUpIfNecessary)
+void BitmapImage::startAnimation(CatchUpAnimation catchUpIfNecessary)
 {
     if (m_frameTimer || !shouldAnimate() || frameCount() <= 1)
         return;
@@ -462,7 +463,7 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
     if (nextFrame == 0 && m_repetitionsComplete == 0 && m_desiredFrameStartTime < time)
         m_desiredFrameStartTime = time;
 
-    if (!catchUpIfNecessary || time < m_desiredFrameStartTime) {
+    if (catchUpIfNecessary == DoNotCatchUp || time < m_desiredFrameStartTime) {
         // Haven't yet reached time for next frame to start; delay until then.
         m_frameTimer = new Timer<BitmapImage>(this, &BitmapImage::advanceAnimation);
         m_frameTimer->startOneShot(std::max(m_desiredFrameStartTime - time, 0.), FROM_HERE);
@@ -505,7 +506,7 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
             // situation the best we can do is to simply change frames as fast
             // as possible, so force startAnimation() to set a zero-delay timer
             // and bail out if we're not caught up.
-            startAnimation(false);
+            startAnimation(DoNotCatchUp);
         }
     }
 }

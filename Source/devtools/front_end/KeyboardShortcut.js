@@ -92,6 +92,9 @@ WebInspector.KeyboardShortcut.Keys = {
     F11: { code: 122, name: "F11" },
     F12: { code: 123, name: "F12" },
     Semicolon: { code: 186, name: ";" },
+    NumpadPlus: { code: 107, name: "Numpad +" },
+    NumpadMinus: { code: 109, name: "Numpad -" },
+    Numpad0: { code: 96, name: "Numpad 0" },
     Plus: { code: 187, name: "+" },
     Comma: { code: 188, name: "," },
     Minus: { code: 189, name: "-" },
@@ -252,6 +255,15 @@ WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers = function(keyCode, m
 };
 
 /**
+ * @param {number} key
+ * @return {!{keyCode: number, modifiers: number}}
+ */
+WebInspector.KeyboardShortcut.keyCodeAndModifiersFromKey = function(key)
+{
+    return { keyCode: key & 255, modifiers: key >> 8 };
+}
+
+/**
  * @param {number|undefined} modifiers
  * @return {string}
  */
@@ -276,100 +288,4 @@ WebInspector.KeyboardShortcut._modifiersToString = function(modifiers)
     return res;
 };
 
-/**
- * @param {!KeyboardEvent} event
- */
-WebInspector.KeyboardShortcut.handleShortcut = function(event)
-{
-    var key = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
-    var extensions = WebInspector.KeyboardShortcut._keysToActionExtensions[key];
-    if (!extensions)
-        return;
-
-    function handler(extension)
-    {
-        var result = extension.instance().handleAction(event);
-        if (result)
-            event.consume(true);
-        delete WebInspector.KeyboardShortcut._pendingActionTimer;
-        return result;
-    }
-
-    for (var i = 0; i < extensions.length; ++i) {
-        var ident = event.keyIdentifier;
-        if (/^F\d+|Control|Shift|Alt|Meta|Win|U\+001B$/.test(ident) || event.ctrlKey || event.altKey || event.metaKey) {
-            if (handler(extensions[i]))
-                return;
-        } else {
-            WebInspector.KeyboardShortcut._pendingActionTimer = setTimeout(handler.bind(null, extensions[i]), 0);
-            break;
-        }
-    }
-}
-
 WebInspector.KeyboardShortcut.SelectAll = WebInspector.KeyboardShortcut.makeKey("a", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta);
-
-WebInspector.KeyboardShortcut._onKeyPress = function(event)
-{
-    if (!WebInspector.KeyboardShortcut._pendingActionTimer)
-        return;
-
-    var target = event.target;
-    if (WebInspector.isBeingEdited(event.target)) {
-        clearTimeout(WebInspector.KeyboardShortcut._pendingActionTimer);
-        delete WebInspector.KeyboardShortcut._pendingActionTimer;
-    }
-}
-
-WebInspector.KeyboardShortcut.registerActions = function()
-{
-    document.addEventListener("keypress", WebInspector.KeyboardShortcut._onKeyPress, true);
-    WebInspector.KeyboardShortcut._keysToActionExtensions = {};
-    var extensions = WebInspector.moduleManager.extensions(WebInspector.ActionDelegate);
-    extensions.forEach(registerBindings);
-
-    /**
-     * @param {!WebInspector.ModuleManager.Extension} extension
-     */
-    function registerBindings(extension)
-    {
-        var bindings = extension.descriptor().bindings;
-        for (var i = 0; bindings && i < bindings.length; ++i) {
-            if (!platformMatches(bindings[i].platform))
-                continue;
-            var shortcuts = bindings[i].shortcut.split(/\s+/);
-            shortcuts.forEach(registerShortcut.bind(null, extension));
-        }
-    }
-
-    /**
-     * @param {!WebInspector.ModuleManager.Extension} extension
-     * @param {string} shortcut
-     */
-    function registerShortcut(extension, shortcut)
-    {
-        var key = WebInspector.KeyboardShortcut.makeKeyFromBindingShortcut(shortcut);
-        if (!key)
-            return;
-        if (WebInspector.KeyboardShortcut._keysToActionExtensions[key])
-            WebInspector.KeyboardShortcut._keysToActionExtensions[key].push(extension);
-        else
-            WebInspector.KeyboardShortcut._keysToActionExtensions[key] = [extension];
-    }
-
-    /**
-     * @param {string=} platformsString
-     * @return {boolean}
-     */
-    function platformMatches(platformsString)
-    {
-        if (!platformsString)
-            return true;
-        var platforms = platformsString.split(",");
-        var isMatch = false;
-        var currentPlatform = WebInspector.platform();
-        for (var i = 0; !isMatch && i < platforms.length; ++i)
-            isMatch = platforms[i] === currentPlatform;
-        return isMatch;
-    }
-}

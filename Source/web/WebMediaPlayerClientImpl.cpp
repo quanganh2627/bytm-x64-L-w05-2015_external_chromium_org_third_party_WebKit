@@ -7,7 +7,7 @@
 
 #include "WebDocument.h"
 #include "WebFrameClient.h"
-#include "WebFrameImpl.h"
+#include "WebLocalFrameImpl.h"
 #include "WebViewImpl.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLMediaElement.h"
@@ -54,7 +54,7 @@ namespace blink {
 
 static PassOwnPtr<WebMediaPlayer> createWebMediaPlayer(WebMediaPlayerClient* client, const WebURL& url, LocalFrame* frame)
 {
-    WebFrameImpl* webFrame = WebFrameImpl::fromFrame(frame);
+    WebLocalFrameImpl* webFrame = WebLocalFrameImpl::fromFrame(frame);
 
     if (!webFrame || !webFrame->client())
         return nullptr;
@@ -70,10 +70,10 @@ WebMediaPlayer* WebMediaPlayerClientImpl::webMediaPlayer() const
 
 WebMediaPlayerClientImpl::~WebMediaPlayerClientImpl()
 {
-    HTMLMediaElementEncryptedMedia::playerDestroyed(mediaElement());
-
     // Explicitly destroy the WebMediaPlayer to allow verification of tear down.
     m_webMediaPlayer.clear();
+
+    HTMLMediaElementEncryptedMedia::playerDestroyed(mediaElement());
 }
 
 void WebMediaPlayerClientImpl::networkStateChanged()
@@ -104,11 +104,6 @@ void WebMediaPlayerClientImpl::durationChanged()
 void WebMediaPlayerClientImpl::sizeChanged()
 {
     m_client->mediaPlayerSizeChanged();
-}
-
-void WebMediaPlayerClientImpl::setOpaque(bool opaque)
-{
-    m_client->mediaPlayerSetOpaque(opaque);
 }
 
 double WebMediaPlayerClientImpl::volume() const

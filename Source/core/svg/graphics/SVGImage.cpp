@@ -162,7 +162,7 @@ IntSize SVGImage::containerSize() const
     ASSERT(renderer->style()->effectiveZoom() == 1);
 
     FloatSize currentSize;
-    if (rootElement->intrinsicWidth().isFixed() && rootElement->intrinsicHeight().isFixed())
+    if (rootElement->hasIntrinsicWidth() && rootElement->hasIntrinsicHeight())
         currentSize = rootElement->currentViewportSize();
     else
         currentSize = rootElement->currentViewBoxRect().size();
@@ -311,22 +311,6 @@ FrameView* SVGImage::frameView() const
     return m_page->mainFrame()->view();
 }
 
-bool SVGImage::hasRelativeWidth() const
-{
-    SVGSVGElement* rootElement = svgRootElement(m_page.get());
-    if (!rootElement)
-        return false;
-    return rootElement->intrinsicWidth().isPercent();
-}
-
-bool SVGImage::hasRelativeHeight() const
-{
-    SVGSVGElement* rootElement = svgRootElement(m_page.get());
-    if (!rootElement)
-        return false;
-    return rootElement->intrinsicHeight().isPercent();
-}
-
 void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio)
 {
     SVGSVGElement* rootElement = svgRootElement(m_page.get());
@@ -343,8 +327,8 @@ void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrin
         intrinsicRatio = FloatSize(floatValueForLength(intrinsicWidth, 0), floatValueForLength(intrinsicHeight, 0));
 }
 
-// FIXME: support catchUpIfNecessary.
-void SVGImage::startAnimation(bool /* catchUpIfNecessary */)
+// FIXME: support CatchUpAnimation = CatchUp.
+void SVGImage::startAnimation(CatchUpAnimation)
 {
     SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement || !rootElement->animationsPaused())

@@ -231,14 +231,6 @@ LinkImport* HTMLLinkElement::linkImport() const
     return static_cast<LinkImport*>(m_link.get());
 }
 
-bool HTMLLinkElement::importOwnsLoader() const
-{
-    LinkImport* import = linkImport();
-    if (!import)
-        return false;
-    return import->ownsLoader();
-}
-
 Document* HTMLLinkElement::import() const
 {
     if (LinkImport* link = linkImport())
@@ -653,7 +645,7 @@ void LinkStyle::process()
             if (Document* document = loadingFrame()->document()) {
                 RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*document);
                 RefPtrWillBeRawPtr<MediaQuerySet> media = MediaQuerySet::create(m_owner->media());
-                MediaQueryEvaluator evaluator(frame->view()->mediaType(), frame, documentStyle.get());
+                MediaQueryEvaluator evaluator(frame->view()->mediaType(), frame);
                 mediaQueryMatches = evaluator.eval(media.get());
             }
         }

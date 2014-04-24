@@ -192,6 +192,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/MediaQueryListListener.cpp \
 	third_party/WebKit/Source/core/css/MediaQueryMatcher.cpp \
 	third_party/WebKit/Source/core/css/MediaValues.cpp \
+	third_party/WebKit/Source/core/css/MediaValuesCached.cpp \
+	third_party/WebKit/Source/core/css/MediaValuesDynamic.cpp \
 	third_party/WebKit/Source/core/css/PageRuleCollector.cpp \
 	third_party/WebKit/Source/core/css/Pair.cpp \
 	third_party/WebKit/Source/core/css/PropertySetCSSStyleDeclaration.cpp \
@@ -223,6 +225,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/parser/MediaQueryParser.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryToken.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryTokenizer.cpp \
+	third_party/WebKit/Source/core/css/parser/SizesAttributeParser.cpp \
 	third_party/WebKit/Source/core/css/resolver/AnimatedStyleBuilder.cpp \
 	third_party/WebKit/Source/core/css/resolver/CSSToStyleMap.cpp \
 	third_party/WebKit/Source/core/css/resolver/ElementResolveContext.cpp \
@@ -353,6 +356,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/frame/Location.cpp \
 	third_party/WebKit/Source/core/frame/Navigator.cpp \
 	third_party/WebKit/Source/core/frame/NavigatorID.cpp \
+	third_party/WebKit/Source/core/frame/NavigatorLanguage.cpp \
 	third_party/WebKit/Source/core/frame/PinchViewport.cpp \
 	third_party/WebKit/Source/core/frame/RemoteFrame.cpp \
 	third_party/WebKit/Source/core/frame/RemoteFrameView.cpp \
@@ -384,7 +388,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/inspector/InspectorBaseAgent.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorCSSAgent.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorCanvasAgent.cpp \
-	third_party/WebKit/Source/core/inspector/InspectorClient.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorConsoleAgent.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorController.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorCounters.cpp \
@@ -473,7 +476,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/page/EventSource.cpp \
 	third_party/WebKit/Source/core/page/FocusController.cpp \
 	third_party/WebKit/Source/core/page/FrameTree.cpp \
-	third_party/WebKit/Source/core/page/HistoryController.cpp \
 	third_party/WebKit/Source/core/page/InjectedStyleSheets.cpp \
 	third_party/WebKit/Source/core/page/MouseEventWithHitTestResults.cpp \
 	third_party/WebKit/Source/core/page/NetworkStateNotifier.cpp \
@@ -642,12 +644,15 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -797,12 +802,15 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -896,7 +904,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
 	-Wl,--as-needed

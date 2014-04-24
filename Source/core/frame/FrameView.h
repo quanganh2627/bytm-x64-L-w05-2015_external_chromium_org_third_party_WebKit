@@ -115,7 +115,6 @@ public:
 
     void updateAcceleratedCompositingSettings();
     void updateCompositingLayersAfterStyleChange();
-    void updateCompositingLayersAfterLayout();
 
     bool hasCompositedContent() const;
     bool isEnclosedInCompositingLayer() const;
@@ -257,7 +256,7 @@ public:
     void flushAnyPendingPostLayoutTasks();
 
     virtual bool shouldSuspendScrollAnimations() const OVERRIDE;
-    virtual void scrollbarStyleChanged(int newStyle, bool forceUpdate) OVERRIDE;
+    virtual void scrollbarStyleChanged() OVERRIDE;
 
     RenderBox* embeddedContentBox() const;
 
@@ -405,8 +404,6 @@ private:
 
     AXObjectCache* axObjectCache() const;
     void removeFromAXObjectCache();
-
-    bool isMainFrame() const;
 
     void setLayoutSizeInternal(const IntSize&);
 

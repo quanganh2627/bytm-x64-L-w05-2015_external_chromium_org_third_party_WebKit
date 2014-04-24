@@ -173,7 +173,10 @@ public:
     bool childrenAffectedByBackwardPositionalRules() const { return hasRestyleFlag(ChildrenAffectedByBackwardPositionalRules); }
     void setChildrenAffectedByBackwardPositionalRules() { setRestyleFlag(ChildrenAffectedByBackwardPositionalRules); }
 
+    // FIXME: These methods should all be renamed to something better than "check",
+    // since it's not clear that they alter the style bits of siblings and children.
     void checkForChildrenAdjacentRuleChanges();
+    void checkForSiblingStyleChanges(bool finishedParsingCallback, Node* beforeChange, Node* afterChange, int childCountDelta);
 
     bool childrenSupportStyleSharing() const { return !hasRestyleFlags(); }
 
@@ -299,7 +302,7 @@ inline Node* Node::lastChild() const
     return toContainerNode(this)->lastChild();
 }
 
-inline Node& Node::highestAncestor() const
+inline Node& Node::highestAncestorOrSelf() const
 {
     Node* node = const_cast<Node*>(this);
     Node* highest = node;

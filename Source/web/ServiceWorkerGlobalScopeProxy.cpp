@@ -107,9 +107,9 @@ void ServiceWorkerGlobalScopeProxy::reportException(const String& errorMessage, 
     m_client.reportException(errorMessage, lineNumber, columnNumber, sourceURL);
 }
 
-void ServiceWorkerGlobalScopeProxy::reportConsoleMessage(MessageSource, MessageLevel, const String& message, int lineNumber, const String& sourceURL)
+void ServiceWorkerGlobalScopeProxy::reportConsoleMessage(MessageSource source, MessageLevel level, const String& message, int lineNumber, const String& sourceURL)
 {
-    notImplemented();
+    m_client.reportConsoleMessage(source, level, message, lineNumber, sourceURL);
 }
 
 void ServiceWorkerGlobalScopeProxy::postMessageToPageInspector(const String& message)
@@ -134,10 +134,10 @@ void ServiceWorkerGlobalScopeProxy::workerGlobalScopeClosed()
     m_executionContext.postTask(bind(&WebEmbeddedWorkerImpl::terminateWorkerContext, &m_embeddedWorker));
 }
 
-void ServiceWorkerGlobalScopeProxy::workerGlobalScopeDestroyed()
+void ServiceWorkerGlobalScopeProxy::willDestroyWorkerGlobalScope()
 {
     m_workerGlobalScope = 0;
-    m_client.workerContextDestroyed();
+    m_client.willDestroyWorkerContext();
 }
 
 ServiceWorkerGlobalScopeProxy::ServiceWorkerGlobalScopeProxy(WebEmbeddedWorkerImpl& embeddedWorker, ExecutionContext& executionContext, WebServiceWorkerContextClient& client)

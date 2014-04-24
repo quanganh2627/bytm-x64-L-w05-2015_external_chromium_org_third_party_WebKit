@@ -99,6 +99,9 @@ WebInspector.TimelineModel.RecordType = {
 
     FunctionCall: "FunctionCall",
     GCEvent: "GCEvent",
+    JSFrame: "JSFrame",
+
+    UpdateCounters: "UpdateCounters",
 
     RequestAnimationFrame: "RequestAnimationFrame",
     CancelAnimationFrame: "CancelAnimationFrame",
@@ -233,19 +236,22 @@ WebInspector.TimelineModel.prototype = {
         this.dispatchEventToListeners(WebInspector.TimelineModel.Events.RecordFilterChanged);
     },
 
-    startRecording: function()
+    /**
+     * @param {boolean} captureStacks
+     * @param {boolean} captureMemory
+     */
+    startRecording: function(captureStacks, captureMemory)
     {
         this._clientInitiatedRecording = true;
         this.reset();
-        var maxStackFrames = WebInspector.settings.timelineCaptureStacks.get() ? 30 : 0;
+        var maxStackFrames = captureStacks ? 30 : 0;
         this._bufferEvents = WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled();
         var includeGPUEvents = WebInspector.experimentsSettings.gpuTimeline.isEnabled();
         var liveEvents = [ WebInspector.TimelineModel.RecordType.BeginFrame,
                            WebInspector.TimelineModel.RecordType.DrawFrame,
                            WebInspector.TimelineModel.RecordType.RequestMainThreadFrame,
                            WebInspector.TimelineModel.RecordType.ActivateLayerTree ];
-        var includeCounters = true;
-        this._timelineManager.start(maxStackFrames, this._bufferEvents, liveEvents.join(","), includeCounters, includeGPUEvents, this._fireRecordingStarted.bind(this));
+        this._timelineManager.start(maxStackFrames, this._bufferEvents, liveEvents.join(","), captureMemory, includeGPUEvents, this._fireRecordingStarted.bind(this));
     },
 
     stopRecording: function()
@@ -304,7 +310,7 @@ WebInspector.TimelineModel.prototype = {
     {
         if (event.data) {
             // Stopped from console.
-            this._fireRecordingStopped(null);
+            this._fireRecordingStopped(null, null);
         }
     },
 
@@ -324,17 +330,14 @@ WebInspector.TimelineModel.prototype = {
 
     /**
      * @param {?Protocol.Error} error
-     * @param {!Array.<!TimelineAgent.TimelineEvent>=} events
+     * @param {?ProfilerAgent.CPUProfile} cpuProfile
      */
-    _fireRecordingStopped: function(error, events)
+    _fireRecordingStopped: function(error, cpuProfile)
     {
         this._bufferEvents = false;
         this._collectionEnabled = false;
-        if (events && events.length) {
-            this.reset();
-            for (var i = 0; i < events.length; ++i)
-                this._addRecord(events[i]);
-        }
+        if (cpuProfile)
+            WebInspector.TimelineJSProfileProcessor.mergeJSProfileIntoTimeline(this, cpuProfile);
         this.dispatchEventToListeners(WebInspector.TimelineModel.Events.RecordingStopped);
     },
 
@@ -380,7 +383,7 @@ WebInspector.TimelineModel.prototype = {
         for (var i = 0; payload.children && i < payload.children.length; ++i)
             this._innerAddRecord.call(this, payload.children[i], record);
 
-        record.calculateAggregatedStats();
+        record._calculateAggregatedStats();
         if (parentRecord)
             parentRecord._selfTime -= record.endTime - record.startTime;
         return record;
@@ -575,8 +578,6 @@ WebInspector.TimelineModel.Record = function(model, record, parentRecord)
     }
 
     this._selfTime = this.endTime - this.startTime;
-    this._lastChildEndTime = this.endTime;
-    this._startTimeOffset = this.startTime - model.minimumRecordTime();
 
     if (record.data) {
         if (record.data["url"])
@@ -671,7 +672,7 @@ WebInspector.TimelineModel.Record = function(model, record, parentRecord)
         if (layoutInvalidateStack)
             this.callSiteStackTrace = layoutInvalidateStack;
         if (this.stackTrace)
-            this.addWarning(WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
+            this._addWarning(WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
 
         bindings._layoutInvalidateStack[this.frameId] = null;
         this.highlightQuad = record.data.root || WebInspector.TimelineModel._quadFromRectData(record.data);
@@ -680,7 +681,7 @@ WebInspector.TimelineModel.Record = function(model, record, parentRecord)
 
     case recordTypes.AutosizeText:
         if (record.data.needsRelayout && parentRecord.type === recordTypes.Layout)
-            parentRecord.addWarning(WebInspector.UIString("Layout required two passes due to text autosizing, consider setting viewport."));
+            parentRecord._addWarning(WebInspector.UIString("Layout required two passes due to text autosizing, consider setting viewport."));
         break;
 
     case recordTypes.Paint:
@@ -720,40 +721,9 @@ WebInspector.TimelineModel.Record.prototype = {
         return this._model.target();
     },
 
-    /**
-     * @return {!WebInspector.TimelineModel}
-     */
-    model: function()
-    {
-        return this._model;
-    },
-
-    get lastChildEndTime()
-    {
-        return this._lastChildEndTime;
-    },
-
-    set lastChildEndTime(time)
-    {
-        this._lastChildEndTime = time;
-    },
-
     get selfTime()
     {
         return this._selfTime;
-    },
-
-    get cpuTime()
-    {
-        return this._cpuTime;
-    },
-
-    /**
-     * @return {boolean}
-     */
-    isRoot: function()
-    {
-        return this.type === WebInspector.TimelineModel.RecordType.Root;
     },
 
     /**
@@ -777,7 +747,7 @@ WebInspector.TimelineModel.Record.prototype = {
      */
     title: function()
     {
-        return WebInspector.TimelineUIUtils.recordTitle(this);
+        return WebInspector.TimelineUIUtils.recordTitle(this, this._model);
     },
 
     /**
@@ -785,12 +755,7 @@ WebInspector.TimelineModel.Record.prototype = {
      */
     get startTime()
     {
-        return this._startTime || this._record.startTime;
-    },
-
-    set startTime(startTime)
-    {
-        this._startTime = startTime;
+        return this._record.startTime;
     },
 
     /**
@@ -799,14 +764,6 @@ WebInspector.TimelineModel.Record.prototype = {
     get thread()
     {
         return this._record.thread;
-    },
-
-    /**
-     * @return {number}
-     */
-    get startTimeOffset()
-    {
-        return this._startTimeOffset;
     },
 
     /**
@@ -844,30 +801,6 @@ WebInspector.TimelineModel.Record.prototype = {
     get frameId()
     {
         return this._record.frameId || "";
-    },
-
-    /**
-     * @return {number}
-     */
-    get usedHeapSizeDelta()
-    {
-        return this._record.usedHeapSizeDelta || 0;
-    },
-
-    /**
-     * @return {number}
-     */
-    get jsHeapSizeUsed()
-    {
-        return this._record.counters ? this._record.counters.jsHeapSizeUsed || 0 : 0;
-    },
-
-    /**
-     * @return {!Object|undefined}
-     */
-    get counters()
-    {
-        return this._record.counters;
     },
 
     /**
@@ -910,18 +843,15 @@ WebInspector.TimelineModel.Record.prototype = {
         return this._relatedBackendNodeId;
     },
 
-    calculateAggregatedStats: function()
+    _calculateAggregatedStats: function()
     {
         this._aggregatedStats = {};
-        this._cpuTime = this._selfTime;
 
         for (var index = this._children.length; index; --index) {
             var child = this._children[index - 1];
             for (var category in child._aggregatedStats)
                 this._aggregatedStats[category] = (this._aggregatedStats[category] || 0) + child._aggregatedStats[category];
         }
-        for (var category in this._aggregatedStats)
-            this._cpuTime += this._aggregatedStats[category];
         this._aggregatedStats[this.category.name] = (this._aggregatedStats[this.category.name] || 0) + this._selfTime;
     },
 
@@ -933,7 +863,7 @@ WebInspector.TimelineModel.Record.prototype = {
     /**
      * @param {string} message
      */
-    addWarning: function(message)
+    _addWarning: function(message)
     {
         if (this._warnings)
             this._warnings.push(message);

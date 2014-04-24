@@ -108,11 +108,11 @@ TEST_F(AnimationAnimationV8Test, CanCreateAnAnimation)
 TEST_F(AnimationAnimationV8Test, CanSetDuration)
 {
     Vector<Dictionary, 0> jsKeyframes;
-    double duration = 2;
+    double duration = 2000;
 
     RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, duration, exceptionState);
 
-    EXPECT_EQ(duration, animation->specifiedTiming().iterationDuration);
+    EXPECT_EQ(duration / 1000, animation->specifiedTiming().iterationDuration);
 }
 
 TEST_F(AnimationAnimationV8Test, CanOmitSpecifiedDuration)
@@ -229,7 +229,7 @@ TEST_F(AnimationAnimationV8Test, SpecifiedGetters)
 
     RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->specified();
+    RefPtr<TimedItemTiming> specified = animation->timing();
     EXPECT_EQ(2, specified->delay());
     EXPECT_EQ(0.5, specified->endDelay());
     EXPECT_EQ("backwards", specified->fill());
@@ -250,7 +250,7 @@ TEST_F(AnimationAnimationV8Test, SpecifiedDurationGetter)
 
     RefPtr<Animation> animationWithDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryWithDuration, exceptionState);
 
-    RefPtr<TimedItemTiming> specifiedWithDuration = animationWithDuration->specified();
+    RefPtr<TimedItemTiming> specifiedWithDuration = animationWithDuration->timing();
     bool isNumber = false;
     double numberDuration = std::numeric_limits<double>::quiet_NaN();
     bool isString = false;
@@ -267,7 +267,7 @@ TEST_F(AnimationAnimationV8Test, SpecifiedDurationGetter)
 
     RefPtr<Animation> animationNoDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryNoDuration, exceptionState);
 
-    RefPtr<TimedItemTiming> specifiedNoDuration = animationNoDuration->specified();
+    RefPtr<TimedItemTiming> specifiedNoDuration = animationNoDuration->timing();
     isNumber = false;
     numberDuration = std::numeric_limits<double>::quiet_NaN();
     isString = false;
@@ -286,7 +286,7 @@ TEST_F(AnimationAnimationV8Test, SpecifiedSetters)
     Dictionary timingInputDictionary = Dictionary(v8::Handle<v8::Value>::Cast(timingInput), m_isolate);
     RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->specified();
+    RefPtr<TimedItemTiming> specified = animation->timing();
 
     EXPECT_EQ(0, specified->delay());
     specified->setDelay(2);
@@ -328,7 +328,7 @@ TEST_F(AnimationAnimationV8Test, SetSpecifiedDuration)
     Dictionary timingInputDictionary = Dictionary(v8::Handle<v8::Value>::Cast(timingInput), m_isolate);
     RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->specified();
+    RefPtr<TimedItemTiming> specified = animation->timing();
 
     bool isNumber = false;
     double numberDuration = std::numeric_limits<double>::quiet_NaN();
@@ -366,20 +366,20 @@ TEST_F(AnimationAnimationTest, TimeToEffectChange)
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
     EXPECT_EQ(inf, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(100);
+    player->setCurrentTimeInternal(100);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(199);
+    player->setCurrentTimeInternal(199);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(200);
+    player->setCurrentTimeInternal(200);
     // End-exclusive.
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(300);
+    player->setCurrentTimeInternal(300);
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(100, animation->timeToReverseEffectChange());
 }
@@ -399,20 +399,20 @@ TEST_F(AnimationAnimationTest, TimeToEffectChangeWithPlaybackRate)
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
     EXPECT_EQ(inf, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(100);
+    player->setCurrentTimeInternal(100);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(149);
+    player->setCurrentTimeInternal(149);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(150);
+    player->setCurrentTimeInternal(150);
     // End-exclusive.
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(200);
+    player->setCurrentTimeInternal(200);
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(50, animation->timeToReverseEffectChange());
 }
@@ -432,19 +432,19 @@ TEST_F(AnimationAnimationTest, TimeToEffectChangeWithNegativePlaybackRate)
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
     EXPECT_EQ(inf, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(100);
+    player->setCurrentTimeInternal(100);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(149);
+    player->setCurrentTimeInternal(149);
     EXPECT_EQ(0, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(150);
+    player->setCurrentTimeInternal(150);
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(0, animation->timeToReverseEffectChange());
 
-    player->setCurrentTime(200);
+    player->setCurrentTimeInternal(200);
     EXPECT_EQ(inf, animation->timeToForwardsEffectChange());
     EXPECT_EQ(50, animation->timeToReverseEffectChange());
 }
@@ -455,10 +455,12 @@ TEST_F(AnimationAnimationTest, ElementDestructorClearsAnimationTarget)
     // and Animation are moved to Oilpan. See crbug.com/362404 for context.
     Timing timing;
     timing.iterationDuration = 5;
-    RefPtr<Animation> animation = Animation::create(0, nullptr, timing);
+    RefPtr<Animation> animation = Animation::create(element.get(), nullptr, timing);
+    EXPECT_EQ(element.get(), animation->target());
     RefPtr<AnimationPlayer> player = document->timeline().play(animation.get());
     document.clear();
     element.clear();
+    Heap::collectAllGarbage();
     EXPECT_EQ(0, animation->target());
 }
 

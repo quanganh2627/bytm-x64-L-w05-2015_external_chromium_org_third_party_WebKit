@@ -60,16 +60,15 @@ bool RemoteFontFaceSource::isValid() const
 
 void RemoteFontFaceSource::didStartFontLoad(FontResource*)
 {
-    // Avoid duplicated reports when multiple CSSFontFaceSource are registered
-    // at this FontResource.
-    if (!m_fontDataTable.isEmpty())
-        m_histograms.loadStarted();
+    // We may send duplicated reports when multiple CSSFontFaceSource are
+    // registered at this FontResource. Associating the same URL to different
+    // font-family causes the case, but we treat them as indivisual resources.
+    m_histograms.loadStarted();
 }
 
 void RemoteFontFaceSource::fontLoaded(FontResource*)
 {
-    if (!m_fontDataTable.isEmpty())
-        m_histograms.recordRemoteFont(m_font.get());
+    m_histograms.recordRemoteFont(m_font.get());
 
     pruneTable();
     if (m_face)
@@ -87,19 +86,23 @@ void RemoteFontFaceSource::fontLoadWaitLimitExceeded(FontResource*)
 
 void RemoteFontFaceSource::corsFailed(FontResource*)
 {
-    pruneTable();
-
     if (m_face) {
+        m_histograms.corsFailed();
         Document* document = m_face->fontSelector() ? m_face->fontSelector()->document() : 0;
         if (document) {
             FetchRequest request(ResourceRequest(m_font->url()), FetchInitiatorTypeNames::css);
-            m_font->removeClient(this);
-            m_font = document->fetcher()->fetchFont(request);
-            m_font->addClient(this);
-            m_face->fontSelector()->beginLoadingFontSoon(m_font.get());
-        } else {
-            m_face->fontLoaded(this);
+            ResourcePtr<FontResource> newFontResource = document->fetcher()->fetchFont(request);
+            if (newFontResource) {
+                m_font->removeClient(this);
+                m_font = newFontResource;
+                m_font->addClient(this);
+                m_face->fontSelector()->beginLoadingFontSoon(m_font.get());
+                return;
+            } else {
+                pruneTable();
+            }
         }
+        m_face->fontLoaded(this);
     }
 }
 
@@ -180,7 +183,7 @@ void RemoteFontFaceSource::FontLoadHistograms::recordRemoteFont(const FontResour
 
         if (!font->errorOccurred()) {
             enum { CORSFail, CORSSuccess, CORSEnumMax };
-            int corsValue = font->options().corsEnabled == IsCORSEnabled ? CORSSuccess : CORSFail;
+            int corsValue = m_corsFailed ? CORSFail : CORSSuccess;
             blink::Platform::current()->histogramEnumeration("WebFont.CORSSuccess", corsValue, CORSEnumMax);
         }
     }

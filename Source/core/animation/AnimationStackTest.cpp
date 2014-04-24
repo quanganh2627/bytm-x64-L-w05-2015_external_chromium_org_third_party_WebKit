@@ -28,7 +28,7 @@ protected:
     AnimationPlayer* play(Animation* animation, double startTime)
     {
         AnimationPlayer* player = timeline->createAnimationPlayer(animation);
-        player->setStartTime(startTime);
+        player->setStartTimeInternal(startTime);
         player->update(AnimationPlayer::UpdateOnDemand);
         return player;
     }
@@ -122,6 +122,7 @@ TEST_F(AnimationAnimationStackTest, ForwardsFillDiscarding)
     play(makeAnimation(makeAnimationEffect(CSSPropertyFontSize, AnimatableDouble::create(1))).get(), 2);
     play(makeAnimation(makeAnimationEffect(CSSPropertyFontSize, AnimatableDouble::create(2))).get(), 6);
     play(makeAnimation(makeAnimationEffect(CSSPropertyFontSize, AnimatableDouble::create(3))).get(), 4);
+    document->compositorPendingAnimations().startPendingAnimations();
     WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> > interpolations;
 
     updateTimeline(11);

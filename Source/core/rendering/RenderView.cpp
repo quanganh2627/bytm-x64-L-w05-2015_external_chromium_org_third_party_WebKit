@@ -193,7 +193,7 @@ void RenderView::layout()
     if (shouldUsePrintingLayout())
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = logicalWidth();
 
-    SubtreeLayoutScope layoutScope(this);
+    SubtreeLayoutScope layoutScope(*this);
 
     // Use calcWidth/Height to get the new width/height, since this will take the full page zoom factor into account.
     bool relayoutChildren = !shouldUsePrintingLayout() && (!m_frameView || width() != viewWidth() || height() != viewHeight());
@@ -452,7 +452,7 @@ void RenderView::repaintViewAndCompositedLayers()
     // The only way we know how to hit these ASSERTS below this point is via the Chromium OS login screen.
     DisableCompositingQueryAsserts disabler;
 
-    if (compositor()->inCompositingMode())
+    if (compositor()->staleInCompositingMode())
         compositor()->repaintCompositedLayers();
 }
 
@@ -890,7 +890,7 @@ void RenderView::updateHitTestResult(HitTestResult& result, const LayoutPoint& p
 
 bool RenderView::usesCompositing() const
 {
-    return m_compositor && m_compositor->inCompositingMode();
+    return m_compositor && m_compositor->staleInCompositingMode();
 }
 
 RenderLayerCompositor* RenderView::compositor()
@@ -949,7 +949,7 @@ IntervalArena* RenderView::intervalArena()
 bool RenderView::backgroundIsKnownToBeOpaqueInRect(const LayoutRect&) const
 {
     // FIXME: Remove this main frame check. Same concept applies to subframes too.
-    if (!m_frameView || !m_frameView->isMainFrame())
+    if (!frame()->isMainFrame())
         return false;
 
     return m_frameView->hasOpaqueBackground();

@@ -187,6 +187,11 @@ bool RenderBoxModelObject::hasAutoHeightOrContainingBlockWithAutoHeight() const
     if (cb->isTableCell())
         return false;
 
+    // Match RenderBox::availableLogicalHeightUsing by special casing
+    // the render view. The available height is taken from the frame.
+    if (cb->isRenderView())
+        return false;
+
     if (!cb->style()->logicalHeight().isAuto() || (!cb->style()->logicalTop().isAuto() && !cb->style()->logicalBottom().isAuto()))
         return false;
 
@@ -506,7 +511,7 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
 
     Color bgColor = color;
     StyleImage* bgImage = bgLayer->image();
-    bool shouldPaintBackgroundImage = bgImage && bgImage->canRender(this, style()->effectiveZoom());
+    bool shouldPaintBackgroundImage = bgImage && bgImage->canRender(*this, style()->effectiveZoom());
 
     bool forceBackgroundToWhite = false;
     if (document().printing()) {
@@ -805,18 +810,10 @@ IntSize RenderBoxModelObject::calculateImageIntrinsicDimensions(StyleImage* imag
     FloatSize intrinsicRatio;
     image->computeIntrinsicDimensions(this, intrinsicWidth, intrinsicHeight, intrinsicRatio);
 
-    // Intrinsic dimensions expressed as percentages must be resolved relative to the dimensions of the rectangle
-    // that establishes the coordinate system for the 'background-position' property.
+    ASSERT(!intrinsicWidth.isPercent());
+    ASSERT(!intrinsicHeight.isPercent());
 
-    // FIXME: Remove unnecessary rounding when layout is off ints: webkit.org/b/63656
-    if (intrinsicWidth.isPercent() && intrinsicHeight.isPercent() && intrinsicRatio.isEmpty()) {
-        // Resolve width/height percentages against positioningAreaSize, only if no intrinsic ratio is provided.
-        int resolvedWidth = static_cast<int>(round(positioningAreaSize.width() * intrinsicWidth.percent() / 100));
-        int resolvedHeight = static_cast<int>(round(positioningAreaSize.height() * intrinsicHeight.percent() / 100));
-        return IntSize(resolvedWidth, resolvedHeight);
-    }
-
-    IntSize resolvedSize(intrinsicWidth.isFixed() ? intrinsicWidth.value() : 0, intrinsicHeight.isFixed() ? intrinsicHeight.value() : 0);
+    IntSize resolvedSize(intrinsicWidth.value(), intrinsicHeight.value());
     IntSize minimumSize(resolvedSize.width() > 0 ? 1 : 0, resolvedSize.height() > 0 ? 1 : 0);
     if (shouldScaleOrNot == ScaleByEffectiveZoom)
         resolvedSize.scale(style()->effectiveZoom());
@@ -1146,7 +1143,7 @@ bool RenderBoxModelObject::paintNinePieceImage(GraphicsContext* graphicsContext,
     if (!styleImage->isLoaded())
         return true; // Never paint a nine-piece image incrementally, but don't paint the fallback borders either.
 
-    if (!styleImage->canRender(this, style->effectiveZoom()))
+    if (!styleImage->canRender(*this, style->effectiveZoom()))
         return false;
 
     // FIXME: border-image is broken with full page zooming when tiling has to happen, since the tiling function
@@ -1727,6 +1724,9 @@ void RenderBoxModelObject::paintBorder(const PaintInfo& info, const LayoutRect& 
     getBorderEdgeInfo(edges, style, includeLogicalLeftEdge, includeLogicalRightEdge);
     RoundedRect outerBorder = style->getRoundedBorderFor(rect, includeLogicalLeftEdge, includeLogicalRightEdge);
     RoundedRect innerBorder = style->getRoundedInnerBorderFor(borderInnerRectAdjustedForBleedAvoidance(graphicsContext, rect, bleedAvoidance), includeLogicalLeftEdge, includeLogicalRightEdge);
+
+    if (outerBorder.rect().isEmpty())
+        return;
 
     bool haveAlphaColor = false;
     bool haveAllSolidEdges = true;

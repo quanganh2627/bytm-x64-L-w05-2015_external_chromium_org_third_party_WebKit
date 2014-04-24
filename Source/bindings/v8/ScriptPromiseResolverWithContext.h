@@ -38,6 +38,7 @@ public:
         return resolver.release();
     }
 
+    // Anything that can be passed to toV8Value can be passed to this function.
     template <typename T>
     void resolve(T value)
     {
@@ -45,11 +46,12 @@ public:
             return;
         m_state = Resolving;
         NewScriptState::Scope scope(m_scriptState.get());
-        m_value.set(m_scriptState->isolate(), toV8(value));
+        m_value.set(m_scriptState->isolate(), toV8Value(value));
         if (!executionContext()->activeDOMObjectsAreSuspended())
             resolveOrRejectImmediately(&m_timer);
     }
 
+    // Anything that can be passed to toV8Value can be passed to this function.
     template <typename T>
     void reject(T value)
     {
@@ -57,10 +59,12 @@ public:
             return;
         m_state = Rejecting;
         NewScriptState::Scope scope(m_scriptState.get());
-        m_value.set(m_scriptState->isolate(), toV8(value));
+        m_value.set(m_scriptState->isolate(), toV8Value(value));
         if (!executionContext()->activeDOMObjectsAreSuspended())
             resolveOrRejectImmediately(&m_timer);
     }
+
+    NewScriptState* scriptState() { return m_scriptState.get(); }
 
     // Note that an empty ScriptPromise will be returned after resolve or
     // reject is called.
@@ -69,10 +73,18 @@ public:
         return m_resolver ? m_resolver->promise() : ScriptPromise();
     }
 
+    NewScriptState* scriptState() const { return m_scriptState.get(); }
+
     // ActiveDOMObject implementation.
     virtual void suspend() OVERRIDE;
     virtual void resume() OVERRIDE;
     virtual void stop() OVERRIDE;
+
+    // Used by ToV8Value<ScriptPromiseResolverWithContext, NewScriptState*>.
+    static v8::Handle<v8::Object> getCreationContext(NewScriptState* scriptState)
+    {
+        return scriptState->context()->Global();
+    }
 
 private:
     enum ResolutionState {
@@ -84,31 +96,17 @@ private:
 
     explicit ScriptPromiseResolverWithContext(NewScriptState*);
 
-    template <typename T>
-    v8::Handle<v8::Value> toV8(T* value)
+    template<typename T>
+    v8::Handle<v8::Value> toV8Value(const T& value)
     {
-        ASSERT(m_scriptState);
-        ASSERT(!m_scriptState->contextIsEmpty());
-        return toV8NoInline(value, m_scriptState->context()->Global(), m_scriptState->isolate());
-    }
-    template <typename T> v8::Handle<v8::Value> toV8(PassRefPtr<T> value) { return toV8(value.get()); }
-    template <typename T> v8::Handle<v8::Value> toV8(RawPtr<T> value) { return toV8(value.get()); }
-    template <typename T, size_t inlineCapacity>
-    v8::Handle<v8::Value> toV8(const Vector<T, inlineCapacity>& value)
-    {
-        ASSERT(m_scriptState);
-        return v8ArrayNoInline(value, m_scriptState->isolate());
-    }
-    v8::Handle<v8::Value> toV8(ScriptValue value)
-    {
-        return value.v8Value();
+        return ToV8Value<ScriptPromiseResolverWithContext, NewScriptState*>::toV8Value(value, m_scriptState.get(), m_scriptState->isolate());
     }
 
     void resolveOrRejectImmediately(Timer<ScriptPromiseResolverWithContext>*);
     void clear();
 
     ResolutionState m_state;
-    RefPtr<NewScriptState> m_scriptState;
+    const RefPtr<NewScriptState> m_scriptState;
     Timer<ScriptPromiseResolverWithContext> m_timer;
     RefPtr<ScriptPromiseResolver> m_resolver;
     ScopedPersistent<v8::Value> m_value;

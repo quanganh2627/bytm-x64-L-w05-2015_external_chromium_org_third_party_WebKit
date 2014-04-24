@@ -96,16 +96,16 @@ using namespace HTMLNames;
 
 #ifndef NDEBUG
 
-RenderObject::SetLayoutNeededForbiddenScope::SetLayoutNeededForbiddenScope(RenderObject* renderObject)
+RenderObject::SetLayoutNeededForbiddenScope::SetLayoutNeededForbiddenScope(RenderObject& renderObject)
     : m_renderObject(renderObject)
-    , m_preexistingForbidden(m_renderObject->isSetNeedsLayoutForbidden())
+    , m_preexistingForbidden(m_renderObject.isSetNeedsLayoutForbidden())
 {
-    m_renderObject->setNeedsLayoutIsForbidden(true);
+    m_renderObject.setNeedsLayoutIsForbidden(true);
 }
 
 RenderObject::SetLayoutNeededForbiddenScope::~SetLayoutNeededForbiddenScope()
 {
-    m_renderObject->setNeedsLayoutIsForbidden(m_preexistingForbidden);
+    m_renderObject.setNeedsLayoutIsForbidden(m_preexistingForbidden);
 }
 #endif
 
@@ -831,7 +831,7 @@ RenderObject* RenderObject::clippingContainer() const
     return 0;
 }
 
-static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer* layer)
+static bool mustRepaintFillLayers(const RenderObject& renderer, const FillLayer* layer)
 {
     // Nobody will use multiple layers without wanting fancy positioning.
     if (layer->next())
@@ -839,7 +839,7 @@ static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer*
 
     // Make sure we have a valid image.
     StyleImage* img = layer->image();
-    if (!img || !img->canRender(renderer, renderer->style()->effectiveZoom()))
+    if (!img || !img->canRender(renderer, renderer.style()->effectiveZoom()))
         return false;
 
     if (!layer->xPosition().isZero() || !layer->yPosition().isZero())
@@ -867,19 +867,19 @@ bool RenderObject::borderImageIsLoadedAndCanBeRendered() const
     ASSERT(style()->hasBorder());
 
     StyleImage* borderImage = style()->borderImage().image();
-    return borderImage && borderImage->canRender(this, style()->effectiveZoom()) && borderImage->isLoaded();
+    return borderImage && borderImage->canRender(*this, style()->effectiveZoom()) && borderImage->isLoaded();
 }
 
 bool RenderObject::mustRepaintBackgroundOrBorder() const
 {
-    if (hasMask() && mustRepaintFillLayers(this, style()->maskLayers()))
+    if (hasMask() && mustRepaintFillLayers(*this, style()->maskLayers()))
         return true;
 
     // If we don't have a background/border/mask, then nothing to do.
     if (!hasBoxDecorations())
         return false;
 
-    if (mustRepaintFillLayers(this, style()->backgroundLayers()))
+    if (mustRepaintFillLayers(*this, style()->backgroundLayers()))
         return true;
 
     // Our fill layers are ok.  Let's check border.
@@ -1331,6 +1331,7 @@ RenderLayerModelObject* RenderObject::containerForRepaint() const
     if (!isRooted())
         return 0;
 
+    // FIXME: Repaint container should never be null when we're rooted. crbug.com/363699
     RenderLayerModelObject* repaintContainer = 0;
 
     RenderView* v = view();
@@ -1350,16 +1351,10 @@ RenderLayerModelObject* RenderObject::containerForRepaint() const
     // If we have a flow thread, then we need to do individual repaints within the RenderRegions instead.
     // Return the flow thread as a repaint container in order to create a chokepoint that allows us to change
     // repainting to do individual region repaints.
-    RenderFlowThread* parentRenderFlowThread = flowThreadContainingBlock();
-    if (parentRenderFlowThread) {
-        // The ancestor document will do the reparenting when the repaint propagates further up.
-        // We're just a seamless child document, and we don't need to do the hacking.
-        if (parentRenderFlowThread->document() != document())
-            return repaintContainer;
+    if (RenderFlowThread* parentRenderFlowThread = flowThreadContainingBlock()) {
         // If we have already found a repaint container then we will repaint into that container only if it is part of the same
         // flow thread. Otherwise we will need to catch the repaint call and send it to the flow thread.
-        RenderFlowThread* repaintContainerFlowThread = repaintContainer ? repaintContainer->flowThreadContainingBlock() : 0;
-        if (!repaintContainerFlowThread || repaintContainerFlowThread != parentRenderFlowThread)
+        if (!repaintContainer || repaintContainer->flowThreadContainingBlock() != parentRenderFlowThread)
             repaintContainer = parentRenderFlowThread;
     }
     return repaintContainer;
@@ -1373,6 +1368,7 @@ void RenderObject::repaintUsingContainer(const RenderLayerModelObject* repaintCo
         "info", TRACE_STR_COPY(String::format("rect: %d,%d %dx%d, invalidation_reason: %s",
             r.x(), r.y(), r.width(), r.height(), invalidationReasonToString(invalidationReason)).ascii().data()));
 
+    // FIXME: Repaint container should never be null. crbug.com/363699
     if (!repaintContainer) {
         view()->repaintViewRectangle(r);
         return;
@@ -1555,6 +1551,14 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     if (invalidationReason == InvalidationIncremental && newBounds.location() != oldBounds.location())
         invalidationReason = InvalidationBoundsChange;
 
+    // If the size is zero on one of our bounds then we know we're going to have
+    // to do a full invalidation of either old bounds or new bounds. If we fall
+    // into the incremental invalidation we'll issue two invalidations instead
+    // of one.
+    if (invalidationReason == InvalidationIncremental && (oldBounds.size().isZero() || newBounds.size().isZero()))
+        invalidationReason = InvalidationBoundsChange;
+
+    // FIXME: Repaint container should never be null. crbug.com/363699
     if (!repaintContainer)
         repaintContainer = v;
 
@@ -1848,6 +1852,8 @@ void RenderObject::handleDynamicFloatPositionChange()
 
 StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsigned contextSensitiveProperties) const
 {
+    // FIXME: The calls to hasDirectReasonsForCompositing are using state that may not be up to date.
+    DisableCompositingQueryAsserts disabler;
     // If transform changed, and the layer does not paint into its own separate backing, then we need to do a layout.
     // FIXME: The comment above is what the code does, but it is technically not following spec. This means we will
     // not to layout for 3d transforms, but we should be invoking a simplified relayout. Is it possible we are avoiding
@@ -1860,48 +1866,49 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
             // We need to set at least SimplifiedLayout, but if PositionedMovementOnly is already set
             // then we actually need SimplifiedLayoutAndPositionedMovement.
             if (!hasLayer())
-                diff = StyleDifferenceLayout; // FIXME: Do this for now since SimplifiedLayout cannot handle updating floating objects lists.
-            else if (diff < StyleDifferenceLayoutPositionedMovementOnly)
-                diff = StyleDifferenceSimplifiedLayout;
-            else if (diff < StyleDifferenceSimplifiedLayout)
-                diff = StyleDifferenceSimplifiedLayoutAndPositionedMovement;
-        } else if (diff < StyleDifferenceRecompositeLayer)
-            diff = StyleDifferenceRecompositeLayer;
+                diff.setNeedsFullLayout(); // FIXME: Do this for now since SimplifiedLayout cannot handle updating floating objects lists.
+            else
+                diff.setNeedsSimplifiedLayout();
+        } else {
+            diff.setNeedsRecompositeLayer();
+        }
     }
 
     // If opacity or filters changed, and the layer does not paint into its own separate backing, then we need to repaint (also
     // ignoring text nodes)
-    if (contextSensitiveProperties & ContextSensitivePropertyOpacity && diff <= StyleDifferenceRepaintLayer) {
+    if (contextSensitiveProperties & ContextSensitivePropertyOpacity && !diff.needsLayout()) {
         if (!isText() && (!hasLayer() || !toRenderLayerModelObject(this)->layer()->hasDirectReasonsForCompositing()))
-            diff = StyleDifferenceRepaintLayer;
-        else if (diff < StyleDifferenceRecompositeLayer)
-            diff = StyleDifferenceRecompositeLayer;
+            diff.setNeedsRepaintLayer();
+        else
+            diff.setNeedsRecompositeLayer();
     }
 
-    if ((contextSensitiveProperties & ContextSensitivePropertyFilter) && hasLayer() && diff <= StyleDifferenceRepaintLayer) {
+    if ((contextSensitiveProperties & ContextSensitivePropertyFilter) && hasLayer() && !diff.needsLayout()) {
         RenderLayer* layer = toRenderLayerModelObject(this)->layer();
         if (!layer->hasDirectReasonsForCompositing() || layer->paintsWithFilters())
-            diff = StyleDifferenceRepaintLayer;
-        else if (diff < StyleDifferenceRecompositeLayer)
-            diff = StyleDifferenceRecompositeLayer;
+            diff.setNeedsRepaintLayer();
+        else
+            diff.setNeedsRecompositeLayer();
     }
 
-    if ((contextSensitiveProperties & ContextSensitivePropertyTextOrColor) && diff < StyleDifferenceRepaint
+    if ((contextSensitiveProperties & ContextSensitivePropertyTextOrColor) && !diff.needsRepaint() && !diff.needsLayout()
         && hasImmediateNonWhitespaceTextChildOrPropertiesDependentOnColor())
-        diff = StyleDifferenceRepaint;
+        diff.setNeedsRepaintObject();
 
     // The answer to layerTypeRequired() for plugins, iframes, and canvas can change without the actual
     // style changing, since it depends on whether we decide to composite these elements. When the
     // layer status of one of these elements changes, we need to force a layout.
-    if (diff == StyleDifferenceEqual && style() && isLayerModelObject()) {
+    if (diff.hasNoChange() && style() && isLayerModelObject()) {
         bool requiresLayer = toRenderLayerModelObject(this)->layerTypeRequired() != NoLayer;
         if (hasLayer() != requiresLayer)
-            diff = StyleDifferenceLayout;
+            diff.setNeedsFullLayout();
     }
 
     // If we have no layer(), just treat a RepaintLayer hint as a normal Repaint.
-    if (diff == StyleDifferenceRepaintLayer && !hasLayer())
-        diff = StyleDifferenceRepaint;
+    if (diff.needsRepaintLayer() && !hasLayer()) {
+        diff.clearNeedsRepaint();
+        diff.setNeedsRepaintObject();
+    }
 
     return diff;
 }
@@ -1953,7 +1960,7 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
         return;
     }
 
-    StyleDifference diff = StyleDifferenceEqual;
+    StyleDifference diff;
     unsigned contextSensitiveProperties = ContextSensitivePropertyNone;
     if (m_style)
         diff = m_style->visualInvalidationDiff(*style, contextSensitiveProperties);
@@ -1988,19 +1995,18 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
     // check whether we should layout now, and decide if we need to repaint.
     StyleDifference updatedDiff = adjustStyleDifference(diff, contextSensitiveProperties);
 
-    if (diff <= StyleDifferenceLayoutPositionedMovementOnly) {
-        if (updatedDiff == StyleDifferenceLayout)
+    if (!diff.needsFullLayout()) {
+        if (updatedDiff.needsFullLayout()) {
             setNeedsLayoutAndPrefWidthsRecalc();
-        else if (updatedDiff == StyleDifferenceLayoutPositionedMovementOnly)
-            setNeedsPositionedMovementLayout();
-        else if (updatedDiff == StyleDifferenceSimplifiedLayoutAndPositionedMovement) {
-            setNeedsPositionedMovementLayout();
-            setNeedsSimplifiedNormalFlowLayout();
-        } else if (updatedDiff == StyleDifferenceSimplifiedLayout)
-            setNeedsSimplifiedNormalFlowLayout();
+        } else {
+            if (updatedDiff.needsPositionedMovementLayout())
+                setNeedsPositionedMovementLayout();
+            if (updatedDiff.needsSimplifiedLayout())
+                setNeedsSimplifiedNormalFlowLayout();
+        }
     }
 
-    if (updatedDiff == StyleDifferenceRepaint || updatedDiff == StyleDifferenceRepaintLayer) {
+    if (updatedDiff.needsRepaint()) {
         // Do a repaint with the new style now, e.g., for example if we go from
         // not having an outline to having an outline.
         repaint();
@@ -2034,13 +2040,13 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
                     layer->setHasVisibleContent();
                 } else if (layer->hasVisibleContent() && (this == layer->renderer() || layer->renderer()->style()->visibility() != VISIBLE)) {
                     layer->dirtyVisibleContentStatus();
-                    if (diff > StyleDifferenceRepaintLayer)
+                    if (diff.needsLayout())
                         repaint();
                 }
             }
         }
 
-        if (m_parent && diff == StyleDifferenceRepaint)
+        if (m_parent && diff.needsRepaintObjectOnly())
             repaint();
         if (isFloating() && (m_style->floating() != newStyle.floating()))
             // For changes in float styles, we need to conceivably remove ourselves
@@ -2057,12 +2063,13 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
 
         // Clearing these bits is required to avoid leaving stale renderers.
         // FIXME: We shouldn't need that hack if our logic was totally correct.
-        if (diff == StyleDifferenceLayout || diff == StyleDifferenceLayoutPositionedMovementOnly) {
+        if (diff.needsFullLayout() || diff.needsPositionedMovementLayout()) {
             setFloating(false);
             clearPositionedState();
         }
-    } else
+    } else {
         s_affectsParentBlock = false;
+    }
 
     if (view()->frameView()) {
         bool shouldBlitOnFixedBackgroundImage = false;
@@ -2130,7 +2137,7 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     if (!m_parent)
         return;
 
-    if (diff == StyleDifferenceLayout || diff == StyleDifferenceSimplifiedLayout) {
+    if (diff.needsFullLayout() || diff.needsSimplifiedLayout()) {
         RenderCounter::rendererStyleChanged(*this, oldStyle, m_style.get());
 
         // If the object already needs layout, then setNeedsLayout won't do
@@ -2141,14 +2148,12 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
         if (needsLayout() && oldStyle->position() != m_style->position())
             markContainingBlocksForLayout();
 
-        if (diff == StyleDifferenceLayout)
+        if (diff.needsFullLayout())
             setNeedsLayoutAndPrefWidthsRecalc();
         else
             setNeedsSimplifiedNormalFlowLayout();
-    } else if (diff == StyleDifferenceSimplifiedLayoutAndPositionedMovement) {
-        setNeedsPositionedMovementLayout();
-        setNeedsSimplifiedNormalFlowLayout();
-    } else if (diff == StyleDifferenceLayoutPositionedMovementOnly)
+    }
+    if (diff.needsPositionedMovementLayout())
         setNeedsPositionedMovementLayout();
 
     // Don't check for repaint here; we need to wait until the layer has been
@@ -2671,7 +2676,8 @@ void RenderObject::willBeRemovedFromTree()
     RenderLayer* layer = 0;
     if (parent()->style()->visibility() != VISIBLE && style()->visibility() == VISIBLE && !hasLayer()) {
         layer = parent()->enclosingLayer();
-        layer->dirtyVisibleContentStatus();
+        if (layer)
+            layer->dirtyVisibleContentStatus();
     }
 
     // Keep our layer hierarchy updated.
@@ -2746,6 +2752,14 @@ void RenderObject::destroy()
     postDestroy();
 }
 
+void RenderObject::removeShapeImageClient(ShapeValue* shapeValue)
+{
+    if (!shapeValue)
+        return;
+    if (StyleImage* shapeImage = shapeValue->image())
+        shapeImage->removeClient(this);
+}
+
 void RenderObject::postDestroy()
 {
     // It seems ugly that this is not in willBeDestroyed().
@@ -2765,6 +2779,8 @@ void RenderObject::postDestroy()
 
         if (StyleImage* maskBoxImage = m_style->maskBoxImage().image())
             maskBoxImage->removeClient(this);
+
+        removeShapeImageClient(m_style->shapeOutside());
     }
 
     delete this;

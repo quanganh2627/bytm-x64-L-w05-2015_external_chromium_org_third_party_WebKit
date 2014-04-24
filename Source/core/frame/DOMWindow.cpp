@@ -310,16 +310,6 @@ bool DOMWindow::allowPopUp()
     return m_frame && allowPopUp(*m_frame);
 }
 
-bool DOMWindow::canShowModalDialog(const LocalFrame* frame)
-{
-    if (!frame)
-        return false;
-    FrameHost* host = frame->host();
-    if (!host)
-        return false;
-    return host->chrome().canRunModal();
-}
-
 bool DOMWindow::canShowModalDialogNow(const LocalFrame* frame)
 {
     if (!frame)
@@ -1604,6 +1594,8 @@ bool DOMWindow::dispatchEvent(PassRefPtrWillBeRawPtr<Event> prpEvent, PassRefPtr
     event->setCurrentTarget(this);
     event->setEventPhase(Event::AT_TARGET);
 
+    TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "EventDispatch", "type", event->type().ascii());
+    // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willDispatchEventOnWindow(frame(), *event, this);
 
     bool result = fireEventListeners(event.get());

@@ -891,7 +891,7 @@ private:
 
     void zapWeakMembers(Visitor* visitor)
     {
-        if (m_weakBar && !visitor->isAlive(m_weakBar))
+        if (!visitor->isAlive(m_weakBar))
             m_weakBar = 0;
     }
 
@@ -1264,14 +1264,9 @@ private:
 
 } // WebCore namespace
 
-namespace WTF {
-
-// We need the below vector trait specialization for the above HeapVectors to behave correctly wrt. memset, memcmp etc.
-template<> struct VectorTraits<WebCore::VectorObject> : public SimpleClassVectorTraits<WebCore::VectorObject> { };
-template<> struct VectorTraits<WebCore::VectorObjectInheritedTrace> : public SimpleClassVectorTraits<WebCore::VectorObjectInheritedTrace> { };
-template<> struct VectorTraits<WebCore::VectorObjectNoTrace> : public SimpleClassVectorTraits<WebCore::VectorObjectNoTrace> { };
-
-} // WTF namespace
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(WebCore::VectorObject);
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(WebCore::VectorObjectInheritedTrace);
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(WebCore::VectorObjectNoTrace);
 
 namespace WebCore {
 

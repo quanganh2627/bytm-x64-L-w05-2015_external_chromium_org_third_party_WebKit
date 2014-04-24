@@ -31,10 +31,11 @@
 /**
  * @constructor
  * @extends {WebInspector.SplitView}
+ * @param {string} title
  * @param {!WebInspector.TimelineModeViewDelegate} delegate
  * @param {!WebInspector.TimelineModel} model
  */
-WebInspector.CountersGraph = function(delegate, model)
+WebInspector.CountersGraph = function(title, delegate, model)
 {
     WebInspector.SplitView.call(this, true, false);
 
@@ -62,7 +63,7 @@ WebInspector.CountersGraph = function(delegate, model)
     this._canvasContainer.appendChild(this._timelineGrid.dividersElement);
 
     // Populate sidebar
-    this.sidebarElement().createChild("div", "sidebar-tree sidebar-tree-section").textContent = WebInspector.UIString("COUNTERS");
+    this.sidebarElement().createChild("div", "sidebar-tree sidebar-tree-section").textContent = title;
     this._counters = [];
     this._counterUI = [];
 }
@@ -88,6 +89,18 @@ WebInspector.CountersGraph.prototype = {
         return counter;
     },
 
+    /**
+     * @return {!WebInspector.View}
+     */
+    view: function()
+    {
+        return this;
+    },
+
+    dispose: function()
+    {
+    },
+
     reset: function()
     {
         for (var i = 0; i < this._counters.length; ++i) {
@@ -100,8 +113,8 @@ WebInspector.CountersGraph.prototype = {
     _resize: function()
     {
         var parentElement = this._canvas.parentElement;
-        this._canvas.width = parentElement.clientWidth;
-        this._canvas.height = parentElement.clientHeight;
+        this._canvas.width = parentElement.clientWidth  * window.devicePixelRatio;
+        this._canvas.height = parentElement.clientHeight * window.devicePixelRatio;
         var timelinePaddingLeft = 15;
         this._calculator.setDisplayWindow(timelinePaddingLeft, this._canvas.width);
         this.refresh();
@@ -147,7 +160,7 @@ WebInspector.CountersGraph.prototype = {
             if (!counterUI.counter.times.length)
                 continue;
             var index = counterUI._recordIndexAt(x);
-            var distance = Math.abs(x - counterUI.counter.x[index]);
+            var distance = Math.abs(x * window.devicePixelRatio - counterUI.counter.x[index]);
             if (distance < minDistance) {
                 minDistance = distance;
                 bestTime = counterUI.counter.times[index];
@@ -163,8 +176,15 @@ WebInspector.CountersGraph.prototype = {
     _revealRecordAt: function(time)
     {
         var recordToReveal;
+        /**
+         * @param {!WebInspector.TimelineModel.Record} record
+         * @return {boolean}
+         * @this {WebInspector.CountersGraph}
+         */
         function findRecordToReveal(record)
         {
+            if (!this._model.isVisible(record))
+                return false;
             if (record.startTime <= time && time <= record.endTime) {
                 recordToReveal = record;
                 return true;
@@ -174,7 +194,7 @@ WebInspector.CountersGraph.prototype = {
                 recordToReveal = record;
             return false;
         }
-        this._model.forAllRecords(null, findRecordToReveal);
+        this._model.forAllRecords(null, findRecordToReveal.bind(this));
         this._delegate.selectRecord(recordToReveal);
     },
 
@@ -337,10 +357,8 @@ WebInspector.CountersGraph.Counter.prototype = {
         var xFactor = width / (this._maxTime - this._minTime);
 
         this.x = new Array(this.values.length);
-        this.x[this._minimumIndex] = 0;
-        for (var i = this._minimumIndex + 1; i < this._maximumIndex; i++)
+        for (var i = this._minimumIndex + 1; i <= this._maximumIndex; i++)
              this.x[i] = xFactor * (this.times[i] - this._minTime);
-        this.x[this._maximumIndex] = width;
     }
 }
 
@@ -403,7 +421,7 @@ WebInspector.CountersGraph.CounterUI.prototype = {
      */
     _recordIndexAt: function(x)
     {
-        return this.counter.x.upperBound(x, null, this.counter._minimumIndex + 1, this.counter._maximumIndex + 1) - 1;
+        return this.counter.x.upperBound(x * window.devicePixelRatio, null, this.counter._minimumIndex + 1, this.counter._maximumIndex + 1) - 1;
     },
 
     /**
@@ -415,7 +433,7 @@ WebInspector.CountersGraph.CounterUI.prototype = {
             return;
         var index = this._recordIndexAt(x);
         this._value.textContent = WebInspector.UIString(this._currentValueLabel, this.counter.values[index]);
-        var y = this.graphYValues[index];
+        var y = this.graphYValues[index] / window.devicePixelRatio;
         this._marker.style.left = x + "px";
         this._marker.style.top = y + "px";
         this._marker.classList.remove("hidden");
@@ -455,7 +473,9 @@ WebInspector.CountersGraph.CounterUI.prototype = {
         var yFactor = maxYRange ? height / (maxYRange) : 1;
 
         ctx.save();
-        ctx.translate(0.5, 0.5);
+        ctx.lineWidth = window.devicePixelRatio;
+        if (ctx.lineWidth % 2)
+            ctx.translate(0.5, 0.5);
         ctx.beginPath();
         var value = values[counter._minimumIndex];
         var currentY = Math.round(originY + height - (value - minValue) * yFactor);
@@ -472,7 +492,6 @@ WebInspector.CountersGraph.CounterUI.prototype = {
         }
         yValues.length = i;
         ctx.lineTo(width, currentY);
-        ctx.lineWidth = 1;
         ctx.strokeStyle = this.graphColor;
         ctx.stroke();
         if (counter._limitValue) {

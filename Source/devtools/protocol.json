@@ -435,6 +435,14 @@
                 "hidden": true
             },
             {
+                "name": "hasTouchInputs",
+                "description": "Tells whether touch inputs are present.",
+                "returns": [
+                    { "name": "result", "type": "boolean", "description": "True if touch inputs are present." }
+                ],
+                "hidden": true
+            },
+            {
                 "name": "setTouchEmulationEnabled",
                 "parameters": [
                     { "name": "enabled", "type": "boolean", "description": "Whether the touch event emulation should be enabled." }
@@ -825,6 +833,10 @@
                     { "name": "executionContextId", "$ref": "ExecutionContextId", "description": "Id of the destroyed context" }
                 ],
                 "description": "Issued when execution context is destroyed."
+            },
+            {
+                "name": "executionContextsCleared",
+                "description": "Issued when all executionContexts were cleared in browser"
             }
         ]
     },
@@ -2741,10 +2753,8 @@
                     { "name": "endTime", "type": "number", "optional": true, "description": "End time." },
                     { "name": "children", "type": "array", "optional": true, "items": { "$ref": "TimelineEvent" }, "description": "Nested records." },
                     { "name": "thread", "type": "string", "optional": true, "hidden": true, "description": "If present, identifies the thread that produced the event." },
-                    { "name": "counters", "$ref": "Counters", "optional": true, "hidden": true, "description": "Current values of counters." },
                     { "name": "stackTrace", "$ref": "Console.StackTrace", "optional": true, "hidden": true, "description": "Stack trace." },
-                    { "name": "frameId", "type": "string", "optional": true, "hidden": true, "description": "Unique identifier of the frame within the page that the event relates to." },
-                    { "name": "usedHeapSizeDelta", "type": "integer", "optional": true, "hidden": true, "description": "JS heap size change." }
+                    { "name": "frameId", "type": "string", "optional": true, "hidden": true, "description": "Unique identifier of the frame within the page that the event relates to." }
                 ],
                 "description": "Timeline record contains information about the recorded activity."
             }
@@ -3904,6 +3914,16 @@
                 "description": "Returns the layer snapshot identifier.",
                 "returns": [
                     { "name": "snapshotId", "$ref": "SnapshotId", "description": "The id of the layer snapshot." }
+                ]
+            },
+            {
+                "name": "loadSnapshot",
+                "parameters": [
+                    { "name": "data", "type": "string", "description": "Base64-encoded snapshot data." }
+                ],
+                "description": "Returns the snapshot identifier.",
+                "returns": [
+                    { "name": "snapshotId", "$ref": "SnapshotId", "description": "The id of the snapshot." }
                 ]
             },
             {

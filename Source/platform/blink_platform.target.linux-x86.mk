@@ -43,7 +43,6 @@ GYP_COPIED_SOURCE_ORIGIN_DIRS := \
 	$(gyp_shared_intermediate_dir)/blink
 
 LOCAL_SRC_FILES := \
-	third_party/WebKit/Source/platform/CalculationValue.cpp \
 	third_party/WebKit/Source/platform/Clock.cpp \
 	third_party/WebKit/Source/platform/ColorChooser.cpp \
 	third_party/WebKit/Source/platform/ColorChooserClient.cpp \
@@ -62,7 +61,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/FileChooser.cpp \
 	third_party/WebKit/Source/platform/FileMetadata.cpp \
 	third_party/WebKit/Source/platform/JSONValues.cpp \
-	third_party/WebKit/Source/platform/KeyCodeConversionAndroid.cpp \
 	third_party/WebKit/Source/platform/KillRingNone.cpp \
 	third_party/WebKit/Source/platform/Language.cpp \
 	third_party/WebKit/Source/platform/LayoutTestSupport.cpp \
@@ -92,6 +90,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/Theme.cpp \
 	third_party/WebKit/Source/platform/ThreadTimers.cpp \
 	third_party/WebKit/Source/platform/Timer.cpp \
+	third_party/WebKit/Source/platform/TracedValue.cpp \
 	third_party/WebKit/Source/platform/UserGestureIndicator.cpp \
 	third_party/WebKit/Source/platform/URLPatternMatcher.cpp \
 	third_party/WebKit/Source/platform/UUID.cpp \
@@ -155,6 +154,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/exported/WebBlobData.cpp \
 	third_party/WebKit/Source/platform/exported/WebContentDecryptionModule.cpp \
 	third_party/WebKit/Source/platform/exported/WebContentDecryptionModuleSession.cpp \
+	third_party/WebKit/Source/platform/exported/WebConvertableToTraceFormat.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoAlgorithm.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoKeyAlgorithm.cpp \
 	third_party/WebKit/Source/platform/exported/WebCryptoKey.cpp \
@@ -234,7 +234,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/platform/fonts/skia/FontCacheSkia.cpp \
 	third_party/WebKit/Source/platform/fonts/skia/FontCustomPlatformDataSkia.cpp \
 	third_party/WebKit/Source/platform/fonts/skia/FontPlatformDataSkia.cpp \
-	third_party/WebKit/Source/platform/fonts/skia/GlyphPageTreeNodeSkia.cpp \
 	third_party/WebKit/Source/platform/fonts/skia/SimpleFontDataSkia.cpp \
 	third_party/WebKit/Source/platform/geometry/FloatPolygon.cpp \
 	third_party/WebKit/Source/platform/geometry/FloatPoint.cpp \
@@ -496,12 +495,15 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
@@ -644,12 +646,15 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
@@ -738,7 +743,6 @@ LOCAL_LDFLAGS_Debug := \
 	-nostdlib \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
-	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
 	-Wl,--as-needed

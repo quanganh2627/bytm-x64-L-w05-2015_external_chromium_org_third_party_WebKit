@@ -127,6 +127,12 @@ RenderLayer::RenderLayer(RenderLayerModelObject* renderer, LayerType type)
     , m_hasFilterInfo(false)
     , m_needsToUpdateAncestorDependentProperties(true)
     , m_childNeedsToUpdateAncestorDependantProperties(true)
+    , m_hasCompositingDescendant(false)
+    , m_hasNonCompositedChild(false)
+    , m_shouldIsolateCompositedDescendants(false)
+    , m_lostGroupedMapping(false)
+    , m_suppressingCompositedLayerCreation(false)
+    , m_viewportConstrainedNotCompositedReason(NoNotCompositedReason)
     , m_renderer(renderer)
     , m_parent(0)
     , m_previous(0)
@@ -136,6 +142,8 @@ RenderLayer::RenderLayer(RenderLayerModelObject* renderer, LayerType type)
     , m_staticInlinePosition(0)
     , m_staticBlockPosition(0)
     , m_enclosingPaginationLayer(0)
+    , m_styleDeterminedCompositingReasons(CompositingReasonNone)
+    , m_compositingReasons(CompositingReasonNone)
     , m_groupedMapping(0)
     , m_repainter(renderer)
     , m_clipper(renderer)
@@ -248,28 +256,6 @@ void RenderLayer::setSubpixelAccumulation(const LayoutSize& size)
     m_subpixelAccumulation = size;
 }
 
-LayoutPoint RenderLayer::computeOffsetFromRoot(bool& hasLayerOffset) const
-{
-    hasLayerOffset = true;
-
-    if (!parent())
-        return LayoutPoint();
-
-    // This is similar to root() but we check if an ancestor layer would
-    // prevent the optimization from working.
-    const RenderLayer* rootLayer = 0;
-    for (const RenderLayer* parentLayer = parent(); parentLayer; rootLayer = parentLayer, parentLayer = parentLayer->parent()) {
-        hasLayerOffset = parentLayer->canUseConvertToLayerCoords();
-        if (!hasLayerOffset)
-            return LayoutPoint();
-    }
-    ASSERT(rootLayer == root());
-
-    LayoutPoint offset;
-    parent()->convertToLayerCoords(rootLayer, offset);
-    return offset;
-}
-
 void RenderLayer::updateLayerPositionsAfterLayout(const RenderLayer* rootLayer, UpdateLayerPositionsFlags flags)
 {
     TRACE_EVENT0("blink_rendering", "RenderLayer::updateLayerPositionsAfterLayout");
@@ -316,7 +302,7 @@ void RenderLayer::updateLayerPositions(RenderGeometryMap* geometryMap, UpdateLay
         m_enclosingPaginationLayer = 0;
     }
 
-    repainter().repaintAfterLayout(geometryMap, flags & CheckForRepaint);
+    repainter().repaintAfterLayout(flags & CheckForRepaint);
 
     // Go ahead and update the reflection's position and size.
     if (m_reflectionInfo)
@@ -503,7 +489,7 @@ void RenderLayer::updateLayerPositionsAfterScroll(RenderGeometryMap* geometryMap
 
     if ((flags & IsOverflowScroll) && (flags & HasSeenAncestorWithOverflowClip) && !m_canSkipRepaintRectsUpdateOnScroll) {
         // FIXME: We could track the repaint container as we walk down the tree.
-        repainter().computeRepaintRects(renderer()->containerForRepaint(), geometryMap);
+        repainter().computeRepaintRects(renderer()->containerForRepaint());
     } else {
         // Check that RenderLayerRepainter's cached rects are correct.
         // FIXME: re-enable these assertions when the issue with table cells is resolved: https://bugs.webkit.org/show_bug.cgi?id=103432
@@ -805,10 +791,10 @@ void RenderLayer::updateScrollingStateAfterCompositingChange()
         }
     }
 
-    m_compositingProperties.hasNonCompositedChild = false;
+    m_hasNonCompositedChild = false;
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling()) {
         if (child->compositingState() == NotComposited) {
-            m_compositingProperties.hasNonCompositedChild = true;
+            m_hasNonCompositedChild = true;
             return;
         }
     }
@@ -1203,9 +1189,9 @@ void RenderLayer::clearChildNeedsToUpdateAncestorDependantProperties()
 void RenderLayer::setCompositingReasons(CompositingReasons reasons, CompositingReasons mask)
 {
     ASSERT(reasons == (reasons & mask));
-    if ((m_compositingProperties.compositingReasons & mask) == (reasons & mask))
+    if ((compositingReasons() & mask) == (reasons & mask))
         return;
-    m_compositingProperties.compositingReasons = (reasons & mask) | (m_compositingProperties.compositingReasons & ~mask);
+    m_compositingReasons = (reasons & mask) | (compositingReasons() & ~mask);
     m_clipper.setCompositingClipRectsDirty();
 }
 
@@ -1553,20 +1539,6 @@ void RenderLayer::insertOnlyThisLayer()
 
     // Clear out all the clip rects.
     m_clipper.clearClipRectsIncludingDescendants();
-}
-
-void RenderLayer::convertToPixelSnappedLayerCoords(const RenderLayer* ancestorLayer, IntPoint& roundedLocation) const
-{
-    LayoutPoint location = roundedLocation;
-    convertToLayerCoords(ancestorLayer, location);
-    roundedLocation = roundedIntPoint(location);
-}
-
-void RenderLayer::convertToPixelSnappedLayerCoords(const RenderLayer* ancestorLayer, IntRect& roundedRect) const
-{
-    LayoutRect rect = roundedRect;
-    convertToLayerCoords(ancestorLayer, rect);
-    roundedRect = pixelSnappedIntRect(rect);
 }
 
 // Returns the layer reached on the walk up towards the ancestor.
@@ -2734,15 +2706,6 @@ bool RenderLayer::isInTopLayer() const
     return node && node->isElementNode() && toElement(node)->isInTopLayer();
 }
 
-bool RenderLayer::isInTopLayerSubtree() const
-{
-    for (const RenderLayer* layer = this; layer; layer = layer->parent()) {
-        if (layer->isInTopLayer())
-            return true;
-    }
-    return false;
-}
-
 // Compute the z-offset of the point in the transformState.
 // This is effectively projecting a ray normal to the plane of ancestor, finding where that
 // ray intersects target, and computing the z delta between those two points.
@@ -3492,11 +3455,6 @@ bool RenderLayer::isAllowedToQueryCompositingState() const
     return renderer()->document().lifecycle().state() >= DocumentLifecycle::InCompositingUpdate;
 }
 
-bool RenderLayer::isInCompositingUpdate() const
-{
-    return renderer()->document().lifecycle().state() == DocumentLifecycle::InCompositingUpdate;
-}
-
 CompositedLayerMappingPtr RenderLayer::compositedLayerMapping() const
 {
     ASSERT(isAllowedToQueryCompositingState());
@@ -3785,7 +3743,7 @@ inline bool RenderLayer::needsCompositingLayersRebuiltForOverflow(const RenderSt
     return stackingNode && stackingNode->layer()->hasCompositingDescendant();
 }
 
-inline bool RenderLayer::needsCompositingLayersRebuiltForFilters(const RenderStyle* oldStyle, const RenderStyle* newStyle, bool didPaintWithFilters) const
+inline bool RenderLayer::needsCompositingLayersRebuiltForFilters(const RenderStyle* oldStyle, const RenderStyle* newStyle) const
 {
     if (!hasOrHadFilters(oldStyle, newStyle))
         return false;
@@ -3839,7 +3797,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
         m_scrollableArea->updateAfterStyleChange(oldStyle);
 
     if (!oldStyle || oldStyle->visibility() != renderer()->style()->visibility()) {
-        ASSERT(!oldStyle || diff >= StyleDifferenceRepaint);
+        ASSERT(!oldStyle || diff.needsRepaint() || diff.needsLayout());
         compositor()->setNeedsUpdateCompositingRequirementsState();
     }
 
@@ -3848,12 +3806,12 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
     updateSelfPaintingLayer();
 
     if (!oldStyle || renderer()->style()->position() != oldStyle->position()) {
-        ASSERT(!oldStyle || diff >= StyleDifferenceLayout);
+        ASSERT(!oldStyle || diff.needsFullLayout());
         updateOutOfFlowPositioned(oldStyle);
     }
 
     if (!oldStyle || !renderer()->style()->reflectionDataEquivalent(oldStyle)) {
-        ASSERT(!oldStyle || diff >= StyleDifferenceLayout);
+        ASSERT(!oldStyle || diff.needsFullLayout());
         updateReflectionInfo(oldStyle);
     }
 
@@ -3865,13 +3823,9 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
     if (!oldStyle || !renderer()->style()->transformDataEquivalent(*oldStyle))
         updateTransform();
 
-    bool didPaintWithFilters = false;
-
     {
         // https://code.google.com/p/chromium/issues/detail?id=343759
         DisableCompositingQueryAsserts disabler;
-        if (paintsWithFilters())
-            didPaintWithFilters = true;
         updateFilters(oldStyle, renderer()->style());
     }
 
@@ -3887,9 +3841,11 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
 
     compositor()->updateLayerCompositingState(this, RenderLayerCompositor::UseChickenEggHacks);
     // FIXME: this compositing logic should be pushed into the compositing code, not here.
+    // Moving the filter code will require caching the presence of a filter on oldStyle and
+    // the outsets for that filter, so that we can detect a change in outsets.
     if (needsCompositingLayersRebuiltForClip(oldStyle, newStyle)
         || needsCompositingLayersRebuiltForOverflow(oldStyle, newStyle)
-        || needsCompositingLayersRebuiltForFilters(oldStyle, newStyle, didPaintWithFilters)
+        || needsCompositingLayersRebuiltForFilters(oldStyle, newStyle)
         || needsCompositingLayersRebuiltForBlending(oldStyle, newStyle)) {
         compositor()->setCompositingLayersNeedRebuild();
     }

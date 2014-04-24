@@ -64,7 +64,6 @@ public:
     virtual void setAcceleratedCompositingForFixedRootBackgroundEnabled(bool) OVERRIDE;
     virtual void setAcceleratedCompositingForGpuRasterizationHintEnabled(bool) OVERRIDE;
     virtual void setAcceleratedCompositingForPluginsEnabled(bool) OVERRIDE;
-    virtual void setAcceleratedCompositingForScrollableFramesEnabled(bool) OVERRIDE;
     virtual void setAcceleratedCompositingForVideoEnabled(bool) OVERRIDE;
     virtual void setAllowDisplayOfInsecureContent(bool) OVERRIDE;
     virtual void setAllowFileAccessFromFileURLs(bool) OVERRIDE;
@@ -96,7 +95,6 @@ public:
     virtual void setDeviceSupportsTouch(bool) OVERRIDE;
     virtual void setDoubleTapToZoomEnabled(bool) OVERRIDE;
     virtual void setDownloadableBinaryFontsEnabled(bool) OVERRIDE;
-    virtual void setEditableLinkBehaviorNeverLive() OVERRIDE;
     virtual void setEditingBehavior(EditingBehavior) OVERRIDE;
     virtual void setEnableScrollAnimator(bool) OVERRIDE;
     virtual void setEnableTouchAdjustment(bool) OVERRIDE;
@@ -179,9 +177,6 @@ public:
     virtual void setWebSecurityEnabled(bool) OVERRIDE;
     virtual void setWideViewportQuirkEnabled(bool) OVERRIDE;
     virtual void setXSSAuditorEnabled(bool) OVERRIDE;
-
-    // FIXME: Make chromium stop calling this and delete the method.
-    virtual void setVisualWordMovementEnabled(bool) OVERRIDE { }
 
     bool showFPSCounter() const { return m_showFPSCounter; }
     bool showPaintRects() const { return m_showPaintRects; }

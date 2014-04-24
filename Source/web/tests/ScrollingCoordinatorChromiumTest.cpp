@@ -29,7 +29,7 @@
 #include <gtest/gtest.h>
 #include "FrameTestHelpers.h"
 #include "URLTestHelpers.h"
-#include "WebFrameImpl.h"
+#include "WebLocalFrameImpl.h"
 #include "WebSettings.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
@@ -120,7 +120,6 @@ private:
         settings->setAcceleratedCompositingEnabled(true);
         settings->setAcceleratedCompositingForFixedPositionEnabled(true);
         settings->setAcceleratedCompositingForOverflowScrollEnabled(true);
-        settings->setAcceleratedCompositingForScrollableFramesEnabled(true);
         settings->setCompositedScrollingForFramesEnabled(true);
     }
 
@@ -247,19 +246,6 @@ TEST_F(ScrollingCoordinatorChromiumTest, fastScrollingForFixedPosition)
         ASSERT_TRUE(constraint.isFixedPosition);
         ASSERT_TRUE(constraint.isFixedToRightEdge && constraint.isFixedToBottomEdge);
     }
-}
-
-TEST_F(ScrollingCoordinatorChromiumTest, nonFastScrollableRegion)
-{
-    registerMockedHttpURLLoad("non-fast-scrollable.html");
-    navigateTo(m_baseURL + "non-fast-scrollable.html");
-    forceFullCompositingUpdate();
-
-    WebLayer* rootScrollLayer = getRootScrollLayer();
-    WebVector<WebRect> nonFastScrollableRegion = rootScrollLayer->nonFastScrollableRegion();
-
-    ASSERT_EQ(1u, nonFastScrollableRegion.size());
-    ASSERT_EQ(WebRect(8, 8, 10, 10), nonFastScrollableRegion[0]);
 }
 
 TEST_F(ScrollingCoordinatorChromiumTest, wheelEventHandler)
@@ -403,7 +389,7 @@ TEST_F(ScrollingCoordinatorChromiumTest, iframeScrolling)
     ASSERT_TRUE(innerRenderView);
 
     RenderLayerCompositor* innerCompositor = innerRenderView->compositor();
-    ASSERT_TRUE(innerCompositor->inCompositingMode());
+    ASSERT_TRUE(innerCompositor->staleInCompositingMode());
     ASSERT_TRUE(innerCompositor->scrollLayer());
 
     GraphicsLayer* scrollLayer = innerCompositor->scrollLayer();
@@ -447,7 +433,7 @@ TEST_F(ScrollingCoordinatorChromiumTest, rtlIframe)
     ASSERT_TRUE(innerRenderView);
 
     RenderLayerCompositor* innerCompositor = innerRenderView->compositor();
-    ASSERT_TRUE(innerCompositor->inCompositingMode());
+    ASSERT_TRUE(innerCompositor->staleInCompositingMode());
     ASSERT_TRUE(innerCompositor->scrollLayer());
 
     GraphicsLayer* scrollLayer = innerCompositor->scrollLayer();

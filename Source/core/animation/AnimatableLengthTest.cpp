@@ -180,36 +180,16 @@ TEST_F(AnimationAnimatableLengthTest, ToLength)
     EXPECT_EQ(Length(0, Percent), create(-5, CSSPrimitiveValue::CSS_PERCENTAGE)->toLength(conversionDataZoom3, NonNegativeValues));
 
     EXPECT_EQ(
-        Length(CalculationValue::create(
-            adoptPtr(new CalcExpressionBinaryOperation(
-                adoptPtr(new CalcExpressionLength(Length(-5, WebCore::Fixed))),
-                adoptPtr(new CalcExpressionLength(Length(-5, Percent))),
-                CalcAdd)),
-            ValueRangeAll)),
+        Length(CalculationValue::create(PixelsAndPercent(-5, -5), ValueRangeAll)),
         create(-5, CSSPrimitiveValue::CSS_PX, -5, CSSPrimitiveValue::CSS_PERCENTAGE)->toLength(conversionDataZoom1));
     EXPECT_EQ(
-        Length(CalculationValue::create(
-            adoptPtr(new CalcExpressionBinaryOperation(
-                adoptPtr(new CalcExpressionLength(Length(-15, WebCore::Fixed))),
-                adoptPtr(new CalcExpressionLength(Length(-5, Percent))),
-                CalcAdd)),
-            ValueRangeAll)),
+        Length(CalculationValue::create(PixelsAndPercent(-15, -5), ValueRangeAll)),
         create(-5, CSSPrimitiveValue::CSS_PX, -5, CSSPrimitiveValue::CSS_PERCENTAGE)->toLength(conversionDataZoom3));
     EXPECT_EQ(
-        Length(CalculationValue::create(
-            adoptPtr(new CalcExpressionBinaryOperation(
-                adoptPtr(new CalcExpressionLength(Length(-5, WebCore::Fixed))),
-                adoptPtr(new CalcExpressionLength(Length(-5, Percent))),
-                CalcAdd)),
-            ValueRangeNonNegative)),
+        Length(CalculationValue::create(PixelsAndPercent(-5, -5), ValueRangeNonNegative)),
         create(-5, CSSPrimitiveValue::CSS_PX, -5, CSSPrimitiveValue::CSS_PERCENTAGE)->toLength(conversionDataZoom1, NonNegativeValues));
     EXPECT_EQ(
-        Length(CalculationValue::create(
-            adoptPtr(new CalcExpressionBinaryOperation(
-                adoptPtr(new CalcExpressionLength(Length(-15, WebCore::Fixed))),
-                adoptPtr(new CalcExpressionLength(Length(-5, Percent))),
-                CalcAdd)),
-            ValueRangeNonNegative)),
+        Length(CalculationValue::create(PixelsAndPercent(-15, -5), ValueRangeNonNegative)),
         create(-5, CSSPrimitiveValue::CSS_PX, -5, CSSPrimitiveValue::CSS_PERCENTAGE)->toLength(conversionDataZoom3, NonNegativeValues));
 }
 
@@ -279,35 +259,6 @@ TEST_F(AnimationAnimatableLengthTest, Interpolate)
         AnimatableValue::interpolate(from0percent.get(), to20rem.get(), 1.0));
     EXPECT_REFV_EQ(create(0, CSSPrimitiveValue::CSS_PERCENTAGE, 30, CSSPrimitiveValue::CSS_REMS),
         AnimatableValue::interpolate(from0percent.get(), to20rem.get(), 1.5));
-}
-
-TEST_F(AnimationAnimatableLengthTest, Add)
-{
-    EXPECT_REFV_EQ(create(10, CSSPrimitiveValue::CSS_PX),
-        AnimatableValue::add(create(10, CSSPrimitiveValue::CSS_PX).get(), create(0, CSSPrimitiveValue::CSS_MM).get()));
-    EXPECT_REFV_EQ(create(100, CSSPrimitiveValue::CSS_PX),
-        AnimatableValue::add(create(4, CSSPrimitiveValue::CSS_PX).get(), create(1, CSSPrimitiveValue::CSS_IN).get()));
-    EXPECT_REFV_EQ(
-        create(10, CSSPrimitiveValue::CSS_EMS, 20, CSSPrimitiveValue::CSS_REMS),
-        AnimatableValue::add(create(10, CSSPrimitiveValue::CSS_EMS).get(), create(20, CSSPrimitiveValue::CSS_REMS).get()));
-    EXPECT_REFV_EQ(
-        create(10, CSSPrimitiveValue::CSS_EMS),
-        AnimatableValue::add(create(10, CSSPrimitiveValue::CSS_EMS).get(), create(0, CSSPrimitiveValue::CSS_REMS).get()));
-    EXPECT_REFV_EQ(
-        create(20, CSSPrimitiveValue::CSS_REMS),
-        AnimatableValue::add(create(0, CSSPrimitiveValue::CSS_EMS).get(), create(20, CSSPrimitiveValue::CSS_REMS).get()));
-
-    // Check you actually get the reference back for zero optimization
-    RefPtrWillBeRawPtr<AnimatableLength> rems20 = create(20, CSSPrimitiveValue::CSS_REMS);
-    EXPECT_EQ(rems20.get(), AnimatableValue::add(create(0, CSSPrimitiveValue::CSS_EMS).get(), rems20.get()).get());
-    EXPECT_EQ(rems20.get(), AnimatableValue::add(rems20.get(), create(0, CSSPrimitiveValue::CSS_EMS).get()).get());
-
-    // Except 0% which is special
-    RefPtrWillBeRawPtr<AnimatableLength> zeropercent = create(0, CSSPrimitiveValue::CSS_PERCENTAGE);
-    EXPECT_REFV_EQ(create(0, CSSPrimitiveValue::CSS_PERCENTAGE, -10, CSSPrimitiveValue::CSS_REMS),
-        AnimatableValue::add(zeropercent.get(), create(-10, CSSPrimitiveValue::CSS_REMS).get()));
-    EXPECT_REFV_EQ(create(-10, CSSPrimitiveValue::CSS_REMS, 0, CSSPrimitiveValue::CSS_PERCENTAGE),
-        AnimatableValue::add(create(-10, CSSPrimitiveValue::CSS_REMS).get(), zeropercent.get()));
 }
 
 TEST_F(AnimationAnimatableLengthTest, IsUnitless)

@@ -40,7 +40,6 @@
 #include "V8MessagePort.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptScope.h"
-#include "bindings/v8/ScriptState.h"
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/WorkerScriptController.h"
 #include "bindings/v8/custom/V8ArrayBufferCustom.h"
@@ -1638,7 +1637,7 @@ public:
             return false;
         switch (tag) {
         case ReferenceCountTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t referenceTableSize;
             if (!doReadUint32(&referenceTableSize))
@@ -1779,7 +1778,7 @@ public:
             break;
         }
         case ArrayBufferViewTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             if (!readArrayBufferView(value, creator))
                 return false;
@@ -1787,7 +1786,7 @@ public:
             break;
         }
         case ArrayBufferTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             if (!readArrayBuffer(value))
                 return false;
@@ -1795,14 +1794,14 @@ public:
             break;
         }
         case GenerateFreshObjectTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             if (!creator.newObject())
                 return false;
             return true;
         }
         case GenerateFreshSparseArrayTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t length;
             if (!doReadUint32(&length))
@@ -1812,7 +1811,7 @@ public:
             return true;
         }
         case GenerateFreshDenseArrayTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t length;
             if (!doReadUint32(&length))
@@ -1822,7 +1821,7 @@ public:
             return true;
         }
         case MessagePortTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t index;
             if (!doReadUint32(&index))
@@ -1832,7 +1831,7 @@ public:
             break;
         }
         case ArrayBufferTransferTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t index;
             if (!doReadUint32(&index))
@@ -1842,7 +1841,7 @@ public:
             break;
         }
         case ObjectReferenceTag: {
-            if (m_version <= 0)
+            if (!m_version)
                 return false;
             uint32_t reference;
             if (!doReadUint32(&reference))
@@ -2279,8 +2278,7 @@ private:
             return false;
         }
 
-        RefPtrWillBeRawPtr<Key> k = Key::create(key);
-        *value = toV8(k.release(), v8::Handle<v8::Object>(), m_isolate);
+        *value = toV8(Key::create(key), v8::Handle<v8::Object>(), m_isolate);
         return true;
     }
 
@@ -2800,10 +2798,10 @@ PassRefPtr<SerializedScriptValue> SerializedScriptValue::createAndSwallowExcepti
     return adoptRef(new SerializedScriptValue(value, 0, 0, 0, exceptionState, isolate));
 }
 
-PassRefPtr<SerializedScriptValue> SerializedScriptValue::create(const ScriptValue& value, WebBlobInfoArray* blobInfo, ExceptionState& exceptionState, ScriptState* state)
+PassRefPtr<SerializedScriptValue> SerializedScriptValue::create(const ScriptValue& value, WebBlobInfoArray* blobInfo, ExceptionState& exceptionState, v8::Isolate* isolate)
 {
-    ScriptScope scope(state);
-    return adoptRef(new SerializedScriptValue(value.v8Value(), 0, 0, blobInfo, exceptionState, state->isolate()));
+    ASSERT(isolate->InContext());
+    return adoptRef(new SerializedScriptValue(value.v8Value(), 0, 0, blobInfo, exceptionState, isolate));
 }
 
 PassRefPtr<SerializedScriptValue> SerializedScriptValue::createFromWire(const String& data)

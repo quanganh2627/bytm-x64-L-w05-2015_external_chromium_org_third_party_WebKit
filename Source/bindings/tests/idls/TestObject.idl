@@ -335,8 +335,7 @@ interface TestObject {
     // Exceptional types
     Dictionary dictionaryMethod();
     NodeFilter nodeFilterMethod();
-    Promise promiseMethod(long arg1, Dictionary arg2, DOMString arg3, DOMString... variadic);
-    Promise promiseMethodWithoutExceptionState(Dictionary arg1);
+    Promise promiseMethod();
     SerializedScriptValue serializedScriptValueMethod();
     XPathNSResolver xPathNSResolverMethod();
     void voidMethodDictionaryArg(Dictionary dictionaryArg);
@@ -392,6 +391,8 @@ interface TestObject {
     // overload resolution can't handle this. http://crbug.com/293561
     void overloadedMethodI(Dictionary dictionaryArg); // Non-wrapper type
     void overloadedMethodI(double doubleArg);
+    void overloadedMethodJ(long longArg);
+    void overloadedMethodJ([Default=Null] TestInterfaceEmpty? testInterfaceEmptyNullableArg);
 
 
     [PerWorldBindings] void overloadedPerWorldBindingsMethod();

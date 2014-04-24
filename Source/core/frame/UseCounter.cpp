@@ -418,7 +418,7 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyStopOpacity: return 364;
     case CSSPropertyColorInterpolation: return 365;
     case CSSPropertyColorInterpolationFilters: return 366;
-    case CSSPropertyColorProfile: return 367;
+    // case CSSPropertyColorProfile: return 367;
     case CSSPropertyColorRendering: return 368;
     case CSSPropertyFill: return 369;
     case CSSPropertyFillOpacity: return 370;
@@ -660,7 +660,7 @@ String UseCounter::deprecationMessage(Feature feature)
         return "FileError is deprecated. Please use the 'name' or 'message' attributes of DOMError rather than 'code'.";
 
     case ShowModalDialog:
-        return "Chromium is considering deprecating showModalDialog. Please use window.open and postMessage instead.";
+        return "showModalDialog is deprecated. Please use window.open and postMessage instead.";
 
     case CSSStyleSheetInsertRuleOptionalArg:
         return "Calling CSSStyleSheet.insertRule() with one argument is deprecated. Please pass the index argument as well: insertRule(x, 0).";
@@ -686,14 +686,8 @@ String UseCounter::deprecationMessage(Feature feature)
     case PrefixedMediaSourceOpen:
         return "'WebKitMediaSource' is deprecated. Please use 'MediaSource' instead.";
 
-    case DOMImplementationCreateCSSStyleSheet:
-        return "'DOMImplementation.createCSSStyleSheet()' is deprecated.";
-
     case MediaErrorEncrypted:
         return "'MediaError.MEDIA_ERR_ENCRYPTED' is deprecated. This error code is never used.";
-
-    case HTMLSourceElementMedia:
-        return "'HTMLSourceElement.media' is deprecated. This attribute doesn't do anything.";
 
     case PrefixedSpeechAttribute:
         return "The 'x-webkit-speech' input field attribute is deprecated. Please use the JavaScript API instead.";
@@ -712,6 +706,15 @@ String UseCounter::deprecationMessage(Feature feature)
 
     case HTMLHtmlElementManifest:
         return "'HTMLHtmlElement.manifest' is deprecated. The manifest attribute only has an effect during the early stages of document load.";
+
+    case DocumentCreateAttributeNS:
+        return "'Document.createAttributeNS' is deprecated and has been removed from DOM4 (http://w3.org/tr/dom).";
+
+    case AttributeOwnerElement:
+        return "'Attr.ownerElement' is deprecated and has been removed from DOM4 (http://w3.org/tr/dom).";
+
+    case ElementSetAttributeNodeNS:
+        return "'Element.setAttributeNodeNS' is deprecated and has been removed from DOM4 (http://w3.org/tr/dom).";
 
     // Features that aren't deprecated don't have a deprecation message.
     default:

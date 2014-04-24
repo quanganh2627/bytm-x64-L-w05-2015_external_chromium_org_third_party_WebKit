@@ -543,19 +543,6 @@ void InspectorDOMAgent::discardBackendBindings()
     m_nodeGroupToBackendIdMap.clear();
 }
 
-int InspectorDOMAgent::pushNodeToFrontend(ErrorString* errorString, int documentNodeId, Node* nodeToPush)
-{
-    Document* document = assertDocument(errorString, documentNodeId);
-    if (!document)
-        return 0;
-    if (nodeToPush->document() != document) {
-        *errorString = "Node is not part of the document with given id";
-        return 0;
-    }
-
-    return pushNodePathToFrontend(nodeToPush);
-}
-
 Node* InspectorDOMAgent::nodeForId(int id)
 {
     if (!id)
@@ -1113,7 +1100,7 @@ bool InspectorDOMAgent::handleGestureEvent(LocalFrame* frame, const PlatformGest
         return false;
     Node* node = hoveredNodeForEvent(frame, event, false);
     if (node && m_inspectModeHighlightConfig) {
-        m_overlay->highlightNode(node, 0 /* eventTarget */, *m_inspectModeHighlightConfig);
+        m_overlay->highlightNode(node, 0 /* eventTarget */, *m_inspectModeHighlightConfig, false);
         inspect(node);
         return true;
     }
@@ -1126,7 +1113,7 @@ bool InspectorDOMAgent::handleTouchEvent(LocalFrame* frame, const PlatformTouchE
         return false;
     Node* node = hoveredNodeForEvent(frame, event, false);
     if (node && m_inspectModeHighlightConfig) {
-        m_overlay->highlightNode(node, 0 /* eventTarget */, *m_inspectModeHighlightConfig);
+        m_overlay->highlightNode(node, 0 /* eventTarget */, *m_inspectModeHighlightConfig, false);
         inspect(node);
         return true;
     }
@@ -1178,7 +1165,7 @@ void InspectorDOMAgent::handleMouseMove(LocalFrame* frame, const PlatformMouseEv
         eventTarget = 0;
 
     if (node && m_inspectModeHighlightConfig)
-        m_overlay->highlightNode(node, eventTarget, *m_inspectModeHighlightConfig);
+        m_overlay->highlightNode(node, eventTarget, *m_inspectModeHighlightConfig, event.ctrlKey() || event.metaKey());
 }
 
 void InspectorDOMAgent::setSearchingForNode(ErrorString* errorString, SearchMode searchMode, JSONObject* highlightInspectorObject)
@@ -1271,7 +1258,7 @@ void InspectorDOMAgent::highlightNode(ErrorString* errorString, const RefPtr<JSO
     if (!highlightConfig)
         return;
 
-    m_overlay->highlightNode(node, 0 /* eventTarget */, *highlightConfig);
+    m_overlay->highlightNode(node, 0 /* eventTarget */, *highlightConfig, false);
 }
 
 void InspectorDOMAgent::highlightFrame(
@@ -1286,7 +1273,7 @@ void InspectorDOMAgent::highlightFrame(
         highlightConfig->showInfo = true; // Always show tooltips for frames.
         highlightConfig->content = parseColor(color);
         highlightConfig->contentOutline = parseColor(outlineColor);
-        m_overlay->highlightNode(frame->ownerElement(), 0 /* eventTarget */, *highlightConfig);
+        m_overlay->highlightNode(frame->ownerElement(), 0 /* eventTarget */, *highlightConfig, false);
     }
 }
 
@@ -1673,13 +1660,13 @@ PassRefPtr<TypeBuilder::DOM::EventListener> InspectorDOMAgent::buildObjectForEve
         .setLocation(location);
     if (objectGroupId) {
         ScriptValue functionValue = eventListenerHandler(&document, eventListener.get());
-        if (!functionValue.hasNoValue()) {
+        if (!functionValue.isEmpty()) {
             LocalFrame* frame = document.frame();
             if (frame) {
                 ScriptState* scriptState = eventListenerHandlerScriptState(frame, eventListener.get());
                 if (scriptState) {
                     InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(scriptState);
-                    if (!injectedScript.hasNoValue()) {
+                    if (!injectedScript.isEmpty()) {
                         RefPtr<TypeBuilder::Runtime::RemoteObject> valueJson = injectedScript.wrapObject(functionValue, *objectGroupId);
                         value->setHandler(valueJson);
                     }
@@ -2104,7 +2091,7 @@ PassRefPtr<TypeBuilder::Runtime::RemoteObject> InspectorDOMAgent::resolveNode(No
         return nullptr;
 
     InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(mainWorldScriptState(frame));
-    if (injectedScript.hasNoValue())
+    if (injectedScript.isEmpty())
         return nullptr;
 
     return injectedScript.wrapNode(node, objectGroup);

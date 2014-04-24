@@ -223,6 +223,7 @@ public:
     PassRefPtr<Attr> getAttributeNode(const AtomicString& name);
     PassRefPtr<Attr> getAttributeNodeNS(const AtomicString& namespaceURI, const AtomicString& localName);
     PassRefPtr<Attr> setAttributeNode(Attr*, ExceptionState&);
+    PassRefPtr<Attr> setAttributeNodeNS(Attr*, ExceptionState&);
     PassRefPtr<Attr> removeAttributeNode(Attr*, ExceptionState&);
 
     PassRefPtr<Attr> attrIfExists(const QualifiedName&);
@@ -348,9 +349,6 @@ public:
 
     void setIsInCanvasSubtree(bool value) { setElementFlag(IsInCanvasSubtree, value); }
     bool isInCanvasSubtree() const { return hasElementFlag(IsInCanvasSubtree); }
-
-    unsigned childIndex() const { return hasRareData() ? rareDataChildIndex() : 0; }
-    void setChildIndex(unsigned);
 
     bool isUpgradedCustomElement() { return customElementState() == Upgraded; }
     bool isUnresolvedCustomElement() { return customElementState() == WaitingForUpgrade; }
@@ -573,10 +571,7 @@ private:
     StyleRecalcChange recalcOwnStyle(StyleRecalcChange);
     void recalcChildStyle(StyleRecalcChange);
 
-    // FIXME: These methods should all be renamed to something better than "check",
-    // since it's not clear that they alter the style bits of siblings and children.
-    void checkForSiblingStyleChanges(bool finishedParsingCallback, Node* beforeChange, Node* afterChange, int childCountDelta);
-    inline void checkForEmptyStyleChange(RenderStyle*);
+    inline void checkForEmptyStyleChange();
 
     void updatePseudoElement(PseudoId, StyleRecalcChange);
 
@@ -634,8 +629,6 @@ private:
     virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren();
 
     QualifiedName m_tagName;
-
-    unsigned rareDataChildIndex() const;
 
     SpellcheckAttributeState spellcheckAttributeState() const;
 

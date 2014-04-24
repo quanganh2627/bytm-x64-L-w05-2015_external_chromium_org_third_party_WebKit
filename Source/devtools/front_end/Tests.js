@@ -527,11 +527,11 @@ TestSuite.prototype.testConsoleOnNavigateBack = function()
     this.takeControl();
 };
 
-
 TestSuite.prototype.testReattachAfterCrash = function()
 {
-    this.evaluateInConsole_("1+1;", this.releaseControl.bind(this));
-    this.takeControl();
+    PageAgent.navigate("about:crash");
+    PageAgent.navigate("about:blank");
+    WebInspector.runtimeModel.addEventListener(WebInspector.RuntimeModel.Events.ExecutionContextCreated, this.releaseControl, this);
 };
 
 
@@ -813,15 +813,25 @@ TestSuite.prototype.nonAnonymousUISourceCodes_ = function()
  */
 TestSuite.prototype.evaluateInConsole_ = function(code, callback)
 {
-    WebInspector.console.show();
-    var consoleView = WebInspector.ConsolePanel._view();
-    consoleView._prompt.text = code;
-    consoleView._promptElement.dispatchEvent(TestSuite.createKeyEvent("Enter"));
+    function innerEvaluate()
+    {
+        WebInspector.console.show();
+        var consoleView = WebInspector.ConsolePanel._view();
+        consoleView._prompt.text = code;
+        consoleView._promptElement.dispatchEvent(TestSuite.createKeyEvent("Enter"));
 
-    this.addSniffer(WebInspector.ConsoleView.prototype, "_showConsoleMessage",
-        function(viewMessage) {
-            callback(viewMessage.toMessageElement().textContent);
-        }.bind(this));
+        this.addSniffer(WebInspector.ConsoleView.prototype, "_showConsoleMessage",
+            function(viewMessage) {
+                callback(viewMessage.toMessageElement().textContent);
+            }.bind(this));
+    }
+
+    if (!WebInspector.context.flavor(WebInspector.ExecutionContext)) {
+        WebInspector.context.addFlavorChangeListener(WebInspector.ExecutionContext, innerEvaluate, this);
+        return;
+    }
+
+    innerEvaluate.call(this);
 };
 
 /**

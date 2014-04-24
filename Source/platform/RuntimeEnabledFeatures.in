@@ -17,8 +17,11 @@
 
 ApplicationCache status=stable
 AuthorShadowDOMForAnyElement
-BatteryStatus status=test
-PrefixedVideoFullscreen status=test
+BatteryStatus status=experimental
+
+// This feature is deprecated and we are evangalizing affected sites.
+// See https://crbug.com/346236 for current status.
+PrefixedVideoFullscreen status=stable
 
 // Enable bleeding-edge code to make Blink draw content faster.
 // The changes enabled behind this flag are very likely to break lots of content.
@@ -39,7 +42,7 @@ CSSTouchAction status=stable
 CSSTouchActionDelay status=test
 CSSTransformsUnprefixed status=stable
 CSSViewport status=experimental
-CSSWillChange status=experimental
+CSSWillChange status=stable
 CSS3Text status=experimental
 CSS3TextDecorations status=experimental
 CustomSchemeHandler depends_on=NavigatorContentUtils, status=experimental
@@ -59,7 +62,7 @@ FileSystem status=stable
 FontLoadEvents status=stable
 FastTextAutosizing
 Gamepad status=stable
-HTMLImports status=experimental
+HTMLImports status=stable
 HighResolutionTimeInWorkers status=stable
 IMEAPI status=experimental
 ImageDataConstructor status=experimental
@@ -84,7 +87,7 @@ Path2D status=stable
 PathOpsSVGClipping
 PeerConnection depends_on=MediaStream, status=stable
 PreciseMemoryInfo
-PushMessaging status=test
+PushMessaging status=experimental
 Quota status=stable
 QuotaPromise status=experimental
 OverlayScrollbars
@@ -106,6 +109,11 @@ ServiceWorker status=experimental
 SessionStorage status=stable
 SharedWorker status=stable
 PictureSizes status=experimental
+
+// window.showModalDialog is deprecated and slated for removal from M36
+// Once this ships to stable supporting code can be removed.crbug.com/345831
+ShowModalDialog status=stable
+
 SpeechInput status=test
 SpeechSynthesis status=stable
 Stream status=experimental
@@ -128,12 +136,11 @@ TouchIconLoading
 UserSelectAll status=experimental
 ScriptPromiseOnV8Promise
 WebAnimationsSVG
-WebAnimationsElementAnimate status=experimental
+WebAnimationsElementAnimate status=stable
 WebAnimationsAPI status=experimental, depends_on=WebAnimationsElementAnimate
 WebAudio condition=WEB_AUDIO, status=stable
 WebGLDraftExtensions status=experimental
 WebMIDI status=test
-WebKitMediaSource status=stable
 WebVTTRegions depends_on=Media, status=experimental
 WOFF2 status=experimental
 XSLT status=stable

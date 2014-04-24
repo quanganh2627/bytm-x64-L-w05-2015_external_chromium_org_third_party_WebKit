@@ -44,6 +44,8 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
 
     [CustomElementCallbacks, PerWorldBindings, ActivityLogging=ForIsolatedWorlds, RaisesException] Node importNode(Node node, optional boolean deep);
     [CustomElementCallbacks, PerWorldBindings, ActivityLogging=ForIsolatedWorlds, RaisesException] Element createElementNS([TreatNullAs=NullString] DOMString namespaceURI, DOMString qualifiedName);
+    [RaisesException, DeprecateAs=DocumentCreateAttributeNS] Attr createAttributeNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
+                                                                                  [TreatNullAs=NullString,Default=Undefined] optional DOMString qualifiedName); // Removed from DOM4.
     HTMLCollection getElementsByTagNameNS([TreatNullAs=NullString] DOMString namespaceURI, DOMString localName);
     [PerWorldBindings] Element getElementById(DOMString elementId);
 
@@ -106,6 +108,7 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
 
     // Moved down from HTMLDocument
              [TreatNullAs=NullString, CustomElementCallbacks] attribute DOMString dir;
+             [TreatNullAs=NullString, CustomElementCallbacks] attribute DOMString designMode;
              [TreatNullAs=NullString, CustomElementCallbacks] attribute DOMString title;
     readonly attribute DOMString referrer;
              [TreatNullAs=NullString, RaisesException=Setter] attribute DOMString domain;
@@ -118,6 +121,8 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
     readonly attribute HTMLHeadElement head;
     readonly attribute HTMLCollection images;
     readonly attribute HTMLCollection applets;
+    readonly attribute HTMLCollection embeds;
+    [ImplementedAs=embeds] readonly attribute HTMLCollection plugins;
     readonly attribute HTMLCollection links;
     readonly attribute HTMLCollection forms;
     readonly attribute HTMLCollection scripts;

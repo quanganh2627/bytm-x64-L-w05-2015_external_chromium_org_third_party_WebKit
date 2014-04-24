@@ -88,7 +88,7 @@ public:
     // Returns true if layer configuration changed.
     bool updateGraphicsLayerConfiguration(GraphicsLayerUpdater::UpdateType);
     // Update graphics layer position and bounds.
-    void updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType);
+    void updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType, const RenderLayer* compositingContainer);
     // Update whether layer needs blending.
     void updateContentsOpaque();
 
@@ -154,7 +154,6 @@ public:
     IntRect pixelSnappedCompositedBounds() const;
     void updateCompositedBounds(GraphicsLayerUpdater::UpdateType);
 
-    void updateAfterWidgetResize();
     void positionOverflowControlsLayers(const IntSize& offsetFromRoot);
     bool hasUnpositionedOverflowControlsLayers() const;
 
@@ -237,8 +236,6 @@ private:
     LayoutSize contentOffsetInCompostingLayer() const;
     // Result is transform origin in pixels.
     FloatPoint3D computeTransformOrigin(const IntRect& borderBox) const;
-    // Result is perspective origin in pixels.
-    FloatPoint computePerspectiveOrigin(const IntRect& borderBox) const;
 
     void updateSquashingLayerGeometry(const IntPoint& delta);
 
@@ -263,7 +260,7 @@ private:
     Color rendererBackgroundColor() const;
     void updateBackgroundColor();
     void updateContentsRect();
-
+    void updateAfterWidgetResize();
     void updateCompositingReasons();
 
     bool hasVisibleNonCompositingDescendantLayers() const;

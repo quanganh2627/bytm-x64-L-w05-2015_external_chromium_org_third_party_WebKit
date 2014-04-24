@@ -160,6 +160,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/canvas/OESVertexArrayObject.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLBuffer.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLCompressedTextureATC.cpp \
+	third_party/WebKit/Source/core/html/canvas/WebGLCompressedTextureETC1.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLCompressedTexturePVRTC.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLCompressedTextureS3TC.cpp \
 	third_party/WebKit/Source/core/html/canvas/WebGLContextAttributes.cpp \
@@ -366,12 +367,15 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -520,12 +524,15 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
+	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
 	'-DSK_DEFERRED_CANVAS_USES_FACTORIES=1' \
-	'-DSK_IGNORE_FREETYPE_ROTATION_FIX' \
 	'-DCHROME_PNG_WRITE_SUPPORT' \
 	'-DPNG_USER_CONFIG' \
 	'-DCHROME_PNG_READ_PACK_SUPPORT' \
@@ -622,7 +629,6 @@ LOCAL_LDFLAGS_Debug := \
 	-Wl,--no-undefined \
 	-Wl,--exclude-libs=ALL \
 	-Wl,--icf=safe \
-	-Wl,--gc-sections \
 	-Wl,--warn-shared-textrel \
 	-Wl,-O1 \
 	-Wl,--as-needed

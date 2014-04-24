@@ -170,11 +170,6 @@ RenderBlockFlow* RenderBlockFlow::createAnonymous(Document* document)
     return renderer;
 }
 
-RenderBlockFlow* RenderBlockFlow::createAnonymousBlockFlow() const
-{
-    return toRenderBlockFlow(createAnonymousWithParentRendererAndDisplay(this, BLOCK));
-}
-
 RenderObject* RenderBlockFlow::layoutSpecialExcludedChild(bool relayoutChildren, SubtreeLayoutScope& layoutScope)
 {
     RenderMultiColumnFlowThread* flowThread = multiColumnFlowThread();
@@ -199,10 +194,11 @@ bool RenderBlockFlow::updateLogicalWidthAndColumnWidth()
 void RenderBlockFlow::checkForPaginationLogicalHeightChange(LayoutUnit& pageLogicalHeight, bool& pageLogicalHeightChanged, bool& hasSpecifiedPageLogicalHeight)
 {
     if (RenderMultiColumnFlowThread* flowThread = multiColumnFlowThread()) {
-        updateLogicalHeight();
-        pageLogicalHeightChanged = contentLogicalHeight() != flowThread->columnHeightAvailable();
-        flowThread->setColumnHeightAvailable(std::max<LayoutUnit>(contentLogicalHeight(), 0));
-        setLogicalHeight(0);
+        LogicalExtentComputedValues computedValues;
+        computeLogicalHeight(LayoutUnit(), logicalTop(), computedValues);
+        LayoutUnit columnHeight = computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight();
+        pageLogicalHeightChanged = columnHeight != flowThread->columnHeightAvailable();
+        flowThread->setColumnHeightAvailable(std::max<LayoutUnit>(columnHeight, 0));
     } else if (hasColumns()) {
         ColumnInfo* colInfo = columnInfo();
 
@@ -304,7 +300,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren)
     if (!relayoutChildren && simplifiedLayout())
         return;
 
-    SubtreeLayoutScope layoutScope(this);
+    SubtreeLayoutScope layoutScope(*this);
 
     // Multiple passes might be required for column and pagination based layout
     // In the case of the old column code the number of passes will only be two
@@ -379,7 +375,6 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
 
     m_repaintLogicalTop = 0;
     m_repaintLogicalBottom = 0;
-    LayoutUnit maxFloatLogicalBottom = 0;
     if (!firstChild() && !isAnonymousBlock())
         setChildrenInline(true);
 
@@ -388,7 +383,7 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
     if (childrenInline())
         layoutInlineChildren(relayoutChildren, m_repaintLogicalTop, m_repaintLogicalBottom, afterEdge);
     else
-        layoutBlockChildren(relayoutChildren, maxFloatLogicalBottom, layoutScope, beforeEdge, afterEdge);
+        layoutBlockChildren(relayoutChildren, layoutScope, beforeEdge, afterEdge);
 
     // Expand our intrinsic height to encompass floats.
     if (lowestFloatLogicalBottom() > (logicalHeight() - afterEdge) && createsBlockFormattingContext())
@@ -430,15 +425,14 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
 
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
-    if (oldHeight != newHeight) {
-        if (oldHeight > newHeight && maxFloatLogicalBottom > newHeight && !childrenInline()) {
-            // One of our children's floats may have become an overhanging float for us. We need to look for it.
-            for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
-                if (child->isRenderBlockFlow() && !child->isFloatingOrOutOfFlowPositioned()) {
-                    RenderBlockFlow* block = toRenderBlockFlow(child);
-                    if (block->lowestFloatLogicalBottom() + block->logicalTop() > newHeight)
-                        addOverhangingFloats(block, false);
-                }
+    if (oldHeight > newHeight && !childrenInline()) {
+        // One of our children's floats may have become an overhanging float for us.
+        for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
+            if (child->isRenderBlockFlow() && !child->isFloatingOrOutOfFlowPositioned()) {
+                RenderBlockFlow* block = toRenderBlockFlow(child);
+                if (block->lowestFloatLogicalBottom() + block->logicalTop() <= newHeight)
+                    break;
+                addOverhangingFloats(block, false);
             }
         }
     }
@@ -502,7 +496,7 @@ void RenderBlockFlow::setLogicalTopForChild(RenderBox* child, LayoutUnit logical
     }
 }
 
-void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom)
+void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo, LayoutUnit& previousFloatLogicalBottom)
 {
     LayoutUnit oldPosMarginBefore = maxPositiveMarginBefore();
     LayoutUnit oldNegMarginBefore = maxNegativeMarginBefore();
@@ -552,7 +546,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo,
             previousFloatLogicalBottom = max(previousFloatLogicalBottom, oldLogicalTop + childRenderBlockFlow->lowestFloatLogicalBottom());
     }
 
-    SubtreeLayoutScope layoutScope(child);
+    SubtreeLayoutScope layoutScope(*child);
     if (!child->needsLayout())
         child->markForPaginationRelayoutIfNeeded(layoutScope);
 
@@ -584,7 +578,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo,
     // clearFloatsIfNeeded can also mark the child as needing a layout even though we didn't move. This happens
     // when collapseMargins dynamically adds overhanging floats because of a child with negative margins.
     if (logicalTopAfterClear != logicalTopEstimate || child->needsLayout() || (paginated && childRenderBlock && childRenderBlock->shouldBreakAtLineToAvoidWidow())) {
-        SubtreeLayoutScope layoutScope(child);
+        SubtreeLayoutScope layoutScope(*child);
         if (child->shrinkToAvoidFloats()) {
             // The child's width depends on the line width.
             // When the child shifts to clear an item, its width can
@@ -629,8 +623,8 @@ void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo,
     }
     // If the child has overhanging floats that intrude into following siblings (or possibly out
     // of this block), then the parent gets notified of the floats now.
-    if (childRenderBlockFlow && childRenderBlockFlow->containsFloats())
-        maxFloatLogicalBottom = max(maxFloatLogicalBottom, addOverhangingFloats(childRenderBlockFlow, !childNeededLayout));
+    if (childRenderBlockFlow)
+        addOverhangingFloats(childRenderBlockFlow, !childNeededLayout);
 
     if (childOffset.width() || childOffset.height()) {
         if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
@@ -681,7 +675,7 @@ LayoutUnit RenderBlockFlow::adjustBlockChildForPagination(LayoutUnit logicalTopA
             child->setChildNeedsLayout(MarkOnlyThis);
         }
 
-        SubtreeLayoutScope layoutScope(child);
+        SubtreeLayoutScope layoutScope(*child);
 
         if (childRenderBlock) {
             if (!child->avoidsFloats() && childRenderBlock->containsFloats())
@@ -803,21 +797,17 @@ void RenderBlockFlow::rebuildFloatsFromIntruding()
     // First add in floats from the parent. Self-collapsing blocks let their parent track any floats that intrude into
     // them (as opposed to floats they contain themselves) so check for those here too.
     LayoutUnit logicalTopOffset = logicalTop();
-    if (parentHasFloats || (prev && toRenderBlockFlow(prev)->isSelfCollapsingBlock() && parentBlockFlow->lowestFloatLogicalBottom() > logicalTopOffset))
+    bool parentHasIntrudingFloats = !parentHasFloats && (!prev || toRenderBlockFlow(prev)->isSelfCollapsingBlock()) && parentBlockFlow->lowestFloatLogicalBottom() > logicalTopOffset;
+    if (parentHasFloats || parentHasIntrudingFloats)
         addIntrudingFloats(parentBlockFlow, parentBlockFlow->logicalLeftOffsetForContent(), logicalTopOffset);
 
-    LayoutUnit logicalLeftOffset = 0;
-    if (prev) {
-        logicalTopOffset -= toRenderBox(prev)->logicalTop();
-    } else {
-        prev = parentBlockFlow;
-        logicalLeftOffset += parentBlockFlow->logicalLeftOffsetForContent();
-    }
-
     // Add overhanging floats from the previous RenderBlockFlow, but only if it has a float that intrudes into our space.
-    RenderBlockFlow* blockFlow = toRenderBlockFlow(prev);
-    if (blockFlow->m_floatingObjects && blockFlow->lowestFloatLogicalBottom() > logicalTopOffset)
-        addIntrudingFloats(blockFlow, logicalLeftOffset, logicalTopOffset);
+    if (prev) {
+        RenderBlockFlow* blockFlow = toRenderBlockFlow(prev);
+        logicalTopOffset -= blockFlow->logicalTop();
+        if (blockFlow->lowestFloatLogicalBottom() > logicalTopOffset)
+            addIntrudingFloats(blockFlow, 0, logicalTopOffset);
+    }
 
     if (childrenInline()) {
         LayoutUnit changeLogicalTop = LayoutUnit::max();
@@ -887,7 +877,7 @@ void RenderBlockFlow::rebuildFloatsFromIntruding()
     }
 }
 
-void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& maxFloatLogicalBottom, SubtreeLayoutScope& layoutScope, LayoutUnit beforeEdge, LayoutUnit afterEdge)
+void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, SubtreeLayoutScope& layoutScope, LayoutUnit beforeEdge, LayoutUnit afterEdge)
 {
     dirtyForLayoutFromPercentageHeightDescendants(layoutScope);
 
@@ -900,7 +890,6 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
     RenderObject* childToExclude = layoutSpecialExcludedChild(relayoutChildren, layoutScope);
 
     LayoutUnit previousFloatLogicalBottom = 0;
-    maxFloatLogicalBottom = 0;
 
     RenderBox* next = firstChildBox();
     RenderBox* lastNormalFlowChild = 0;
@@ -929,7 +918,7 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
         }
 
         // Lay out the child.
-        layoutBlockChild(child, marginInfo, previousFloatLogicalBottom, maxFloatLogicalBottom);
+        layoutBlockChild(child, marginInfo, previousFloatLogicalBottom);
         lastNormalFlowChild = child;
     }
 
@@ -1178,7 +1167,7 @@ LayoutUnit RenderBlockFlow::collapseMargins(RenderBox* child, MarginInfo& margin
         // any floats from the parent will now overhang.
         LayoutUnit oldLogicalHeight = logicalHeight();
         setLogicalHeight(logicalTop);
-        if (previousBlockFlow->containsFloats() && !previousBlockFlow->avoidsFloats() && (previousBlockFlow->logicalTop() + previousBlockFlow->lowestFloatLogicalBottom()) > logicalTop)
+        if (!previousBlockFlow->avoidsFloats() && (previousBlockFlow->logicalTop() + previousBlockFlow->lowestFloatLogicalBottom()) > logicalTop)
             addOverhangingFloats(previousBlockFlow, false);
         setLogicalHeight(oldLogicalHeight);
 
@@ -1825,7 +1814,7 @@ void RenderBlockFlow::styleWillChange(StyleDifference diff, const RenderStyle& n
 {
     RenderStyle* oldStyle = style();
     s_canPropagateFloatIntoSibling = oldStyle ? !isFloatingOrOutOfFlowPositioned() && !avoidsFloats() : false;
-    if (oldStyle && parent() && diff == StyleDifferenceLayout && oldStyle->position() != newStyle.position()
+    if (oldStyle && parent() && diff.needsFullLayout() && oldStyle->position() != newStyle.position()
         && containsFloats() && !isFloating() && !isOutOfFlowPositioned() && newStyle.hasOutOfFlowPosition())
             markAllDescendantsWithFloatsForLayout();
 
@@ -1841,7 +1830,7 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
     // then mark its descendants with floats for layout and clear all floats from its next
     // sibling blocks that exist in our floating objects list. See bug 56299 and 62875.
     bool canPropagateFloatIntoSibling = !isFloatingOrOutOfFlowPositioned() && !avoidsFloats();
-    if (diff == StyleDifferenceLayout && s_canPropagateFloatIntoSibling && !canPropagateFloatIntoSibling && hasOverhangingFloats()) {
+    if (diff.needsFullLayout() && s_canPropagateFloatIntoSibling && !canPropagateFloatIntoSibling && hasOverhangingFloats()) {
         RenderBlockFlow* parentBlockFlow = this;
         const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
         FloatingObjectSetIterator end = floatingObjectSet.end();
@@ -1866,7 +1855,7 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
         parentBlockFlow->markSiblingsWithFloatsForLayout();
     }
 
-    if (diff == StyleDifferenceLayout || !oldStyle)
+    if (diff.needsFullLayout() || !oldStyle)
         createOrDestroyMultiColumnFlowThreadIfNeeded();
 }
 
@@ -2342,7 +2331,7 @@ bool RenderBlockFlow::positionNewFloats()
         setLogicalLeftForChild(childBox, floatLogicalLocation.x() + childLogicalLeftMargin);
         setLogicalTopForChild(childBox, floatLogicalLocation.y() + marginBeforeForChild(childBox));
 
-        SubtreeLayoutScope layoutScope(childBox);
+        SubtreeLayoutScope layoutScope(*childBox);
         LayoutState* layoutState = view()->layoutState();
         bool isPaginated = layoutState->isPaginated();
         if (isPaginated && !childBox->needsLayout())
@@ -2444,15 +2433,14 @@ void RenderBlockFlow::addIntrudingFloats(RenderBlockFlow* prev, LayoutUnit logic
     }
 }
 
-LayoutUnit RenderBlockFlow::addOverhangingFloats(RenderBlockFlow* child, bool makeChildPaintOtherFloats)
+void RenderBlockFlow::addOverhangingFloats(RenderBlockFlow* child, bool makeChildPaintOtherFloats)
 {
     // Prevent floats from being added to the canvas by the root element, e.g., <html>.
-    if (child->hasOverflowClip() || !child->containsFloats() || child->isDocumentElement() || child->hasColumns() || child->isWritingModeRoot())
-        return 0;
+    if (child->hasOverflowClip() || !child->containsFloats() || child->isRenderFlowThread() || child->isRenderRegion() || child->isDocumentElement() || child->hasColumns() || child->isWritingModeRoot())
+        return;
 
     LayoutUnit childLogicalTop = child->logicalTop();
     LayoutUnit childLogicalLeft = child->logicalLeft();
-    LayoutUnit lowestFloatLogicalBottom = 0;
 
     // Floats that will remain the child's responsibility to paint should factor into its
     // overflow.
@@ -2461,7 +2449,6 @@ LayoutUnit RenderBlockFlow::addOverhangingFloats(RenderBlockFlow* child, bool ma
         FloatingObject* floatingObject = *childIt;
         LayoutUnit logicalBottomForFloat = min(this->logicalBottomForFloat(floatingObject), LayoutUnit::max() - childLogicalTop);
         LayoutUnit logicalBottom = childLogicalTop + logicalBottomForFloat;
-        lowestFloatLogicalBottom = max(lowestFloatLogicalBottom, logicalBottom);
 
         if (logicalBottom > logicalHeight()) {
             // If the object is not in the list, we add it now.
@@ -2500,7 +2487,6 @@ LayoutUnit RenderBlockFlow::addOverhangingFloats(RenderBlockFlow* child, bool ma
                 child->addOverflowFromChild(floatingObject->renderer(), LayoutSize(xPositionForFloatIncludingMargin(floatingObject), yPositionForFloatIncludingMargin(floatingObject)));
         }
     }
-    return lowestFloatLogicalBottom;
 }
 
 LayoutUnit RenderBlockFlow::lowestFloatLogicalBottom(FloatingObject::Type floatType) const

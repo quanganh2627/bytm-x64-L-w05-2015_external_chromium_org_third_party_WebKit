@@ -30,15 +30,15 @@
 #ifndef ServiceWorkerGlobalScope_h
 #define ServiceWorkerGlobalScope_h
 
-#include "bindings/v8/ScriptPromiseResolver.h"
 #include "core/dom/Promise.h"
 #include "core/workers/WorkerGlobalScope.h"
-#include "heap/Handle.h"
+#include "platform/heap/Handle.h"
 #include "wtf/Assertions.h"
 
 namespace WebCore {
 
 class ServiceWorkerThread;
+class ServiceWorkerClients;
 class WorkerThreadStartupData;
 
 class ServiceWorkerGlobalScope FINAL : public WorkerGlobalScope {
@@ -49,6 +49,7 @@ public:
     virtual bool isServiceWorkerGlobalScope() const OVERRIDE { return true; }
 
     // ServiceWorkerGlobalScope.idl
+    PassRefPtr<ServiceWorkerClients> clients();
     String scope(ExecutionContext*);
 
     // EventTarget
@@ -64,6 +65,8 @@ public:
 
 private:
     ServiceWorkerGlobalScope(const KURL&, const String& userAgent, ServiceWorkerThread*, double timeOrigin, PassOwnPtrWillBeRawPtr<WorkerClients>);
+
+    RefPtr<ServiceWorkerClients> m_clients;
 };
 
 } // namespace WebCore

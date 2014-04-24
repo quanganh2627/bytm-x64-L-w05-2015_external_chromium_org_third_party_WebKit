@@ -169,6 +169,9 @@ Element::~Element()
     if (hasRareData())
         elementRareData()->clearShadow();
 
+    if (hasActiveAnimations())
+        activeAnimations()->dispose();
+
     if (isCustomElement())
         CustomElement::wasDestroyed(this);
 
@@ -551,13 +554,6 @@ int Element::offsetTop()
 
 int Element::offsetWidth()
 {
-    document().updateRenderTreeForNodeIfNeeded(this);
-
-    if (RenderBox* renderer = renderBox()) {
-        if (renderer->canDetermineWidthWithoutLayout())
-            return adjustLayoutUnitForAbsoluteZoom(renderer->fixedOffsetWidth(), *renderer).round();
-    }
-
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
         return adjustLayoutUnitForAbsoluteZoom(renderer->pixelSnappedOffsetWidth(), *renderer).round();
@@ -1788,8 +1784,10 @@ bool Element::childTypeAllowed(NodeType type) const
     return false;
 }
 
-void Element::checkForEmptyStyleChange(RenderStyle* style)
+void Element::checkForEmptyStyleChange()
 {
+    RenderStyle* style = renderStyle();
+
     if (!style && !styleAffectedByEmpty())
         return;
 
@@ -1797,88 +1795,12 @@ void Element::checkForEmptyStyleChange(RenderStyle* style)
         setNeedsStyleRecalc(SubtreeStyleChange);
 }
 
-void Element::checkForSiblingStyleChanges(bool finishedParsingCallback, Node* beforeChange, Node* afterChange, int childCountDelta)
-{
-    if (!inActiveDocument() || document().hasPendingForcedStyleRecalc() || styleChangeType() >= SubtreeStyleChange)
-        return;
-
-    RenderStyle* style = renderStyle();
-
-    // :empty selector.
-    checkForEmptyStyleChange(style);
-
-    if (!style || (needsStyleRecalc() && childrenAffectedByPositionalRules()))
-        return;
-
-    // Forward positional selectors include nth-child, nth-of-type, first-of-type and only-of-type.
-    // The indirect adjacent selector is the ~ selector.
-    // Backward positional selectors include nth-last-child, nth-last-of-type, last-of-type and only-of-type.
-    // We have to invalidate everything following the insertion point in the forward and indirect adjacent case,
-    // and everything before the insertion point in the backward case.
-    // |afterChange| is 0 in the parser callback case, so we won't do any work for the forward case if we don't have to.
-    // For performance reasons we just mark the parent node as changed, since we don't want to make childrenChanged O(n^2) by crawling all our kids
-    // here. recalcStyle will then force a walk of the children when it sees that this has happened.
-    if (((childrenAffectedByForwardPositionalRules() || childrenAffectedByIndirectAdjacentRules()) && afterChange)
-        || (childrenAffectedByBackwardPositionalRules() && beforeChange)) {
-        setNeedsStyleRecalc(SubtreeStyleChange);
-        return;
-    }
-
-    // :first-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
-    // In the DOM case, we only need to do something if |afterChange| is not 0.
-    // |afterChange| is 0 in the parser case, so it works out that we'll skip this block.
-    if (childrenAffectedByFirstChildRules() && afterChange) {
-        // Find our new first child.
-        Element* newFirstChild = ElementTraversal::firstWithin(*this);
-        RenderStyle* newFirstChildStyle = newFirstChild ? newFirstChild->renderStyle() : 0;
-
-        // Find the first element node following |afterChange|
-        Node* firstElementAfterInsertion = afterChange->isElementNode() ? afterChange : ElementTraversal::nextSibling(*afterChange);
-        RenderStyle* firstElementAfterInsertionStyle = firstElementAfterInsertion ? firstElementAfterInsertion->renderStyle() : 0;
-
-        // This is the insert/append case.
-        if (newFirstChild != firstElementAfterInsertion && firstElementAfterInsertionStyle && firstElementAfterInsertionStyle->firstChildState())
-            firstElementAfterInsertion->setNeedsStyleRecalc(SubtreeStyleChange);
-
-        // We also have to handle node removal.
-        if (childCountDelta < 0 && newFirstChild == firstElementAfterInsertion && newFirstChild && (!newFirstChildStyle || !newFirstChildStyle->firstChildState()))
-            newFirstChild->setNeedsStyleRecalc(SubtreeStyleChange);
-    }
-
-    // :last-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
-    // In the DOM case, we only need to do something if |afterChange| is not 0.
-    if (childrenAffectedByLastChildRules() && beforeChange) {
-        // Find our new last child.
-        Node* newLastChild = ElementTraversal::lastChild(*this);
-        RenderStyle* newLastChildStyle = newLastChild ? newLastChild->renderStyle() : 0;
-
-        // Find the last element node going backwards from |beforeChange|
-        Node* lastElementBeforeInsertion = beforeChange->isElementNode() ? beforeChange : ElementTraversal::previousSibling(*beforeChange);
-        RenderStyle* lastElementBeforeInsertionStyle = lastElementBeforeInsertion ? lastElementBeforeInsertion->renderStyle() : 0;
-
-        if (newLastChild != lastElementBeforeInsertion && lastElementBeforeInsertionStyle && lastElementBeforeInsertionStyle->lastChildState())
-            lastElementBeforeInsertion->setNeedsStyleRecalc(SubtreeStyleChange);
-
-        // We also have to handle node removal.  The parser callback case is similar to node removal as well in that we need to change the last child
-        // to match now.
-        if ((childCountDelta < 0 || finishedParsingCallback) && newLastChild == lastElementBeforeInsertion && newLastChild && (!newLastChildStyle || !newLastChildStyle->lastChildState()))
-            newLastChild->setNeedsStyleRecalc(SubtreeStyleChange);
-    }
-
-    // The + selector.  We need to invalidate the first element following the insertion point.  It is the only possible element
-    // that could be affected by this DOM change.
-    if (childrenAffectedByDirectAdjacentRules() && afterChange) {
-        if (Node* firstElementAfterInsertion = afterChange->isElementNode() ? afterChange : ElementTraversal::nextSibling(*afterChange))
-            firstElementAfterInsertion->setNeedsStyleRecalc(SubtreeStyleChange);
-    }
-}
-
 void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     ContainerNode::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    if (changedByParser)
-        checkForEmptyStyleChange(renderStyle());
-    else
+
+    checkForEmptyStyleChange();
+    if (!changedByParser)
         checkForSiblingStyleChanges(false, beforeChange, afterChange, childCountDelta);
 
     if (ElementShadow* shadow = this->shadow())
@@ -1888,7 +1810,8 @@ void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* af
 void Element::finishParsingChildren()
 {
     setIsFinishedParsingChildren(true);
-    checkForSiblingStyleChanges(this, lastChild(), 0, 0);
+    checkForEmptyStyleChange();
+    checkForSiblingStyleChanges(true, lastChild(), 0, 0);
 }
 
 #ifndef NDEBUG
@@ -1961,6 +1884,11 @@ PassRefPtr<Attr> Element::setAttributeNode(Attr* attrNode, ExceptionState& excep
     ensureAttrNodeListForElement(this).append(attrNode);
 
     return oldAttrNode.release();
+}
+
+PassRefPtr<Attr> Element::setAttributeNodeNS(Attr* attr, ExceptionState& exceptionState)
+{
+    return setAttributeNode(attr, exceptionState);
 }
 
 PassRefPtr<Attr> Element::removeAttributeNode(Attr* attr, ExceptionState& exceptionState)
@@ -2484,20 +2412,6 @@ RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     return pseudoElementSpecifier ? rareData.computedStyle()->getCachedPseudoStyle(pseudoElementSpecifier) : rareData.computedStyle();
 }
 
-void Element::setChildIndex(unsigned index)
-{
-    ElementRareData& rareData = ensureElementRareData();
-    if (RenderStyle* style = renderStyle())
-        style->setUnique();
-    rareData.setChildIndex(index);
-}
-
-unsigned Element::rareDataChildIndex() const
-{
-    ASSERT(hasRareData());
-    return elementRareData()->childIndex();
-}
-
 AtomicString Element::computeInheritedLanguage() const
 {
     const Node* n = this;
@@ -2860,7 +2774,7 @@ void Element::willModifyAttribute(const QualifiedName& name, const AtomicString&
             CustomElement::attributeDidChange(this, name.localName(), oldValue, newValue);
     }
 
-    if (OwnPtr<MutationObserverInterestGroup> recipients = MutationObserverInterestGroup::createForAttributesMutation(*this, name))
+    if (OwnPtrWillBeRawPtr<MutationObserverInterestGroup> recipients = MutationObserverInterestGroup::createForAttributesMutation(*this, name))
         recipients->enqueueMutationRecord(MutationRecord::createAttributes(this, name, oldValue));
 
     InspectorInstrumentation::willModifyDOMAttr(this, oldValue, newValue);

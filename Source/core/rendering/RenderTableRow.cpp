@@ -79,7 +79,7 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
         if (table && !table->selfNeedsLayout() && !table->normalChildNeedsLayout() && oldStyle && oldStyle->border() != style()->border())
             table->invalidateCollapsedBorders();
 
-        if (table && oldStyle && diff == StyleDifferenceLayout && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, style())) {
+        if (table && oldStyle && diff.needsFullLayout() && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, style())) {
             // If the border width changes on a row, we need to make sure the cells in the row know to lay out again.
             // This only happens when borders are collapsed, since they end up affecting the border sides of the cell
             // itself.
@@ -164,7 +164,7 @@ void RenderTableRow::layout()
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableCell()) {
-            SubtreeLayoutScope layouter(child);
+            SubtreeLayoutScope layouter(*child);
             RenderTableCell* cell = toRenderTableCell(child);
             if (!cell->needsLayout())
                 cell->markForPaginationRelayoutIfNeeded(layouter);

@@ -387,7 +387,9 @@ void RenderLayerScrollableArea::setScrollOffset(const IntPoint& newScrollOffset)
 
     bool requiresRepaint = true;
 
-    if (m_box->view()->compositor()->inCompositingMode()) {
+    if (m_box->view()->compositor()->staleInCompositingMode()) {
+        // Hits in virtual/gpu/fast/canvas/canvas-scroll-path-into-view.html.
+        DisableCompositingQueryAsserts disabler;
         bool onlyScrolledCompositedLayers = scrollsOverflow()
             && !layer()->hasVisibleNonLayerContent()
             && !layer()->hasNonCompositedChild()
@@ -622,7 +624,7 @@ void RenderLayerScrollableArea::updateAfterLayout()
             if (!m_inOverflowRelayout) {
                 // Our proprietary overflow: overlay value doesn't trigger a layout.
                 m_inOverflowRelayout = true;
-                SubtreeLayoutScope layoutScope(m_box);
+                SubtreeLayoutScope layoutScope(*m_box);
                 layoutScope.setNeedsLayout(m_box);
                 if (m_box->isRenderBlock()) {
                     RenderBlock* block = toRenderBlock(m_box);
@@ -1461,7 +1463,7 @@ void RenderLayerScrollableArea::updateNeedsCompositedScrolling()
 void RenderLayerScrollableArea::updateCompositingLayersAfterScroll()
 {
     RenderLayerCompositor* compositor = m_box->view()->compositor();
-    if (compositor->inCompositingMode()) {
+    if (compositor->staleInCompositingMode()) {
         // FIXME: Our stacking container is guaranteed to contain all of our descendants that may need
         // repositioning, so we should be able to enqueue a partial update compositing layers from there.
         // this feature was overridden for now by deferred compositing updates.
@@ -1478,6 +1480,7 @@ bool RenderLayerScrollableArea::usesCompositedScrolling() const
     if (m_box && (m_box->isIntristicallyScrollable(VerticalScrollbar) || m_box->isIntristicallyScrollable(HorizontalScrollbar)))
         return false;
 
+    // See https://codereview.chromium.org/176633003/ for the tests that fail without this disabler.
     DisableCompositingQueryAsserts disabler;
     return m_box->hasCompositedLayerMapping() && m_box->compositedLayerMapping()->scrollingLayer();
 }

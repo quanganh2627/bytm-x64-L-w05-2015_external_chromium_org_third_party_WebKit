@@ -70,9 +70,6 @@ shouldClearDocumentBackground initial=true
 textAreasAreResizable initial=false, invalidate=Style
 acceleratedCompositingEnabled initial=true, invalidate=AcceleratedCompositing
 
-# Debugging feature used for accelerated compositing layers.
-showRepaintCounter initial=false, invalidate=AcceleratedCompositing
-
 shrinksStandaloneImagesToFit initial=true
 
 # FIXME: Does this do anything now that we don't support page cache?
@@ -110,9 +107,7 @@ acceleratedCompositingForGpuRasterizationHintEnabled initial=false, invalidate=A
 forceCompositingMode initial=false, invalidate=AcceleratedCompositing
 
 # Works only in conjunction with forceCompositingMode.
-# crbug.com/304900 tracks removal once enabled on all platforms.
-acceleratedCompositingForScrollableFramesEnabled initial=false, invalidate=AcceleratedCompositing
-compositedScrollingForFramesEnabled initial=false
+compositedScrollingForFramesEnabled initial=false, invalidate=AcceleratedCompositing
 
 # 3D canvas (WebGL) support.
 webGLEnabled initial=false
@@ -133,7 +128,6 @@ hyperlinkAuditingEnabled initial=false
 allowDisplayOfInsecureContent initial=true
 allowRunningOfInsecureContent initial=true
 mediaPlaybackRequiresUserGesture initial=false
-visualWordMovementEnabled initial=false
 shouldDisplaySubtitles initial=false
 shouldDisplayCaptions initial=false
 shouldDisplayTextDescriptions initial=false
@@ -268,7 +262,6 @@ viewportMetaEnabled initial=false
 
 dnsPrefetchingEnabled initial=false, invalidate=DNSPrefetching
 
-touchEventEmulationEnabled initial=false
 
 # FIXME: This is a temporary flag and should be removed once
 # accelerated overflow scroll is ready (crbug.com/254111).

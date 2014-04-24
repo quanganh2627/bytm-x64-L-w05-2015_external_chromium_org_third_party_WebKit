@@ -93,7 +93,7 @@ LayoutUnit RenderTextControlSingleLine::computeLogicalHeightLimit() const
 
 void RenderTextControlSingleLine::layout()
 {
-    SubtreeLayoutScope layoutScope(this);
+    SubtreeLayoutScope layoutScope(*this);
 
     // FIXME: We should remove the height-related hacks in layout() and
     // styleDidChange(). We need them because
@@ -113,6 +113,9 @@ void RenderTextControlSingleLine::layout()
     if (innerTextRenderer && !innerTextRenderer->style()->logicalHeight().isAuto()) {
         innerTextRenderer->style()->setLogicalHeight(Length(Auto));
         layoutScope.setNeedsLayout(innerTextRenderer);
+        HTMLElement* placeholderElement = inputElement()->placeholderElement();
+        if (RenderBox* placeholderBox = placeholderElement ? placeholderElement->renderBox() : 0)
+            layoutScope.setNeedsLayout(placeholderBox);
     }
     if (viewPortRenderer && !viewPortRenderer->style()->logicalHeight().isAuto()) {
         viewPortRenderer->style()->setLogicalHeight(Length(Auto));
@@ -238,7 +241,7 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
         containerRenderer->style()->setWidth(Length());
     }
     RenderObject* innerTextRenderer = innerTextElement()->renderer();
-    if (innerTextRenderer && diff == StyleDifferenceLayout)
+    if (innerTextRenderer && diff.needsFullLayout())
         innerTextRenderer->setNeedsLayout();
     if (HTMLElement* placeholder = inputElement()->placeholderElement())
         placeholder->setInlineStyleProperty(CSSPropertyTextOverflow, textShouldBeTruncated() ? CSSValueEllipsis : CSSValueClip);

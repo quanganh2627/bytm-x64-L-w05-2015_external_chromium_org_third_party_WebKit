@@ -24,7 +24,6 @@
 #include "core/dom/ViewportDescription.h"
 #include "core/frame/SettingsDelegate.h"
 #include "core/frame/UseCounter.h"
-#include "core/page/HistoryController.h"
 #include "core/page/PageAnimator.h"
 #include "core/page/PageVisibilityState.h"
 #include "platform/LifecycleContext.h"
@@ -115,7 +114,7 @@ public:
     // This method returns all ordinary pages.
     static HashSet<Page*>& ordinaryPages();
 
-    FrameHost& frameHost() { return *m_frameHost; }
+    FrameHost& frameHost() const { return *m_frameHost; }
 
     void setNeedsRecalcStyleInAllFrames();
     void updateAcceleratedCompositingSettings();
@@ -128,8 +127,6 @@ public:
     EditorClient& editorClient() const { return *m_editorClient; }
     SpellCheckerClient& spellCheckerClient() const { return *m_spellCheckerClient; }
     UndoStack& undoStack() const { return *m_undoStack; }
-
-    HistoryController& historyController() const { return *m_historyController; }
 
     void setMainFrame(PassRefPtr<LocalFrame>);
     LocalFrame* mainFrame() const { return m_mainFrame.get(); }
@@ -177,7 +174,7 @@ public:
     bool defersLoading() const { return m_defersLoading; }
 
     void setPageScaleFactor(float scale, const IntPoint& origin);
-    float pageScaleFactor() const { return m_pageScaleFactor; }
+    float pageScaleFactor() const;
 
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
     void setDeviceScaleFactor(float);
@@ -197,7 +194,7 @@ public:
     PageVisibilityState visibilityState() const;
     void setVisibilityState(PageVisibilityState, bool);
 
-    bool isCursorVisible() const { return m_isCursorVisible; }
+    bool isCursorVisible() const;
     void setIsCursorVisible(bool isVisible) { m_isCursorVisible = isVisible; }
 
 #ifndef NDEBUG
@@ -253,8 +250,6 @@ private:
     const OwnPtr<InspectorController> m_inspectorController;
     const OwnPtr<PointerLockController> m_pointerLockController;
     OwnPtr<ScrollingCoordinator> m_scrollingCoordinator;
-
-    const OwnPtr<HistoryController> m_historyController;
     const OwnPtr<UndoStack> m_undoStack;
 
     RefPtr<LocalFrame> m_mainFrame;
@@ -275,7 +270,6 @@ private:
     bool m_tabKeyCyclesThroughElements;
     bool m_defersLoading;
 
-    float m_pageScaleFactor;
     float m_deviceScaleFactor;
 
     OwnPtr<StorageNamespace> m_sessionStorage;

@@ -125,6 +125,7 @@
 #include "core/html/HTMLDocument.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/HTMLHeadElement.h"
+#include "core/html/HTMLHtmlElement.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLLinkElement.h"
@@ -185,6 +186,7 @@
 #include "platform/weborigin/OriginAccessEntry.h"
 #include "platform/weborigin/SchemeRegistry.h"
 #include "platform/weborigin/SecurityOrigin.h"
+#include "public/platform/Platform.h"
 #include "wtf/CurrentTime.h"
 #include "wtf/HashFunctions.h"
 #include "wtf/MainThread.h"
@@ -291,7 +293,7 @@ static bool shouldInheritSecurityOriginFromOwner(const KURL& url)
     // Note: We generalize this to all "blank" URLs and invalid URLs because we
     // treat all of these URLs as about:blank.
     //
-    return url.isEmpty() || url.isBlankURL();
+    return url.isEmpty() || url.protocolIsAbout();
 }
 
 static Widget* widgetForElement(const Element& focusedElement)
@@ -427,7 +429,6 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_visuallyOrdered(false)
     , m_readyState(Complete)
     , m_isParsing(false)
-    , m_historyItemDocumentStateDirty(false)
     , m_gotoAnchorNeededAfterStylesheetsLoad(false)
     , m_containsValidityStyleRules(false)
     , m_updateFocusAppearanceRestoresSelection(false)
@@ -1393,17 +1394,17 @@ void Document::removeTitle(Element* titleElement)
 
 const AtomicString& Document::dir()
 {
-    // FIXME(crbug.com/363107): This should be the root html element, not the body.
-    if (HTMLElement* b = body())
-        return b->getAttribute(dirAttr);
+    Element* rootElement = documentElement();
+    if (isHTMLHtmlElement(rootElement))
+        return toHTMLHtmlElement(rootElement)->dir();
     return nullAtom;
 }
 
 void Document::setDir(const AtomicString& value)
 {
-    // FIXME(crbug.com/363107): This should be the root html element, not the body.
-    if (HTMLElement* b = body())
-        b->setAttribute(dirAttr, value);
+    Element* rootElement = documentElement();
+    if (isHTMLHtmlElement(rootElement))
+        toHTMLHtmlElement(rootElement)->setDir(value);
 }
 
 PageVisibilityState Document::pageVisibilityState() const
@@ -1463,15 +1464,18 @@ Node::NodeType Document::nodeType() const
 
 FormController& Document::formController()
 {
-    if (!m_formController)
+    if (!m_formController) {
         m_formController = FormController::create();
+        if (m_frame && m_frame->loader().currentItem() && m_frame->loader().currentItem()->isCurrentDocument(this))
+            m_frame->loader().currentItem()->setDocumentState(m_formController->formElementsState());
+    }
     return *m_formController;
 }
 
-Vector<String> Document::formElementsState() const
+DocumentState* Document::formElementsState() const
 {
     if (!m_formController)
-        return Vector<String>();
+        return 0;
     return m_formController->formElementsState();
 }
 
@@ -1569,15 +1573,29 @@ bool Document::needsRenderTreeUpdate() const
 {
     if (!isActive() || !view())
         return false;
-    if (needsStyleRecalc() || childNeedsStyleRecalc())
+    if (needsFullRenderTreeUpdate())
         return true;
-    if (childNeedsDistributionRecalc())
+    if (childNeedsStyleRecalc())
         return true;
+    if (childNeedsStyleInvalidation())
+        return true;
+    return false;
+}
+
+bool Document::needsFullRenderTreeUpdate() const
+{
+    if (!isActive() || !view())
+        return false;
     if (!m_useElementsNeedingUpdate.isEmpty())
         return true;
     if (!m_layerUpdateElements.isEmpty())
         return true;
-    if (childNeedsStyleInvalidation())
+    if (needsStyleRecalc())
+        return true;
+    if (needsStyleInvalidation())
+        return true;
+    // FIXME: The childNeedsDistributionRecalc bit means either self or children, we should fix that.
+    if (childNeedsDistributionRecalc())
         return true;
     return false;
 }
@@ -1617,7 +1635,7 @@ void Document::updateDistributionIfNeeded()
 {
     if (!childNeedsDistributionRecalc())
         return;
-    TRACE_EVENT0("webkit", "Document::recalcDistribution");
+    TRACE_EVENT0("webkit", "Document::updateDistributionIfNeeded");
     recalcDistribution();
 }
 
@@ -1627,7 +1645,7 @@ void Document::updateStyleInvalidationIfNeeded()
         return;
     if (!childNeedsStyleInvalidation())
         return;
-    TRACE_EVENT0("webkit", "Document::computeNeedsStyleRecalcState");
+    TRACE_EVENT0("webkit", "Document::updateStyleInvalidationIfNeeded");
     ASSERT(styleResolver());
 
     styleResolver()->ruleFeatureSet().styleInvalidator().invalidate(*this);
@@ -1824,7 +1842,7 @@ void Document::updateStyle(StyleRecalcChange change)
 
     if (change == Force) {
         m_hasNodesWithPlaceholderStyle = false;
-        RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*this, m_styleEngine->fontSelector());
+        RefPtr<RenderStyle> documentStyle = StyleResolver::styleForDocument(*this);
         StyleRecalcChange localChange = RenderStyle::stylePropagationDiff(documentStyle.get(), renderView()->style());
         if (localChange != NoChange)
             renderView()->setStyle(documentStyle.release());
@@ -1871,19 +1889,11 @@ void Document::updateStyle(StyleRecalcChange change)
 
 void Document::updateRenderTreeForNodeIfNeeded(Node* node)
 {
-    if (!needsRenderTreeUpdate())
-        return;
+    bool needsRecalc = needsFullRenderTreeUpdate();
 
-    // At this point, we know that we need to recalc some style on the document in order to fully update styles.
-    // However, style on 'node' only needs to be recalculated if a global recomputation is needed, or a node on
-    // the path from 'node' to the root needs style recalc.
+    for (const Node* ancestor = node; ancestor && !needsRecalc; ancestor = NodeRenderingTraversal::parent(ancestor))
+        needsRecalc = ancestor->needsStyleRecalc() || ancestor->needsStyleInvalidation();
 
-    // Global needed.
-    bool needsRecalc = needsStyleRecalc() || childNeedsDistributionRecalc() || !m_useElementsNeedingUpdate.isEmpty() || childNeedsStyleInvalidation();
-
-    // On the path.
-    for (Node* ancestor = node; ancestor && !needsRecalc; ancestor = ancestor->parentOrShadowHostNode())
-        needsRecalc = ancestor->needsStyleRecalc();
     if (needsRecalc)
         updateRenderTreeIfNeeded();
 }
@@ -1904,9 +1914,14 @@ void Document::updateLayout()
 
     updateRenderTreeIfNeeded();
 
-    // Only do a layout if changes have occurred that make it necessary.
-    if (isActive() && frameView && renderView() && (frameView->layoutPending() || renderView()->needsLayout()))
+    if (!isActive())
+        return;
+
+    if (frameView->needsLayout())
         frameView->layout();
+
+    if (lifecycle().state() < DocumentLifecycle::LayoutClean)
+        lifecycle().advanceTo(DocumentLifecycle::LayoutClean);
 }
 
 void Document::setNeedsFocusedElementCheck()
@@ -1926,7 +1941,7 @@ void Document::clearFocusedElementTimerFired(Timer<Document>*)
     m_clearFocusedElementTimer.stop();
 
     if (m_focusedElement && !m_focusedElement->isFocusable())
-        setFocusedElement(nullptr);
+        m_focusedElement->blur();
 }
 
 // FIXME: This is a bad idea and needs to be removed eventually.
@@ -2277,8 +2292,13 @@ ScriptableDocumentParser* Document::scriptableDocumentParser() const
     return parser() ? parser()->asScriptableDocumentParser() : 0;
 }
 
-void Document::open(Document* ownerDocument)
+void Document::open(Document* ownerDocument, ExceptionState& exceptionState)
 {
+    if (importLoader()) {
+        exceptionState.throwDOMException(InvalidStateError, "Imported document doesn't support open().");
+        return;
+    }
+
     if (ownerDocument) {
         setURL(ownerDocument->url());
         m_cookieURL = ownerDocument->cookieURL();
@@ -2421,10 +2441,15 @@ Element* Document::viewportDefiningElement(RenderStyle* rootStyle) const
     return rootElement;
 }
 
-void Document::close()
+void Document::close(ExceptionState& exceptionState)
 {
     // FIXME: We should follow the specification more closely:
     //        http://www.whatwg.org/specs/web-apps/current-work/#dom-document-close
+
+    if (importLoader()) {
+        exceptionState.throwDOMException(InvalidStateError, "Imported document doesn't support close().");
+        return;
+    }
 
     if (!scriptableDocumentParser() || !scriptableDocumentParser()->wasCreatedByScript() || !scriptableDocumentParser()->isParsing())
         return;
@@ -2670,8 +2695,13 @@ int Document::elapsedTime() const
     return static_cast<int>((currentTime() - m_startTime) * 1000);
 }
 
-void Document::write(const SegmentedString& text, Document* ownerDocument)
+void Document::write(const SegmentedString& text, Document* ownerDocument, ExceptionState& exceptionState)
 {
+    if (importLoader()) {
+        exceptionState.throwDOMException(InvalidStateError, "Imported document doesn't support write().");
+        return;
+    }
+
     NestingLevelIncrementer nestingLevelIncrementer(m_writeRecursionDepth);
 
     m_writeRecursionIsTooDeep = (m_writeRecursionDepth > 1) && m_writeRecursionIsTooDeep;
@@ -2694,14 +2724,16 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
     m_parser->insert(text);
 }
 
-void Document::write(const String& text, Document* ownerDocument)
+void Document::write(const String& text, Document* ownerDocument, ExceptionState& exceptionState)
 {
-    write(SegmentedString(text), ownerDocument);
+    write(SegmentedString(text), ownerDocument, exceptionState);
 }
 
-void Document::writeln(const String& text, Document* ownerDocument)
+void Document::writeln(const String& text, Document* ownerDocument, ExceptionState& exceptionState)
 {
-    write(text, ownerDocument);
+    write(text, ownerDocument, exceptionState);
+    if (exceptionState.hadException())
+        return;
     write("\n", ownerDocument);
 }
 
@@ -4242,7 +4274,9 @@ bool Document::execCommand(const String& commandName, bool userInterface, const 
     // Postpone DOM mutation events, which can execute scripts and change
     // DOM tree against implementation assumption.
     EventQueueScope eventQueueScope;
-    return command(this, commandName, userInterface).execute(value);
+    Editor::Command editorCommand = command(this, commandName, userInterface);
+    blink::Platform::current()->histogramSparse("WebCore.Document.execCommand", editorCommand.idForHistogram());
+    return editorCommand.execute(value);
 }
 
 bool Document::queryCommandEnabled(const String& commandName)
@@ -4352,6 +4386,23 @@ bool Document::inDesignMode() const
     return false;
 }
 
+String Document::designMode() const
+{
+    return inDesignMode() ? "on" : "off";
+}
+
+void Document::setDesignMode(const String& value)
+{
+    InheritedBool mode;
+    if (equalIgnoringCase(value, "on"))
+        mode = on;
+    else if (equalIgnoringCase(value, "off"))
+        mode = off;
+    else
+        mode = inherit;
+    setDesignMode(mode);
+}
+
 Document* Document::parentDocument() const
 {
     if (!m_frame)
@@ -4384,11 +4435,21 @@ WeakPtr<Document> Document::contextDocument()
 
 PassRefPtr<Attr> Document::createAttribute(const AtomicString& name, ExceptionState& exceptionState)
 {
+    return createAttributeNS(nullAtom, name, exceptionState, true);
+}
+
+PassRefPtr<Attr> Document::createAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState, bool shouldIgnoreNamespaceChecks)
+{
     AtomicString prefix, localName;
-    if (!parseQualifiedName(name, prefix, localName, exceptionState))
+    if (!parseQualifiedName(qualifiedName, prefix, localName, exceptionState))
         return nullptr;
 
-    QualifiedName qName(prefix, localName, nullAtom);
+    QualifiedName qName(prefix, localName, namespaceURI);
+
+    if (!shouldIgnoreNamespaceChecks && !hasValidNamespaceForAttributes(qName)) {
+        exceptionState.throwDOMException(NamespaceError, "The namespace URI provided ('" + namespaceURI + "') is not valid for the qualified name provided ('" + qualifiedName + "').");
+        return nullptr;
+    }
 
     return Attr::create(*this, qName, emptyAtom);
 }
@@ -4450,13 +4511,13 @@ PassRefPtr<HTMLCollection> Document::anchors()
     return ensureCachedCollection(DocAnchors);
 }
 
-PassRefPtr<HTMLCollection> Document::allForBinding()
+PassRefPtr<HTMLAllCollection> Document::allForBinding()
 {
     UseCounter::count(*this, UseCounter::DocumentAll);
     return all();
 }
 
-PassRefPtr<HTMLCollection> Document::all()
+PassRefPtr<HTMLAllCollection> Document::all()
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLAllCollection>(*this, DocAll);
 }

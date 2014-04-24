@@ -95,25 +95,6 @@ PassOwnPtr<ScriptRegexp> createSearchRegex(const String& query, bool caseSensiti
     return adoptPtr(new ScriptRegexp(regexSource, caseSensitive ? TextCaseSensitive : TextCaseInsensitive));
 }
 
-int countScriptRegexpMatches(const ScriptRegexp* regex, const String& content)
-{
-    if (content.isEmpty())
-        return 0;
-
-    int result = 0;
-    int position;
-    unsigned start = 0;
-    int matchLength;
-    while ((position = regex->match(content, start, &matchLength)) != -1) {
-        if (start >= content.length())
-            break;
-        if (matchLength > 0)
-            ++result;
-        start = position + 1;
-    }
-    return result;
-}
-
 PassRefPtr<TypeBuilder::Array<TypeBuilder::Page::SearchMatch> > searchInTextByLines(const String& text, const String& query, const bool caseSensitive, const bool isRegex)
 {
     RefPtr<TypeBuilder::Array<TypeBuilder::Page::SearchMatch> > result = TypeBuilder::Array<TypeBuilder::Page::SearchMatch>::create();
@@ -164,8 +145,6 @@ static String findMagicComment(const String& content, const String& name, MagicC
             closingCommentPos = content.find("*/", equalSignPos + 1);
             if (closingCommentPos == kNotFound)
                 return String();
-            if (!content.substring(closingCommentPos + 2).containsOnlyWhitespace())
-                return String();
         }
 
         break;
@@ -185,7 +164,7 @@ static String findMagicComment(const String& content, const String& name, MagicC
     String disallowedChars("\"' \t\n\r");
     for (unsigned i = 0; i < match.length(); ++i) {
         if (disallowedChars.find(match[i]) != kNotFound)
-            return String();
+            return match.substring(0, i);
     }
 
     return match;

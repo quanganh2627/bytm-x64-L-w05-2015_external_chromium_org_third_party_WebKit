@@ -92,7 +92,6 @@ WebInspector.Settings = function()
     this.textEditorAutocompletion = this.createSetting("textEditorAutocompletion", true);
     this.textEditorBracketMatching = this.createSetting("textEditorBracketMatching", true);
     this.cssReloadEnabled = this.createSetting("cssReloadEnabled", false);
-    this.timelineCaptureStacks = this.createSetting("timelineCaptureStacks", true);
     this.timelineLiveUpdate = this.createSetting("timelineLiveUpdate", true);
     this.showMetricsRulers = this.createSetting("showMetricsRulers", false);
     this.overrideCSSMedia = this.createSetting("overrideCSSMedia", false);
@@ -333,7 +332,6 @@ WebInspector.ExperimentsSettings = function(experimentsEnabled)
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.frameworksDebuggingSupport = this._createExperiment("frameworksDebuggingSupport", "Enable frameworks debugging support");
     this.layersPanel = this._createExperiment("layersPanel", "Show Layers panel");
-    this.doNotOpenDrawerOnEsc = this._createExperiment("doNotOpenDrawerWithEsc", "Do not open drawer on Esc");
     this.showEditorInDrawer = this._createExperiment("showEditorInDrawer", "Show editor in drawer");
     this.gpuTimeline = this._createExperiment("gpuTimeline", "Show GPU data on timeline");
     this.applyCustomStylesheet = this._createExperiment("applyCustomStylesheet", "Allow custom UI themes");
@@ -345,6 +343,8 @@ WebInspector.ExperimentsSettings = function(experimentsEnabled)
     this.timelineNoLiveUpdate = this._createExperiment("timelineNoLiveUpdate", "Timeline w/o live update");
     this.powerProfiler = this._createExperiment("powerProfiler", "Enable power mode in Timeline");
     this.timelineTracingMode = this._createExperiment("timelineTracingMode", "Enable Tracing mode in Timeline");
+    this.devicesPanel = this._createExperiment("devicesPanel", "Show devices in drawer");
+    this.timelineJSCPUProfile = this._createExperiment("timelineJSCPUProfile", "Collect JavaScript CPU profile while recording timeline");
 
     this._cleanUpSetting();
 }

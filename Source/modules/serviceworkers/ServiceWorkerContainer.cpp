@@ -32,16 +32,20 @@
 
 #include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/CallbackPromiseAdapter.h"
-#include "bindings/v8/ScriptPromiseResolver.h"
+#include "bindings/v8/NewScriptState.h"
+#include "bindings/v8/ScriptPromiseResolverWithContext.h"
 #include "core/dom/ExecutionContext.h"
 #include "modules/serviceworkers/RegistrationOptionList.h"
 #include "modules/serviceworkers/ServiceWorker.h"
 #include "modules/serviceworkers/ServiceWorkerContainerClient.h"
 #include "modules/serviceworkers/ServiceWorkerError.h"
+#include "public/platform/WebServiceWorker.h"
 #include "public/platform/WebServiceWorkerProvider.h"
 #include "public/platform/WebString.h"
 #include "public/platform/WebURL.h"
+#include "v8.h"
 
+using blink::WebServiceWorker;
 using blink::WebServiceWorkerProvider;
 
 namespace WebCore {
@@ -67,7 +71,7 @@ ScriptPromise ServiceWorkerContainer::registerServiceWorker(ExecutionContext* ex
 {
     RegistrationOptionList options(dictionary);
     ASSERT(RuntimeEnabledFeatures::serviceWorkerEnabled());
-    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(executionContext);
+    RefPtr<ScriptPromiseResolverWithContext> resolver = ScriptPromiseResolverWithContext::create(NewScriptState::current(toIsolate(executionContext)));
     ScriptPromise promise = resolver->promise();
 
     if (!m_provider) {
@@ -88,14 +92,27 @@ ScriptPromise ServiceWorkerContainer::registerServiceWorker(ExecutionContext* ex
         return promise;
     }
 
-    m_provider->registerServiceWorker(patternURL, scriptURL, new CallbackPromiseAdapter<ServiceWorker, ServiceWorkerError>(resolver, executionContext));
+    m_provider->registerServiceWorker(patternURL, scriptURL, new CallbackPromiseAdapter<ServiceWorker, ServiceWorkerError>(resolver));
     return promise;
 }
+
+class UndefinedValue {
+public:
+    typedef WebServiceWorker WebType;
+    static v8::Handle<v8::Value> from(NewScriptState* scriptState, WebServiceWorker* worker)
+    {
+        ASSERT(!worker); // Anything passed here will be leaked.
+        return v8::Undefined(scriptState->isolate());
+    }
+
+private:
+    UndefinedValue();
+};
 
 ScriptPromise ServiceWorkerContainer::unregisterServiceWorker(ExecutionContext* executionContext, const String& pattern)
 {
     ASSERT(RuntimeEnabledFeatures::serviceWorkerEnabled());
-    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(executionContext);
+    RefPtr<ScriptPromiseResolverWithContext> resolver = ScriptPromiseResolverWithContext::create(NewScriptState::current(toIsolate(executionContext)));
     ScriptPromise promise = resolver->promise();
 
     if (!m_provider) {
@@ -110,12 +127,20 @@ ScriptPromise ServiceWorkerContainer::unregisterServiceWorker(ExecutionContext* 
         return promise;
     }
 
-    m_provider->unregisterServiceWorker(patternURL, new CallbackPromiseAdapter<ServiceWorker, ServiceWorkerError>(resolver, executionContext));
+    m_provider->unregisterServiceWorker(patternURL, new CallbackPromiseAdapter<UndefinedValue, ServiceWorkerError>(resolver));
     return promise;
 }
 
+void ServiceWorkerContainer::setCurrentServiceWorker(blink::WebServiceWorker* serviceWorker)
+{
+    if (!executionContext())
+        return;
+    m_current = ServiceWorker::create(executionContext(), adoptPtr(serviceWorker));
+}
+
 ServiceWorkerContainer::ServiceWorkerContainer(ExecutionContext* executionContext)
-    : m_provider(0)
+    : ContextLifecycleObserver(executionContext)
+    , m_provider(0)
 {
     ScriptWrappable::init(this);
 

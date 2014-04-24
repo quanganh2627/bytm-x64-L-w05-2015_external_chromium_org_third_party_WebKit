@@ -213,6 +213,9 @@ void MediaQueryTokenizer::tokenize(String string, Vector<MediaQueryToken>& outTo
     // * Do not count white spaces
     // * consumeEscape replaces NULLs for replacement characters
 
+    if (string.isEmpty())
+        return;
+
     MediaQueryInputStream input(string);
     MediaQueryTokenizer tokenizer(input);
     while (true) {
@@ -280,7 +283,7 @@ static double getFraction(MediaQueryInputStream& input, unsigned& offset, unsign
     return input.getDouble(fractionStartPos, fractionEndPos);
 }
 
-static unsigned long long getExponent(MediaQueryInputStream& input, unsigned& offset, int sign)
+static unsigned long long getExponent(MediaQueryInputStream& input, unsigned& offset, int& sign)
 {
     unsigned exponentStartPos = 0;
     unsigned exponentEndPos = 0;

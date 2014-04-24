@@ -41,6 +41,7 @@
 #include "core/rendering/style/StyleBackgroundData.h"
 #include "core/rendering/style/StyleBoxData.h"
 #include "core/rendering/style/StyleDeprecatedFlexibleBoxData.h"
+#include "core/rendering/style/StyleDifference.h"
 #include "core/rendering/style/StyleFilterData.h"
 #include "core/rendering/style/StyleFlexibleBoxData.h"
 #include "core/rendering/style/StyleGridData.h"
@@ -575,6 +576,7 @@ public:
 
     const Length& textIndent() const { return rareInheritedData->indent; }
     TextIndentLine textIndentLine() const { return static_cast<TextIndentLine>(rareInheritedData->m_textIndentLine); }
+    TextIndentType textIndentType() const { return static_cast<TextIndentType>(rareInheritedData->m_textIndentType); }
     ETextAlign textAlign() const { return static_cast<ETextAlign>(inherited_flags._text_align); }
     TextAlignLast textAlignLast() const { return static_cast<TextAlignLast>(rareInheritedData->m_textAlignLast); }
     TextJustify textJustify() const { return static_cast<TextJustify>(rareInheritedData->m_textJustify); }
@@ -907,9 +909,6 @@ public:
 
     bool hasAnimations() const { return rareNonInheritedData->m_animations && rareNonInheritedData->m_animations->size() > 0; }
 
-    // return the first found Animation (including 'all' transitions)
-    const CSSAnimationData* transitionForProperty(CSSPropertyID) const;
-
     ETransformStyle3D transformStyle3D() const { return static_cast<ETransformStyle3D>(rareNonInheritedData->m_transformStyle3D); }
     bool preserves3D() const { return rareNonInheritedData->m_transformStyle3D == TransformStyle3DPreserve3D; }
 
@@ -929,6 +928,7 @@ public:
     bool isRunningOpacityAnimationOnCompositor() const { return rareNonInheritedData->m_runningOpacityAnimationOnCompositor; }
     bool isRunningTransformAnimationOnCompositor() const { return rareNonInheritedData->m_runningTransformAnimationOnCompositor; }
     bool isRunningFilterAnimationOnCompositor() const { return rareNonInheritedData->m_runningFilterAnimationOnCompositor; }
+    bool isRunningAnimationOnCompositor() { return isRunningOpacityAnimationOnCompositor() || isRunningTransformAnimationOnCompositor() || isRunningFilterAnimationOnCompositor(); }
 
     LineBoxContain lineBoxContain() const { return rareInheritedData->m_lineBoxContain; }
     const LineClampValue& lineClamp() const { return rareNonInheritedData->lineClamp; }
@@ -1109,6 +1109,7 @@ public:
     void setColor(const Color&);
     void setTextIndent(Length v) { SET_VAR(rareInheritedData, indent, v); }
     void setTextIndentLine(TextIndentLine v) { SET_VAR(rareInheritedData, m_textIndentLine, v); }
+    void setTextIndentType(TextIndentType v) { SET_VAR(rareInheritedData, m_textIndentType, v); }
     void setTextAlign(ETextAlign v) { inherited_flags._text_align = v; }
     void setTextAlignLast(TextAlignLast v) { SET_VAR(rareInheritedData, m_textAlignLast, v); }
     void setTextJustify(TextJustify v) { SET_VAR(rareInheritedData, m_textJustify, v); }
@@ -1568,6 +1569,7 @@ public:
     static Length initialPadding() { return Length(Fixed); }
     static Length initialTextIndent() { return Length(Fixed); }
     static TextIndentLine initialTextIndentLine() { return TextIndentFirstLine; }
+    static TextIndentType initialTextIndentType() { return TextIndentNormal; }
     static EVerticalAlign initialVerticalAlign() { return BASELINE; }
     static short initialWidows() { return 2; }
     static short initialOrphans() { return 2; }
@@ -1778,7 +1780,9 @@ private:
     Color lightingColor() const { return svgStyle()->lightingColor(); }
 
     void appendContent(PassOwnPtr<ContentData>);
-    StyleDifference repaintOnlyDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const;
+
+    StyleDifferenceLegacy visualInvalidationDiffLegacy(const RenderStyle&, unsigned& changedContextSensitiveProperties) const;
+    StyleDifferenceLegacy repaintOnlyDiff(const RenderStyle& other, unsigned& changedContextSensitiveProperties) const;
 };
 
 inline int adjustForAbsoluteZoom(int value, float zoomFactor)

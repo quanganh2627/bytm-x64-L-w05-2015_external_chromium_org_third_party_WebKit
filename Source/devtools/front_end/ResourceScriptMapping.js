@@ -232,6 +232,11 @@ WebInspector.ScriptFile.prototype = {
     isMergingToVM: function() { return false; },
 
     checkMapping: function() { },
+
+    /**
+     * @return {?WebInspector.Target}
+     */
+    target: function() { return null; },
 }
 
 /**
@@ -252,13 +257,15 @@ WebInspector.ResourceScriptFile = function(resourceScriptMapping, uiSourceCode, 
     if (this._uiSourceCode.contentType() === WebInspector.resourceTypes.Script)
         this._script = scripts[0];
 
-    this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._workingCopyCommitted, this);
     this._uiSourceCode.addEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._workingCopyChanged, this);
     this._update();
 }
 
 WebInspector.ResourceScriptFile.prototype = {
-    _workingCopyCommitted: function(event)
+    /**
+     * @param {function(boolean)=} callback
+     */
+    commitLiveEdit: function(callback)
     {
         /**
          * @param {?string} error
@@ -270,12 +277,16 @@ WebInspector.ResourceScriptFile.prototype = {
             if (error) {
                 this._update();
                 WebInspector.LiveEditSupport.logDetailedError(error, errorData, this._script);
+                if (callback)
+                    callback(false);
                 return;
             }
 
             this._scriptSource = source;
             this._update();
             WebInspector.LiveEditSupport.logSuccess();
+            if (callback)
+                callback(true);
         }
         if (!this._script)
             return;
@@ -374,9 +385,18 @@ WebInspector.ResourceScriptFile.prototype = {
         }
     },
 
+    /**
+     * @return {?WebInspector.Target}
+     */
+    target: function()
+    {
+        if (!this._script)
+            return null;
+        return this._script.target();
+    },
+
     dispose: function()
     {
-        this._uiSourceCode.removeEventListener(WebInspector.UISourceCode.Events.WorkingCopyCommitted, this._workingCopyCommitted, this);
         this._uiSourceCode.removeEventListener(WebInspector.UISourceCode.Events.WorkingCopyChanged, this._workingCopyChanged, this);
     },
 

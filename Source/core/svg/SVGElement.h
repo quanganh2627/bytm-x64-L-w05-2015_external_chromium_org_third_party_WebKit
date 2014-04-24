@@ -110,9 +110,11 @@ public:
     bool getBoundingBox(FloatRect&);
 
     void setCursorElement(SVGCursorElement*);
-    void cursorElementRemoved();
     void setCursorImageValue(CSSCursorImageValue*);
+#if !ENABLE(OILPAN)
+    void cursorElementRemoved();
     void cursorImageValueRemoved();
+#endif
 
     SVGElement* correspondingElement();
     void setCorrespondingElement(SVGElement*);
@@ -146,6 +148,8 @@ public:
     void addToPropertyMap(PassRefPtr<SVGAnimatedPropertyBase>);
 
     SVGAnimatedString* className() { return m_className.get(); }
+
+    bool inUseShadowTree() const;
 
 protected:
     SVGElement(const QualifiedName&, Document&, ConstructionType = CreateSVGElement);

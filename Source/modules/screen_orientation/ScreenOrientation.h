@@ -5,11 +5,10 @@
 #ifndef ScreenOrientation_h
 #define ScreenOrientation_h
 
-#include "core/events/EventTarget.h"
 #include "core/frame/DOMWindowProperty.h"
-#include "heap/Handle.h"
 #include "platform/Supplementable.h"
 #include "platform/Timer.h"
+#include "platform/heap/Handle.h"
 #include "public/platform/WebScreenOrientationLockType.h"
 #include "wtf/text/AtomicString.h"
 #include "wtf/text/WTFString.h"
@@ -24,8 +23,6 @@ class ScreenOrientation FINAL : public NoBaseWillBeGarbageCollectedFinalized<Scr
 public:
     static ScreenOrientation& from(Screen&);
     virtual ~ScreenOrientation();
-
-    DEFINE_STATIC_ATTRIBUTE_EVENT_LISTENER(orientationchange);
 
     static const AtomicString& orientation(Screen&);
     static bool lockOrientation(Screen&, const AtomicString& orientation);

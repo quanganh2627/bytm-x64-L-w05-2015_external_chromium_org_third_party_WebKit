@@ -36,6 +36,7 @@
 #include "core/inspector/InspectorCounters.h"
 #include "core/rendering/style/RenderStyleConstants.h"
 #include "platform/geometry/LayoutRect.h"
+#include "platform/heap/Handle.h"
 #include "platform/weborigin/KURLHash.h"
 #include "wtf/Forward.h"
 #include "wtf/ListHashSet.h"
@@ -205,7 +206,7 @@ public:
     String textContent(bool convertBRsToNewlines = false) const;
     void setTextContent(const String&);
 
-    Node& lastDescendant() const;
+    Node& lastDescendantOrSelf() const;
 
     // Other methods (not part of DOM)
 
@@ -277,7 +278,7 @@ public:
     ContainerNode* parentOrShadowHostNode() const;
     Element* parentOrShadowHostElement() const;
     void setParentOrShadowHostNode(ContainerNode*);
-    Node& highestAncestor() const;
+    Node& highestAncestorOrSelf() const;
 
     // Knows about all kinds of hosts.
     ContainerNode* parentOrShadowHostOrTemplateHostNode() const;
@@ -364,7 +365,7 @@ public:
     void setChildNeedsStyleInvalidation()  { setFlag(ChildNeedsStyleInvalidation); }
     void clearChildNeedsStyleInvalidation()  { clearFlag(ChildNeedsStyleInvalidation); }
     void markAncestorsWithChildNeedsStyleInvalidation();
-    bool needsStyleInvalidation() { return getFlag(NeedsStyleInvalidation); }
+    bool needsStyleInvalidation() const { return getFlag(NeedsStyleInvalidation); }
     void clearNeedsStyleInvalidation() { clearFlag(NeedsStyleInvalidation); }
     void setNeedsStyleInvalidation();
 
@@ -647,7 +648,7 @@ public:
     virtual EventTargetData* eventTargetData() OVERRIDE;
     virtual EventTargetData& ensureEventTargetData() OVERRIDE;
 
-    void getRegisteredMutationObserversOfType(HashMap<MutationObserver*, MutationRecordDeliveryOptions>&, MutationObserver::MutationType, const QualifiedName* attributeName);
+    void getRegisteredMutationObserversOfType(WillBeHeapHashMap<RawPtrWillBeMember<MutationObserver>, MutationRecordDeliveryOptions>&, MutationObserver::MutationType, const QualifiedName* attributeName);
     void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomicString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration*);
     void registerTransientMutationObserver(MutationObserverRegistration*);
@@ -820,8 +821,8 @@ private:
 
     void trackForDebugging();
 
-    Vector<OwnPtr<MutationObserverRegistration> >* mutationObserverRegistry();
-    HashSet<MutationObserverRegistration*>* transientMutationObserverRegistry();
+    WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* mutationObserverRegistry();
+    WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* transientMutationObserverRegistry();
 
     mutable uint32_t m_nodeFlags;
     ContainerNode* m_parentOrShadowHostNode;

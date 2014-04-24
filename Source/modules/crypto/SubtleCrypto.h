@@ -33,7 +33,7 @@
 
 #include "bindings/v8/ScriptPromise.h"
 #include "bindings/v8/ScriptWrappable.h"
-#include "heap/Handle.h"
+#include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/RefCounted.h"
@@ -43,11 +43,11 @@ namespace WebCore {
 class Dictionary;
 class Key;
 
-class SubtleCrypto : public RefCountedWillBeGarbageCollectedFinalized<SubtleCrypto>,  public ScriptWrappable {
+class SubtleCrypto : public GarbageCollectedFinalized<SubtleCrypto>,  public ScriptWrappable {
 public:
-    static PassRefPtrWillBeRawPtr<SubtleCrypto> create()
+    static SubtleCrypto* create()
     {
-        return adoptRefWillBeNoop(new SubtleCrypto());
+        return new SubtleCrypto();
     }
 
     ScriptPromise encrypt(const Dictionary&, Key*, ArrayBufferView* data);

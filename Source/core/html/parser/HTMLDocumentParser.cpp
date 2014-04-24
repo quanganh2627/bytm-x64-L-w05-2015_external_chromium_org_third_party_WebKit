@@ -27,7 +27,7 @@
 #include "core/html/parser/HTMLDocumentParser.h"
 
 #include "HTMLNames.h"
-#include "core/css/MediaValues.h"
+#include "core/css/MediaValuesCached.h"
 #include "core/dom/DocumentFragment.h"
 #include "core/dom/Element.h"
 #include "core/frame/LocalFrame.h"
@@ -439,8 +439,7 @@ void HTMLDocumentParser::processParsedChunkFromBackgroundParser(PassOwnPtr<Parse
     for (Vector<CompactHTMLToken>::const_iterator it = tokens->begin(); it != tokens->end(); ++it) {
         ASSERT(!isWaitingForScripts());
 
-        if (!isParsingFragment()
-            && document()->frame() && document()->frame()->navigationScheduler().locationChangePending()) {
+        if (document()->frame() && document()->frame()->navigationScheduler().locationChangePending()) {
 
             // To match main-thread parser behavior (which never checks locationChangePending on the EOF path)
             // we peek to see if this chunk has an EOF and process it anyway.
@@ -475,6 +474,10 @@ void HTMLDocumentParser::processParsedChunkFromBackgroundParser(PassOwnPtr<Parse
         ASSERT(!m_tokenizer);
         ASSERT(!m_token);
     }
+
+    // Make sure any pending text nodes are emitted before returning.
+    if (!isStopped())
+        m_treeBuilder->flush();
 }
 
 void HTMLDocumentParser::pumpPendingSpeculations()
@@ -500,11 +503,8 @@ void HTMLDocumentParser::pumpPendingSpeculations()
     while (!m_speculations.isEmpty()) {
         processParsedChunkFromBackgroundParser(m_speculations.takeFirst());
 
-        // The order matters! If this isStopped(), isWaitingForScripts() can hit and ASSERT since
-        // m_document can be null which is used to decide the readiness.
-        if (isStopped())
-            break;
-        if (isWaitingForScripts())
+        // Always check isStopped first as m_document may be null.
+        if (isStopped() || isWaitingForScripts())
             break;
 
         if (currentTime() - startTime > parserTimeLimit && !m_speculations.isEmpty()) {
@@ -540,7 +540,8 @@ Document* HTMLDocumentParser::contextForParsingSession()
 
 static PassRefPtr<MediaValues> createMediaValues(Document* document)
 {
-    RefPtr<MediaValues> mediaValues = MediaValues::create(document, MediaValues::CachingMode);
+    ASSERT(document);
+    RefPtr<MediaValues> mediaValues = MediaValuesCached::create(*document);
     ASSERT(mediaValues->isSafeToSendToAnotherThread());
     return mediaValues;
 }

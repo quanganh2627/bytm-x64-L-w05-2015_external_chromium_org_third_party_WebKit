@@ -134,7 +134,7 @@ static bool isSupportedSVG11Feature(const String& feature, const String& version
         addString(svgFeatures, "GraphicsAttribute");
         addString(svgFeatures, "BaseGraphicsAttribute");
         addString(svgFeatures, "Marker");
-//      addString(svgFeatures, "ColorProfile"); // requires color-profile, bug 6037
+//      addString(svgFeatures, "ColorProfile");
         addString(svgFeatures, "Gradient");
         addString(svgFeatures, "Pattern");
         addString(svgFeatures, "Clip");
@@ -198,11 +198,6 @@ PassRefPtr<DocumentType> DOMImplementation::createDocumentType(const AtomicStrin
     return DocumentType::create(&m_document, qualifiedName, publicId, systemId);
 }
 
-DOMImplementation* DOMImplementation::getInterface(const String& /*feature*/)
-{
-    return 0;
-}
-
 PassRefPtr<XMLDocument> DOMImplementation::createDocument(const AtomicString& namespaceURI,
     const AtomicString& qualifiedName, DocumentType* doctype, ExceptionState& exceptionState)
 {
@@ -234,15 +229,6 @@ PassRefPtr<XMLDocument> DOMImplementation::createDocument(const AtomicString& na
         doc->appendChild(documentElement.release());
 
     return doc.release();
-}
-
-PassRefPtrWillBeRawPtr<CSSStyleSheet> DOMImplementation::createCSSStyleSheet(const String&, const String& media)
-{
-    // FIXME: Title should be set.
-    // FIXME: Media could have wrong syntax, in which case we should generate an exception.
-    RefPtrWillBeRawPtr<CSSStyleSheet> sheet = CSSStyleSheet::create(StyleSheetContents::create(strictCSSParserContext()));
-    sheet->setMediaQueries(MediaQuerySet::create(media));
-    return sheet;
 }
 
 bool DOMImplementation::isXMLMIMEType(const String& mimeType)

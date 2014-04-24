@@ -32,17 +32,22 @@
 #include "platform/graphics/GraphicsContextRecorder.h"
 
 #include "platform/graphics/ImageBuffer.h"
+#include "platform/graphics/ImageSource.h"
+#include "platform/image-decoders/ImageDecoder.h"
+#include "platform/image-decoders/ImageFrame.h"
 #include "third_party/skia/include/core/SkBitmapDevice.h"
+#include "third_party/skia/include/core/SkStream.h"
 
 namespace WebCore {
 
 GraphicsContext* GraphicsContextRecorder::record(const IntSize& size, bool isCertainlyOpaque)
 {
     ASSERT(!m_picture);
+    ASSERT(!m_recorder);
     ASSERT(!m_context);
-    m_picture = adoptRef(new SkPicture());
     m_isCertainlyOpaque = isCertainlyOpaque;
-    SkCanvas* canvas = m_picture->beginRecording(size.width(), size.height());
+    m_recorder = adoptPtr(new SkPictureRecorder);
+    SkCanvas* canvas = m_recorder->beginRecording(size.width(), size.height());
     m_context = adoptPtr(new GraphicsContext(canvas));
     m_context->setTrackOpaqueRegion(isCertainlyOpaque);
     m_context->setCertainlyOpaque(isCertainlyOpaque);
@@ -51,8 +56,9 @@ GraphicsContext* GraphicsContextRecorder::record(const IntSize& size, bool isCer
 
 PassRefPtr<GraphicsContextSnapshot> GraphicsContextRecorder::stop()
 {
-    m_picture->endRecording();
     m_context.clear();
+    m_picture = adoptRef(m_recorder->endRecording());
+    m_recorder.clear();
     return adoptRef(new GraphicsContextSnapshot(m_picture.release(), m_isCertainlyOpaque));
 }
 
@@ -153,6 +159,28 @@ private:
     Vector<double>* m_currentTimings;
 };
 
+static bool decodeBitmap(const void* data, size_t length, SkBitmap* result)
+{
+    RefPtr<SharedBuffer> buffer = SharedBuffer::create(static_cast<const char*>(data), length);
+    OwnPtr<ImageDecoder> imageDecoder = ImageDecoder::create(*buffer, ImageSource::AlphaPremultiplied, ImageSource::GammaAndColorProfileIgnored);
+    if (!imageDecoder)
+        return false;
+    imageDecoder->setData(buffer.get(), true);
+    ImageFrame* frame = imageDecoder->frameBufferAtIndex(0);
+    if (!frame)
+        return true;
+    *result = frame->getSkBitmap();
+    return true;
+}
+
+PassRefPtr<GraphicsContextSnapshot> GraphicsContextSnapshot::load(const char* data, size_t size)
+{
+    SkMemoryStream stream(data, size);
+    RefPtr<SkPicture> picture = adoptRef(SkPicture::CreateFromStream(&stream, decodeBitmap));
+    if (!picture)
+        return nullptr;
+    return adoptRef(new GraphicsContextSnapshot(picture, false));
+}
 
 PassOwnPtr<ImageBuffer> GraphicsContextSnapshot::replay(unsigned fromStep, unsigned toStep) const
 {

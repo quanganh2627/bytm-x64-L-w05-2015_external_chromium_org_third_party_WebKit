@@ -96,9 +96,9 @@ void WebFormElement::getFormControlElements(WebVector<WebFormControlElement>& re
     result.assign(formControlElements);
 }
 
-bool WebFormElement::checkValidityWithoutDispatchingEvents()
+bool WebFormElement::checkValidity()
 {
-    return unwrap<HTMLFormElement>()->checkValidityWithoutDispatchingEvents();
+    return unwrap<HTMLFormElement>()->checkValidity();
 }
 
 void WebFormElement::finishRequestAutocomplete(WebFormElement::AutocompleteResult result)
