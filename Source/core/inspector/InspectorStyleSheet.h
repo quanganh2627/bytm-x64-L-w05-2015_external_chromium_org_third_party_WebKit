@@ -29,8 +29,8 @@
 #include "core/css/CSSPropertySourceData.h"
 #include "core/css/CSSStyleDeclaration.h"
 #include "core/inspector/InspectorStyleTextEditor.h"
-#include "heap/Handle.h"
 #include "platform/JSONValues.h"
+#include "platform/heap/Handle.h"
 #include "wtf/HashMap.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/RefPtr.h"
@@ -296,12 +296,6 @@ private:
 
 } // namespace WebCore
 
-namespace WTF {
+WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(WebCore::InspectorStyleProperty);
 
-template <> struct VectorTraits<WebCore::InspectorStyleProperty> : VectorTraitsBase<WebCore::InspectorStyleProperty> {
-    static const bool canInitializeWithMemset = true;
-    static const bool canMoveWithMemcpy = true;
-};
-
-}
 #endif // !defined(InspectorStyleSheet_h)

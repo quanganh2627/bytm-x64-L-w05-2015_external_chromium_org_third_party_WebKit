@@ -28,10 +28,10 @@
 
 #include "core/css/FontFaceCache.h"
 #include "core/fetch/ResourcePtr.h"
-#include "heap/Handle.h"
 #include "platform/Timer.h"
 #include "platform/fonts/FontSelector.h"
 #include "platform/fonts/GenericFontFamilySettings.h"
+#include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
 #include "wtf/HashMap.h"
 #include "wtf/HashSet.h"
@@ -78,7 +78,7 @@ public:
     virtual unsigned version() const OVERRIDE { return m_fontFaceCache.version(); }
 
     virtual PassRefPtr<FontData> getFontData(const FontDescription&, const AtomicString&) OVERRIDE;
-    virtual void willUseFontData(const FontDescription&, const AtomicString& family) OVERRIDE;
+    virtual void willUseFontData(const FontDescription&, const AtomicString& family, UChar32) OVERRIDE;
 
     void clearDocument();
 

@@ -29,28 +29,18 @@
  */
 
 #include "config.h"
-#include "ContextMenuClientImpl.h"
+#include "web/ContextMenuClientImpl.h"
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
-#include "WebContextMenuData.h"
-#include "WebDataSourceImpl.h"
-#include "WebFormElement.h"
-#include "WebFrameClient.h"
-#include "WebLocalFrameImpl.h"
-#include "WebMenuItemInfo.h"
-#include "WebPlugin.h"
-#include "WebPluginContainerImpl.h"
-#include "WebSearchableFormData.h"
-#include "WebSpellCheckClient.h"
-#include "WebViewClient.h"
-#include "WebViewImpl.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/css/CSSStyleDeclaration.h"
 #include "core/dom/Document.h"
 #include "core/dom/DocumentMarkerController.h"
 #include "core/editing/Editor.h"
 #include "core/editing/SpellChecker.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/Settings.h"
 #include "core/html/HTMLFormElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLMediaElement.h"
@@ -61,9 +51,7 @@
 #include "core/loader/HistoryItem.h"
 #include "core/page/ContextMenuController.h"
 #include "core/page/EventHandler.h"
-#include "core/frame/FrameView.h"
 #include "core/page/Page.h"
-#include "core/frame/Settings.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderWidget.h"
 #include "platform/ContextMenu.h"
@@ -75,6 +63,18 @@
 #include "public/platform/WebURL.h"
 #include "public/platform/WebURLResponse.h"
 #include "public/platform/WebVector.h"
+#include "public/web/WebContextMenuData.h"
+#include "public/web/WebFormElement.h"
+#include "public/web/WebFrameClient.h"
+#include "public/web/WebMenuItemInfo.h"
+#include "public/web/WebPlugin.h"
+#include "public/web/WebSearchableFormData.h"
+#include "public/web/WebSpellCheckClient.h"
+#include "public/web/WebViewClient.h"
+#include "web/WebDataSourceImpl.h"
+#include "web/WebLocalFrameImpl.h"
+#include "web/WebPluginContainerImpl.h"
+#include "web/WebViewImpl.h"
 #include "wtf/text/WTFString.h"
 
 using namespace WebCore;
@@ -165,7 +165,7 @@ static String selectMisspellingAsync(LocalFrame* selectedFrame, DocumentMarker& 
     marker = *markers[0];
 
     // Cloning a range fails only for invalid ranges.
-    RefPtrWillBeRawPtr<Range> markerRange = selectionRange->cloneRange(ASSERT_NO_EXCEPTION);
+    RefPtrWillBeRawPtr<Range> markerRange = selectionRange->cloneRange();
     markerRange->setStart(markerRange->startContainer(), marker.startOffset());
     markerRange->setEnd(markerRange->endContainer(), marker.endOffset());
 

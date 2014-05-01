@@ -273,6 +273,17 @@ $(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: $(LOCAL_PATH)/third_par
 
 $(gyp_shared_intermediate_dir)/blink/EventTypeNames.h: $(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp ;
 
+### Rules for action "HTMLTokenizerNames":
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/HTMLTokenizerNames.in $(GYP_TARGET_DEPENDENCIES)
+	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLTokenizerNames ($@)"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py html/parser/HTMLTokenizerNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+
+$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.h: $(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp ;
+
 ### Rules for action "InputTypeNames":
 $(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
 $(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
@@ -431,6 +442,8 @@ GYP_GENERATED_OUTPUTS := \
 	$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.h \
 	$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp \
 	$(gyp_shared_intermediate_dir)/blink/EventTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.h \
 	$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp \
 	$(gyp_shared_intermediate_dir)/blink/InputTypeNames.h \
 	$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp \

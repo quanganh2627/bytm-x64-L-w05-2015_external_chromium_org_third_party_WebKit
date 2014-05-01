@@ -93,11 +93,8 @@ xssAuditorEnabled initial=false
 unsafePluginPastingEnabled initial=true
 treatIPAddressAsDomain initial=false
 
-acceleratedCompositingFor3DTransformsEnabled initial=true, invalidate=AcceleratedCompositing
 acceleratedCompositingForVideoEnabled initial=true, invalidate=AcceleratedCompositing
-acceleratedCompositingForPluginsEnabled initial=true, invalidate=AcceleratedCompositing
 acceleratedCompositingForCanvasEnabled initial=true, invalidate=AcceleratedCompositing
-acceleratedCompositingForAnimationEnabled initial=true, invalidate=AcceleratedCompositing
 acceleratedCompositingForFiltersEnabled initial=false, invalidate=AcceleratedCompositing
 acceleratedCompositingForFixedPositionEnabled initial=false, invalidate=AcceleratedCompositing
 acceleratedCompositingForOverflowScrollEnabled initial=false, invalidate=AcceleratedCompositing
@@ -127,10 +124,11 @@ preciseMemoryInfoEnabled initial=false
 hyperlinkAuditingEnabled initial=false
 allowDisplayOfInsecureContent initial=true
 allowRunningOfInsecureContent initial=true
+# FIXME: Remove this temporary flag. See crbug.com/366483 for the target
+# milestone.
+allowConnectingInsecureWebSocket initial=false
+mediaControlsOverlayPlayButtonEnabled initial=false
 mediaPlaybackRequiresUserGesture initial=false
-shouldDisplaySubtitles initial=false
-shouldDisplayCaptions initial=false
-shouldDisplayTextDescriptions initial=false
 
 scrollingCoordinatorEnabled initial=false
 scrollAnimatorEnabled initial=true
@@ -166,6 +164,8 @@ cookieEnabled initial=true
 navigateOnDragDrop initial=true
 DOMPasteAllowed initial=false
 
+// FIXME: Remove this. Unfortunately many webkit_unit_tests
+// depend on parsing being synchronous. crbug.com/366354
 threadedHTMLParser initial=false
 useThreadedHTMLParserForDataURLs initial=false
 

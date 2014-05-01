@@ -32,14 +32,14 @@
 
 #include <gtest/gtest.h>
 
-#include "WebInputEvent.h"
-#include "WebInputEventConversion.h"
 #include "core/editing/EditingBehavior.h"
 #include "core/editing/Editor.h"
 #include "core/events/EventTarget.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/frame/Settings.h"
 #include "platform/KeyboardCodes.h"
+#include "public/web/WebInputEvent.h"
+#include "web/WebInputEventConversion.h"
 
 using namespace WebCore;
 using namespace blink;

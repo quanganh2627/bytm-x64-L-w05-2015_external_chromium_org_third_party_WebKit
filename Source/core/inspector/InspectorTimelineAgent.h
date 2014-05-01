@@ -72,6 +72,7 @@ class InspectorPageAgent;
 class InspectorLayerTreeAgent;
 class InstrumentingAgents;
 class KURL;
+class ScriptState;
 class Node;
 class RenderImage;
 class RenderObject;
@@ -81,7 +82,6 @@ class ResourceRequest;
 class ResourceResponse;
 class ScriptArguments;
 class ScriptCallStack;
-class ScriptState;
 class TimelineRecordStack;
 class WebSocketHandshakeRequest;
 class WebSocketHandshakeResponse;
@@ -157,13 +157,9 @@ public:
     void layerTreeDidChange();
     void didUpdateLayerTree();
 
-    void willAutosizeText(RenderObject*);
-    void didAutosizeText(RenderObject*);
-
     void didScheduleStyleRecalculation(Document*);
     bool willRecalculateStyle(Document*);
-    void didRecalculateStyle();
-    void didRecalculateStyleForElement();
+    void didRecalculateStyle(int elementCount);
 
     void willPaint(RenderObject*, const GraphicsLayer*);
     void didPaint(RenderObject*, const GraphicsLayer*, GraphicsContext*, const LayoutRect&);
@@ -202,7 +198,6 @@ public:
     void consoleTimeline(ExecutionContext*, const String& title, ScriptState*);
     void consoleTimelineEnd(ExecutionContext*, const String& title, ScriptState*);
 
-    void didScheduleResourceRequest(Document*, const String& url);
     void willSendRequest(unsigned long, DocumentLoader*, const ResourceRequest&, const ResourceResponse&, const FetchInitiatorInfo&);
     void didReceiveResourceResponse(LocalFrame*, unsigned long, DocumentLoader*, const ResourceResponse&, ResourceLoader*);
     void didFinishLoading(unsigned long, DocumentLoader*, double monotonicFinishTime, int64_t);
@@ -321,7 +316,6 @@ private:
     double m_paintSetupEnd;
     RefPtr<JSONObject> m_gpuTask;
     RefPtr<JSONValue> m_pendingLayerTreeData;
-    unsigned m_styleRecalcElementCounter;
     typedef HashMap<ThreadIdentifier, TimelineThreadState> ThreadStateMap;
     ThreadStateMap m_threadStates;
     bool m_mayEmitFirstPaint;

@@ -29,16 +29,12 @@
  */
 
 #include "config.h"
-#include "WebPagePopupImpl.h"
+#include "web/WebPagePopupImpl.h"
 
-#include "WebInputEventConversion.h"
-#include "WebSettingsImpl.h"
-#include "WebViewClient.h"
-#include "WebViewImpl.h"
-#include "WebWidgetClient.h"
 #include "core/dom/ContextFeatures.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
+#include "core/frame/Settings.h"
 #include "core/loader/EmptyClients.h"
 #include "core/loader/FrameLoadRequest.h"
 #include "core/page/Chrome.h"
@@ -47,8 +43,12 @@
 #include "core/page/FocusController.h"
 #include "core/page/Page.h"
 #include "core/page/PagePopupClient.h"
-#include "core/frame/Settings.h"
 #include "public/platform/WebCursorInfo.h"
+#include "public/web/WebViewClient.h"
+#include "public/web/WebWidgetClient.h"
+#include "web/WebInputEventConversion.h"
+#include "web/WebSettingsImpl.h"
+#include "web/WebViewImpl.h"
 
 using namespace WebCore;
 using namespace std;
@@ -307,14 +307,6 @@ void WebPagePopupImpl::enterForceCompositingMode(bool enter)
             return;
         mainFrame->view()->updateCompositingLayersAfterStyleChange();
     }
-}
-
-void WebPagePopupImpl::didExitCompositingMode()
-{
-    setIsAcceleratedCompositingActive(false);
-    m_widgetClient->didInvalidateRect(IntRect(0, 0, size().width, size().height));
-    if (m_page)
-        m_page->mainFrame()->document()->setNeedsStyleRecalc(SubtreeStyleChange);
 }
 
 void WebPagePopupImpl::willCloseLayerTreeView()

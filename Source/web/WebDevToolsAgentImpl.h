@@ -34,10 +34,10 @@
 #include "core/inspector/InspectorClient.h"
 #include "core/inspector/InspectorFrontendChannel.h"
 
-#include "WebDevToolsAgentPrivate.h"
-#include "WebPageOverlay.h"
 #include "public/platform/WebSize.h"
 #include "public/platform/WebThread.h"
+#include "public/web/WebPageOverlay.h"
+#include "web/WebDevToolsAgentPrivate.h"
 #include "wtf/Forward.h"
 #include "wtf/OwnPtr.h"
 #include "wtf/Vector.h"
@@ -105,9 +105,6 @@ public:
     virtual void sendMessageToFrontend(PassRefPtr<WebCore::JSONObject> message) OVERRIDE;
     virtual void flush() OVERRIDE;
 
-    virtual void clearBrowserCache() OVERRIDE;
-    virtual void clearBrowserCookies() OVERRIDE;
-
     virtual void overrideDeviceMetrics(int width, int height, float deviceScaleFactor, bool emulateViewport, bool fitWindow) OVERRIDE;
     virtual void setTouchEventEmulationEnabled(bool) OVERRIDE;
 
@@ -115,6 +112,9 @@ public:
     virtual void dumpUncountedAllocatedObjects(const HashMap<const void*, size_t>&) OVERRIDE;
     virtual void setTraceEventCallback(const WTF::String& categoryFilter, TraceEventCallback) OVERRIDE;
     virtual void resetTraceEventCallback() OVERRIDE;
+    virtual void enableTracing(const WTF::String& categoryFilter) OVERRIDE;
+    virtual void disableTracing() OVERRIDE;
+
     virtual void startGPUEventsRecording() OVERRIDE;
     virtual void stopGPUEventsRecording() OVERRIDE;
 

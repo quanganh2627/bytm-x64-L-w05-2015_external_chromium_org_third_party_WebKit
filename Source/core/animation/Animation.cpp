@@ -108,17 +108,15 @@ Animation::~Animation()
 void Animation::didAttach()
 {
     if (m_target) {
-        m_target->ensureActiveAnimations().players().add(player());
+        m_target->ensureActiveAnimations().addPlayer(player());
         m_target->setNeedsAnimationStyleRecalc();
     }
 }
 
 void Animation::willDetach()
 {
-    if (m_target) {
-        m_target->activeAnimations()->players().remove(player());
-        m_target->setNeedsAnimationStyleRecalc();
-    }
+    if (m_target)
+        m_target->activeAnimations()->removePlayer(player());
     if (m_sampledEffect)
         clearEffects();
 }

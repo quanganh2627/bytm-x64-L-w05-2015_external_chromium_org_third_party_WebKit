@@ -85,7 +85,6 @@ static const char RecalculateStyles[] = "RecalculateStyles";
 static const char InvalidateLayout[] = "InvalidateLayout";
 static const char Layout[] = "Layout";
 static const char UpdateLayerTree[] = "UpdateLayerTree";
-static const char AutosizeText[] = "AutosizeText";
 static const char Paint[] = "Paint";
 static const char ScrollLayer[] = "ScrollLayer";
 static const char ResizeImage[] = "ResizeImage";
@@ -106,7 +105,6 @@ static const char MarkFirstPaint[] = "MarkFirstPaint";
 static const char TimeStamp[] = "TimeStamp";
 static const char ConsoleTime[] = "ConsoleTime";
 
-static const char ScheduleResourceRequest[] = "ScheduleResourceRequest";
 static const char ResourceSendRequest[] = "ResourceSendRequest";
 static const char ResourceReceiveResponse[] = "ResourceReceiveResponse";
 static const char ResourceReceivedData[] = "ResourceReceivedData";
@@ -534,21 +532,6 @@ void InspectorTimelineAgent::didUpdateLayerTree()
     didCompleteCurrentRecord(TimelineRecordType::UpdateLayerTree);
 }
 
-void InspectorTimelineAgent::willAutosizeText(RenderObject* renderer)
-{
-    pushCurrentRecord(TimelineRecordFactory::createNodeData(nodeId(renderer)), TimelineRecordType::AutosizeText, false, renderer->frame());
-}
-
-void InspectorTimelineAgent::didAutosizeText(RenderObject* renderer)
-{
-    if (renderer->needsLayout()) {
-        TimelineRecordEntry& entry = m_recordStack.last();
-        ASSERT(entry.type == TimelineRecordType::AutosizeText);
-        entry.data->setBoolean("needsRelayout", true);
-    }
-    didCompleteCurrentRecord(TimelineRecordType::AutosizeText);
-}
-
 void InspectorTimelineAgent::didScheduleStyleRecalculation(Document* document)
 {
     appendRecord(JSONObject::create(), TimelineRecordType::ScheduleStyleRecalculation, true, document->frame());
@@ -557,24 +540,17 @@ void InspectorTimelineAgent::didScheduleStyleRecalculation(Document* document)
 bool InspectorTimelineAgent::willRecalculateStyle(Document* document)
 {
     pushCurrentRecord(JSONObject::create(), TimelineRecordType::RecalculateStyles, true, document->frame());
-    ASSERT(!m_styleRecalcElementCounter);
     return true;
 }
 
-void InspectorTimelineAgent::didRecalculateStyle()
+void InspectorTimelineAgent::didRecalculateStyle(int elementCount)
 {
     if (m_recordStack.isEmpty())
         return;
     TimelineRecordEntry& entry = m_recordStack.last();
     ASSERT(entry.type == TimelineRecordType::RecalculateStyles);
-    TimelineRecordFactory::setStyleRecalcDetails(entry.data.get(), m_styleRecalcElementCounter);
-    m_styleRecalcElementCounter = 0;
+    TimelineRecordFactory::setStyleRecalcDetails(entry.data.get(), elementCount);
     didCompleteCurrentRecord(TimelineRecordType::RecalculateStyles);
-}
-
-void InspectorTimelineAgent::didRecalculateStyleForElement()
-{
-    ++m_styleRecalcElementCounter;
 }
 
 void InspectorTimelineAgent::willPaint(RenderObject* renderer, const GraphicsLayer* graphicsLayer)
@@ -747,11 +723,6 @@ void InspectorTimelineAgent::didEvaluateScript()
     didCompleteCurrentRecord(TimelineRecordType::EvaluateScript);
 }
 
-void InspectorTimelineAgent::didScheduleResourceRequest(Document* document, const String& url)
-{
-    appendRecord(TimelineRecordFactory::createScheduleResourceRequestData(url), TimelineRecordType::ScheduleResourceRequest, true, document->frame());
-}
-
 void InspectorTimelineAgent::willSendRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request, const ResourceResponse&, const FetchInitiatorInfo&)
 {
     String requestId = IdentifiersFactory::requestId(identifier);
@@ -807,13 +778,13 @@ void InspectorTimelineAgent::consoleTimeEnd(ExecutionContext* context, const Str
     didCompleteCurrentRecord(TimelineRecordType::ConsoleTime);
 }
 
-void InspectorTimelineAgent::consoleTimeline(ExecutionContext* context, const String& title, ScriptState* state)
+void InspectorTimelineAgent::consoleTimeline(ExecutionContext* context, const String& title, ScriptState* scriptState)
 {
     if (!m_state->getBoolean(TimelineAgentState::enabled))
         return;
 
     String message = String::format("Timeline '%s' started.", title.utf8().data());
-    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, scriptState);
     m_consoleTimelines.append(title);
     if (!isStarted()) {
         innerStart();
@@ -823,7 +794,7 @@ void InspectorTimelineAgent::consoleTimeline(ExecutionContext* context, const St
     appendRecord(TimelineRecordFactory::createTimeStampData(message), TimelineRecordType::TimeStamp, true, frameForExecutionContext(context));
 }
 
-void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const String& title, ScriptState* state)
+void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const String& title, ScriptState* scriptState)
 {
     if (!m_state->getBoolean(TimelineAgentState::enabled))
         return;
@@ -831,7 +802,7 @@ void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const
     size_t index = m_consoleTimelines.find(title);
     if (index == kNotFound) {
         String message = String::format("Timeline '%s' was not started.", title.utf8().data());
-        mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+        mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, scriptState);
         return;
     }
 
@@ -842,7 +813,7 @@ void InspectorTimelineAgent::consoleTimelineEnd(ExecutionContext* context, const
         unwindRecordStack();
         innerStop(true);
     }
-    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, state);
+    mainFrame()->console().addMessage(ConsoleAPIMessageSource, DebugMessageLevel, message, String(), 0, 0, nullptr, scriptState);
 }
 
 void InspectorTimelineAgent::domContentLoadedEventFired(LocalFrame* frame)
@@ -1197,7 +1168,6 @@ InspectorTimelineAgent::InspectorTimelineAgent(InspectorPageAgent* pageAgent, In
     , m_platformInstrumentationClientInstalledAtStackDepth(0)
     , m_imageBeingPainted(0)
     , m_paintSetupStart(0)
-    , m_styleRecalcElementCounter(0)
     , m_mayEmitFirstPaint(false)
     , m_lastProgressTimestamp(0)
 {

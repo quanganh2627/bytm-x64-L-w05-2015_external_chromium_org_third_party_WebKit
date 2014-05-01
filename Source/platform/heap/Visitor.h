@@ -36,14 +36,20 @@
 #include "wtf/Assertions.h"
 #include "wtf/Deque.h"
 #include "wtf/Forward.h"
+#include "wtf/HashCountedSet.h"
 #include "wtf/HashMap.h"
 #include "wtf/HashSet.h"
 #include "wtf/HashTraits.h"
+#include "wtf/InstanceCounter.h"
 #include "wtf/LinkedHashSet.h"
 #include "wtf/ListHashSet.h"
 #include "wtf/OwnPtr.h"
 #include "wtf/RefPtr.h"
 #include "wtf/TypeTraits.h"
+#include "wtf/WeakPtr.h"
+#if ENABLE(GC_TRACING)
+#include "wtf/text/WTFString.h"
+#endif
 
 #ifndef NDEBUG
 #define DEBUG_ONLY(x) x
@@ -92,6 +98,10 @@ struct GCInfo {
     FinalizationCallback m_finalize;
     bool m_nonTrivialFinalizer;
     bool m_hasVTable;
+#if ENABLE(GC_TRACING)
+    // |m_className| is held as a reference to prevent dtor being called at exit.
+    const String& m_className;
+#endif
 };
 
 // The FinalizerTraitImpl specifies how to finalize objects. Object
@@ -228,6 +238,7 @@ public:
     template<typename T>
     void trace(const Member<T>& t)
     {
+        t.verifyTypeIsGarbageCollected();
         mark(t.get());
     }
 
@@ -288,6 +299,12 @@ public:
         OffHeapCollectionTraceTrait<Deque<T, N> >::trace(this, deque);
     }
 
+    template<typename T, typename U, typename V>
+    void trace(const HashCountedSet<T, U, V>& set)
+    {
+        OffHeapCollectionTraceTrait<HashCountedSet<T, U, V> >::trace(this, set);
+    }
+
     template<typename T, typename U, typename V, typename W, typename X>
     void trace(const HashMap<T, U, V, W, X, WTF::DefaultAllocator>& map)
     {
@@ -324,6 +341,18 @@ public:
     {
     }
 #endif
+
+    // This trace method is to trace a WeakPtrWillBeMember when ENABLE(OILPAN)
+    // is not enabled.
+    // Remove this once we remove WeakPtrWillBeMember.
+    template<typename T>
+    void trace(const WeakPtr<T>&)
+    {
+#if ENABLE(OILPAN)
+        // WeakPtrs should never be traced.
+        ASSERT_NOT_REACHED();
+#endif
+    }
 
     // This method marks an object and adds it to the set of objects
     // that should have their trace method called. Since not all
@@ -391,6 +420,10 @@ public:
     {
         return isAlive(member.get());
     }
+    template<typename T> inline bool isAlive(RawPtr<T> ptr)
+    {
+        return isAlive(ptr.get());
+    }
 
 #ifndef NDEBUG
     void checkGCInfo(const void*, const GCInfo*);
@@ -405,8 +438,20 @@ public:
     FOR_EACH_TYPED_HEAP(DECLARE_VISITOR_METHODS)
 #undef DECLARE_VISITOR_METHODS
 
+#if ENABLE(GC_TRACING)
+    void setHostInfo(void* object, const String& name)
+    {
+        m_hostObject = object;
+        m_hostName = name;
+    }
+#endif
+
 protected:
     virtual void registerWeakCell(void**, WeakPointerCallback) = 0;
+#if ENABLE(GC_TRACING)
+    void* m_hostObject;
+    String m_hostName;
+#endif
 
 private:
     template<typename T>
@@ -512,6 +557,19 @@ struct OffHeapCollectionTraceTrait<WTF::Deque<T, N> > {
     }
 };
 
+template<typename T, typename U, typename V>
+struct OffHeapCollectionTraceTrait<WTF::HashCountedSet<T, U, V> > {
+    typedef WTF::HashCountedSet<T, U, V> Set;
+
+    static void trace(Visitor* visitor, const Set& set)
+    {
+        if (set.isEmpty())
+            return;
+        for (typename Set::const_iterator it = set.begin(), end = set.end(); it != end; ++it)
+            TraceTrait<T>::trace(visitor, const_cast<T*>(&(it->key)));
+    }
+};
+
 template<typename T, typename Traits = WTF::VectorTraits<T> >
 class HeapVectorBacking;
 
@@ -608,13 +666,13 @@ public:
 
 #define USING_GARBAGE_COLLECTED_MIXIN(TYPE) \
 public: \
-    virtual void adjustAndMark(Visitor* visitor) const OVERRIDE \
+    virtual void adjustAndMark(WebCore::Visitor* visitor) const OVERRIDE    \
     { \
         typedef WTF::IsSubclassOfTemplate<TYPE, WebCore::GarbageCollected> IsSubclassOfGarbageCollected; \
         COMPILE_ASSERT(IsSubclassOfGarbageCollected::value, OnlyGarbageCollectedObjectsCanHaveGarbageCollectedMixins); \
-        visitor->mark(this, &TraceTrait<TYPE>::trace);\
+        visitor->mark(this, &WebCore::TraceTrait<TYPE>::trace); \
     } \
-    virtual bool isAlive(Visitor* visitor) const OVERRIDE \
+    virtual bool isAlive(WebCore::Visitor* visitor) const OVERRIDE  \
     { \
         return visitor->isAlive(this); \
     }
@@ -623,6 +681,17 @@ public: \
 #define WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(TYPE) USING_GARBAGE_COLLECTED_MIXIN(TYPE)
 #else
 #define WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(TYPE)
+#endif
+
+#if ENABLE(GC_TRACING)
+template<typename T>
+struct TypenameStringTrait {
+    static const String& get()
+    {
+        DEFINE_STATIC_LOCAL(String, typenameString, (WTF::extractTypeNameFromFunctionName(WTF::extractNameFunction<T>())));
+        return typenameString;
+    }
+};
 #endif
 
 template<typename T>
@@ -634,6 +703,9 @@ struct GCInfoAtBase {
             FinalizerTrait<T>::finalize,
             FinalizerTrait<T>::nonTrivialFinalizer,
             VTableTrait<T>::hasVTable,
+#if ENABLE(GC_TRACING)
+            TypenameStringTrait<T>::get()
+#endif
         };
         return &gcInfo;
     }

@@ -66,14 +66,14 @@ public:
 
     // Implement the IDL
     const String& name() const { return m_metadata.name; }
-    ScriptValue version(NewScriptState*) const;
+    ScriptValue version(ScriptState*) const;
     PassRefPtr<DOMStringList> objectStoreNames() const;
 
     PassRefPtr<IDBObjectStore> createObjectStore(const String& name, const Dictionary&, ExceptionState&);
     PassRefPtr<IDBObjectStore> createObjectStore(const String& name, const IDBKeyPath&, bool autoIncrement, ExceptionState&);
-    PassRefPtr<IDBTransaction> transaction(ExecutionContext* context, PassRefPtr<DOMStringList> scope, const String& mode, ExceptionState& exceptionState) { return transaction(context, *scope, mode, exceptionState); }
-    PassRefPtr<IDBTransaction> transaction(ExecutionContext*, const Vector<String>&, const String& mode, ExceptionState&);
-    PassRefPtr<IDBTransaction> transaction(ExecutionContext*, const String&, const String& mode, ExceptionState&);
+    PassRefPtrWillBeRawPtr<IDBTransaction> transaction(ExecutionContext* context, PassRefPtr<DOMStringList> scope, const String& mode, ExceptionState& exceptionState) { return transaction(context, *scope, mode, exceptionState); }
+    PassRefPtrWillBeRawPtr<IDBTransaction> transaction(ExecutionContext*, const Vector<String>&, const String& mode, ExceptionState&);
+    PassRefPtrWillBeRawPtr<IDBTransaction> transaction(ExecutionContext*, const String&, const String& mode, ExceptionState&);
     void deleteObjectStore(const String& name, ExceptionState&);
     void close();
 
@@ -109,9 +109,12 @@ public:
         return findObjectStoreId(name) != IDBObjectStoreMetadata::InvalidId;
     }
 
+    // Will return nullptr if this database is stopped.
     blink::WebIDBDatabase* backend() const { return m_backend.get(); }
 
     static int64_t nextTransactionId();
+
+    void ackReceivedBlobs(const Vector<blink::WebBlobInfo>*);
 
     static const char indexDeletedErrorMessage[];
     static const char isKeyCursorErrorMessage[];
@@ -127,6 +130,7 @@ public:
     static const char transactionFinishedErrorMessage[];
     static const char transactionInactiveErrorMessage[];
     static const char transactionReadOnlyErrorMessage[];
+    static const char databaseClosedErrorMessage[];
 
 private:
     IDBDatabase(ExecutionContext*, PassOwnPtr<blink::WebIDBDatabase>, PassRefPtr<IDBDatabaseCallbacks>);
@@ -135,8 +139,8 @@ private:
 
     IDBDatabaseMetadata m_metadata;
     OwnPtr<blink::WebIDBDatabase> m_backend;
-    RefPtr<IDBTransaction> m_versionChangeTransaction;
-    typedef HashMap<int64_t, RefPtr<IDBTransaction> > TransactionMap;
+    RefPtrWillBePersistent<IDBTransaction> m_versionChangeTransaction;
+    typedef WillBePersistentHeapHashMap<int64_t, RefPtrWillBeMember<IDBTransaction> > TransactionMap;
     TransactionMap m_transactions;
 
     bool m_closePending;

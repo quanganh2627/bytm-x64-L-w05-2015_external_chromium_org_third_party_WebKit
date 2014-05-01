@@ -29,11 +29,10 @@
 #ifndef Console_h
 #define Console_h
 
-#include "bindings/v8/ScriptState.h"
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/frame/ConsoleBase.h"
 #include "core/frame/DOMWindowProperty.h"
-#include "heap/Handle.h"
+#include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/RefCounted.h"

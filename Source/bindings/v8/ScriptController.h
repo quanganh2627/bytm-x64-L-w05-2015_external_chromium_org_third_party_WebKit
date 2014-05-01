@@ -49,12 +49,12 @@ namespace WebCore {
 class DOMWrapperWorld;
 class ExecutionContext;
 class Event;
-class LocalFrame;
 class HTMLDocument;
 class HTMLPlugInElement;
 class KURL;
-class ScriptSourceCode;
+class LocalFrame;
 class ScriptState;
+class ScriptSourceCode;
 class SecurityOrigin;
 class V8WindowShell;
 class Widget;

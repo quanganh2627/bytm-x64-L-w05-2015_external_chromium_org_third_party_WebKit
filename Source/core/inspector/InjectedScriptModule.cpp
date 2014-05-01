@@ -33,7 +33,6 @@
 
 #include "bindings/v8/ScriptFunctionCall.h"
 #include "bindings/v8/ScriptObject.h"
-#include "bindings/v8/ScriptScope.h"
 #include "core/inspector/InjectedScript.h"
 #include "core/inspector/InjectedScriptManager.h"
 
@@ -57,7 +56,7 @@ void InjectedScriptModule::ensureInjected(InjectedScriptManager* injectedScriptM
     bool hadException = false;
     ScriptValue resultValue = injectedScript.callFunctionWithEvalEnabled(function, hadException);
     ASSERT(!hadException);
-    ScriptScope scope(scriptState);
+    ScriptState::Scope scope(scriptState);
     if (hadException || resultValue.isEmpty() || !resultValue.isObject()) {
         ScriptFunctionCall function(injectedScript.injectedScriptObject(), "injectModule");
         function.appendArgument(name());

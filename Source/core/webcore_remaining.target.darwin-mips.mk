@@ -223,6 +223,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/css/parser/MediaQueryBlockWatcher.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryInputStream.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryParser.cpp \
+	third_party/WebKit/Source/core/css/parser/SizesCalcParser.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryToken.cpp \
 	third_party/WebKit/Source/core/css/parser/MediaQueryTokenizer.cpp \
 	third_party/WebKit/Source/core/css/parser/SizesAttributeParser.cpp \
@@ -403,6 +404,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/inspector/InspectorInstrumentation.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorLayerTreeAgent.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorMemoryAgent.cpp \
+	third_party/WebKit/Source/core/inspector/InspectorNodeIds.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorOverlay.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorOverlayHost.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorPageAgent.cpp \
@@ -413,6 +415,8 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/inspector/InspectorStyleSheet.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorStyleTextEditor.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorTimelineAgent.cpp \
+	third_party/WebKit/Source/core/inspector/InspectorTraceEvents.cpp \
+	third_party/WebKit/Source/core/inspector/InspectorTracingAgent.cpp \
 	third_party/WebKit/Source/core/inspector/InspectorWorkerAgent.cpp \
 	third_party/WebKit/Source/core/inspector/JSONParser.cpp \
 	third_party/WebKit/Source/core/inspector/JavaScriptCallFrame.cpp \
@@ -641,12 +645,13 @@ MY_DEFS_Debug := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -798,12 +803,13 @@ MY_DEFS_Release := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \

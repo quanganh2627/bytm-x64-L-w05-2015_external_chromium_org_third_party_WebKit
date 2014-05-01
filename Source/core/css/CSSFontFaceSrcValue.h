@@ -41,11 +41,11 @@ class CSSFontFaceSrcValue : public CSSValue {
 public:
     static PassRefPtrWillBeRawPtr<CSSFontFaceSrcValue> create(const String& resource)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSFontFaceSrcValue(resource, false));
+        return adoptRefWillBeNoop(new CSSFontFaceSrcValue(resource, false));
     }
     static PassRefPtrWillBeRawPtr<CSSFontFaceSrcValue> createLocal(const String& resource)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSFontFaceSrcValue(resource, true));
+        return adoptRefWillBeNoop(new CSSFontFaceSrcValue(resource, true));
     }
 
     const String& resource() const { return m_resource; }
@@ -53,6 +53,7 @@ public:
     bool isLocal() const { return m_isLocal; }
 
     void setFormat(const String& format) { m_format = format; }
+    void setReferrer(const String& referrer) { m_referrer = referrer; }
 
     bool isSupportedFormat() const;
 
@@ -84,10 +85,12 @@ private:
     {
     }
 
+    void restoreCachedResourceIfNeeded(Document*);
     bool shouldSetCrossOriginAccessControl(const KURL& resource, SecurityOrigin*);
 
     String m_resource;
     String m_format;
+    String m_referrer;
     bool m_isLocal;
 
     ResourcePtr<FontResource> m_fetched;

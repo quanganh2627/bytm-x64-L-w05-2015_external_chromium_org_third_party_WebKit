@@ -30,15 +30,7 @@
 
 #include "config.h"
 
-#include "FrameTestHelpers.h"
 #include "RuntimeEnabledFeatures.h"
-#include "URLTestHelpers.h"
-#include "WebDocument.h"
-#include "WebFrame.h"
-#include "WebInputEvent.h"
-#include "WebView.h"
-#include "WebViewClient.h"
-#include "WebViewImpl.h"
 #include "core/dom/ClientRect.h"
 #include "core/dom/ClientRectList.h"
 #include "core/dom/Document.h"
@@ -51,9 +43,17 @@
 #include "core/rendering/RenderTreeAsText.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebUnitTestSupport.h"
+#include "public/web/WebDocument.h"
+#include "public/web/WebFrame.h"
 #include "public/web/WebHitTestResult.h"
+#include "public/web/WebInputEvent.h"
 #include "public/web/WebTouchAction.h"
+#include "public/web/WebView.h"
+#include "public/web/WebViewClient.h"
 #include "public/web/WebWidgetClient.h"
+#include "web/WebViewImpl.h"
+#include "web/tests/FrameTestHelpers.h"
+#include "web/tests/URLTestHelpers.h"
 
 #include <gtest/gtest.h>
 
@@ -62,7 +62,7 @@ using blink::FrameTestHelpers::runPendingTasks;
 
 namespace {
 
-class TouchActionTrackingWebViewClient : public WebViewClient {
+class TouchActionTrackingWebViewClient : public FrameTestHelpers::TestWebViewClient {
 public:
     TouchActionTrackingWebViewClient() :
         m_actionSetCount(0),

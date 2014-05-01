@@ -29,15 +29,9 @@
  */
 
 #include "config.h"
-#include "WebPageSerializer.h"
+#include "public/web/WebPageSerializer.h"
 
 #include "HTMLNames.h"
-#include "WebFrame.h"
-#include "WebLocalFrameImpl.h"
-#include "WebPageSerializerClient.h"
-#include "WebPageSerializerImpl.h"
-#include "WebView.h"
-#include "WebViewImpl.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/frame/LocalFrame.h"
@@ -55,6 +49,12 @@
 #include "public/platform/WebString.h"
 #include "public/platform/WebURL.h"
 #include "public/platform/WebVector.h"
+#include "public/web/WebFrame.h"
+#include "public/web/WebPageSerializerClient.h"
+#include "public/web/WebView.h"
+#include "web/WebLocalFrameImpl.h"
+#include "web/WebPageSerializerImpl.h"
+#include "web/WebViewImpl.h"
 #include "wtf/Vector.h"
 #include "wtf/text/StringConcatenate.h"
 

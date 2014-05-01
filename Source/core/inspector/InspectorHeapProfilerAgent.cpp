@@ -32,7 +32,6 @@
 #include "core/inspector/InspectorHeapProfilerAgent.h"
 
 #include "bindings/v8/ScriptProfiler.h"
-#include "bindings/v8/ScriptScope.h"
 #include "core/inspector/InjectedScript.h"
 #include "core/inspector/InjectedScriptHost.h"
 #include "core/inspector/InspectorState.h"
@@ -304,7 +303,7 @@ void InspectorHeapProfilerAgent::getHeapObjectId(ErrorString* errorString, const
         return;
     }
     ScriptValue value = injectedScript.findObjectById(objectId);
-    ScriptScope scope(injectedScript.scriptState());
+    ScriptState::Scope scope(injectedScript.scriptState());
     if (value.isEmpty() || value.isUndefined()) {
         *errorString = "Object with given id not found";
         return;

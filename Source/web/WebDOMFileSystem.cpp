@@ -29,17 +29,17 @@
  */
 
 #include "config.h"
-#include "WebDOMFileSystem.h"
+#include "public/web/WebDOMFileSystem.h"
 
 #include "V8DOMFileSystem.h"
 #include "V8DirectoryEntry.h"
 #include "V8FileEntry.h"
-#include "WebLocalFrameImpl.h"
 #include "bindings/v8/WrapperTypeInfo.h"
 #include "core/dom/Document.h"
 #include "modules/filesystem/DOMFileSystem.h"
 #include "modules/filesystem/DirectoryEntry.h"
 #include "modules/filesystem/FileEntry.h"
+#include "web/WebLocalFrameImpl.h"
 #include <v8.h>
 
 using namespace WebCore;

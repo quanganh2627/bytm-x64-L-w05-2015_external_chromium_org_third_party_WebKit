@@ -32,12 +32,12 @@
 #include "core/page/FocusType.h"
 #include "core/rendering/HitTestRequest.h"
 #include "core/rendering/style/RenderStyleConstants.h"
-#include "heap/Handle.h"
 #include "platform/Cursor.h"
 #include "platform/PlatformMouseEvent.h"
 #include "platform/Timer.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/geometry/LayoutPoint.h"
+#include "platform/heap/Handle.h"
 #include "platform/scroll/ScrollTypes.h"
 #include "wtf/Forward.h"
 #include "wtf/HashMap.h"
@@ -220,7 +220,6 @@ private:
     void cursorUpdateTimerFired(Timer<EventHandler>*);
     void activeIntervalTimerFired(Timer<EventHandler>*);
 
-    bool shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&, const PlatformWheelEvent&) const;
     bool mouseDownMayStartSelect() const { return m_mouseDownMayStartSelect; }
 
     void fakeMouseMoveEventTimerFired(Timer<EventHandler>*);
@@ -334,7 +333,6 @@ private:
     Timer<EventHandler> m_fakeMouseMoveEventTimer;
 
     bool m_svgPan;
-    RefPtr<SVGElementInstance> m_instanceUnderMouse;
     RefPtr<SVGElementInstance> m_lastInstanceUnderMouse;
 
     RenderLayerScrollableArea* m_resizeScrollableArea;

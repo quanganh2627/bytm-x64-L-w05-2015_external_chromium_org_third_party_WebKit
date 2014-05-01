@@ -84,9 +84,13 @@ void PageRuntimeAgent::didClearWindowObjectInMainWorld(LocalFrame* frame)
     if (!m_enabled)
         return;
     ASSERT(m_frontend);
+
+    if (frame == m_inspectedPage->mainFrame()) {
+        m_scriptStateToId.clear();
+        m_frontend->executionContextsCleared();
+    }
     String frameId = m_pageAgent->frameId(frame);
-    ScriptState* scriptState = mainWorldScriptState(frame);
-    addExecutionContextToFrontend(scriptState, true, "", frameId);
+    addExecutionContextToFrontend(ScriptState::forMainWorld(frame), true, "", frameId);
 }
 
 void PageRuntimeAgent::didCreateIsolatedContext(LocalFrame* frame, ScriptState* scriptState, SecurityOrigin* origin)
@@ -101,7 +105,7 @@ void PageRuntimeAgent::didCreateIsolatedContext(LocalFrame* frame, ScriptState* 
 InjectedScript PageRuntimeAgent::injectedScriptForEval(ErrorString* errorString, const int* executionContextId)
 {
     if (!executionContextId) {
-        ScriptState* scriptState = mainWorldScriptState(m_inspectedPage->mainFrame());
+        ScriptState* scriptState = ScriptState::forMainWorld(m_inspectedPage->mainFrame());
         InjectedScript result = injectedScriptManager()->injectedScriptFor(scriptState);
         if (result.isEmpty())
             *errorString = "Internal error: main world execution context not found.";
@@ -131,7 +135,7 @@ void PageRuntimeAgent::reportExecutionContextCreation()
             continue;
         String frameId = m_pageAgent->frameId(frame);
 
-        ScriptState* scriptState = mainWorldScriptState(frame);
+        ScriptState* scriptState = ScriptState::forMainWorld(frame);
         addExecutionContextToFrontend(scriptState, true, "", frameId);
         frame->script().collectIsolatedContexts(isolatedContexts);
         if (isolatedContexts.isEmpty())
@@ -144,16 +148,15 @@ void PageRuntimeAgent::reportExecutionContextCreation()
 
 void PageRuntimeAgent::frameWindowDiscarded(DOMWindow* window)
 {
-    Vector<ScriptState*> scriptStatesToRemove;
+    Vector<RefPtr<ScriptState> > scriptStatesToRemove;
     for (ScriptStateToId::iterator it = m_scriptStateToId.begin(); it != m_scriptStateToId.end(); ++it) {
-        ScriptState* scriptState = it->key;
-        if (window == scriptState->domWindow()) {
+        RefPtr<ScriptState> scriptState = it->key;
+        if (scriptState->contextIsEmpty() || window == scriptState->domWindow()) {
             scriptStatesToRemove.append(scriptState);
             m_frontend->executionContextDestroyed(it->value);
         }
     }
-    for (size_t i = 0; i < scriptStatesToRemove.size(); i++)
-        m_scriptStateToId.remove(scriptStatesToRemove[i]);
+    m_scriptStateToId.removeAll(scriptStatesToRemove);
 }
 
 } // namespace WebCore

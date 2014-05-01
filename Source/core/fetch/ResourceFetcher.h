@@ -148,7 +148,7 @@ public:
     virtual void subresourceLoaderFinishedLoadingOnePart(ResourceLoader*) OVERRIDE;
     virtual void didInitializeResourceLoader(ResourceLoader*) OVERRIDE;
     virtual void willTerminateResourceLoader(ResourceLoader*) OVERRIDE;
-    virtual void willStartLoadingResource(ResourceRequest&) OVERRIDE;
+    virtual void willStartLoadingResource(Resource*, ResourceRequest&) OVERRIDE;
     virtual bool defersLoading() const OVERRIDE;
     virtual bool isLoadedBy(ResourceLoaderHost*) const OVERRIDE;
     virtual bool canAccessRedirect(Resource*, ResourceRequest&, const ResourceResponse&, ResourceLoaderOptions&) OVERRIDE;
@@ -157,6 +157,11 @@ public:
     virtual void refResourceLoaderHost() OVERRIDE;
     virtual void derefResourceLoaderHost() OVERRIDE;
 
+    enum ResourceLoadStartType {
+        ResourceLoadingFromNetwork,
+        ResourceLoadingFromCache
+    };
+    void requestLoadStarted(Resource*, const FetchRequest&, ResourceLoadStartType);
     static const ResourceLoaderOptions& defaultResourceOptions();
 private:
 
@@ -169,7 +174,7 @@ private:
     ResourcePtr<Resource> loadResource(Resource::Type, FetchRequest&, const String& charset);
     void preCacheDataURIImage(const FetchRequest&);
     void preCacheSubstituteDataForMainResource(const FetchRequest&, const SubstituteData&);
-    void storeResourceTimingInitiatorInformation(const ResourcePtr<Resource>&, const FetchRequest&);
+    void storeResourceTimingInitiatorInformation(Resource*);
     void requestPreload(Resource::Type, FetchRequest&, const String& charset);
 
     enum RevalidationPolicy { Use, Revalidate, Reload, Load };

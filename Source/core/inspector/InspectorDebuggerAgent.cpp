@@ -102,7 +102,7 @@ InspectorDebuggerAgent::InspectorDebuggerAgent(InjectedScriptManager* injectedSc
     : InspectorBaseAgent<InspectorDebuggerAgent>("Debugger")
     , m_injectedScriptManager(injectedScriptManager)
     , m_frontend(0)
-    , m_pausedScriptState(0)
+    , m_pausedScriptState(nullptr)
     , m_javaScriptPauseScheduled(false)
     , m_listener(0)
     , m_skipStepInCount(numberOfStepsBeforeStepOut)
@@ -579,16 +579,6 @@ PassRefPtr<TypeBuilder::Debugger::Location> InspectorDebuggerAgent::resolveBreak
     return location;
 }
 
-static PassRefPtr<JSONObject> scriptToInspectorObject(ScriptObject scriptObject)
-{
-    if (scriptObject.isEmpty())
-        return nullptr;
-    RefPtr<JSONValue> value = scriptObject.toJSONValue(scriptObject.scriptState());
-    if (!value)
-        return nullptr;
-    return value->asObject();
-}
-
 void InspectorDebuggerAgent::searchInContent(ErrorString* error, const String& scriptId, const String& query, const bool* const optionalCaseSensitive, const bool* const optionalIsRegex, RefPtr<Array<WebCore::TypeBuilder::Page::SearchMatch> >& results)
 {
     bool isRegex = optionalIsRegex ? *optionalIsRegex : false;
@@ -604,14 +594,10 @@ void InspectorDebuggerAgent::searchInContent(ErrorString* error, const String& s
 void InspectorDebuggerAgent::setScriptSource(ErrorString* error, RefPtr<TypeBuilder::Debugger::SetScriptSourceError>& errorData, const String& scriptId, const String& newContent, const bool* const preview, RefPtr<Array<CallFrame> >& newCallFrames, RefPtr<JSONObject>& result, RefPtr<StackTrace>& asyncStackTrace)
 {
     bool previewOnly = preview && *preview;
-    ScriptObject resultObject;
-    if (!scriptDebugServer().setScriptSource(scriptId, newContent, previewOnly, error, errorData, &m_currentCallStack, &resultObject))
+    if (!scriptDebugServer().setScriptSource(scriptId, newContent, previewOnly, error, errorData, &m_currentCallStack, &result))
         return;
     newCallFrames = currentCallFrames();
     asyncStackTrace = currentAsyncStackTrace();
-    RefPtr<JSONObject> object = scriptToInspectorObject(resultObject);
-    if (object)
-        result = object;
 }
 
 void InspectorDebuggerAgent::restartFrame(ErrorString* errorString, const String& callFrameId, RefPtr<Array<CallFrame> >& newCallFrames, RefPtr<JSONObject>& result, RefPtr<StackTrace>& asyncStackTrace)
@@ -1069,7 +1055,7 @@ PassRefPtr<Array<CallFrame> > InspectorDebuggerAgent::currentCallFrames()
 {
     if (!m_pausedScriptState || m_currentCallStack.isEmpty())
         return Array<CallFrame>::create();
-    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(m_pausedScriptState);
+    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(m_pausedScriptState.get());
     if (injectedScript.isEmpty()) {
         ASSERT_NOT_REACHED();
         return Array<CallFrame>::create();
@@ -1081,7 +1067,7 @@ PassRefPtr<StackTrace> InspectorDebuggerAgent::currentAsyncStackTrace()
 {
     if (!m_pausedScriptState || !m_asyncCallStackTracker.isEnabled())
         return nullptr;
-    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(m_pausedScriptState);
+    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(m_pausedScriptState.get());
     if (injectedScript.isEmpty()) {
         ASSERT_NOT_REACHED();
         return nullptr;
@@ -1220,7 +1206,7 @@ void InspectorDebuggerAgent::didPause(ScriptState* scriptState, const ScriptValu
 
 void InspectorDebuggerAgent::didContinue()
 {
-    m_pausedScriptState = 0;
+    m_pausedScriptState = nullptr;
     m_currentCallStack = ScriptValue();
     clearBreakDetails();
     m_frontend->resumed();
@@ -1242,7 +1228,7 @@ void InspectorDebuggerAgent::breakProgram(InspectorFrontend::Debugger::Reason::E
 
 void InspectorDebuggerAgent::clear()
 {
-    m_pausedScriptState = 0;
+    m_pausedScriptState = nullptr;
     m_currentCallStack = ScriptValue();
     m_scripts.clear();
     m_breakpointIdToDebugServerBreakpointIds.clear();

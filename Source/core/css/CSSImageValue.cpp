@@ -62,6 +62,8 @@ StyleFetchedImage* CSSImageValue::cachedImage(ResourceFetcher* fetcher, const Re
         m_accessedImage = true;
 
         FetchRequest request(ResourceRequest(m_absoluteURL), m_initiatorName.isEmpty() ? FetchInitiatorTypeNames::css : m_initiatorName, options);
+        if (!m_referrer.isEmpty())
+            request.mutableResourceRequest().setHTTPReferrer(Referrer(m_referrer, ReferrerPolicyDefault));
 
         if (options.corsEnabled == IsCORSEnabled)
             request.setCrossOriginAccessControl(fetcher->document()->securityOrigin(), options.allowCredentials, options.credentialsRequested);
@@ -71,6 +73,21 @@ StyleFetchedImage* CSSImageValue::cachedImage(ResourceFetcher* fetcher, const Re
     }
 
     return (m_image && m_image->isImageResource()) ? toStyleFetchedImage(m_image) : 0;
+}
+
+void CSSImageValue::restoreCachedResourceIfNeeded(Document& document)
+{
+    if (!m_accessedImage || !m_image->isImageResource() || !document.fetcher())
+        return;
+    if (document.fetcher()->cachedResource(KURL(ParsedURLString, m_absoluteURL)))
+        return;
+
+    ImageResource* resource = m_image->cachedImage();
+    if (!resource)
+        return;
+
+    FetchRequest request(ResourceRequest(m_absoluteURL), m_initiatorName.isEmpty() ? FetchInitiatorTypeNames::css : m_initiatorName, resource->options());
+    document.fetcher()->requestLoadStarted(resource, request, ResourceFetcher::ResourceLoadingFromCache);
 }
 
 bool CSSImageValue::hasFailedOrCanceledSubresources() const

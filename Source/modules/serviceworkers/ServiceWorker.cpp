@@ -33,7 +33,8 @@
 
 #include "EventTargetNames.h"
 #include "bindings/v8/ExceptionState.h"
-#include "bindings/v8/NewScriptState.h"
+#include "bindings/v8/ScriptPromiseResolverWithContext.h"
+#include "bindings/v8/ScriptState.h"
 #include "core/dom/MessagePort.h"
 #include "core/events/Event.h"
 #include "platform/NotImplemented.h"
@@ -42,6 +43,29 @@
 #include "public/platform/WebString.h"
 
 namespace WebCore {
+
+class ServiceWorker::ThenFunction FINAL : public ScriptFunction {
+public:
+    static PassOwnPtr<ScriptFunction> create(PassRefPtr<ServiceWorker> observer)
+    {
+        ExecutionContext* executionContext = observer->executionContext();
+        return adoptPtr(new ThenFunction(toIsolate(executionContext), observer));
+    }
+private:
+    ThenFunction(v8::Isolate* isolate, PassRefPtr<ServiceWorker> observer)
+        : ScriptFunction(isolate)
+        , m_observer(observer)
+    {
+    }
+
+    virtual ScriptValue call(ScriptValue value) OVERRIDE
+    {
+        m_observer->onPromiseResolved();
+        return value;
+    }
+
+    RefPtr<ServiceWorker> m_observer;
+};
 
 const AtomicString& ServiceWorker::interfaceName() const
 {
@@ -60,8 +84,14 @@ void ServiceWorker::postMessage(PassRefPtr<SerializedScriptValue> message, const
     m_outerWorker->postMessage(messageString, webChannels.leakPtr());
 }
 
+bool ServiceWorker::isReady()
+{
+    return !m_isPromisePending;
+}
+
 void ServiceWorker::dispatchStateChangeEvent()
 {
+    ASSERT(isReady());
     this->dispatchEvent(Event::create(EventTypeNames::statechange));
 }
 
@@ -98,9 +128,27 @@ const AtomicString& ServiceWorker::state() const
     }
 }
 
-PassRefPtr<ServiceWorker> ServiceWorker::from(NewScriptState* scriptState, WebType* worker)
+PassRefPtr<ServiceWorker> ServiceWorker::from(ScriptPromiseResolverWithContext* resolver, WebType* worker)
 {
-    return create(scriptState->executionContext(), adoptPtr(worker));
+    ScriptState::Scope scope(resolver->scriptState());
+    RefPtr<ServiceWorker> serviceWorker = create(resolver->scriptState()->executionContext(), adoptPtr(worker));
+    serviceWorker->waitOnPromise(resolver->promise());
+    return serviceWorker;
+}
+
+void ServiceWorker::onPromiseResolved()
+{
+    ASSERT(m_isPromisePending);
+    m_isPromisePending = false;
+    m_outerWorker->proxyReadyChanged();
+}
+
+void ServiceWorker::waitOnPromise(ScriptPromise promise)
+{
+    ASSERT(!m_isPromisePending);
+    m_isPromisePending = true;
+    m_outerWorker->proxyReadyChanged();
+    promise.then(ThenFunction::create(this));
 }
 
 PassRefPtr<ServiceWorker> ServiceWorker::create(ExecutionContext* executionContext, PassOwnPtr<blink::WebServiceWorker> outerWorker)
@@ -113,6 +161,7 @@ PassRefPtr<ServiceWorker> ServiceWorker::create(ExecutionContext* executionConte
 ServiceWorker::ServiceWorker(ExecutionContext* executionContext, PassOwnPtr<blink::WebServiceWorker> worker)
     : AbstractWorker(executionContext)
     , m_outerWorker(worker)
+    , m_isPromisePending(false)
 {
     ScriptWrappable::init(this);
     ASSERT(m_outerWorker);

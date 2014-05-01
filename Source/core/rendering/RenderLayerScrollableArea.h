@@ -68,7 +68,7 @@ class RenderLayerScrollableArea FINAL : public ScrollableArea {
     friend class Internals;
 
 public:
-    RenderLayerScrollableArea(RenderBox*);
+    RenderLayerScrollableArea(RenderBox&);
     virtual ~RenderLayerScrollableArea();
 
     bool hasHorizontalScrollbar() const { return horizontalScrollbar(); }
@@ -102,6 +102,8 @@ public:
     virtual IntSize contentsSize() const OVERRIDE;
     virtual IntSize overhangAmount() const OVERRIDE;
     virtual IntPoint lastKnownMousePosition() const OVERRIDE;
+    virtual bool scrollAnimatorEnabled() const OVERRIDE;
+    virtual bool scheduleAnimation() OVERRIDE;
     virtual bool shouldSuspendScrollAnimations() const OVERRIDE;
     virtual bool scrollbarsCanBeActive() const OVERRIDE;
     virtual IntRect scrollableAreaBoundingBox() const OVERRIDE;
@@ -123,6 +125,7 @@ public:
 
     void updateAfterLayout();
     void updateAfterStyleChange(const RenderStyle*);
+    void updateAfterOverflowRecalc();
 
     virtual void updateAfterCompositingChange() OVERRIDE;
 
@@ -225,7 +228,7 @@ private:
 
     void setForceNeedsCompositedScrolling(ForceNeedsCompositedScrollingMode);
 
-    RenderBox* m_box;
+    RenderBox& m_box;
 
     // Keeps track of whether the layer is currently resizing, so events can cause resizing to start and stop.
     unsigned m_inResizeMode : 1;

@@ -31,14 +31,14 @@
 #ifndef WebPluginContainerImpl_h
 #define WebPluginContainerImpl_h
 
-#include "WebPluginContainer.h"
 #include "core/plugins/PluginView.h"
 #include "platform/Widget.h"
+#include "public/web/WebPluginContainer.h"
 
 #include "wtf/OwnPtr.h"
 #include "wtf/PassRefPtr.h"
-#include "wtf/text/WTFString.h"
 #include "wtf/Vector.h"
+#include "wtf/text/WTFString.h"
 
 struct NPObject;
 

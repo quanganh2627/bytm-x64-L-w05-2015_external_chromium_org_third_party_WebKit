@@ -53,6 +53,10 @@ public:
     // WebServiceWorker.
     virtual void setProxy(WebServiceWorkerProxy*) { }
 
+    // Called by this worker's ServiceWorkerProxy when it has become ready or
+    // not ready for state change notifications.
+    virtual void proxyReadyChanged() { }
+
     virtual WebURL scope() const { return WebURL(); }
     virtual WebURL url() const { return WebURL(); }
     virtual WebServiceWorkerState state() const { return WebServiceWorkerStateUnknown; }

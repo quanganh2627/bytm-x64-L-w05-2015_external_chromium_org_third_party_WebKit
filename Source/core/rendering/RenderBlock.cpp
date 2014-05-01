@@ -360,6 +360,19 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
         ResourceLoadPriorityOptimizer::resourceLoadPriorityOptimizer()->addRenderObject(this);
 }
 
+void RenderBlock::repaintTreeAfterLayout()
+{
+    RenderBox::repaintTreeAfterLayout();
+
+    // Take care of positioned objects. This is required as LayoutState keeps a single clip rect.
+    if (TrackedRendererListHashSet* positionedObjects = this->positionedObjects()) {
+        TrackedRendererListHashSet::iterator end = positionedObjects->end();
+        LayoutStateMaintainer statePusher(*this, isTableRow() ? LayoutSize() : locationOffset());
+        for (TrackedRendererListHashSet::iterator it = positionedObjects->begin(); it != end; ++it)
+            (*it)->repaintTreeAfterLayout();
+    }
+}
+
 RenderBlock* RenderBlock::continuationBefore(RenderObject* beforeChild)
 {
     if (beforeChild && beforeChild->parent() == this)
@@ -1177,11 +1190,6 @@ void RenderBlock::removeChild(RenderObject* oldChild)
 
 bool RenderBlock::isSelfCollapsingBlock() const
 {
-    // Placeholder elements are not laid out until the dimensions of their parent text control are known, so they
-    // don't get layout until their parent has had layout - this is unique in the layout tree and means
-    // when we call isSelfCollapsingBlock on them we find that they still need layout.
-    ASSERT(!needsLayout() || (node() && node()->isElementNode() && toElement(node())->shadowPseudoId() == "-webkit-input-placeholder"));
-
     // We are not self-collapsing if we
     // (a) have a non-zero height according to layout (an optimization to avoid wasting time)
     // (b) are a table,
@@ -1190,8 +1198,17 @@ bool RenderBlock::isSelfCollapsingBlock() const
     // (e) have specified that one of our margins can't collapse using a CSS extension
     // (f) establish a new block formatting context.
 
+    // The early exit must be done before we check for clean layout.
+    // We should be able to give a quick answer if the box is a relayout boundary.
+    // Being a relayout boundary implies a block formatting context, and also
+    // our internal layout shouldn't affect our container in any way.
     if (createsBlockFormattingContext())
         return false;
+
+    // Placeholder elements are not laid out until the dimensions of their parent text control are known, so they
+    // don't get layout until their parent has had layout - this is unique in the layout tree and means
+    // when we call isSelfCollapsingBlock on them we find that they still need layout.
+    ASSERT(!needsLayout() || (node() && node()->isElementNode() && toElement(node())->shadowPseudoId() == "-webkit-input-placeholder"));
 
     if (logicalHeight() > 0
         || isTable() || borderAndPaddingLogicalHeight()
@@ -1442,7 +1459,7 @@ void RenderBlock::addVisualOverflowFromTheme()
 
 bool RenderBlock::createsBlockFormattingContext() const
 {
-    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || (parent() && parent()->isFlexibleBoxIncludingDeprecated())
+    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || isFlexItemIncludingDeprecated()
         || style()->specifiesColumns() || isRenderFlowThread() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
 }
 
@@ -2734,6 +2751,21 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
            return true;
     }
 
+    if (style()->clipPath()) {
+        switch (style()->clipPath()->type()) {
+        case ClipPathOperation::SHAPE: {
+            ShapeClipPathOperation* clipPath = toShapeClipPathOperation(style()->clipPath());
+            // FIXME: handle marginBox etc.
+            if (!clipPath->path(borderBoxRect()).contains(locationInContainer.point() - localOffset, clipPath->windRule()))
+                return false;
+            break;
+        }
+        case ClipPathOperation::REFERENCE:
+            // FIXME: handle REFERENCE
+            break;
+        }
+    }
+
     // If we have clipping, then we can't have any spillout.
     bool useOverflowClip = hasOverflowClip() && !hasSelfPaintingLayer();
     bool useClip = (hasControlClip() || useOverflowClip);
@@ -3426,10 +3458,10 @@ void RenderBlock::adjustStartEdgeForWritingModeIncludingColumns(LayoutRect& rect
         rect.setX(expandedLogicalHeight - rect.maxX());
 }
 
-void RenderBlock::adjustForColumns(LayoutSize& offset, const LayoutPoint& point) const
+LayoutSize RenderBlock::columnOffset(const LayoutPoint& point) const
 {
     if (!hasColumns())
-        return;
+        return LayoutSize();
 
     ColumnInfo* colInfo = columnInfo();
 
@@ -3450,21 +3482,19 @@ void RenderBlock::adjustForColumns(LayoutSize& offset, const LayoutPoint& point)
         if (isHorizontalWritingMode()) {
             if (point.y() >= sliceRect.y() && point.y() < sliceRect.maxY()) {
                 if (colInfo->progressionAxis() == ColumnInfo::InlineAxis)
-                    offset.expand(columnRectAt(colInfo, i).x() - logicalLeft, -logicalOffset);
-                else
-                    offset.expand(0, columnRectAt(colInfo, i).y() - logicalOffset - borderBefore() - paddingBefore());
-                return;
+                    return LayoutSize(columnRectAt(colInfo, i).x() - logicalLeft, -logicalOffset);
+                return LayoutSize(0, columnRectAt(colInfo, i).y() - logicalOffset - borderBefore() - paddingBefore());
             }
         } else {
             if (point.x() >= sliceRect.x() && point.x() < sliceRect.maxX()) {
                 if (colInfo->progressionAxis() == ColumnInfo::InlineAxis)
-                    offset.expand(-logicalOffset, columnRectAt(colInfo, i).y() - logicalLeft);
-                else
-                    offset.expand(columnRectAt(colInfo, i).x() - logicalOffset - borderBefore() - paddingBefore(), 0);
-                return;
+                    return LayoutSize(-logicalOffset, columnRectAt(colInfo, i).y() - logicalLeft);
+                return LayoutSize(columnRectAt(colInfo, i).x() - logicalOffset - borderBefore() - paddingBefore(), 0);
             }
         }
     }
+
+    return LayoutSize();
 }
 
 void RenderBlock::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
@@ -4703,15 +4733,6 @@ LayoutUnit RenderBlock::offsetFromLogicalTopOfFirstPage() const
     return 0;
 }
 
-RenderRegion* RenderBlock::regionAtBlockOffset(LayoutUnit blockOffset) const
-{
-    RenderFlowThread* flowThread = flowThreadContainingBlock();
-    if (!flowThread || !flowThread->hasValidRegionInfo())
-        return 0;
-
-    return flowThread->regionAtBlockOffset(offsetFromLogicalTopOfFirstPage() + blockOffset, true);
-}
-
 LayoutUnit RenderBlock::collapsedMarginBeforeForChild(const RenderBox* child) const
 {
     // If the child has the same directionality as we do, then we can just return its
@@ -4847,6 +4868,91 @@ RenderBlockFlow* RenderBlock::createAnonymousColumnSpanWithParentRenderer(const 
     RenderBlockFlow* newBox = RenderBlockFlow::createAnonymous(&parent->document());
     newBox->setStyle(newStyle.release());
     return newBox;
+}
+
+static bool recalcNormalFlowChildOverflowIfNeeded(RenderObject* renderer)
+{
+    if (renderer->isOutOfFlowPositioned() || !renderer->needsOverflowRecalcAfterStyleChange())
+        return false;
+
+    ASSERT(renderer->isRenderBlock());
+    return toRenderBlock(renderer)->recalcOverflowAfterStyleChange();
+}
+
+bool RenderBlock::recalcChildOverflowAfterStyleChange()
+{
+    ASSERT(childNeedsOverflowRecalcAfterStyleChange());
+    setChildNeedsOverflowRecalcAfterStyleChange(false);
+
+    bool childrenOverflowChanged = false;
+
+    if (childrenInline()) {
+        ListHashSet<RootInlineBox*> lineBoxes;
+        for (InlineWalker walker(this); !walker.atEnd(); walker.advance()) {
+            RenderObject* renderer = walker.current();
+            if (recalcNormalFlowChildOverflowIfNeeded(renderer)) {
+                childrenOverflowChanged = true;
+                if (InlineBox* inlineBoxWrapper = toRenderBlock(renderer)->inlineBoxWrapper())
+                    lineBoxes.add(&inlineBoxWrapper->root());
+            }
+        }
+
+        // FIXME: Glyph overflow will get lost in this case, but not really a big deal.
+        GlyphOverflowAndFallbackFontsMap textBoxDataMap;
+        for (ListHashSet<RootInlineBox*>::const_iterator it = lineBoxes.begin(); it != lineBoxes.end(); ++it) {
+            RootInlineBox* box = *it;
+            box->computeOverflow(box->lineTop(), box->lineBottom(), textBoxDataMap);
+        }
+    } else {
+        for (RenderBox* box = firstChildBox(); box; box = box->nextSiblingBox()) {
+            if (recalcNormalFlowChildOverflowIfNeeded(box))
+                childrenOverflowChanged = true;
+        }
+    }
+
+    TrackedRendererListHashSet* positionedDescendants = positionedObjects();
+    if (!positionedDescendants)
+        return childrenOverflowChanged;
+
+    TrackedRendererListHashSet::iterator end = positionedDescendants->end();
+    for (TrackedRendererListHashSet::iterator it = positionedDescendants->begin(); it != end; ++it) {
+        RenderBox* box = *it;
+
+        if (!box->needsOverflowRecalcAfterStyleChange())
+            continue;
+        RenderBlock* block = toRenderBlock(box);
+        if (!block->recalcOverflowAfterStyleChange() || box->style()->position() == FixedPosition)
+            continue;
+
+        childrenOverflowChanged = true;
+    }
+    return childrenOverflowChanged;
+}
+
+bool RenderBlock::recalcOverflowAfterStyleChange()
+{
+    ASSERT(needsOverflowRecalcAfterStyleChange());
+
+    bool childrenOverflowChanged = false;
+    if (childNeedsOverflowRecalcAfterStyleChange())
+        childrenOverflowChanged = recalcChildOverflowAfterStyleChange();
+
+    if (!selfNeedsOverflowRecalcAfterStyleChange() && !childrenOverflowChanged)
+        return false;
+
+    setSelfNeedsOverflowRecalcAfterStyleChange(false);
+    // If the current block needs layout, overflow will be recalculated during
+    // layout time anyway. We can safely exit here.
+    if (needsLayout())
+        return false;
+
+    LayoutUnit oldClientAfterEdge = hasRenderOverflow() ? m_overflow->layoutClientAfterEdge() : clientLogicalBottom();
+    computeOverflow(oldClientAfterEdge, true);
+
+    if (hasOverflowClip())
+        layer()->scrollableArea()->updateAfterOverflowRecalc();
+
+    return !hasOverflowClip();
 }
 
 #ifndef NDEBUG

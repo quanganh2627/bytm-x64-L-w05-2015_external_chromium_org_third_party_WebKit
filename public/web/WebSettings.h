@@ -61,8 +61,6 @@ public:
     virtual void setAccelerated2dCanvasEnabled(bool) = 0;
     virtual void setAccelerated2dCanvasMSAASampleCount(int) = 0;
     virtual void setAcceleratedCompositingEnabled(bool) = 0;
-    virtual void setAcceleratedCompositingFor3DTransformsEnabled(bool) = 0;
-    virtual void setAcceleratedCompositingForAnimationEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForCanvasEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForFiltersEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForFixedPositionEnabled(bool) = 0;
@@ -72,12 +70,25 @@ public:
     virtual void setCompositorDrivenAcceleratedScrollingEnabled(bool) = 0;
     // Not implemented yet, see http://crbug.com/178119
     virtual void setAcceleratedCompositingForTransitionEnabled(bool) { };
-    virtual void setAcceleratedCompositingForPluginsEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForVideoEnabled(bool) = 0;
+    // If set to true, allows frames with an https origin to display passive
+    // contents at an insecure URL. Otherwise, disallows it. The
+    // FrameLoaderClient set to the frame may override the value set by this
+    // method.
     virtual void setAllowDisplayOfInsecureContent(bool) = 0;
     virtual void setAllowFileAccessFromFileURLs(bool) = 0;
     virtual void setAllowCustomScrollbarInMainFrame(bool) = 0;
+    // If set to true, allows frames with an https origin to run active
+    // contents at an insecure URL. This includes WebSockets. Otherwise,
+    // disallows it. The FrameLoaderClient set to the frame may override the
+    // value set by this method.
     virtual void setAllowRunningOfInsecureContent(bool) = 0;
+    // If set to true, allows frames with an https origin to connect WebSockets
+    // with an insecure URL (ws://). Otherwise, disallows it. Only when this is
+    // set to true, this value overrides the value set by
+    // setAllowRunningOfInsecureContent() for WebSockets. The FrameLoaderClient
+    // set to the frame may override the value set by this method.
+    virtual void setAllowConnectingInsecureWebSocket(bool) = 0;
     virtual void setAllowScriptsToCloseWindows(bool) = 0;
     virtual void setAllowUniversalAccessFromFileURLs(bool) = 0;
     virtual void setAntialiased2dCanvasEnabled(bool) = 0;
@@ -128,6 +139,7 @@ public:
     virtual void setMainFrameClipsContent(bool) = 0;
     virtual void setMainFrameResizesAreOrientationChanges(bool) = 0;
     virtual void setMaxTouchPoints(int) = 0;
+    virtual void setMediaControlsOverlayPlayButtonEnabled(bool) = 0;
     virtual void setMediaPlaybackRequiresUserGesture(bool) = 0;
     virtual void setMinimumAccelerated2dCanvasSize(int) = 0;
     virtual void setMinimumFontSize(int) = 0;
@@ -178,10 +190,11 @@ public:
     virtual void setTouchEditingEnabled(bool) = 0;
     virtual void setUnifiedTextCheckerEnabled(bool) = 0;
     virtual void setUnsafePluginPastingEnabled(bool) = 0;
-    virtual void setUsesEncodingDetector(bool) = 0;
     virtual void setUseLegacyBackgroundSizeShorthandBehavior(bool) = 0;
     virtual void setUseSolidColorScrollbars(bool) = 0;
+    virtual void setUseThreadedHTMLParserForDataURLs(bool) = 0;
     virtual void setUseWideViewport(bool) = 0;
+    virtual void setUsesEncodingDetector(bool) = 0;
     virtual void setValidationMessageTimerMagnification(int) = 0;
     virtual void setViewportEnabled(bool) = 0;
     virtual void setViewportMetaEnabled(bool) = 0;

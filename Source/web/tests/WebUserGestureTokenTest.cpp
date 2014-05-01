@@ -30,12 +30,12 @@
 
 #include "config.h"
 
-#include "WebUserGestureToken.h"
+#include "public/web/WebUserGestureToken.h"
 
-#include <gtest/gtest.h>
-#include "WebScopedUserGesture.h"
-#include "WebUserGestureIndicator.h"
 #include "platform/UserGestureIndicator.h"
+#include "public/web/WebScopedUserGesture.h"
+#include "public/web/WebUserGestureIndicator.h"
+#include <gtest/gtest.h>
 
 using namespace blink;
 using namespace WebCore;
@@ -79,6 +79,10 @@ TEST(WebUserGestureTokenTest, Basic)
     }
 
     EXPECT_TRUE(UserGestureIndicator::processedUserGestureInPast());
+
+    EXPECT_FALSE(token.wasForwarded());
+    token.setForwarded();
+    EXPECT_TRUE(token.wasForwarded());
 }
 
 }

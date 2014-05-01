@@ -215,7 +215,7 @@ typedef unsigned char DocumentClassFlags;
 
 class Document;
 
-class DocumentVisibilityObserver {
+class DocumentVisibilityObserver : public WillBeGarbageCollectedMixin {
 public:
     DocumentVisibilityObserver(Document&);
     virtual ~DocumentVisibilityObserver();
@@ -252,6 +252,7 @@ public:
     using SecurityContext::securityOrigin;
     using SecurityContext::contentSecurityPolicy;
     using ExecutionContextClient::addConsoleMessage;
+    using TreeScope::getElementById;
 
     virtual bool canContainRangeEndPoint() const OVERRIDE { return true; }
 
@@ -323,7 +324,7 @@ public:
     PassRefPtr<ProcessingInstruction> createProcessingInstruction(const String& target, const String& data, ExceptionState&);
     PassRefPtr<Attr> createAttribute(const AtomicString& name, ExceptionState&);
     PassRefPtr<Attr> createAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState&, bool shouldIgnoreNamespaceChecks = false);
-    PassRefPtr<Node> importNode(Node* importedNode, ExceptionState& ec) { return importNode(importedNode, true, ec); }
+    PassRefPtr<Node> importNode(Node* importedNode, ExceptionState&);
     PassRefPtr<Node> importNode(Node* importedNode, bool deep, ExceptionState&);
     PassRefPtr<Element> createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState&);
     PassRefPtr<Element> createElement(const QualifiedName&, bool createdByParser);
@@ -859,7 +860,7 @@ public:
     void cancelFocusAppearanceUpdate();
 
     // Extension for manipulating canvas drawing contexts for use in CSS
-    void getCSSCanvasContext(const String& type, const String& name, int width, int height, bool&, RefPtr<CanvasRenderingContext2D>&, bool&, RefPtr<WebGLRenderingContext>&);
+    void getCSSCanvasContext(const String& type, const String& name, int width, int height, bool&, RefPtrWillBeRawPtr<CanvasRenderingContext2D>&, bool&, RefPtrWillBeRawPtr<WebGLRenderingContext>&);
     HTMLCanvasElement& getCSSCanvasElement(const String& name);
 
     bool isDNSPrefetchEnabled() const { return m_isDNSPrefetchEnabled; }
@@ -941,7 +942,8 @@ public:
     // Used to allow element that loads data without going through a FrameLoader to delay the 'load' event.
     void incrementLoadEventDelayCount() { ++m_loadEventDelayCount; }
     void decrementLoadEventDelayCount();
-    bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
+    void checkLoadEventSoon();
+    bool isDelayingLoadEvent();
     void loadPluginsSoon();
 
     PassRefPtrWillBeRawPtr<Touch> createTouch(DOMWindow*, EventTarget*, int identifier, int pageX, int pageY, int screenX, int screenY, int radiusX, int radiusY, float rotationAngle, float force) const;
@@ -984,8 +986,8 @@ public:
 
     PassRefPtr<Element> createElement(const AtomicString& localName, const AtomicString& typeExtension, ExceptionState&);
     PassRefPtr<Element> createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& typeExtension, ExceptionState&);
-    ScriptValue registerElement(WebCore::NewScriptState*, const AtomicString& name, ExceptionState&);
-    ScriptValue registerElement(WebCore::NewScriptState*, const AtomicString& name, const Dictionary& options, ExceptionState&, CustomElement::NameSet validNames = CustomElement::StandardNames);
+    ScriptValue registerElement(WebCore::ScriptState*, const AtomicString& name, ExceptionState&);
+    ScriptValue registerElement(WebCore::ScriptState*, const AtomicString& name, const Dictionary& options, ExceptionState&, CustomElement::NameSet validNames = CustomElement::StandardNames);
     CustomElementRegistrationContext* registrationContext() { return m_registrationContext.get(); }
 
     void setImportsController(HTMLImportsController*);
@@ -1066,6 +1068,7 @@ public:
     virtual void trace(Visitor*) OVERRIDE;
 
     bool hasElementsRequiringLayerUpdate() const { return m_layerUpdateElements.size(); }
+    void didRecalculateStyleForElement() { ++m_styleRecalcElementCounter; }
 
 protected:
     Document(const DocumentInit&, DocumentClassFlags = DefaultDocumentClass);
@@ -1109,6 +1112,8 @@ private:
     void updateStyle(StyleRecalcChange);
 
     void detachParser();
+
+    void clearWeakMembers(Visitor*);
 
     virtual bool isDocument() const OVERRIDE FINAL { return true; }
 
@@ -1235,7 +1240,7 @@ private:
     MutationObserverOptions m_mutationObserverTypes;
 
     OwnPtrWillBePersistent<StyleEngine> m_styleEngine;
-    RefPtrWillBePersistent<StyleSheetList> m_styleSheetList;
+    RefPtrWillBeMember<StyleSheetList> m_styleSheetList;
 
     OwnPtr<FormController> m_formController;
 
@@ -1335,7 +1340,7 @@ private:
     bool m_directionSetOnDocumentElement;
     bool m_writingModeSetOnDocumentElement;
     DocumentTiming m_documentTiming;
-    RefPtrWillBePersistent<MediaQueryMatcher> m_mediaQueryMatcher;
+    RefPtrWillBeMember<MediaQueryMatcher> m_mediaQueryMatcher;
     bool m_writeRecursionIsTooDeep;
     unsigned m_writeRecursionDepth;
 
@@ -1376,7 +1381,10 @@ private:
 
     bool m_hasViewportUnits;
 
-    HashSet<DocumentVisibilityObserver*> m_visibilityObservers;
+    typedef WillBeHeapHashSet<RawPtrWillBeWeakMember<DocumentVisibilityObserver> > DocumentVisibilityObserverSet;
+    DocumentVisibilityObserverSet m_visibilityObservers;
+
+    int m_styleRecalcElementCounter;
 };
 
 inline void Document::notifyRemovePendingSheetIfNeeded()

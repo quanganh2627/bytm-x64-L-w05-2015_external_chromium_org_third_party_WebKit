@@ -29,22 +29,22 @@
  */
 
 #include "config.h"
-#include "DatabaseClientImpl.h"
+#include "web/DatabaseClientImpl.h"
 
-#include "WebLocalFrameImpl.h"
-#include "WebPermissionClient.h"
-#include "WorkerPermissionClient.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContext.h"
 #include "core/workers/WorkerGlobalScope.h"
+#include "public/web/WebPermissionClient.h"
+#include "web/WebLocalFrameImpl.h"
+#include "web/WorkerPermissionClient.h"
 
 using namespace WebCore;
 
 namespace blink {
 
-PassOwnPtr<DatabaseClientImpl> DatabaseClientImpl::create()
+PassOwnPtrWillBeRawPtr<DatabaseClientImpl> DatabaseClientImpl::create()
 {
-    return adoptPtr(new DatabaseClientImpl());
+    return adoptPtrWillBeNoop(new DatabaseClientImpl());
 }
 
 DatabaseClientImpl::~DatabaseClientImpl()

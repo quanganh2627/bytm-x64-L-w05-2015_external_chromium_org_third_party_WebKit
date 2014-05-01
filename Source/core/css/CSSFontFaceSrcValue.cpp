@@ -105,9 +105,29 @@ FontResource* CSSFontFaceSrcValue::fetch(Document* document)
         if (shouldSetCrossOriginAccessControl(request.url(), securityOrigin)) {
             request.setCrossOriginAccessControl(securityOrigin, DoNotAllowStoredCredentials);
         }
+        if (!m_referrer.isEmpty())
+            request.mutableResourceRequest().setHTTPReferrer(Referrer(m_referrer, ReferrerPolicyDefault));
+
         m_fetched = document->fetcher()->fetchFont(request);
+    } else {
+        // FIXME: CSSFontFaceSrcValue::fetch is invoked when @font-face rule
+        // is processed by StyleResolver / StyleEngine.
+        restoreCachedResourceIfNeeded(document);
     }
     return m_fetched.get();
+}
+
+void CSSFontFaceSrcValue::restoreCachedResourceIfNeeded(Document* document)
+{
+    ASSERT(m_fetched);
+    ASSERT(document && document->fetcher());
+
+    const String resourceURL = document->completeURL(m_resource);
+    if (document->fetcher()->cachedResource(KURL(ParsedURLString, resourceURL)))
+        return;
+
+    FetchRequest request(ResourceRequest(resourceURL), FetchInitiatorTypeNames::css);
+    document->fetcher()->requestLoadStarted(m_fetched.get(), request, ResourceFetcher::ResourceLoadingFromCache);
 }
 
 bool CSSFontFaceSrcValue::equals(const CSSFontFaceSrcValue& other) const

@@ -37,6 +37,7 @@
 #include "core/frame/ConsoleTypes.h"
 #include "core/frame/DOMTimer.h"
 #include "platform/LifecycleContext.h"
+#include "platform/Supplementable.h"
 #include "platform/weborigin/KURL.h"
 #include "wtf/Functional.h"
 #include "wtf/OwnPtr.h"
@@ -54,12 +55,12 @@ class EventListener;
 class EventQueue;
 class EventTarget;
 class ExecutionContextTask;
+class ScriptState;
 class PublicURLManager;
 class SecurityOrigin;
 class ScriptCallStack;
-class ScriptState;
 
-class ExecutionContext : public LifecycleContext<ExecutionContext> {
+class ExecutionContext : public LifecycleContext<ExecutionContext>, public Supplementable<ExecutionContext> {
 public:
     ExecutionContext();
     virtual ~ExecutionContext();

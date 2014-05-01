@@ -30,13 +30,13 @@
 
 #include "config.h"
 #include "core/inspector/InspectorRuntimeAgent.h"
+
+#include "bindings/v8/ScriptDebugServer.h"
+#include "bindings/v8/ScriptState.h"
 #include "core/inspector/InjectedScript.h"
 #include "core/inspector/InjectedScriptManager.h"
 #include "core/inspector/InspectorState.h"
 #include "platform/JSONValues.h"
-
-#include "bindings/v8/ScriptDebugServer.h"
-#include "bindings/v8/ScriptState.h"
 
 using WebCore::TypeBuilder::Runtime::ExecutionContextDescription;
 

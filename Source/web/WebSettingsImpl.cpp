@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-#include "WebSettingsImpl.h"
+#include "web/WebSettingsImpl.h"
 
 #include "core/frame/Settings.h"
 #include "core/inspector/InspectorController.h"
@@ -445,11 +445,6 @@ void WebSettingsImpl::setMockScrollbarsEnabled(bool enabled)
     m_settings->setMockScrollbarsEnabled(enabled);
 }
 
-void WebSettingsImpl::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
-{
-    m_settings->setAcceleratedCompositingFor3DTransformsEnabled(enabled);
-}
-
 void WebSettingsImpl::setAcceleratedCompositingForFiltersEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingForFiltersEnabled(enabled);
@@ -480,19 +475,9 @@ void WebSettingsImpl::setAcceleratedCompositingForGpuRasterizationHintEnabled(bo
     m_settings->setAcceleratedCompositingForGpuRasterizationHintEnabled(enabled);
 }
 
-void WebSettingsImpl::setAcceleratedCompositingForPluginsEnabled(bool enabled)
-{
-    m_settings->setAcceleratedCompositingForPluginsEnabled(enabled);
-}
-
 void WebSettingsImpl::setAcceleratedCompositingForCanvasEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingForCanvasEnabled(enabled);
-}
-
-void WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled(bool enabled)
-{
-    m_settings->setAcceleratedCompositingForAnimationEnabled(enabled);
 }
 
 void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
@@ -576,6 +561,11 @@ void WebSettingsImpl::setAllowRunningOfInsecureContent(bool enabled)
     m_settings->setAllowRunningOfInsecureContent(enabled);
 }
 
+void WebSettingsImpl::setAllowConnectingInsecureWebSocket(bool enabled)
+{
+    m_settings->setAllowConnectingInsecureWebSocket(enabled);
+}
+
 void WebSettingsImpl::setPasswordEchoEnabled(bool flag)
 {
     m_settings->setPasswordEchoEnabled(flag);
@@ -644,6 +634,11 @@ bool WebSettingsImpl::shrinksViewportContentToFit() const
 void WebSettingsImpl::setShouldRespectImageOrientation(bool enabled)
 {
     m_settings->setShouldRespectImageOrientation(enabled);
+}
+
+void WebSettingsImpl::setMediaControlsOverlayPlayButtonEnabled(bool enabled)
+{
+    m_settings->setMediaControlsOverlayPlayButtonEnabled(enabled);
 }
 
 void WebSettingsImpl::setMediaPlaybackRequiresUserGesture(bool required)
@@ -724,6 +719,11 @@ void WebSettingsImpl::setPinchVirtualViewportEnabled(bool enabled)
 void WebSettingsImpl::setUseSolidColorScrollbars(bool enabled)
 {
     m_settings->setUseSolidColorScrollbars(enabled);
+}
+
+void WebSettingsImpl::setUseThreadedHTMLParserForDataURLs(bool enabled)
+{
+    m_settings->setUseThreadedHTMLParserForDataURLs(enabled);
 }
 
 void WebSettingsImpl::setMainFrameResizesAreOrientationChanges(bool enabled)

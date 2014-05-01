@@ -30,42 +30,10 @@
  */
 
 #include "config.h"
-#include "ChromeClientImpl.h"
+#include "web/ChromeClientImpl.h"
 
-#include "ColorChooserPopupUIController.h"
-#include "ColorChooserUIController.h"
-#include "DateTimeChooserImpl.h"
-#include "ExternalDateTimeChooser.h"
-#include "ExternalPopupMenu.h"
 #include "HTMLNames.h"
-#include "PopupMenuChromium.h"
 #include "RuntimeEnabledFeatures.h"
-#include "WebAXObject.h"
-#include "WebAutofillClient.h"
-#include "WebColorChooser.h"
-#include "WebColorSuggestion.h"
-#include "WebConsoleMessage.h"
-#include "WebFileChooserCompletionImpl.h"
-#include "WebFrameClient.h"
-#include "WebInputElement.h"
-#include "WebInputEvent.h"
-#include "WebInputEventConversion.h"
-#include "WebKit.h"
-#include "WebLocalFrameImpl.h"
-#include "WebNode.h"
-#include "WebPasswordGeneratorClient.h"
-#include "WebPlugin.h"
-#include "WebPluginContainerImpl.h"
-#include "WebPopupMenuImpl.h"
-#include "WebPopupMenuInfo.h"
-#include "WebSettings.h"
-#include "WebSettingsImpl.h"
-#include "WebTextDirection.h"
-#include "WebUserGestureIndicator.h"
-#include "WebUserGestureToken.h"
-#include "WebViewClient.h"
-#include "WebViewImpl.h"
-#include "WebWindowFeatures.h"
 #include "bindings/v8/ScriptController.h"
 #include "core/accessibility/AXObject.h"
 #include "core/accessibility/AXObjectCache.h"
@@ -75,14 +43,14 @@
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
 #include "core/events/WheelEvent.h"
+#include "core/frame/Console.h"
+#include "core/frame/FrameView.h"
+#include "core/frame/Settings.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/loader/DocumentLoader.h"
 #include "core/loader/FrameLoadRequest.h"
-#include "core/frame/Console.h"
-#include "core/frame/FrameView.h"
 #include "core/page/Page.h"
 #include "core/page/PagePopupDriver.h"
-#include "core/frame/Settings.h"
 #include "core/page/WindowFeatures.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderWidget.h"
@@ -102,7 +70,39 @@
 #include "public/platform/WebCursorInfo.h"
 #include "public/platform/WebRect.h"
 #include "public/platform/WebURLRequest.h"
+#include "public/web/WebAXObject.h"
+#include "public/web/WebAutofillClient.h"
+#include "public/web/WebColorChooser.h"
+#include "public/web/WebColorSuggestion.h"
+#include "public/web/WebConsoleMessage.h"
+#include "public/web/WebFrameClient.h"
+#include "public/web/WebInputElement.h"
+#include "public/web/WebInputEvent.h"
+#include "public/web/WebKit.h"
+#include "public/web/WebNode.h"
+#include "public/web/WebPasswordGeneratorClient.h"
+#include "public/web/WebPlugin.h"
+#include "public/web/WebPopupMenuInfo.h"
+#include "public/web/WebSettings.h"
+#include "public/web/WebTextDirection.h"
 #include "public/web/WebTouchAction.h"
+#include "public/web/WebUserGestureIndicator.h"
+#include "public/web/WebUserGestureToken.h"
+#include "public/web/WebViewClient.h"
+#include "public/web/WebWindowFeatures.h"
+#include "web/ColorChooserPopupUIController.h"
+#include "web/ColorChooserUIController.h"
+#include "web/DateTimeChooserImpl.h"
+#include "web/ExternalDateTimeChooser.h"
+#include "web/ExternalPopupMenu.h"
+#include "web/PopupMenuChromium.h"
+#include "web/WebFileChooserCompletionImpl.h"
+#include "web/WebInputEventConversion.h"
+#include "web/WebLocalFrameImpl.h"
+#include "web/WebPluginContainerImpl.h"
+#include "web/WebPopupMenuImpl.h"
+#include "web/WebSettingsImpl.h"
+#include "web/WebViewImpl.h"
 #include "wtf/text/CString.h"
 #include "wtf/text/StringBuilder.h"
 #include "wtf/text/StringConcatenate.h"
@@ -792,6 +792,22 @@ bool ChromeClientImpl::shouldRunModalDialogDuringPageDismissal(const DialogType&
     m_webView->mainFrame()->addMessageToConsole(WebConsoleMessage(WebConsoleMessage::LevelError, message));
 
     return false;
+}
+
+bool ChromeClientImpl::shouldRubberBandInDirection(WebCore::ScrollDirection direction) const
+{
+    ASSERT(direction != WebCore::ScrollUp && direction != WebCore::ScrollDown);
+
+    if (!m_webView->client())
+        return false;
+
+    if (direction == WebCore::ScrollLeft)
+        return !m_webView->client()->historyBackListCount();
+    if (direction == WebCore::ScrollRight)
+        return !m_webView->client()->historyForwardListCount();
+
+    ASSERT_NOT_REACHED();
+    return true;
 }
 
 void ChromeClientImpl::numWheelEventHandlersChanged(unsigned numberOfWheelHandlers)

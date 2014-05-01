@@ -29,49 +29,11 @@
  */
 
 #include "config.h"
-#include "WebViewImpl.h"
+#include "web/WebViewImpl.h"
 
 #include "CSSValueKeywords.h"
-#include "CompositionUnderlineVectorBuilder.h"
-#include "ContextFeaturesClientImpl.h"
-#include "DatabaseClientImpl.h"
-#include "FullscreenController.h"
-#include "GeolocationClientProxy.h"
-#include "GraphicsLayerFactoryChromium.h"
 #include "HTMLNames.h"
-#include "LinkHighlight.h"
-#include "LocalFileSystemClient.h"
-#include "MIDIClientProxy.h"
-#include "PopupContainer.h"
-#include "PrerendererClientImpl.h"
 #include "RuntimeEnabledFeatures.h"
-#include "SpeechInputClientImpl.h"
-#include "SpeechRecognitionClientProxy.h"
-#include "StorageQuotaClientImpl.h"
-#include "ValidationMessageClientImpl.h"
-#include "ViewportAnchor.h"
-#include "WebAXObject.h"
-#include "WebActiveWheelFlingParameters.h"
-#include "WebAutofillClient.h"
-#include "WebDevToolsAgentImpl.h"
-#include "WebDevToolsAgentPrivate.h"
-#include "WebHitTestResult.h"
-#include "WebInputElement.h"
-#include "WebInputEventConversion.h"
-#include "WebLocalFrameImpl.h"
-#include "WebMediaPlayerAction.h"
-#include "WebNode.h"
-#include "WebPagePopupImpl.h"
-#include "WebPlugin.h"
-#include "WebPluginAction.h"
-#include "WebPluginContainerImpl.h"
-#include "WebPopupMenuImpl.h"
-#include "WebRange.h"
-#include "WebSettingsImpl.h"
-#include "WebTextInputInfo.h"
-#include "WebViewClient.h"
-#include "WebWindowFeatures.h"
-#include "WorkerGlobalScopeProxyProviderImpl.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/clipboard/DataObject.h"
 #include "core/dom/Document.h"
@@ -123,7 +85,6 @@
 #include "modules/geolocation/GeolocationController.h"
 #include "modules/indexeddb/InspectorIndexedDBAgent.h"
 #include "modules/push_messaging/PushController.h"
-#include "painting/ContinuousPainter.h"
 #include "platform/ContextMenu.h"
 #include "platform/ContextMenuItem.h"
 #include "platform/Cursor.h"
@@ -151,7 +112,46 @@
 #include "public/platform/WebImage.h"
 #include "public/platform/WebLayerTreeView.h"
 #include "public/platform/WebVector.h"
+#include "public/web/WebAXObject.h"
+#include "public/web/WebActiveWheelFlingParameters.h"
+#include "public/web/WebAutofillClient.h"
 #include "public/web/WebFrameClient.h"
+#include "public/web/WebHitTestResult.h"
+#include "public/web/WebInputElement.h"
+#include "public/web/WebMediaPlayerAction.h"
+#include "public/web/WebNode.h"
+#include "public/web/WebPlugin.h"
+#include "public/web/WebPluginAction.h"
+#include "public/web/WebRange.h"
+#include "public/web/WebTextInputInfo.h"
+#include "public/web/WebViewClient.h"
+#include "public/web/WebWindowFeatures.h"
+#include "web/CompositionUnderlineVectorBuilder.h"
+#include "web/ContextFeaturesClientImpl.h"
+#include "web/DatabaseClientImpl.h"
+#include "web/FullscreenController.h"
+#include "web/GeolocationClientProxy.h"
+#include "web/GraphicsLayerFactoryChromium.h"
+#include "web/LinkHighlight.h"
+#include "web/LocalFileSystemClient.h"
+#include "web/MIDIClientProxy.h"
+#include "web/PopupContainer.h"
+#include "web/PrerendererClientImpl.h"
+#include "web/SpeechInputClientImpl.h"
+#include "web/SpeechRecognitionClientProxy.h"
+#include "web/StorageQuotaClientImpl.h"
+#include "web/ValidationMessageClientImpl.h"
+#include "web/ViewportAnchor.h"
+#include "web/WebDevToolsAgentImpl.h"
+#include "web/WebDevToolsAgentPrivate.h"
+#include "web/WebInputEventConversion.h"
+#include "web/WebLocalFrameImpl.h"
+#include "web/WebPagePopupImpl.h"
+#include "web/WebPluginContainerImpl.h"
+#include "web/WebPopupMenuImpl.h"
+#include "web/WebSettingsImpl.h"
+#include "web/WorkerGlobalScopeProxyProviderImpl.h"
+#include "web/painting/ContinuousPainter.h"
 #include "wtf/CurrentTime.h"
 #include "wtf/RefPtr.h"
 #include "wtf/TemporaryChange.h"
@@ -392,9 +392,9 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_graphicsLayerFactory(adoptPtr(new GraphicsLayerFactoryChromium(this)))
     , m_isAcceleratedCompositingActive(false)
     , m_layerTreeViewCommitsDeferred(false)
+    , m_matchesHeuristicsForGpuRasterization(false)
     , m_recreatingGraphicsContext(false)
     , m_geolocationClientProxy(adoptPtr(new GeolocationClientProxy(client ? client->geolocationClient() : 0)))
-    , m_userMediaClientImpl(this)
     , m_flingModifier(0)
     , m_flingSourceDevice(false)
     , m_fullscreenController(FullscreenController::create(this))
@@ -419,7 +419,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     pageClients.storageClient = &m_storageClientImpl;
 
     m_page = adoptPtrWillBeNoop(new Page(pageClients));
-    provideUserMediaTo(*m_page, &m_userMediaClientImpl);
     MediaKeysController::provideMediaKeysTo(*m_page, &m_mediaKeysClientImpl);
     provideMIDITo(*m_page, MIDIClientProxy::create(client ? client->webMIDIClient() : 0));
 #if ENABLE(INPUT_SPEECH)
@@ -1807,6 +1806,14 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect, PaintOptions opt
     }
 }
 
+bool WebViewImpl::compositeAndReadbackAsync(WebCompositeAndReadbackAsyncCallback* callback)
+{
+    if (!isAcceleratedCompositingActive())
+        return false;
+    m_layerTreeView->compositeAndReadbackAsync(callback);
+    return true;
+}
+
 bool WebViewImpl::isTrackingRepaints() const
 {
     if (!page())
@@ -2907,6 +2914,16 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
 
     Document* document = page()->mainFrame()->document();
 
+    m_matchesHeuristicsForGpuRasterization = description.maxWidth == Length(DeviceWidth)
+        && description.minZoom == 1.0
+        && description.minZoomIsExplicit
+        && description.zoom == 1.0
+        && description.zoomIsExplicit
+        && description.userZoom
+        && description.userZoomIsExplicit;
+    if (m_layerTreeView)
+        m_layerTreeView->heuristicsForGpuRasterizationUpdated(m_matchesHeuristicsForGpuRasterization);
+
     Length defaultMinWidth = document->viewportDefaultMinWidth();
     if (defaultMinWidth.isAuto())
         defaultMinWidth = Length(ExtendToZoom);
@@ -3805,12 +3822,6 @@ void WebViewImpl::scheduleAnimation()
         m_client->scheduleAnimation();
 }
 
-void WebViewImpl::setCompositorCreationFailed()
-{
-    m_page->settings().setAcceleratedCompositingEnabled(false);
-    m_page->updateAcceleratedCompositingSettings();
-}
-
 void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 {
     blink::Platform::current()->histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
@@ -3871,14 +3882,17 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
             m_layerTreeView->setShowDebugBorders(m_showDebugBorders);
             m_layerTreeView->setContinuousPaintingEnabled(m_continuousPaintingEnabled);
             m_layerTreeView->setShowScrollBottleneckRects(m_showScrollBottleneckRects);
+            m_layerTreeView->heuristicsForGpuRasterizationUpdated(m_matchesHeuristicsForGpuRasterization);
         } else {
             // FIXME: It appears that only unittests, <webview> and android webview
             // printing can hit this code. We should make them not hit this code and
-            // then delete this else clause.
+            // then delete this else clause and allowsBrokenNullLayerTreeView.
             // crbug.com/322276 and crbug.com/364716.
+            ASSERT(m_client->allowsBrokenNullLayerTreeView());
             m_isAcceleratedCompositingActive = false;
             m_client->didDeactivateCompositor();
-            setCompositorCreationFailed();
+            m_page->settings().setAcceleratedCompositingEnabled(false);
+            m_page->updateAcceleratedCompositingSettings();
         }
     }
     if (page())
@@ -3933,20 +3947,6 @@ void WebViewImpl::applyScrollAndScale(const WebSize& scrollDelta, float pageScal
         setPageScaleFactor(pageScaleFactor() * pageScaleDelta, scrollPoint);
         m_doubleTapZoomPending = false;
     }
-}
-
-void WebViewImpl::didExitCompositingMode()
-{
-    ASSERT(m_isAcceleratedCompositingActive);
-    setIsAcceleratedCompositingActive(false);
-    setCompositorCreationFailed();
-    m_client->didInvalidateRect(IntRect(0, 0, m_size.width, m_size.height));
-
-    // Force a style recalc to remove all the composited layers.
-    m_page->mainFrame()->document()->setNeedsStyleRecalc(SubtreeStyleChange);
-
-    if (m_pageOverlays)
-        m_pageOverlays->update();
 }
 
 void WebViewImpl::updateLayerTreeViewport()

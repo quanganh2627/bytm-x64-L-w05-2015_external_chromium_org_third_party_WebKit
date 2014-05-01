@@ -61,9 +61,6 @@ public:
     };
     virtual WebKitClientMessageLoop* createClientMessageLoop() { return 0; }
 
-    virtual void clearBrowserCache() { }
-    virtual void clearBrowserCookies() { }
-
     class AllocatedObjectVisitor {
     public:
         virtual bool visitObject(const void* ptr) = 0;
@@ -86,6 +83,8 @@ public:
 
     virtual void setTraceEventCallback(const WebString& categoryFilter, TraceEventCallback) { }
     virtual void resetTraceEventCallback() { }
+    virtual void enableTracing(const WebString& categoryFilter) { }
+    virtual void disableTracing() { }
 
     virtual void startGPUEventsRecording() { }
     virtual void stopGPUEventsRecording() { }

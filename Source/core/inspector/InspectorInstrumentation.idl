@@ -136,9 +136,6 @@ interface InspectorInstrumentation {
     [DOMDebugger, Inline=FastReturn]
     void didFireWebGLErrorOrWarning(Element*, const String& message);
 
-    [Timeline, Inline=FastReturn]
-    void didScheduleResourceRequest([Keep] Document*, const String& url);
-
     [DOMDebugger, Debugger, Timeline, Inline=FastReturn]
     void didInstallTimer([Keep] ExecutionContext*, int timerId, int timeout, bool singleShot);
 
@@ -220,12 +217,6 @@ interface InspectorInstrumentation {
     [Timeline, Page, Inline=FastReturn]
     void didLayout(const InspectorInstrumentationCookie&, RenderObject* root);
 
-    [Timeline, Inline=FastReturn]
-    void willAutosizeText([Keep] RenderObject* root);
-
-    [Timeline, Inline=FastReturn]
-    void didAutosizeText([Keep] RenderObject* root);
-
     [Page, Inline=FastReturn]
     void didScroll(Page*);
 
@@ -260,10 +251,7 @@ interface InspectorInstrumentation {
     InspectorInstrumentationCookie willRecalculateStyle([Keep] Document*);
 
     [Timeline, Resource, Page, Inline=FastReturn]
-    void didRecalculateStyle(const InspectorInstrumentationCookie&);
-
-    [Timeline, Inline=FastReturn]
-    void didRecalculateStyleForElement(Element*);
+    void didRecalculateStyle(const InspectorInstrumentationCookie&, int elementCount);
 
     [Timeline, Resource, Inline=FastReturn]
     void didScheduleStyleRecalculation([Keep] Document*);

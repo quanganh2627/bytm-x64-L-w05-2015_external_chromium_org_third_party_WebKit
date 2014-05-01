@@ -29,14 +29,6 @@
  */
 #include "config.h"
 
-#include "FrameTestHelpers.h"
-#include "URLTestHelpers.h"
-#include "WebFrame.h"
-#include "WebPageSerializer.h"
-#include "WebPageSerializerClient.h"
-#include "WebScriptSource.h"
-#include "WebSettings.h"
-#include "WebView.h"
 #include "core/dom/Document.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebString.h"
@@ -46,6 +38,14 @@
 #include "public/platform/WebURLResponse.h"
 #include "public/platform/WebUnitTestSupport.h"
 #include "public/web/WebDocument.h"
+#include "public/web/WebFrame.h"
+#include "public/web/WebPageSerializer.h"
+#include "public/web/WebPageSerializerClient.h"
+#include "public/web/WebScriptSource.h"
+#include "public/web/WebSettings.h"
+#include "public/web/WebView.h"
+#include "web/tests/FrameTestHelpers.h"
+#include "web/tests/URLTestHelpers.h"
 #include <gtest/gtest.h>
 
 using namespace blink;

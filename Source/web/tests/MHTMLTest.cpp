@@ -30,10 +30,6 @@
 
 #include "config.h"
 
-#include "FrameTestHelpers.h"
-#include "URLTestHelpers.h"
-#include "WebFrame.h"
-#include "WebView.h"
 #include "core/dom/Document.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Location.h"
@@ -46,6 +42,10 @@
 #include "public/platform/WebURLResponse.h"
 #include "public/platform/WebUnitTestSupport.h"
 #include "public/web/WebDocument.h"
+#include "public/web/WebFrame.h"
+#include "public/web/WebView.h"
+#include "web/tests/FrameTestHelpers.h"
+#include "web/tests/URLTestHelpers.h"
 
 #include <gtest/gtest.h>
 

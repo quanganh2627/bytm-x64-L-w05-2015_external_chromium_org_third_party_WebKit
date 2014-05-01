@@ -211,8 +211,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebPagePopupImpl.cpp \
 	third_party/WebKit/Source/web/WebPageSerializer.cpp \
 	third_party/WebKit/Source/web/WebPageSerializerImpl.cpp \
-	third_party/WebKit/Source/web/WebPasswordFormData.cpp \
-	third_party/WebKit/Source/web/WebPasswordFormUtils.cpp \
 	third_party/WebKit/Source/web/WebPerformance.cpp \
 	third_party/WebKit/Source/web/WebPluginContainerImpl.cpp \
 	third_party/WebKit/Source/web/WebPluginDocument.cpp \
@@ -220,6 +218,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebPluginScrollbarImpl.cpp \
 	third_party/WebKit/Source/web/WebPopupMenuImpl.cpp \
 	third_party/WebKit/Source/web/WebRange.cpp \
+	third_party/WebKit/Source/web/WebRemoteFrameImpl.cpp \
 	third_party/WebKit/Source/web/WebRuntimeFeatures.cpp \
 	third_party/WebKit/Source/web/WebScopedMicrotaskSuppression.cpp \
 	third_party/WebKit/Source/web/WebScopedUserGesture.cpp \
@@ -331,12 +330,13 @@ MY_DEFS_Debug := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -360,12 +360,8 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/WebKit/public/web \
-	$(LOCAL_PATH)/third_party/WebKit/Source/web \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(LOCAL_PATH)/third_party/skia/include/utils \
-	$(LOCAL_PATH)/third_party/WebKit/public/web/android \
-	$(LOCAL_PATH)/third_party/WebKit/public/web/linux \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/skia/config \
@@ -478,12 +474,13 @@ MY_DEFS_Release := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -508,12 +505,8 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/WebKit/public/web \
-	$(LOCAL_PATH)/third_party/WebKit/Source/web \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(LOCAL_PATH)/third_party/skia/include/utils \
-	$(LOCAL_PATH)/third_party/WebKit/public/web/android \
-	$(LOCAL_PATH)/third_party/WebKit/public/web/linux \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/skia/config \

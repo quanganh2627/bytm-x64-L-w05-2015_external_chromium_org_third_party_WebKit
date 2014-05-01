@@ -39,7 +39,6 @@
 #include "V8Key.h"
 #include "V8MessagePort.h"
 #include "bindings/v8/ExceptionState.h"
-#include "bindings/v8/ScriptScope.h"
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/WorkerScriptController.h"
 #include "bindings/v8/custom/V8ArrayBufferCustom.h"
@@ -61,8 +60,8 @@
 #include "core/fileapi/FileList.h"
 #include "core/html/ImageData.h"
 #include "core/html/canvas/DataView.h"
-#include "heap/Handle.h"
 #include "platform/SharedBuffer.h"
+#include "platform/heap/Handle.h"
 #include "public/platform/Platform.h"
 #include "public/platform/WebBlobInfo.h"
 #include "public/platform/WebCrypto.h"
@@ -293,6 +292,7 @@ enum CryptoKeyUsage {
     DeriveKeyUsage = 1 << 5,
     WrapKeyUsage = 1 << 6,
     UnwrapKeyUsage = 1 << 7,
+    DeriveBitsUsage = 1 << 8,
     // Maximum allowed value is 1 << 31
 };
 
@@ -793,7 +793,7 @@ private:
     void doWriteKeyUsages(const blink::WebCryptoKeyUsageMask usages, bool extractable)
     {
         // Reminder to update this when adding new key usages.
-        COMPILE_ASSERT(blink::EndOfWebCryptoKeyUsage == (1 << 6) + 1, UpdateMe);
+        COMPILE_ASSERT(blink::EndOfWebCryptoKeyUsage == (1 << 7) + 1, UpdateMe);
 
         uint32_t value = 0;
 
@@ -814,6 +814,8 @@ private:
             value |= WrapKeyUsage;
         if (usages & blink::WebCryptoKeyUsageUnwrapKey)
             value |= UnwrapKeyUsage;
+        if (usages & blink::WebCryptoKeyUsageDeriveBits)
+            value |= DeriveBitsUsage;
 
         doWriteUint32(value);
     }
@@ -2508,8 +2510,8 @@ private:
     bool doReadKeyUsages(blink::WebCryptoKeyUsageMask& usages, bool& extractable)
     {
         // Reminder to update this when adding new key usages.
-        COMPILE_ASSERT(blink::EndOfWebCryptoKeyUsage == (1 << 6) + 1, UpdateMe);
-        const uint32_t allPossibleUsages = ExtractableUsage | EncryptUsage | DecryptUsage | SignUsage | VerifyUsage | DeriveKeyUsage | WrapKeyUsage | UnwrapKeyUsage;
+        COMPILE_ASSERT(blink::EndOfWebCryptoKeyUsage == (1 << 7) + 1, UpdateMe);
+        const uint32_t allPossibleUsages = ExtractableUsage | EncryptUsage | DecryptUsage | SignUsage | VerifyUsage | DeriveKeyUsage | WrapKeyUsage | UnwrapKeyUsage | DeriveBitsUsage;
 
         uint32_t rawUsages;
         if (!doReadUint32(&rawUsages))
@@ -2537,6 +2539,8 @@ private:
             usages |= blink::WebCryptoKeyUsageWrapKey;
         if (rawUsages & UnwrapKeyUsage)
             usages |= blink::WebCryptoKeyUsageUnwrapKey;
+        if (rawUsages & DeriveBitsUsage)
+            usages |= blink::WebCryptoKeyUsageDeriveBits;
 
         return true;
     }

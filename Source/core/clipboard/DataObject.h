@@ -32,9 +32,9 @@
 #define DataObject_h
 
 #include "core/clipboard/DataObjectItem.h"
-#include "heap/Handle.h"
 #include "platform/PasteMode.h"
 #include "platform/Supplementable.h"
+#include "platform/heap/Handle.h"
 #include "wtf/ListHashSet.h"
 #include "wtf/RefCounted.h"
 #include "wtf/RefPtr.h"
@@ -87,6 +87,10 @@ public:
     Vector<String> filenames() const;
     void addFilename(const String& filename, const String& displayName);
 
+    // Used for dragging in filesystem from the desktop.
+    void setFilesystemId(const String& fileSystemId) { m_filesystemId = fileSystemId; }
+    const String& filesystemId() const { ASSERT(!m_filesystemId.isEmpty()); return m_filesystemId; }
+
     // Used to handle files (images) being dragged out.
     void addSharedBuffer(const String& name, PassRefPtr<SharedBuffer>);
 
@@ -107,6 +111,7 @@ private:
 
     // State of Shift/Ctrl/Alt/Meta keys.
     int m_modifierKeyState;
+    String m_filesystemId;
 };
 
 } // namespace WebCore

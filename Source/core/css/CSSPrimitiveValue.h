@@ -176,7 +176,6 @@ public:
     };
     static UnitCategory unitCategory(CSSPrimitiveValue::UnitTypes);
 
-    typedef HashMap<String, CSSPrimitiveValue::UnitTypes> UnitTable;
     static UnitTypes fromName(const String& unit);
 
     bool isAngle() const
@@ -214,53 +213,49 @@ public:
     bool isCalculated() const { return m_primitiveUnitType == CSS_CALC; }
     bool isCalculatedPercentageWithNumber() const { return primitiveType() == CSS_CALC_PERCENTAGE_WITH_NUMBER; }
     bool isCalculatedPercentageWithLength() const { return primitiveType() == CSS_CALC_PERCENTAGE_WITH_LENGTH; }
-    bool isDotsPerInch() const { return primitiveType() == CSS_DPI; }
-    bool isDotsPerPixel() const { return primitiveType() == CSS_DPPX; }
-    bool isDotsPerCentimeter() const { return primitiveType() == CSS_DPCM; }
-    bool isResolution() const
-    {
-        unsigned short type = primitiveType();
-        return type >= CSS_DPPX && type <= CSS_DPCM;
-    }
+    static bool isDotsPerInch(UnitTypes type) { return type == CSS_DPI; }
+    static bool isDotsPerPixel(UnitTypes type) { return type == CSS_DPPX; }
+    static bool isDotsPerCentimeter(UnitTypes type) { return type == CSS_DPCM; }
+    static bool isResolution(UnitTypes type) { return type >= CSS_DPPX && type <= CSS_DPCM; }
     bool isFlex() const { return primitiveType() == CSS_FR; }
     bool isValueID() const { return m_primitiveUnitType == CSS_VALUE_ID; }
     bool colorIsDerivedFromElement() const;
 
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> createIdentifier(CSSValueID valueID)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(valueID));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(valueID));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> createIdentifier(CSSPropertyID propertyID)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(propertyID));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(propertyID));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> createParserOperator(int parserOperator)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(parserOperator, CSS_PARSER_OPERATOR));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(parserOperator, CSS_PARSER_OPERATOR));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> createColor(unsigned rgbValue)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(rgbValue, CSS_RGBCOLOR));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(rgbValue, CSS_RGBCOLOR));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(double value, UnitTypes type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(value, type));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(value, type));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(const String& value, UnitTypes type)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(value, type));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(value, type));
     }
     static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(const Length& value, float zoom)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(value, zoom));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(value, zoom));
     }
-    static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(const LengthSize& value)
+    static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(const LengthSize& value, const RenderStyle& style)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(value));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(value, style));
     }
     template<typename T> static PassRefPtrWillBeRawPtr<CSSPrimitiveValue> create(T value)
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSPrimitiveValue(value));
+        return adoptRefWillBeNoop(new CSSPrimitiveValue(value));
     }
 
     // This value is used to handle quirky margins in reflow roots (body, td, and th) like WinIE.
@@ -271,7 +266,7 @@ public:
     {
         CSSPrimitiveValue* quirkValue = new CSSPrimitiveValue(value, type);
         quirkValue->m_isQuirkValue = true;
-        return adoptRefWillBeRefCountedGarbageCollected(quirkValue);
+        return adoptRefWillBeNoop(quirkValue);
     }
 
     ~CSSPrimitiveValue();
@@ -356,6 +351,7 @@ public:
 
     template<typename T> inline operator T() const; // Defined in CSSPrimitiveValueMappings.h
 
+    static const char* unitTypeToString(UnitTypes);
     String customCSSText(CSSTextFormattingFlags = QuoteCSSStringIfNeeded) const;
 
     bool isQuirkValue() { return m_isQuirkValue; }
@@ -386,7 +382,7 @@ private:
         init(length);
     }
     CSSPrimitiveValue(const Length&, float zoom);
-    CSSPrimitiveValue(const LengthSize&);
+    CSSPrimitiveValue(const LengthSize&, const RenderStyle&);
     CSSPrimitiveValue(const String&, UnitTypes);
     CSSPrimitiveValue(double, UnitTypes);
 
@@ -408,7 +404,7 @@ private:
     template<typename T> operator T*(); // compile-time guard
 
     void init(const Length&);
-    void init(const LengthSize&);
+    void init(const LengthSize&, const RenderStyle&);
     void init(PassRefPtrWillBeRawPtr<Counter>);
     void init(PassRefPtrWillBeRawPtr<Rect>);
     void init(PassRefPtrWillBeRawPtr<Pair>);

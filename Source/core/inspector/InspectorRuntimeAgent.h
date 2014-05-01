@@ -42,8 +42,8 @@ class InjectedScript;
 class InjectedScriptManager;
 class InstrumentingAgents;
 class JSONArray;
-class ScriptDebugServer;
 class ScriptState;
+class ScriptDebugServer;
 
 typedef String ErrorString;
 
@@ -96,7 +96,7 @@ protected:
     bool m_enabled;
     InspectorFrontend::Runtime* m_frontend;
 
-    typedef HashMap<ScriptState*, int> ScriptStateToId;
+    typedef HashMap<RefPtr<ScriptState>, int> ScriptStateToId;
     ScriptStateToId m_scriptStateToId;
 
 private:

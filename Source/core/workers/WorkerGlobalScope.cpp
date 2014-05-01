@@ -84,6 +84,7 @@ WorkerGlobalScope::WorkerGlobalScope(const KURL& url, const String& userAgent, W
     , m_eventQueue(WorkerEventQueue::create(this))
     , m_workerClients(workerClients)
     , m_timeOrigin(timeOrigin)
+    , m_terminationObserver(0)
 {
     ScriptWrappable::init(this);
     setClient(this);
@@ -184,9 +185,24 @@ void WorkerGlobalScope::clearInspector()
     m_workerInspectorController.clear();
 }
 
-void WorkerGlobalScope::willStopActiveDOMObjects()
+void WorkerGlobalScope::registerTerminationObserver(TerminationObserver* observer)
 {
-    lifecycleNotifier().notifyWillStopActiveDOMObjects();
+    ASSERT(!m_terminationObserver);
+    ASSERT(observer);
+    m_terminationObserver = observer;
+}
+
+void WorkerGlobalScope::unregisterTerminationObserver(TerminationObserver* observer)
+{
+    ASSERT(observer);
+    ASSERT(m_terminationObserver == observer);
+    m_terminationObserver = 0;
+}
+
+void WorkerGlobalScope::wasRequestedToTerminate()
+{
+    if (m_terminationObserver)
+        m_terminationObserver->wasRequestedToTerminate();
 }
 
 void WorkerGlobalScope::dispose()
@@ -265,23 +281,23 @@ void WorkerGlobalScope::reportBlockedScriptExecutionToInspector(const String& di
     InspectorInstrumentation::scriptExecutionBlockedByCSP(this, directiveText);
 }
 
-void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, ScriptState* state)
+void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, ScriptState* scriptState)
 {
     if (!isContextThread()) {
         postTask(AddConsoleMessageTask::create(source, level, message));
         return;
     }
     thread()->workerReportingProxy().reportConsoleMessage(source, level, message, lineNumber, sourceURL);
-    addMessageToWorkerConsole(source, level, message, sourceURL, lineNumber, nullptr, state);
+    addMessageToWorkerConsole(source, level, message, sourceURL, lineNumber, nullptr, scriptState);
 }
 
-void WorkerGlobalScope::addMessageToWorkerConsole(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack> callStack, ScriptState* state)
+void WorkerGlobalScope::addMessageToWorkerConsole(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack> callStack, ScriptState* scriptState)
 {
     ASSERT(isContextThread());
     if (callStack)
         InspectorInstrumentation::addMessageToConsole(this, source, LogMessageType, level, message, callStack);
     else
-        InspectorInstrumentation::addMessageToConsole(this, source, LogMessageType, level, message, sourceURL, lineNumber, 0, state);
+        InspectorInstrumentation::addMessageToConsole(this, source, LogMessageType, level, message, sourceURL, lineNumber, 0, scriptState);
 }
 
 bool WorkerGlobalScope::isContextThread() const
@@ -311,6 +327,7 @@ void WorkerGlobalScope::trace(Visitor* visitor)
     visitor->trace(m_navigator);
     visitor->trace(m_workerClients);
     WillBeHeapSupplementable<WorkerGlobalScope>::trace(visitor);
+    ExecutionContext::trace(visitor);
 }
 
 } // namespace WebCore

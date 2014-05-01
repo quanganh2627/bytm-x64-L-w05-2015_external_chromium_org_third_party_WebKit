@@ -123,7 +123,7 @@ static StylePropertySet* rightToLeftDeclaration()
 
 static void addFontFaceRule(Document* document, CSSFontSelector* cssFontSelector, const StyleRuleFontFace* fontFaceRule)
 {
-    RefPtr<FontFace> fontFace = FontFace::create(document, fontFaceRule);
+    RefPtrWillBeRawPtr<FontFace> fontFace = FontFace::create(document, fontFaceRule);
     if (fontFace)
         cssFontSelector->fontFaceCache()->add(cssFontSelector, fontFaceRule, fontFace);
 }
@@ -204,12 +204,12 @@ void StyleResolver::appendPendingAuthorStyleSheets()
     finishAppendAuthorStyleSheets();
 }
 
-void StyleResolver::appendAuthorStyleSheets(unsigned firstNew, const WillBeHeapVector<RefPtrWillBeMember<CSSStyleSheet> >& styleSheets)
+void StyleResolver::appendAuthorStyleSheets(const WillBeHeapVector<RefPtrWillBeMember<CSSStyleSheet> >& styleSheets)
 {
     // This handles sheets added to the end of the stylesheet list only. In other cases the style resolver
     // needs to be reconstructed. To handle insertions too the rule order numbers would need to be updated.
     unsigned size = styleSheets.size();
-    for (unsigned i = firstNew; i < size; ++i)
+    for (unsigned i = 0; i < size; ++i)
         appendCSSStyleSheet(styleSheets[i].get());
 }
 
@@ -644,10 +644,7 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
     {
         ElementRuleCollector collector(state.elementContext(), m_selectorFilter, state.style());
 
-        if (matchingBehavior == MatchOnlyUserAgentRules)
-            matchUARules(collector);
-        else
-            matchAllRules(state, collector, matchingBehavior != MatchAllRulesExcludingSMIL);
+        matchAllRules(state, collector, matchingBehavior != MatchAllRulesExcludingSMIL);
 
         applyMatchedProperties(state, collector.matchedResult());
 

@@ -79,6 +79,7 @@ class WebString;
 class WebURL;
 class WebURLLoader;
 class WebURLResponse;
+class WebUserMediaClient;
 class WebWorkerPermissionClientProxy;
 struct WebColorSuggestion;
 struct WebConsoleMessage;
@@ -104,10 +105,8 @@ public:
     // May return null.
     virtual WebApplicationCacheHost* createApplicationCacheHost(WebLocalFrame*, WebApplicationCacheHostClient*) { return 0; }
 
-    // May return null. Takes ownership of the client.
-    // FIXME: Deprecate the second argument.
-    virtual WebServiceWorkerProvider* createServiceWorkerProvider(WebLocalFrame*, WebServiceWorkerProviderClient*) { return 0; }
-    virtual WebServiceWorkerProvider* createServiceWorkerProvider(WebLocalFrame* frame) { return createServiceWorkerProvider(frame, 0); }
+    // May return null.
+    virtual WebServiceWorkerProvider* createServiceWorkerProvider(WebLocalFrame* frame) { return 0; }
 
     // May return null.
     virtual WebWorkerPermissionClientProxy* createWorkerPermissionClientProxy(WebLocalFrame*) { return 0; }
@@ -171,8 +170,6 @@ public:
     // Load commands -------------------------------------------------------
 
     // The client should handle the navigation externally.
-    virtual void loadURLExternally(
-        WebLocalFrame*, const WebURLRequest&, WebNavigationPolicy) { }
     virtual void loadURLExternally(
         WebLocalFrame*, const WebURLRequest&, WebNavigationPolicy, const WebString& downloadName) { }
 
@@ -347,10 +344,7 @@ public:
         WebLocalFrame*, unsigned identifier, const WebURLResponse&) { }
 
     virtual void didChangeResourcePriority(
-        WebLocalFrame*, unsigned identifier, const blink::WebURLRequest::Priority&) { }
-
-    virtual void didChangeResourcePriority(
-        WebLocalFrame* webFrame, unsigned identifier, const blink::WebURLRequest::Priority& priority, int) { didChangeResourcePriority(webFrame, identifier, priority); }
+        WebLocalFrame* webFrame, unsigned identifier, const blink::WebURLRequest::Priority& priority, int) { }
 
     // The resource request given by identifier succeeded.
     virtual void didFinishResourceLoad(
@@ -449,6 +443,8 @@ public:
 
     // A new WebRTCPeerConnectionHandler is created.
     virtual void willStartUsingPeerConnectionHandler(WebLocalFrame*, WebRTCPeerConnectionHandler*) { }
+
+    virtual WebUserMediaClient* userMediaClient() { return 0; }
 
 
     // Messages ------------------------------------------------------

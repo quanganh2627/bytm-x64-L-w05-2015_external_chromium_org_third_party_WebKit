@@ -146,13 +146,6 @@ PassRefPtr<JSONObject> TimelineRecordFactory::createTimeStampData(const String& 
     return data.release();
 }
 
-PassRefPtr<JSONObject> TimelineRecordFactory::createScheduleResourceRequestData(const String& url)
-{
-    RefPtr<JSONObject> data = JSONObject::create();
-    data->setString("url", url);
-    return data.release();
-}
-
 PassRefPtr<JSONObject> TimelineRecordFactory::createResourceSendRequestData(const String& requestId, const ResourceRequest& request)
 {
     RefPtr<JSONObject> data = JSONObject::create();
@@ -274,7 +267,7 @@ void TimelineRecordFactory::setLayerTreeData(JSONObject* data, PassRefPtr<JSONVa
 void TimelineRecordFactory::setNodeData(JSONObject* data, long long nodeId)
 {
     if (nodeId)
-        data->setNumber("rootNode", nodeId);
+        data->setNumber("backendNodeId", nodeId);
 }
 
 void TimelineRecordFactory::setLayerData(JSONObject* data, long long rootNodeId)
@@ -300,7 +293,7 @@ void TimelineRecordFactory::setLayoutRoot(JSONObject* data, const FloatQuad& qua
 {
     data->setArray("root", createQuad(quad));
     if (rootNodeId)
-        data->setNumber("rootNode", rootNodeId);
+        data->setNumber("backendNodeId", rootNodeId);
 }
 
 void TimelineRecordFactory::setStyleRecalcDetails(JSONObject* data, unsigned elementCount)
@@ -311,7 +304,7 @@ void TimelineRecordFactory::setStyleRecalcDetails(JSONObject* data, unsigned ele
 void TimelineRecordFactory::setImageDetails(JSONObject* data, long long imageElementId, const String& url)
 {
     if (imageElementId)
-        data->setNumber("elementId", imageElementId);
+        data->setNumber("backendNodeId", imageElementId);
     if (!url.isEmpty())
         data->setString("url", url);
 }

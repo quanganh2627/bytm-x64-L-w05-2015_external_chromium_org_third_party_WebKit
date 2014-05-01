@@ -5,57 +5,21 @@
 #ifndef StyleDifference_h
 #define StyleDifference_h
 
-// FIXME: Remove this include after we finish migrating from StyleDifferenceLegacy.
-#include "core/rendering/style/RenderStyleConstants.h"
+#include "wtf/Assertions.h"
 
 namespace WebCore {
 
 // This class represents the difference between two computed styles (RenderStyle).
-// The difference can be of 3 types:
-// - Layout difference
-// - Repaint difference
-// - Recompositing difference
+// The difference can be combination of 3 types according to the actions needed:
+// - Difference needing layout
+// - Difference needing repaint
+// - Difference needing recompositing layers
 class StyleDifference {
 public:
     StyleDifference()
         : m_needsRecompositeLayer(false)
         , m_repaintType(NoRepaint)
         , m_layoutType(NoLayout) { }
-
-    // Temporary constructor to convert StyleDifferenceLegacy to new StyleDifference.
-    // At this step, implicit requirements (e.g. StyleDifferenceLayout implies StyleDifferenceRepaint),
-    // is not handled by StyleDifference but need to be handled by the callers.
-    StyleDifference(StyleDifferenceLegacy legacyDiff)
-        : m_needsRecompositeLayer(false)
-        , m_repaintType(NoRepaint)
-        , m_layoutType(NoLayout)
-    {
-        switch (legacyDiff) {
-        case StyleDifferenceEqual:
-            break;
-        case StyleDifferenceRecompositeLayer:
-            m_needsRecompositeLayer = true;
-            break;
-        case StyleDifferenceRepaint:
-            m_repaintType = RepaintObjectOnly;
-            break;
-        case StyleDifferenceRepaintLayer:
-            m_repaintType = RepaintLayer;
-            break;
-        case StyleDifferenceLayoutPositionedMovementOnly:
-            m_layoutType = PositionedMovement;
-            break;
-        case StyleDifferenceSimplifiedLayout:
-            m_layoutType = SimplifiedLayout;
-            break;
-        case StyleDifferenceSimplifiedLayoutAndPositionedMovement:
-            m_layoutType = PositionedMovement | SimplifiedLayout;
-            break;
-        case StyleDifferenceLayout:
-            m_layoutType = FullLayout;
-            break;
-        }
-    }
 
     // The two styles are identical.
     bool hasNoChange() const { return !m_needsRecompositeLayer && !m_repaintType && !m_layoutType; }
@@ -68,11 +32,11 @@ public:
     void clearNeedsRepaint() { m_repaintType = NoRepaint; }
 
     // The object just needs to be repainted.
-    bool needsRepaintObjectOnly() const { return m_repaintType == RepaintObjectOnly; }
+    bool needsRepaintObject() const { return m_repaintType == RepaintObject; }
     void setNeedsRepaintObject()
     {
-        if (!needsRepaintLayer())
-            m_repaintType = RepaintObjectOnly;
+        ASSERT(!needsRepaintLayer());
+        m_repaintType = RepaintObject;
     }
 
     // The layer and its descendant layers need to be repainted.
@@ -83,50 +47,32 @@ public:
     void clearNeedsLayout() { m_layoutType = NoLayout; }
 
     // The offset of this positioned object has been updated.
-    bool needsPositionedMovementLayout() const { return m_layoutType & PositionedMovement; }
+    bool needsPositionedMovementLayout() const { return m_layoutType == PositionedMovement; }
     void setNeedsPositionedMovementLayout()
     {
-        if (!needsFullLayout())
-            m_layoutType |= PositionedMovement;
-        // FIXME: This is temporary to keep the StyleDifferenceLegacy behavior.
-        m_repaintType = NoRepaint;
-    }
-
-    // Only overflow needs to be recomputed.
-    bool needsSimplifiedLayout() const { return m_layoutType & SimplifiedLayout; }
-    void setNeedsSimplifiedLayout()
-    {
-        if (!needsFullLayout())
-            m_layoutType |= SimplifiedLayout;
-        // FIXME: This is temporary to keep the StyleDifferenceLegacy behavior.
-        m_repaintType = NoRepaint;
+        ASSERT(!needsFullLayout());
+        m_layoutType = PositionedMovement;
     }
 
     bool needsFullLayout() const { return m_layoutType == FullLayout; }
-    void setNeedsFullLayout()
-    {
-        m_layoutType = FullLayout;
-        // FIXME: This is temporary to keep the StyleDifferenceLegacy behavior.
-        m_repaintType = NoRepaint;
-    }
+    void setNeedsFullLayout() { m_layoutType = FullLayout; }
 
 private:
     unsigned m_needsRecompositeLayer : 1;
 
     enum RepaintType {
         NoRepaint = 0,
-        RepaintObjectOnly,
+        RepaintObject,
         RepaintLayer
     };
     unsigned m_repaintType : 2;
 
     enum LayoutType {
         NoLayout = 0,
-        PositionedMovement = 1 << 0,
-        SimplifiedLayout = 1 << 1,
-        FullLayout = 1 << 2
+        PositionedMovement,
+        FullLayout
     };
-    unsigned m_layoutType : 3;
+    unsigned m_layoutType : 2;
 };
 
 } // namespace WebCore

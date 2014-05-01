@@ -29,12 +29,12 @@
  */
 
 #include "config.h"
-#include "WebPluginDocument.h"
+#include "public/web/WebPluginDocument.h"
 
 #include "core/dom/Document.h"
 #include "core/html/PluginDocument.h"
 
-#include "WebPluginContainerImpl.h"
+#include "web/WebPluginContainerImpl.h"
 
 #include "wtf/PassRefPtr.h"
 

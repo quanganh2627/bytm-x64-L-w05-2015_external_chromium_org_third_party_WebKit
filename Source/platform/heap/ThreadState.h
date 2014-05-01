@@ -46,6 +46,7 @@ namespace WebCore {
 class BaseHeap;
 class BaseHeapPage;
 class FinalizedHeapObjectHeader;
+struct GCInfo;
 class HeapContainsCache;
 class HeapObjectHeader;
 class PersistentNode;
@@ -493,6 +494,10 @@ public:
     // the object to which it points.
     bool checkAndMarkPointer(Visitor*, Address);
 
+#if ENABLE(GC_TRACING)
+    const GCInfo* findGCInfo(Address);
+#endif
+
     void pushWeakObjectPointerCallback(void*, WeakPointerCallback);
     bool popAndInvokeWeakPointerCallback(Visitor*);
 
@@ -574,7 +579,7 @@ private:
 
     CallbackStack* m_weakCallbackStack;
 
-#if defined(ADDRESS_SANITIZER) && !OS(WIN)
+#if defined(ADDRESS_SANITIZER)
     void* m_asanFakeStack;
 #endif
 };

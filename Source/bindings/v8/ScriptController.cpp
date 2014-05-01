@@ -59,6 +59,7 @@
 #include "core/frame/csp/ContentSecurityPolicy.h"
 #include "core/html/HTMLPlugInElement.h"
 #include "core/inspector/InspectorInstrumentation.h"
+#include "core/inspector/InspectorTraceEvents.h"
 #include "core/inspector/ScriptCallStack.h"
 #include "core/loader/DocumentLoader.h"
 #include "core/loader/FrameLoader.h"
@@ -178,7 +179,9 @@ v8::Local<v8::Value> ScriptController::executeScriptAndReturnValue(v8::Handle<v8
 {
     v8::Context::Scope scope(context);
 
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willEvaluateScript(m_frame, source.url().isNull() ? String() : source.url().string(), source.startLine());
+    TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "EvaluateScript", "data", InspectorEvaluateScriptEvent::data(m_frame, source.url().string(), source.startLine()));
+    // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willEvaluateScript(m_frame, source.url().string(), source.startLine());
 
     v8::Local<v8::Value> result;
     {
@@ -451,7 +454,7 @@ void ScriptController::collectIsolatedContexts(Vector<std::pair<ScriptState*, Se
         v8::Local<v8::Context> v8Context = isolatedWorldShell->context();
         if (v8Context.IsEmpty())
             continue;
-        ScriptState* scriptState = ScriptState::forContext(v8Context);
+        ScriptState* scriptState = ScriptState::from(v8Context);
         result.append(std::pair<ScriptState*, SecurityOrigin*>(scriptState, origin));
     }
 }

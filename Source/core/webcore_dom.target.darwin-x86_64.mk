@@ -113,6 +113,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/Range.cpp \
 	third_party/WebKit/Source/core/dom/RenderTreeBuilder.cpp \
 	third_party/WebKit/Source/core/dom/SandboxFlags.cpp \
+	third_party/WebKit/Source/core/dom/ScriptForbiddenScope.cpp \
 	third_party/WebKit/Source/core/dom/ScriptLoader.cpp \
 	third_party/WebKit/Source/core/dom/ScriptRunner.cpp \
 	third_party/WebKit/Source/core/dom/ScriptableDocumentParser.cpp \
@@ -141,6 +142,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/UserActionElementSet.cpp \
 	third_party/WebKit/Source/core/dom/ViewportDescription.cpp \
 	third_party/WebKit/Source/core/dom/VisitedLinkState.cpp \
+	third_party/WebKit/Source/core/dom/WeakNodeMap.cpp \
 	third_party/WebKit/Source/core/dom/WheelController.cpp \
 	third_party/WebKit/Source/core/dom/XMLDocument.cpp \
 	third_party/WebKit/Source/core/dom/custom/CustomElement.cpp \
@@ -279,12 +281,13 @@ MY_DEFS_Debug := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -436,12 +439,13 @@ MY_DEFS_Release := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \

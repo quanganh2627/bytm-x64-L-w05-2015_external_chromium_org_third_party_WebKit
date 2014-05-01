@@ -36,6 +36,7 @@
 #include "core/dom/Attribute.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/ExceptionCode.h"
+#include "core/frame/UseCounter.h"
 #include "core/html/HTMLTableCaptionElement.h"
 #include "core/html/HTMLTableCellElement.h"
 #include "core/html/HTMLTableRowElement.h"
@@ -304,8 +305,11 @@ void HTMLTableElement::collectStyleForPresentationAttribute(const QualifiedName&
         addHTMLColorToStyle(style, CSSPropertyBackgroundColor, value);
     else if (name == backgroundAttr) {
         String url = stripLeadingAndTrailingHTMLSpaces(value);
-        if (!url.isEmpty())
-            style->setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(url, document().completeURL(url))));
+        if (!url.isEmpty()) {
+            RefPtrWillBeRawPtr<CSSImageValue> imageValue = CSSImageValue::create(url, document().completeURL(url));
+            imageValue->setReferrer(document().outgoingReferrer());
+            style->setProperty(CSSProperty(CSSPropertyBackgroundImage, imageValue.release()));
+        }
     } else if (name == valignAttr) {
         if (!value.isEmpty())
             addPropertyToPresentationAttributeStyle(style, CSSPropertyVerticalAlign, value);
@@ -313,9 +317,11 @@ void HTMLTableElement::collectStyleForPresentationAttribute(const QualifiedName&
         if (!value.isEmpty())
             addHTMLLengthToStyle(style, CSSPropertyBorderSpacing, value);
     } else if (name == vspaceAttr) {
+        UseCounter::count(document(), UseCounter::HTMLTableElementVspace);
         addHTMLLengthToStyle(style, CSSPropertyMarginTop, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginBottom, value);
     } else if (name == hspaceAttr) {
+        UseCounter::count(document(), UseCounter::HTMLTableElementHspace);
         addHTMLLengthToStyle(style, CSSPropertyMarginLeft, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginRight, value);
     } else if (name == alignAttr) {

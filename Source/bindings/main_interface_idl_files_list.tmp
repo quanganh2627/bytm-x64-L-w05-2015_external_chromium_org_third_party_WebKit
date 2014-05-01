@@ -1,4 +1,5 @@
 ../core/animation/Animation.idl
+../core/animation/AnimationEffect.idl
 ../core/animation/AnimationPlayer.idl
 ../core/animation/TimedItem.idl
 ../core/animation/Timeline.idl
@@ -305,7 +306,6 @@
 ../core/svg/SVGDiscardElement.idl
 ../core/svg/SVGElement.idl
 ../core/svg/SVGElementInstance.idl
-../core/svg/SVGElementInstanceList.idl
 ../core/svg/SVGEllipseElement.idl
 ../core/svg/SVGFEBlendElement.idl
 ../core/svg/SVGFEColorMatrixElement.idl

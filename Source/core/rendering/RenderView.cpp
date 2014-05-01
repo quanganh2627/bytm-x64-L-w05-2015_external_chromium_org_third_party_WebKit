@@ -414,16 +414,11 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&)
     }
 }
 
-bool RenderView::shouldRepaint(const LayoutRect& rect) const
-{
-    if (document().printing())
-        return false;
-    return m_frameView && !rect.isEmpty();
-}
-
 void RenderView::repaintViewRectangle(const LayoutRect& ur) const
 {
-    if (!shouldRepaint(ur))
+    ASSERT(!ur.isEmpty());
+
+    if (document().printing() || !m_frameView)
         return;
 
     // We always just invalidate the root view, since we could be an iframe that is clipped out
@@ -452,7 +447,7 @@ void RenderView::repaintViewAndCompositedLayers()
     // The only way we know how to hit these ASSERTS below this point is via the Chromium OS login screen.
     DisableCompositingQueryAsserts disabler;
 
-    if (compositor()->staleInCompositingMode())
+    if (compositor()->inCompositingMode())
         compositor()->repaintCompositedLayers();
 }
 

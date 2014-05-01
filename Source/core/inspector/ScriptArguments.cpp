@@ -31,7 +31,6 @@
 #include "config.h"
 #include "core/inspector/ScriptArguments.h"
 
-#include "bindings/v8/ScriptScope.h"
 #include "bindings/v8/ScriptValue.h"
 #include "bindings/v8/V8Binding.h"
 
@@ -58,25 +57,15 @@ const ScriptValue &ScriptArguments::argumentAt(size_t index) const
     return m_arguments[index];
 }
 
-ScriptState* ScriptArguments::globalState() const
-{
-    return m_scriptState.get();
-}
-
 bool ScriptArguments::getFirstArgumentAsString(String& result, bool checkForNullOrUndefined)
 {
     if (!argumentCount())
         return false;
 
     const ScriptValue& value = argumentAt(0);
-    ScriptScope scope(m_scriptState.get());
+    ScriptState::Scope scope(m_scriptState.get());
     if (checkForNullOrUndefined && (value.isNull() || value.isUndefined()))
         return false;
-
-    if (!globalState()) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
 
     // We intentionally ignore an exception that can be thrown in ToString().
     v8::TryCatch block;

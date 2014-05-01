@@ -781,18 +781,6 @@ PassRefPtrWillBeRawPtr<ClientRect> Internals::boundingBox(Element* element, Exce
     return ClientRect::create(renderer->absoluteBoundingBoxRectIgnoringTransforms());
 }
 
-PassRefPtrWillBeRawPtr<ClientRectList> Internals::inspectorHighlightRects(Document* document, ExceptionState& exceptionState)
-{
-    if (!document || !document->page()) {
-        exceptionState.throwDOMException(InvalidAccessError, document ? "The document's Page cannot be retrieved." : "No context document can be obtained.");
-        return ClientRectList::create();
-    }
-
-    Highlight highlight;
-    document->page()->inspectorController().getHighlight(&highlight);
-    return ClientRectList::create(highlight.quads);
-}
-
 unsigned Internals::markerCountForNode(Node* node, const String& markerType, ExceptionState& exceptionState)
 {
     if (!node) {
@@ -1310,8 +1298,12 @@ unsigned Internals::touchEventHandlerCount(Document* document, ExceptionState& e
 static RenderLayer* findRenderLayerForGraphicsLayer(RenderLayer* searchRoot, GraphicsLayer* graphicsLayer, IntSize* layerOffset, String* layerType)
 {
     *layerOffset = IntSize();
-    if (searchRoot->hasCompositedLayerMapping() && graphicsLayer == searchRoot->compositedLayerMapping()->mainGraphicsLayer())
+    if (searchRoot->hasCompositedLayerMapping() && graphicsLayer == searchRoot->compositedLayerMapping()->mainGraphicsLayer()) {
+        CompositedLayerMappingPtr compositedLayerMapping = searchRoot->compositedLayerMapping();
+        LayoutSize offset = compositedLayerMapping->contentOffsetInCompositingLayer();
+        *layerOffset = IntSize(offset.width(), offset.height());
         return searchRoot;
+    }
 
     GraphicsLayer* layerForScrolling = searchRoot->scrollableArea() ? searchRoot->scrollableArea()->layerForScrolling() : 0;
     if (graphicsLayer == layerForScrolling) {

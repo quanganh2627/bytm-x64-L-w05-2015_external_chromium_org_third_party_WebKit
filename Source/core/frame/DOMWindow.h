@@ -32,9 +32,9 @@
 #include "core/events/EventTarget.h"
 #include "core/frame/DOMWindowBase64.h"
 #include "core/frame/FrameDestructionObserver.h"
-#include "heap/Handle.h"
 #include "platform/LifecycleContext.h"
 #include "platform/Supplementable.h"
+#include "platform/heap/Handle.h"
 
 #include "wtf/Forward.h"
 
@@ -346,6 +346,9 @@ enum PageshowEventPersistence {
         RefPtr<Document> m_document;
 
         bool m_shouldPrintWhenFinishedLoading;
+#if ASSERT_ENABLED
+        bool m_hasBeenReset;
+#endif
 
         HashSet<DOMWindowProperty*> m_properties;
 

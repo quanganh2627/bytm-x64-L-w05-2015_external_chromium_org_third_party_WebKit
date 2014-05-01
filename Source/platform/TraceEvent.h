@@ -177,12 +177,12 @@
 // By default, uint64 ID argument values are not mangled with the Process ID in
 // TRACE_EVENT_ASYNC macros. Use this macro to force Process ID mangling.
 #define TRACE_ID_MANGLE(id) \
-    TraceID::ForceMangle(id)
+    WebCore::TraceEvent::TraceID::ForceMangle(id)
 
 // By default, pointers are mangled with the Process ID in TRACE_EVENT_ASYNC
 // macros. Use this macro to prevent Process ID mangling.
 #define TRACE_ID_DONT_MANGLE(id) \
-    TraceID::DontMangle(id)
+    WebCore::TraceEvent::TraceID::DontMangle(id)
 
 // Records a pair of begin and end events called "name" for the current
 // scope, with 0, 1 or 2 associated arguments. If the category is not
@@ -808,17 +808,19 @@ template<typename T> static inline void setTraceValue(const PassRefPtr<T>& ptr, 
 
 template<typename T> struct ConvertableToTraceFormatTraits {
     static const bool isConvertable = false;
-    static void assignIfConvertable(ConvertableToTraceFormat*&, const T&)
+    static void assignIfConvertable(ConvertableToTraceFormat*& left, const T&)
     {
+        left = 0;
     }
 };
 
 template<typename T> struct ConvertableToTraceFormatTraits<T*> {
     static const bool isConvertable = WTF::IsSubclass<T, TraceEvent::ConvertableToTraceFormat>::value;
-    static void assignIfConvertable(ConvertableToTraceFormat*&, ...)
+    static void assignIfConvertable(ConvertableToTraceFormat*& left, ...)
     {
+        left = 0;
     }
-    static void assignIfConvertable(ConvertableToTraceFormat*& left, ConvertableToTraceFormat*& right)
+    static void assignIfConvertable(ConvertableToTraceFormat*& left, ConvertableToTraceFormat* const& right)
     {
         left = right;
     }
@@ -826,7 +828,7 @@ template<typename T> struct ConvertableToTraceFormatTraits<T*> {
 
 template<typename T> struct ConvertableToTraceFormatTraits<PassRefPtr<T> > {
     static const bool isConvertable = WTF::IsSubclass<T, TraceEvent::ConvertableToTraceFormat>::value;
-    static void assignIfConvertable(ConvertableToTraceFormat*& left, const PassRefPtr<T> &right)
+    static void assignIfConvertable(ConvertableToTraceFormat*& left, const PassRefPtr<T>& right)
     {
         ConvertableToTraceFormatTraits<T*>::assignIfConvertable(left, right.get());
     }

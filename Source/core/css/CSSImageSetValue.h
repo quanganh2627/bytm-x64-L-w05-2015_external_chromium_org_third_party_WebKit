@@ -40,7 +40,7 @@ public:
 
     static PassRefPtrWillBeRawPtr<CSSImageSetValue> create()
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new CSSImageSetValue());
+        return adoptRefWillBeNoop(new CSSImageSetValue());
     }
     ~CSSImageSetValue();
 
@@ -56,6 +56,7 @@ public:
 
     struct ImageWithScale {
         String imageURL;
+        String referrer;
         float scaleFactor;
     };
 

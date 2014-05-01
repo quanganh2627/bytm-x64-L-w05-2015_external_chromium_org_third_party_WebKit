@@ -33,43 +33,81 @@ GYP_GENERATED_OUTPUTS :=
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
 
-$(gyp_intermediate_dir)/V8GeneratedBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings01.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings02.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings02.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings03.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings03.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings04.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings04.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings05.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings05.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings06.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings06.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings07.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings07.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings08.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings08.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings09.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings09.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings10.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings10.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings11.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings11.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings12.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings12.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings13.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings13.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings14.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings14.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings15.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings15.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings16.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings16.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings17.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings17.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings18.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings18.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedBindings19.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings19.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings01.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings02.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings03.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings04.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings05.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings06.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings07.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings08.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings09.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings10.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings11.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings12.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings13.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings14.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings15.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings16.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings17.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings18.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings19.cpp
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/CSSPropertyNames.cpp: $(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp
 	mkdir -p $(@D); cp $< $@
@@ -90,6 +128,8 @@ $(gyp_intermediate_dir)/HTMLElementFactory.cpp: $(gyp_shared_intermediate_dir)/b
 $(gyp_intermediate_dir)/HTMLElementLookupTrie.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/HTMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLNames.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/HTMLTokenizerNames.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/InputTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp
 	mkdir -p $(@D); cp $< $@
@@ -142,25 +182,44 @@ $(gyp_intermediate_dir)/StyleBuilder.cpp: $(gyp_shared_intermediate_dir)/blink/S
 $(gyp_intermediate_dir)/StyleBuilderFunctions.cpp: $(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.cpp
 	mkdir -p $(@D); cp $< $@
 LOCAL_GENERATED_SOURCES := \
-	$(gyp_intermediate_dir)/V8GeneratedBindings01.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings02.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings03.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings04.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings05.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings06.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings07.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings08.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings09.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings10.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings11.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings12.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings13.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings14.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings15.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings16.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings17.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings18.cpp \
-	$(gyp_intermediate_dir)/V8GeneratedBindings19.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings01.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings02.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings03.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings04.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings05.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings06.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings07.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings08.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings09.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings10.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings11.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings12.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings13.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings14.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings15.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings16.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings17.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings18.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedCoreBindings19.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings01.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings02.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings03.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings04.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings05.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings06.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings07.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings08.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings09.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings10.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings11.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings12.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings13.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings14.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings15.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings16.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings17.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings18.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings19.cpp \
 	$(gyp_intermediate_dir)/CSSPropertyNames.cpp \
 	$(gyp_intermediate_dir)/CSSValueKeywords.cpp \
 	$(gyp_intermediate_dir)/Event.cpp \
@@ -171,6 +230,7 @@ LOCAL_GENERATED_SOURCES := \
 	$(gyp_intermediate_dir)/HTMLElementFactory.cpp \
 	$(gyp_intermediate_dir)/HTMLElementLookupTrie.cpp \
 	$(gyp_intermediate_dir)/HTMLNames.cpp \
+	$(gyp_intermediate_dir)/HTMLTokenizerNames.cpp \
 	$(gyp_intermediate_dir)/InputTypeNames.cpp \
 	$(gyp_intermediate_dir)/MathMLNames.cpp \
 	$(gyp_intermediate_dir)/SVGNames.cpp \
@@ -216,7 +276,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ExceptionStatePlaceholder.cpp \
 	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
 	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
-	third_party/WebKit/Source/bindings/v8/NewScriptState.cpp \
 	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/RetainedDOMInfo.cpp \
 	third_party/WebKit/Source/bindings/v8/ScheduledAction.cpp \
@@ -235,7 +294,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolver.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolverWithContext.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptRegexp.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptScope.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptState.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptString.cpp \
 	third_party/WebKit/Source/bindings/v8/ScriptValue.cpp \
@@ -411,12 +469,13 @@ MY_DEFS_Debug := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -573,12 +632,13 @@ MY_DEFS_Release := \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
+	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
 	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
+	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
+	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
+	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
