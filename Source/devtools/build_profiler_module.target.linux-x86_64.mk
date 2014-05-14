@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "build_profiler_module":
 $(gyp_shared_intermediate_dir)/resources/inspector/profiler/ProfilesPanel.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/profiler/ProfilesPanel.js: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/resources/inspector/profiler/ProfilesPanel.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/profiler/ProfilesPanel.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/profiler/ProfilesPanel.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

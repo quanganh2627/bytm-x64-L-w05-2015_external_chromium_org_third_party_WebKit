@@ -68,7 +68,9 @@ class RenderLayerScrollableArea FINAL : public ScrollableArea {
     friend class Internals;
 
 public:
-    RenderLayerScrollableArea(RenderBox&);
+    // FIXME: We should pass in the RenderBox but this opens a window
+    // for crashers during RenderLayer setup (see crbug.com/368062).
+    RenderLayerScrollableArea(RenderLayer&);
     virtual ~RenderLayerScrollableArea();
 
     bool hasHorizontalScrollbar() const { return horizontalScrollbar(); }
@@ -210,6 +212,7 @@ private:
     void setHasVerticalScrollbar(bool hasScrollbar);
 
     void updateScrollCornerStyle();
+    IntSize minimumSizeForResizing();
 
     // See comments on isPointInResizeControl.
     IntRect resizerCornerRect(const IntRect&, ResizerHitTestType) const;
@@ -218,6 +221,7 @@ private:
     void updateResizerStyle();
     void drawPlatformResizerImage(GraphicsContext*, IntRect resizerCornerRect);
 
+    RenderBox& box() const;
     RenderLayer* layer() const;
 
     void updateScrollableAreaSet(bool hasOverflow);
@@ -228,7 +232,7 @@ private:
 
     void setForceNeedsCompositedScrolling(ForceNeedsCompositedScrollingMode);
 
-    RenderBox& m_box;
+    RenderLayer& m_layer;
 
     // Keeps track of whether the layer is currently resizing, so events can cause resizing to start and stop.
     unsigned m_inResizeMode : 1;

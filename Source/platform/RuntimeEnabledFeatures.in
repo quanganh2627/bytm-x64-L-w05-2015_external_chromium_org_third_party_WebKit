@@ -69,15 +69,17 @@ ImageDataConstructor status=experimental
 IndexedDBExperimental status=experimental
 InputModeAttribute status=experimental
 LangAttributeAwareFormControlUI
-LayerSquashing status=stable
+LayerSquashing status=test
 PrefixedEncryptedMedia status=stable
 LocalStorage status=stable
+Manifest status=test
 Media status=stable
 MediaController depends_on=Media, status=experimental
 MediaQueryParser status=test
 MediaSource status=stable
 MediaSourceExperimental depends_on=MediaSource, status=experimental
 MediaStream status=stable
+MemoryInfoInWorkers status=experimental
 NavigatorContentUtils
 Notifications status=stable
 ObjectFitPosition status=stable
@@ -111,12 +113,12 @@ ServiceWorker status=experimental
 SessionStorage status=stable
 SharedWorker status=stable
 PictureSizes status=experimental
+Picture status=experimental
 
 // window.showModalDialog is deprecated and slated for removal from M36
 // Once this ships to stable supporting code can be removed.crbug.com/345831
 ShowModalDialog status=stable
 
-SpeechInput status=test
 SpeechSynthesis status=stable
 Stream status=experimental
 StyleScoped status=experimental
@@ -126,7 +128,7 @@ SVGPaintOrder status=stable
 
 // Enable optimizations to recalculate style on the fewest possible number of
 // elements when updating classes, ids or attributes of DOM elements.
-TargetedStyleRecalc status=experimental
+TargetedStyleRecalc status=stable
 
 // Many websites disable mouse support when touch APIs are available.  We'd
 // like to enable this always but can't until more websites fix this bug.
@@ -144,7 +146,7 @@ WebAudio condition=WEB_AUDIO, status=stable
 WebGLDraftExtensions status=experimental
 WebMIDI status=test
 WebVTTRegions depends_on=Media, status=experimental
-WOFF2 status=experimental
+WOFF2 status=stable
 XSLT status=stable
 
 PseudoClassesInMatchingCriteriaInAuthorShadowTrees status=test

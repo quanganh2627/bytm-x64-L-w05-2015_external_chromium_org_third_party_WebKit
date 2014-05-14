@@ -103,7 +103,10 @@ public:
     virtual void layout() OVERRIDE;
     virtual void enterForceCompositingMode(bool enable) OVERRIDE;
     virtual void paint(WebCanvas*, const WebRect&, PaintOptions = ReadbackFromCompositorIfAvailable) OVERRIDE;
-    virtual bool compositeAndReadbackAsync(WebCompositeAndReadbackAsyncCallback*) OVERRIDE;
+#if OS(ANDROID)
+    virtual void paintCompositedDeprecated(WebCanvas*, const WebRect&) OVERRIDE;
+#endif
+    virtual void compositeAndReadbackAsync(WebCompositeAndReadbackAsyncCallback*) OVERRIDE;
     virtual bool isTrackingRepaints() const OVERRIDE;
     virtual void themeChanged() OVERRIDE;
     virtual bool handleInputEvent(const WebInputEvent&) OVERRIDE;
@@ -209,6 +212,7 @@ public:
         const WebPoint&) OVERRIDE;
     virtual WebHitTestResult hitTestResultAt(const WebPoint&) OVERRIDE;
     virtual void copyImageAt(const WebPoint&) OVERRIDE;
+    virtual void saveImageAt(const WebPoint&) OVERRIDE;
     virtual void dragSourceEndedAt(
         const WebPoint& clientPoint,
         const WebPoint& screenPoint,
@@ -485,14 +489,14 @@ public:
 
     WebLayerTreeView* layerTreeView() const { return m_layerTreeView; }
 
+    bool pinchVirtualViewportEnabled() const;
+
     bool matchesHeuristicsForGpuRasterizationForTesting() const { return m_matchesHeuristicsForGpuRasterization; }
 
 private:
     // TODO(bokan): Remains for legacy pinch. Remove once it's gone. Made private to
     // prevent external usage
     virtual void setPageScaleFactor(float scaleFactor, const WebPoint& origin) OVERRIDE;
-
-    bool pinchVirtualViewportEnabled() const;
 
     float legibleScale() const;
     void refreshPageScaleFactorAfterLayout();

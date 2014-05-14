@@ -311,7 +311,7 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
     if (!filterData)
         return;
 
-    if (object->document().settings()->deferredFiltersEnabled()) {
+    if (object->document().settings()->deferredFiltersEnabled() && (filterData->state == FilterData::PaintingSource || filterData->state == FilterData::Built)) {
         endDeferredFilter(context, filterData);
         filterData->state = FilterData::Built;
         return;

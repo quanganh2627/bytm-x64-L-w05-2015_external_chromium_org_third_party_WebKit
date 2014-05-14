@@ -90,7 +90,9 @@ public:
 
     ~StyleEngine();
 
+#if !ENABLE(OILPAN)
     void detachFromDocument();
+#endif
 
     const WillBeHeapVector<RefPtrWillBeMember<StyleSheet> >& styleSheetsForStyleSheetList(TreeScope&);
     const WillBeHeapVector<RefPtrWillBeMember<CSSStyleSheet> >& activeAuthorStyleSheets() const;
@@ -201,6 +203,7 @@ private:
 
     bool isMaster() const { return m_isMaster; }
     Document* master();
+    Document& document() const { return *m_document; }
 
     typedef ListHashSet<TreeScope*, 16> TreeScopeSet;
     static void insertTreeScopeInDocumentOrder(TreeScopeSet&, TreeScope*);
@@ -210,7 +213,7 @@ private:
 
     static PassRefPtrWillBeRawPtr<CSSStyleSheet> parseSheet(Element*, const String& text, TextPosition startPosition, bool createdByParser);
 
-    Document& m_document;
+    RawPtrWillBeMember<Document> m_document;
     bool m_isMaster;
 
     // Track the number of currently loading top-level stylesheets needed for rendering.

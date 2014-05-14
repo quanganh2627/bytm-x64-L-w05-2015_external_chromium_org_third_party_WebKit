@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "Settings":
 $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -29,6 +30,7 @@ $(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.h: $(gyp_shared_i
 
 ### Rules for action "InternalRuntimeFlags":
 $(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

@@ -56,6 +56,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/wtf/ArrayBufferBuilder.cpp \
 	third_party/WebKit/Source/wtf/ArrayBufferContents.cpp \
 	third_party/WebKit/Source/wtf/ArrayBufferView.cpp \
+	third_party/WebKit/Source/wtf/ArrayPiece.cpp \
 	third_party/WebKit/Source/wtf/Assertions.cpp \
 	third_party/WebKit/Source/wtf/BitVector.cpp \
 	third_party/WebKit/Source/wtf/CryptographicallyRandomNumber.cpp \
@@ -63,6 +64,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/wtf/DataLog.cpp \
 	third_party/WebKit/Source/wtf/DateMath.cpp \
 	third_party/WebKit/Source/wtf/DecimalNumber.cpp \
+	third_party/WebKit/Source/wtf/DefaultAllocator.cpp \
 	third_party/WebKit/Source/wtf/DynamicAnnotations.cpp \
 	third_party/WebKit/Source/wtf/FastMalloc.cpp \
 	third_party/WebKit/Source/wtf/FilePrintStream.cpp \
@@ -156,7 +158,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -252,7 +253,6 @@ MY_DEFS_Release := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \

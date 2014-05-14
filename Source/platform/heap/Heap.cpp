@@ -31,9 +31,10 @@
 #include "config.h"
 #include "platform/heap/Heap.h"
 
+#include "platform/TraceEvent.h"
 #include "platform/heap/ThreadState.h"
-
 #include "wtf/Assertions.h"
+#include "wtf/LeakAnnotations.h"
 #include "wtf/PassOwnPtr.h"
 #if ENABLE(GC_TRACING)
 #include "wtf/HashMap.h"
@@ -276,6 +277,18 @@ private:
         : m_reserved(reserved)
         , m_writable(writable)
     {
+        // This annotation is for letting the LeakSanitizer ignore PageMemory objects.
+        //
+        // - The LeakSanitizer runs before the shutdown sequence and reports unreachable memory blocks.
+        // - The LeakSanitizer only recognizes memory blocks allocated through malloc/new,
+        //   and we need special handling for mapped regions.
+        // - The PageMemory object is only referenced by a HeapPage<Header> object, which is
+        //   located inside the mapped region, which is not released until the shutdown sequence.
+        //
+        // Given the above, we need to explicitly annotate that the LeakSanitizer should ignore
+        // PageMemory objects.
+        WTF_ANNOTATE_LEAKING_OBJECT_PTR(this);
+
         ASSERT(reserved.contains(writable));
     }
 
@@ -288,7 +301,13 @@ public:
     explicit GCScope(ThreadState::StackState stackState)
         : m_state(ThreadState::current())
         , m_safePointScope(stackState)
+        , m_parkedAllThreads(false)
     {
+        TRACE_EVENT0("Blink", "Heap::GCScope");
+        const char* samplingState = TRACE_EVENT_GET_SAMPLING_STATE();
+        if (m_state->isMainThread())
+            TRACE_EVENT_SET_SAMPLING_STATE("Blink", "BlinkGCWaiting");
+
         m_state->checkThread();
 
         // FIXME: in an unlikely coincidence that two threads decide
@@ -296,20 +315,31 @@ public:
         // a row.
         RELEASE_ASSERT(!m_state->isInGC());
         RELEASE_ASSERT(!m_state->isSweepInProgress());
-        ThreadState::stopThreads();
-        m_state->enterGC();
+        if (LIKELY(ThreadState::stopThreads())) {
+            m_parkedAllThreads = true;
+            m_state->enterGC();
+        }
+        if (m_state->isMainThread())
+            TRACE_EVENT_SET_NONCONST_SAMPLING_STATE(samplingState);
     }
+
+    bool allThreadsParked() { return m_parkedAllThreads; }
 
     ~GCScope()
     {
-        m_state->leaveGC();
-        ASSERT(!m_state->isInGC());
-        ThreadState::resumeThreads();
+        // Only cleanup if we parked all threads in which case the GC happened
+        // and we need to resume the other threads.
+        if (LIKELY(m_parkedAllThreads)) {
+            m_state->leaveGC();
+            ASSERT(!m_state->isInGC());
+            ThreadState::resumeThreads();
+        }
     }
 
 private:
     ThreadState* m_state;
     ThreadState::SafePointScope m_safePointScope;
+    bool m_parkedAllThreads; // False if we fail to park all threads
 };
 
 NO_SANITIZE_ADDRESS
@@ -465,7 +495,7 @@ template<typename Header>
 ThreadHeap<Header>::~ThreadHeap()
 {
     clearFreeLists();
-    if (!ThreadState::isMainThread())
+    if (!ThreadState::current()->isMainThread())
         assertEmpty();
     deletePages();
 }
@@ -1575,10 +1605,17 @@ void Heap::prepareForGC()
 
 void Heap::collectGarbage(ThreadState::StackState stackState)
 {
-    ThreadState::current()->clearGCRequested();
+    ThreadState* state = ThreadState::current();
+    state->clearGCRequested();
 
     GCScope gcScope(stackState);
-
+    // Check if we successfully parked the other threads. If not we bail out of the GC.
+    if (!gcScope.allThreadsParked()) {
+        ThreadState::current()->setGCRequested();
+        return;
+    }
+    TRACE_EVENT0("Blink", "Heap::collectGarbage");
+    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BlinkGC");
 #if ENABLE(GC_TRACING)
     static_cast<MarkingVisitor*>(s_markingVisitor)->objectGraph().clear();
 #endif

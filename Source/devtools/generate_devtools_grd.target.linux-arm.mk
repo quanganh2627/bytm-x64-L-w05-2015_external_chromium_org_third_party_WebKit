@@ -19,6 +19,7 @@ GYP_TARGET_DEPENDENCIES := \
 
 ### Rules for action "generate_devtools_grd":
 $(gyp_shared_intermediate_dir)/devtools/devtools_resources.grd: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/devtools/devtools_resources.grd: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/devtools/devtools_resources.grd: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/devtools/devtools_resources.grd: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/devtools/devtools_resources.grd: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

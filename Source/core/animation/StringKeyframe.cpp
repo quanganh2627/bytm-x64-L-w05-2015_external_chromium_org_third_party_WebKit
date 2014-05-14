@@ -5,7 +5,6 @@
 #include "config.h"
 #include "core/animation/StringKeyframe.h"
 
-#include "core/animation/AnimatableLength.h"
 #include "core/animation/Interpolation.h"
 #include "core/animation/css/CSSAnimations.h"
 #include "core/css/resolver/StyleResolver.h"
@@ -22,7 +21,8 @@ StringKeyframe::StringKeyframe(const StringKeyframe& copyFrom)
 void StringKeyframe::setPropertyValue(CSSPropertyID property, const String& value, StyleSheetContents* styleSheetContents)
 {
     ASSERT(property != CSSPropertyInvalid);
-    m_propertySet->setProperty(property, value, false, styleSheetContents);
+    if (CSSAnimations::isAllowedAnimation(property))
+        m_propertySet->setProperty(property, value, false, styleSheetContents);
 }
 
 PropertySet StringKeyframe::properties() const
@@ -30,12 +30,8 @@ PropertySet StringKeyframe::properties() const
     // This is not used in time-critical code, so we probably don't need to
     // worry about caching this result.
     PropertySet properties;
-    for (unsigned i = 0; i < m_propertySet->propertyCount(); ++i) {
-        // FIXME: Allow for non-animatable properties.
-        CSSPropertyID property = m_propertySet->propertyAt(i).id();
-        if (CSSAnimations::isAnimatableProperty(property))
-            properties.add(property);
-    }
+    for (unsigned i = 0; i < m_propertySet->propertyCount(); ++i)
+        properties.add(m_propertySet->propertyAt(i).id());
     return properties;
 }
 
@@ -71,12 +67,15 @@ PassRefPtrWillBeRawPtr<Interpolation> StringKeyframe::PropertySpecificKeyframe::
     CSSValue* fromCSSValue = m_value.get();
     CSSValue* toCSSValue = toStringPropertySpecificKeyframe(end)->value();
 
+    if (!CSSAnimations::isAnimatableProperty(property))
+        return DefaultStyleInterpolation::create(fromCSSValue, toCSSValue, property);
+
     switch (property) {
     case CSSPropertyLeft:
     case CSSPropertyRight:
     case CSSPropertyWidth:
     case CSSPropertyHeight:
-        if (AnimatableLength::canCreateFrom(fromCSSValue) && AnimatableLength::canCreateFrom(toCSSValue))
+        if (LengthStyleInterpolation::canCreateFrom(*fromCSSValue) && LengthStyleInterpolation::canCreateFrom(*toCSSValue))
             return LengthStyleInterpolation::create(fromCSSValue, toCSSValue, property);
         break;
     default:
@@ -110,6 +109,7 @@ void StringKeyframe::PropertySpecificKeyframe::trace(Visitor* visitor)
 {
     visitor->trace(m_value);
     visitor->trace(m_animatableValueCache);
+    Keyframe::PropertySpecificKeyframe::trace(visitor);
 }
 
 }

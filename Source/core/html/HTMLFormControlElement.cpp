@@ -68,6 +68,12 @@ HTMLFormControlElement::~HTMLFormControlElement()
 #endif
 }
 
+void HTMLFormControlElement::trace(Visitor* visitor)
+{
+    FormAssociatedElement::trace(visitor);
+    LabelableElement::trace(visitor);
+}
+
 String HTMLFormControlElement::formEnctype() const
 {
     const AtomicString& formEnctypeAttr = fastGetAttribute(formenctypeAttr);
@@ -247,6 +253,7 @@ Node::InsertionNotificationRequest HTMLFormControlElement::insertedInto(Containe
 
 void HTMLFormControlElement::removedFrom(ContainerNode* insertionPoint)
 {
+    hideVisibleValidationMessage();
     m_validationMessage = nullptr;
     m_ancestorDisabledState = AncestorDisabledStateUnknown;
     m_dataListAncestorState = Unknown;
@@ -416,13 +423,13 @@ void HTMLFormControlElement::hideVisibleValidationMessage()
         m_validationMessage->requestToHideMessage();
 }
 
-bool HTMLFormControlElement::checkValidity(Vector<RefPtr<FormAssociatedElement> >* unhandledInvalidControls)
+bool HTMLFormControlElement::checkValidity(WillBeHeapVector<RefPtrWillBeMember<FormAssociatedElement> >* unhandledInvalidControls)
 {
     if (!willValidate() || isValidFormControlElement())
         return true;
     // An event handler can deref this object.
-    RefPtr<HTMLFormControlElement> protector(this);
-    RefPtr<Document> originalDocument(document());
+    RefPtrWillBeRawPtr<HTMLFormControlElement> protector(this);
+    RefPtrWillBeRawPtr<Document> originalDocument(document());
     bool needsDefaultAction = dispatchEvent(Event::createCancelable(EventTypeNames::invalid));
     if (needsDefaultAction && unhandledInvalidControls && inDocument() && originalDocument == document())
         unhandledInvalidControls->append(this);

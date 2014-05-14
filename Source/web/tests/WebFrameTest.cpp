@@ -5185,36 +5185,6 @@ TEST_F(WebFrameTest, DISABLED_FirstFrameNavigationReplacesHistory)
     EXPECT_FALSE(client.replacesCurrentHistoryItem());
 }
 
-// This tests the restore case where the first load in a page is
-// via loadHistoryItem(). If multiple pages are in the same process
-// and are restoring around the same time, they may not restore in
-// the order they were created and may end up with different names
-// than they were given when they were saved. If the initial item
-// has a child with url "about:blank", we should still navigate the
-// main frame to the parent, rather than incorrectly matching the
-// blank child to the main frame.
-TEST_F(WebFrameTest, firstNavigationIsHistoryWithBlankChild)
-{
-    registerMockedHttpURLLoad("history.html");
-    FrameTestHelpers::WebViewHelper webViewHelper;
-    WebViewImpl* webView = webViewHelper.initialize();
-
-    WebHistoryItem item;
-    item.initialize();
-    WebURL destinationURL(toKURL(m_baseURL + "history.html"));
-    item.setURLString(destinationURL.string());
-    item.setTarget(WebString::fromUTF8("expectedButMissingMainFrameName"));
-
-    WebHistoryItem childItem;
-    childItem.initialize();
-    childItem.setURLString("about:blank");
-    item.appendToChildren(childItem);
-
-    webView->mainFrame()->loadHistoryItem(item, WebHistoryDifferentDocumentLoad, WebURLRequest::UseProtocolCachePolicy);
-    Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
-    EXPECT_EQ(destinationURL, webView->mainFrame()->document().url());
-}
-
 // Test verifies that layout will change a layer's scrollable attibutes
 TEST_F(WebFrameTest, overflowHiddenRewrite)
 {
@@ -5411,6 +5381,51 @@ TEST_F(WebFrameTest, RenderBlockPercentHeightDescendants)
     WebCore::RenderBlock* anonymousBlock = percentHeightInAnonymous->containingBlock();
     EXPECT_TRUE(anonymousBlock->isAnonymous());
     EXPECT_FALSE(anonymousBlock->hasPercentHeightDescendants());
+}
+
+TEST_F(WebFrameTest, HasVisibleContentOnVisibleFrames)
+{
+    registerMockedHttpURLLoad("visible_frames.html");
+    FrameTestHelpers::WebViewHelper webViewHelper;
+    WebViewImpl* webViewImpl = webViewHelper.initializeAndLoad(m_baseURL + "visible_frames.html");
+    for (WebFrame* frame = webViewImpl->mainFrameImpl()->traverseNext(false); frame; frame = frame->traverseNext(false)) {
+        EXPECT_TRUE(frame->hasVisibleContent());
+    }
+}
+
+TEST_F(WebFrameTest, HasVisibleContentOnHiddenFrames)
+{
+    registerMockedHttpURLLoad("hidden_frames.html");
+    FrameTestHelpers::WebViewHelper webViewHelper;
+    WebViewImpl* webViewImpl = webViewHelper.initializeAndLoad(m_baseURL + "hidden_frames.html");
+    for (WebFrame* frame = webViewImpl->mainFrameImpl()->traverseNext(false); frame; frame = frame->traverseNext(false)) {
+        EXPECT_FALSE(frame->hasVisibleContent());
+    }
+}
+
+class ManifestChangeWebFrameClient : public FrameTestHelpers::TestWebFrameClient {
+public:
+    ManifestChangeWebFrameClient() : m_manifestChangeCount(0) { }
+    virtual void didChangeManifest(WebLocalFrame*) OVERRIDE
+    {
+        ++m_manifestChangeCount;
+    }
+
+    int manifestChangeCount() { return m_manifestChangeCount; }
+
+private:
+    int m_manifestChangeCount;
+};
+
+TEST_F(WebFrameTest, NotifyManifestChange)
+{
+    registerMockedHttpURLLoad("link-manifest-change.html");
+
+    ManifestChangeWebFrameClient webFrameClient;
+    FrameTestHelpers::WebViewHelper webViewHelper;
+    webViewHelper.initializeAndLoad(m_baseURL + "link-manifest-change.html", true, &webFrameClient);
+
+    EXPECT_EQ(14, webFrameClient.manifestChangeCount());
 }
 
 } // namespace

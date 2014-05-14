@@ -70,7 +70,7 @@
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/rendering/style/RenderStyle.h"
 #include "core/rendering/svg/RenderSVGRoot.h"
-#include "core/svg/SVGDocument.h"
+#include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGSVGElement.h"
 #include "platform/TraceEvent.h"
 #include "platform/fonts/FontCache.h"
@@ -224,7 +224,6 @@ void FrameView::reset()
     m_layoutSchedulingEnabled = true;
     m_inPerformLayout = false;
     m_canRepaintDuringPerformLayout = false;
-    m_doingPreLayoutStyleUpdate = false;
     m_inSynchronousPostLayout = false;
     m_layoutCount = 0;
     m_nestedLayoutCount = 0;
@@ -397,6 +396,11 @@ void FrameView::setFrameRect(const IntRect& newRect)
     }
 
     viewportConstrainedVisibleContentSizeChanged(newRect.width() != oldRect.width(), newRect.height() != oldRect.height());
+
+    if (oldRect.size() != newRect.size()
+        && m_frame->isMainFrame()
+        && m_frame->settings()->pinchVirtualViewportEnabled())
+        page()->frameHost().pinchViewport().mainFrameDidChangeSize();
 }
 
 bool FrameView::scheduleAnimation()
@@ -634,13 +638,6 @@ void FrameView::updateCompositingLayersAfterStyleChange()
     RenderView* renderView = this->renderView();
     if (!renderView)
         return;
-
-    // FIXME: These early returns are probably not necessary anymore now that we
-    // just set dirty bits below.
-    // If we expect to update compositing after an incipient layout, don't do so here.
-    if (m_doingPreLayoutStyleUpdate || layoutPending() || renderView->needsLayout())
-        return;
-
     renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterStyleChange);
 }
 
@@ -775,9 +772,6 @@ void FrameView::performPreLayoutTasks()
         document->evaluateMediaQueryList();
     }
 
-    // Always ensure our style info is up-to-date. This can happen in situations where
-    // the layout beats any sort of style recalc update that needs to occur.
-    TemporaryChange<bool> changeDoingPreLayoutStyleUpdate(m_doingPreLayoutStyleUpdate, true);
     document->updateRenderTreeIfNeeded();
     lifecycle().advanceTo(DocumentLifecycle::StyleClean);
 }
@@ -871,6 +865,7 @@ void FrameView::layout(bool allowSubtree)
     RELEASE_ASSERT(!isPainting());
 
     TRACE_EVENT_BEGIN1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "Layout", "beginData", InspectorLayoutEvent::beginData(this));
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willLayout(m_frame.get());
 
@@ -1534,7 +1529,7 @@ bool FrameView::scrollToAnchor(const String& name)
     m_frame->document()->setCSSTarget(anchorNode);
 
     if (m_frame->document()->isSVGDocument()) {
-        if (SVGSVGElement* svg = toSVGDocument(m_frame->document())->rootElement()) {
+        if (SVGSVGElement* svg = SVGDocumentExtensions::rootElement(*m_frame->document())) {
             svg->setupInitialView(name, anchorNode);
             if (!anchorNode)
                 return true;
@@ -1740,6 +1735,10 @@ void FrameView::repaintContentRectangle(const IntRect& r)
         IntRect repaintRect = r;
         repaintRect.move(-scrollOffset());
         m_trackedRepaintRects.append(repaintRect);
+        // FIXME: http://crbug.com/368518. Eventually, repaintContentRectangle
+        // is going away entirely once all layout tests are FCM. In the short
+        // term, no code should be tracking non-composited FrameView repaints.
+        RELEASE_ASSERT_NOT_REACHED();
     }
 
     ScrollView::repaintContentRectangle(r);
@@ -1805,6 +1804,7 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document()->shouldScheduleLayout())
         return;
     TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "InvalidateLayout", "frame", m_frame.get());
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentation::didInvalidateLayout(m_frame.get());
 
@@ -1868,6 +1868,7 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
         lifecycle().ensureStateAtMost(DocumentLifecycle::StyleClean);
     }
     TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "InvalidateLayout", "frame", m_frame.get());
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentation::didInvalidateLayout(m_frame.get());
 }
@@ -2704,6 +2705,7 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
         return;
 
     TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "Paint", "data", InspectorPaintEvent::data(renderView, rect, 0));
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentation::willPaint(renderView, 0);
 

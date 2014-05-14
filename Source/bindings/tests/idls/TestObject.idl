@@ -243,6 +243,8 @@ interface TestObject {
     [Reflect, URL] attribute DOMString urlStringAttribute;
     [Reflect=reflectUrlAttribute, URL] attribute DOMString urlStringAttribute;
     [Unforgeable] attribute long unforgeableLongAttribute;
+    [LogActivity=SetterOnly, LogPreviousValue] attribute long activityLoggingSetterOnlyLogPreviousValueAttribute;
+    [LogActivity, LogPreviousValue] attribute TestInterfaceEmpty activityLoggingLogPreviousValueInterfaceAttribute;
 
 
     // Methods
@@ -385,9 +387,9 @@ interface TestObject {
     void overloadedMethodA(long longArg);
     void overloadedMethodA(long longArg1, long longArg2);
     void overloadedMethodB(long longArg);
-    void overloadedMethodB(long longArg1, optional long longArg2);
+    void overloadedMethodB(boolean booleanArg, optional long longArg);
     void overloadedMethodC(long longArg);
-    void overloadedMethodC(long longArg, long... longArgs);
+    void overloadedMethodC(boolean booleanArg, long... longArgs);
     void overloadedMethodD(long longArg);
     void overloadedMethodD(TestInterfaceEmpty testInterfaceEmptyArg);
     void overloadedMethodE(long longArg);
@@ -448,6 +450,20 @@ interface TestObject {
     [DoNotCheckSignature] void doNotCheckSignatureVoidMethod();
     [ImplementedAs=implementedAsMethodName] void implementedAsVoidMethod();
     [MeasureAs=TestFeature] void measureAsVoidMethod();
+    [DeprecateAs=TestFeatureA] void DeprecateAsOverloadedMethod();
+    [DeprecateAs=TestFeatureB] void DeprecateAsOverloadedMethod(long arg);
+    [DeprecateAs=TestFeature] void DeprecateAsSameValueOverloadedMethod();
+    [DeprecateAs=TestFeature] void DeprecateAsSameValueOverloadedMethod(long arg);
+    [MeasureAs=TestFeatureA] void measureAsOverloadedMethod();
+    [MeasureAs=TestFeatureB] void measureAsOverloadedMethod(long arg);
+    [MeasureAs=TestFeature] void measureAsSameValueOverloadedMethod();
+    [MeasureAs=TestFeature] void measureAsSameValueOverloadedMethod(long arg);
+    [DeprecateAs=TestFeatureA, MeasureAs=TestFeature] void deprecateAsMeasureAsSameValueOverloadedMethod();
+    [DeprecateAs=TestFeatureB, MeasureAs=TestFeature] void deprecateAsMeasureAsSameValueOverloadedMethod(long arg);
+    [DeprecateAs=TestFeature, MeasureAs=TestFeatureA] void deprecateAsSameValueMeasureAsOverloadedMethod();
+    [DeprecateAs=TestFeature, MeasureAs=TestFeatureB] void deprecateAsSameValueMeasureAsOverloadedMethod(long arg);
+    [DeprecateAs=TestFeatureA, MeasureAs=TestFeatureB] void deprecateAsSameValueMeasureAsSameValueOverloadedMethod();
+    [DeprecateAs=TestFeatureA, MeasureAs=TestFeatureB] void deprecateAsSameValueMeasureAsSameValueOverloadedMethod(long arg);
     [NotEnumerable] void notEnumerableVoidMethod();
     [PerContextEnabled=FeatureName] void perContextEnabledVoidMethod();
     [PerWorldBindings] void perWorldBindingsVoidMethod();

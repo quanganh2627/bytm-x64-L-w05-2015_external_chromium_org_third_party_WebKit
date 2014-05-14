@@ -64,6 +64,7 @@
 #include "core/inspector/DOMPatchSupport.h"
 #include "core/inspector/IdentifiersFactory.h"
 #include "core/inspector/InspectorHistory.h"
+#include "core/inspector/InspectorNodeIds.h"
 #include "core/inspector/InspectorOverlay.h"
 #include "core/inspector/InspectorPageAgent.h"
 #include "core/inspector/InspectorState.h"
@@ -232,7 +233,6 @@ InspectorDOMAgent::InspectorDOMAgent(InspectorPageAgent* pageAgent, InjectedScri
     , m_frontend(0)
     , m_domListener(0)
     , m_lastNodeId(1)
-    , m_lastBackendNodeId(-1)
     , m_searchingForNode(NotSearching)
     , m_suppressAttributeModifiedEvent(false)
 {
@@ -294,7 +294,6 @@ Vector<Document*> InspectorDOMAgent::documents()
 void InspectorDOMAgent::reset()
 {
     discardFrontendBindings();
-    discardBackendBindings();
     m_document = nullptr;
 }
 
@@ -537,12 +536,6 @@ void InspectorDOMAgent::discardFrontendBindings()
         m_revalidateStyleAttrTask->reset();
 }
 
-void InspectorDOMAgent::discardBackendBindings()
-{
-    m_backendIdToNode.clear();
-    m_nodeGroupToBackendIdMap.clear();
-}
-
 Node* InspectorDOMAgent::nodeForId(int id)
 {
     if (!id)
@@ -659,37 +652,6 @@ int InspectorDOMAgent::pushNodePathToFrontend(Node* nodeToPush)
 int InspectorDOMAgent::boundNodeId(Node* node)
 {
     return m_documentNodeToIdMap.get(node);
-}
-
-BackendNodeId InspectorDOMAgent::backendNodeIdForNode(Node* node, const String& nodeGroup)
-{
-    if (!node)
-        return 0;
-
-    if (!m_nodeGroupToBackendIdMap.contains(nodeGroup))
-        m_nodeGroupToBackendIdMap.set(nodeGroup, NodeToBackendIdMap());
-
-    NodeToBackendIdMap& map = m_nodeGroupToBackendIdMap.find(nodeGroup)->value;
-    BackendNodeId id = map.get(node);
-    if (!id) {
-        id = --m_lastBackendNodeId;
-        map.set(node, id);
-        m_backendIdToNode.set(id, std::make_pair(node, nodeGroup));
-    }
-
-    return id;
-}
-
-void InspectorDOMAgent::releaseBackendNodeIds(ErrorString* errorString, const String& nodeGroup)
-{
-    if (m_nodeGroupToBackendIdMap.contains(nodeGroup)) {
-        NodeToBackendIdMap& map = m_nodeGroupToBackendIdMap.find(nodeGroup)->value;
-        for (NodeToBackendIdMap::iterator it = map.begin(); it != map.end(); ++it)
-            m_backendIdToNode.remove(it->value);
-        m_nodeGroupToBackendIdMap.remove(nodeGroup);
-        return;
-    }
-    *errorString = "Group name not found";
 }
 
 void InspectorDOMAgent::setAttributeValue(ErrorString* errorString, int elementId, const String& name, const String& value)
@@ -1397,6 +1359,7 @@ void InspectorDOMAgent::getBoxModel(ErrorString* errorString, int nodeId, RefPtr
 
     IntRect boundingBox = pixelSnappedIntRect(view->contentsToRootView(renderer->absoluteBoundingBoxRect()));
     RenderBoxModelObject* modelObject = renderer->isBoxModelObject() ? toRenderBoxModelObject(renderer) : 0;
+    RefPtr<TypeBuilder::DOM::ShapeOutsideInfo> shapeOutsideInfo = m_overlay->buildObjectForShapeOutside(node);
 
     model = TypeBuilder::DOM::BoxModel::create()
         .setContent(buildArrayForQuad(quads.at(3)))
@@ -1405,6 +1368,8 @@ void InspectorDOMAgent::getBoxModel(ErrorString* errorString, int nodeId, RefPtr
         .setMargin(buildArrayForQuad(quads.at(0)))
         .setWidth(modelObject ? adjustForAbsoluteZoom(modelObject->pixelSnappedOffsetWidth(), modelObject) : boundingBox.width())
         .setHeight(modelObject ? adjustForAbsoluteZoom(modelObject->pixelSnappedOffsetHeight(), modelObject) : boundingBox.height());
+    if (shapeOutsideInfo)
+        model->setShapeOutside(shapeOutsideInfo);
 }
 
 void InspectorDOMAgent::getNodeForLocation(ErrorString* errorString, int x, int y, int* nodeId)
@@ -2049,21 +2014,18 @@ void InspectorDOMAgent::pushNodesByBackendIdsToFrontend(ErrorString* errorString
 {
     result = TypeBuilder::Array<int>::create();
     for (JSONArray::const_iterator it = backendNodeIds->begin(); it != backendNodeIds->end(); ++it) {
-        BackendNodeId backendNodeId;
+        int backendNodeId;
 
         if (!(*it)->asNumber(&backendNodeId)) {
             *errorString = "Invalid argument type";
             return;
         }
 
-        BackendIdToNodeMap::iterator backendIdToNodeIterator = m_backendIdToNode.find(backendNodeId);
-        if (backendIdToNodeIterator == m_backendIdToNode.end()) {
-            *errorString = "Node not found";
-            return;
-        }
-
-        Node* node = backendIdToNodeIterator->value.first;
-        result->addItem(pushNodePathToFrontend(node));
+        Node* node = InspectorNodeIds::nodeForId(backendNodeId);
+        if (node && node->document().page() == m_pageAgent->page())
+            result->addItem(pushNodePathToFrontend(node));
+        else
+            result->addItem(0);
     }
 }
 

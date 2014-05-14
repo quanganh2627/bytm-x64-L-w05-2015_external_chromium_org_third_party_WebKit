@@ -70,8 +70,9 @@ typedef Vector<CueInterval> CueList;
 // But it can't be until the Chromium WebMediaPlayerClientImpl class is fixed so it
 // no longer depends on typecasting a MediaPlayerClient to an HTMLMediaElement.
 
-class HTMLMediaElement : public HTMLElement, public Supplementable<HTMLMediaElement>, public MediaPlayerClient, public ActiveDOMObject
+class HTMLMediaElement : public HTMLElement, public WillBeHeapSupplementable<HTMLMediaElement>, public MediaPlayerClient, public ActiveDOMObject
 {
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(HTMLMediaElement);
 public:
     static blink::WebMimeRegistry::SupportsType supportsType(const ContentType&, const String& keySystem = String());
 
@@ -129,9 +130,9 @@ public:
     double duration() const;
     bool paused() const;
     double defaultPlaybackRate() const;
-    void setDefaultPlaybackRate(double, ExceptionState&);
+    void setDefaultPlaybackRate(double);
     double playbackRate() const;
-    void setPlaybackRate(double, ExceptionState&);
+    void setPlaybackRate(double);
     void updatePlaybackRate();
     PassRefPtr<TimeRanges> played();
     PassRefPtr<TimeRanges> seekable() const;
@@ -450,8 +451,8 @@ private:
     // Loading state.
     enum LoadState { WaitingForSource, LoadingFromSrcAttr, LoadingFromSourceElement };
     LoadState m_loadState;
-    RefPtr<HTMLSourceElement> m_currentSourceNode;
-    RefPtr<Node> m_nextChildNodeToConsider;
+    RefPtrWillBeMember<HTMLSourceElement> m_currentSourceNode;
+    RefPtrWillBeMember<Node> m_nextChildNodeToConsider;
 
     OwnPtr<MediaPlayer> m_player;
     blink::WebLayer* m_webLayer;

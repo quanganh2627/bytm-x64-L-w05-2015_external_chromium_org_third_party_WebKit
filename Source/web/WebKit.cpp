@@ -35,6 +35,7 @@
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/V8Initializer.h"
 #include "core/Init.h"
+#include "core/animation/AnimationClock.h"
 #include "core/dom/Microtask.h"
 #include "core/frame/Settings.h"
 #include "core/page/Page.h"
@@ -66,8 +67,11 @@ namespace {
 
 class EndOfTaskRunner : public WebThread::TaskObserver {
 public:
-    virtual void willProcessTask() { }
-    virtual void didProcessTask()
+    virtual void willProcessTask() OVERRIDE
+    {
+        WebCore::AnimationClock::notifyTaskStart();
+    }
+    virtual void didProcessTask() OVERRIDE
     {
         WebCore::Microtask::performCheckpoint();
     }
@@ -104,6 +108,7 @@ void initialize(Platform* platform)
     v8::V8::SetEntropySource(&generateEntropy);
     v8::V8::SetArrayBufferAllocator(WebCore::v8ArrayBufferAllocator());
     v8::V8::Initialize();
+    isolate->SetAutorunMicrotasks(false);
     WebCore::V8PerIsolateData::ensureInitialized(isolate);
 
     s_isolateInterruptor = new WebCore::V8IsolateInterruptor(v8::Isolate::GetCurrent());
@@ -249,18 +254,6 @@ void setFontAntialiasingEnabledForTest(bool value)
 bool fontAntialiasingEnabledForTest()
 {
     return WebCore::isFontAntialiasingEnabledForTest();
-}
-
-// FIXME(dro): Remove after Chromium side rename landed.
-void setFontSmoothingEnabledForTest(bool value)
-{
-    setFontAntialiasingEnabledForTest(value);
-}
-
-// FIXME(dro): Remove after Chromium side rename landed.
-bool fontSmoothingEnabledForTest()
-{
-    return fontAntialiasingEnabledForTest();
 }
 
 void enableLogChannel(const char* name)

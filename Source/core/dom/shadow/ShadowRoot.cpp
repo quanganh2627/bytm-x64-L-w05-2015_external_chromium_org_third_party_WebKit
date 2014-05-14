@@ -53,8 +53,8 @@ COMPILE_ASSERT(sizeof(ShadowRoot) == sizeof(SameSizeAsShadowRoot), shadowroot_sh
 ShadowRoot::ShadowRoot(Document& document, ShadowRootType type)
     : DocumentFragment(0, CreateShadowRoot)
     , TreeScope(*this, document)
-    , m_prev(0)
-    , m_next(0)
+    , m_prev(nullptr)
+    , m_next(nullptr)
     , m_numberOfStyles(0)
     , m_type(type)
     , m_registeredWithParentShadowRoot(false)
@@ -65,23 +65,20 @@ ShadowRoot::ShadowRoot(Document& document, ShadowRootType type)
 
 ShadowRoot::~ShadowRoot()
 {
+#if !ENABLE(OILPAN)
     ASSERT(!m_prev);
     ASSERT(!m_next);
 
-#if !ENABLE(OILPAN)
     if (m_shadowRootRareData && m_shadowRootRareData->styleSheets())
         m_shadowRootRareData->styleSheets()->detachFromDocument();
 
     document().styleEngine()->didRemoveShadowRoot(this);
-#endif
 
-#if !ENABLE(OILPAN)
     // We cannot let ContainerNode destructor call willBeDeletedFromDocument()
     // for this ShadowRoot instance because TreeScope destructor
     // clears Node::m_treeScope thus ContainerNode is no longer able
     // to access it Document reference after that.
     willBeDeletedFromDocument();
-#endif
 
     // We must remove all of our children first before the TreeScope destructor
     // runs so we don't go through TreeScopeAdopter for each child with a
@@ -92,12 +89,15 @@ ShadowRoot::~ShadowRoot()
     // as well as Node. See a comment on TreeScope.h for the reason.
     if (hasRareData())
         clearRareData();
+#endif
 }
 
+#if !ENABLE(OILPAN)
 void ShadowRoot::dispose()
 {
     removeDetachedChildren();
 }
+#endif
 
 ShadowRoot* ShadowRoot::olderShadowRootForBindings() const
 {
@@ -339,6 +339,8 @@ StyleSheetList* ShadowRoot::styleSheets()
 
 void ShadowRoot::trace(Visitor* visitor)
 {
+    visitor->trace(m_prev);
+    visitor->trace(m_next);
     visitor->trace(m_shadowRootRareData);
     TreeScope::trace(visitor);
     DocumentFragment::trace(visitor);

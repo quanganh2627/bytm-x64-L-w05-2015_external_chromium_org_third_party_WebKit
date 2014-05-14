@@ -56,7 +56,6 @@
 #include "core/dom/DocumentMarker.h"
 #include "core/dom/DocumentMarkerController.h"
 #include "core/dom/Element.h"
-#include "core/dom/EventHandlerRegistry.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/NodeRenderStyle.h"
@@ -80,6 +79,7 @@
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/DOMPoint.h"
 #include "core/frame/DOMWindow.h"
+#include "core/frame/EventHandlerRegistry.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
@@ -581,7 +581,7 @@ size_t Internals::numberOfScopedHTMLStyleChildren(const Node* scope, ExceptionSt
     return 0;
 }
 
-PassRefPtr<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(Node* node, ExceptionState& exceptionState) const
+PassRefPtrWillBeRawPtr<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(Node* node, ExceptionState& exceptionState) const
 {
     if (!node) {
         exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -1248,7 +1248,9 @@ unsigned Internals::activeDOMObjectCount(Document* document, ExceptionState& exc
 
 static unsigned eventHandlerCount(Document& document, EventHandlerRegistry::EventHandlerClass handlerClass)
 {
-    EventHandlerRegistry* registry = EventHandlerRegistry::from(document);
+    if (!document.frameHost())
+        return 0;
+    EventHandlerRegistry* registry = &document.frameHost()->eventHandlerRegistry();
     unsigned count = 0;
     const EventTargetSet* targets = registry->eventHandlerTargets(handlerClass);
     if (targets) {
@@ -2310,22 +2312,22 @@ private:
 
 } // namespace
 
-ScriptPromise Internals::createPromise(ExecutionContext* context)
+ScriptPromise Internals::createPromise(ScriptState* scriptState)
 {
-    return ScriptPromiseResolver::create(context)->promise();
+    return ScriptPromiseResolver::create(scriptState)->promise();
 }
 
-ScriptPromise Internals::createResolvedPromise(ExecutionContext* context, ScriptValue value)
+ScriptPromise Internals::createResolvedPromise(ScriptState* scriptState, ScriptValue value)
 {
-    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(context);
+    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(scriptState);
     ScriptPromise promise = resolver->promise();
     resolver->resolve(value);
     return promise;
 }
 
-ScriptPromise Internals::createRejectedPromise(ExecutionContext* context, ScriptValue value)
+ScriptPromise Internals::createRejectedPromise(ScriptState* scriptState, ScriptValue value)
 {
-    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(context);
+    RefPtr<ScriptPromiseResolver> resolver = ScriptPromiseResolver::create(scriptState);
     ScriptPromise promise = resolver->promise();
     resolver->reject(value);
     return promise;
@@ -2340,19 +2342,6 @@ void Internals::trace(Visitor* visitor)
 {
     visitor->trace(m_runtimeFlags);
     visitor->trace(m_profilers);
-}
-
-void Internals::startSpeechInput(Element* element)
-{
-#if ENABLE(INPUT_SPEECH)
-    HTMLInputElement* input = toHTMLInputElement(element);
-    if (!input->isSpeechEnabled())
-        return;
-
-    InputFieldSpeechButtonElement* speechButton = toInputFieldSpeechButtonElement(input->userAgentShadowRoot()->getElementById(ShadowElementNames::speechButton()));
-    if (speechButton)
-        speechButton->startSpeechInput();
-#endif
 }
 
 void Internals::setValueForUser(Element* element, const String& value)

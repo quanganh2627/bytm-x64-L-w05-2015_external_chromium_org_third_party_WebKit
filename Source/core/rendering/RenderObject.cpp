@@ -33,6 +33,7 @@
 #include "core/animation/ActiveAnimations.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/ElementTraversal.h"
+#include "core/dom/shadow/ShadowRoot.h"
 #include "core/editing/EditingBoundary.h"
 #include "core/editing/FrameSelection.h"
 #include "core/editing/htmlediting.h"
@@ -95,6 +96,12 @@ using namespace std;
 
 namespace WebCore {
 
+namespace {
+
+static bool gModifyRenderTreeStructureAnyState = false;
+
+} // namespace
+
 using namespace HTMLNames;
 
 #ifndef NDEBUG
@@ -121,6 +128,7 @@ struct SameSizeAsRenderObject {
     unsigned m_bitfields;
     unsigned m_bitfields2;
     LayoutRect rect; // Stores the previous repaint rect.
+    LayoutPoint position; // Stores the previous position from the repaint container.
 };
 
 COMPILE_ASSERT(sizeof(RenderObject) == sizeof(SameSizeAsRenderObject), RenderObject_should_stay_small);
@@ -141,6 +149,8 @@ void RenderObject::operator delete(void* ptr)
 
 RenderObject* RenderObject::createObject(Element* element, RenderStyle* style)
 {
+    ASSERT(isAllowedToModifyRenderTreeStructure(element->document()));
+
     // Minimal support for content properties replacing an entire element.
     // Works only if we have exactly one piece of content and it's a URL.
     // Otherwise acts as if we didn't support this feature.
@@ -294,6 +304,8 @@ bool RenderObject::requiresAnonymousTableWrappers(const RenderObject* newChild) 
 
 void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
 {
+    ASSERT(isAllowedToModifyRenderTreeStructure(document()));
+
     RenderObjectChildList* children = virtualChildren();
     ASSERT(children);
     if (!children)
@@ -332,6 +344,8 @@ void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
 
 void RenderObject::removeChild(RenderObject* oldChild)
 {
+    ASSERT(isAllowedToModifyRenderTreeStructure(document()));
+
     RenderObjectChildList* children = virtualChildren();
     ASSERT(children);
     if (!children)
@@ -734,15 +748,6 @@ void RenderObject::invalidateContainerPreferredLogicalWidths()
             break;
         o = container;
     }
-}
-
-void RenderObject::setLayerNeedsFullRepaint()
-{
-    ASSERT(hasLayer());
-    if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-        setShouldDoFullRepaintAfterLayout(true);
-    else
-        toRenderLayerModelObject(this)->layer()->repainter().setRepaintStatus(NeedsFullRepaint);
 }
 
 void RenderObject::setLayerNeedsFullRepaintForPositionedMovementLayout()
@@ -1244,6 +1249,18 @@ void RenderObject::paintOutline(PaintInfo& paintInfo, const LayoutRect& paintRec
         graphicsContext->endLayer();
 }
 
+// FIXME: In repaint-after-layout, we should be able to change the logic to remove the need for this function. See crbug.com/368416.
+LayoutPoint RenderObject::positionFromRepaintContainer(const RenderLayerModelObject* repaintContainer) const
+{
+    ASSERT(containerForRepaint() == repaintContainer);
+
+    LayoutPoint offset = isBox() ? toRenderBox(this)->location() : LayoutPoint();
+    if (repaintContainer == this)
+        return offset;
+
+    return roundedIntPoint(localToContainerPoint(offset, repaintContainer));
+}
+
 IntRect RenderObject::absoluteBoundingBoxRect() const
 {
     Vector<FloatQuad> quads;
@@ -1330,12 +1347,12 @@ void RenderObject::paint(PaintInfo&, const LayoutPoint&)
 {
 }
 
-RenderLayerModelObject* RenderObject::containerForRepaint() const
+const RenderLayerModelObject* RenderObject::containerForRepaint() const
 {
     if (!isRooted())
         return 0;
 
-    RenderLayerModelObject* repaintContainer = 0;
+    const RenderLayerModelObject* repaintContainer = 0;
 
     RenderView* renderView = view();
     if (renderView->usesCompositing()) {
@@ -1444,7 +1461,7 @@ void RenderObject::repaint() const
     // FIXME: really, we're in the repaint phase here, and the following queries are legal.
     // Until those states are fully fledged, I'll just disable the ASSERTS.
     DisableCompositingQueryAsserts disabler;
-    RenderLayerModelObject* repaintContainer = containerForRepaint();
+    const RenderLayerModelObject* repaintContainer = containerForRepaint();
     repaintUsingContainer(repaintContainer, pixelSnappedIntRect(clippedOverflowRectForRepaint(repaintContainer)), InvalidationRepaint);
 }
 
@@ -1464,7 +1481,7 @@ void RenderObject::repaintRectangle(const LayoutRect& r) const
         dirtyRect.move(view()->layoutDelta());
     }
 
-    RenderLayerModelObject* repaintContainer = containerForRepaint();
+    const RenderLayerModelObject* repaintContainer = containerForRepaint();
     computeRectForRepaint(repaintContainer, dirtyRect);
     repaintUsingContainer(repaintContainer, pixelSnappedIntRect(dirtyRect), InvalidationRepaintRectangle);
 }
@@ -1489,6 +1506,8 @@ const char* RenderObject::invalidationReasonToString(InvalidationReason reason) 
         return "bounds change with background";
     case InvalidationBoundsChange:
         return "bounds change";
+    case InvalidationLocationChange:
+        return "location change";
     case InvalidationScroll:
         return "scroll";
     case InvalidationSelection:
@@ -1506,6 +1525,11 @@ const char* RenderObject::invalidationReasonToString(InvalidationReason reason) 
 
 void RenderObject::repaintTreeAfterLayout()
 {
+    // If we didn't need invalidation then our children don't need as well.
+    // Skip walking down the tree as everything should be fine below us.
+    if (!shouldCheckForInvalidationAfterLayout())
+        return;
+
     clearRepaintState();
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
@@ -1524,7 +1548,7 @@ static PassRefPtr<JSONValue> jsonObjectForOldAndNewRects(const LayoutRect& oldRe
 }
 
 bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, bool wasSelfLayout,
-    const LayoutRect& oldBounds, const LayoutRect* newBoundsPtr)
+    const LayoutRect& oldBounds, const LayoutPoint& oldLocation, const LayoutRect* newBoundsPtr, const LayoutPoint* newLocationPtr)
 {
     RenderView* v = view();
     if (v->document().printing())
@@ -1533,6 +1557,7 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
     // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
     // ASSERT(!newBoundsPtr || *newBoundsPtr == clippedOverflowRectForRepaint(repaintContainer));
     LayoutRect newBounds = newBoundsPtr ? *newBoundsPtr : clippedOverflowRectForRepaint(repaintContainer);
+    LayoutPoint newLocation = newLocationPtr ? *newLocationPtr : positionFromRepaintContainer(repaintContainer);
 
     // FIXME: This should use a ConvertableToTraceFormat when they are available in Blink.
     TRACE_EVENT2(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"), "RenderObject::repaintAfterLayoutIfNeeded()",
@@ -1553,6 +1578,9 @@ bool RenderObject::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repa
         if (oldRoundedRect.radii() != newRoundedRect.radii())
             invalidationReason = InvalidationBorderRadius;
     }
+
+    if (invalidationReason == InvalidationIncremental && compositingState() != PaintsIntoOwnBacking && newLocation != oldLocation)
+        invalidationReason = InvalidationLocationChange;
 
     // If the bounds are the same then we know that none of the statements below
     // can match, so we can early out since we will not need to do any
@@ -1674,10 +1702,7 @@ void RenderObject::repaintOverflowIfNeeded()
 
 bool RenderObject::checkForRepaint() const
 {
-    if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-        return !document().view()->needsFullRepaint() && everHadLayout();
-
-    return !document().view()->needsFullRepaint() && !hasLayer() && everHadLayout();
+    return !document().view()->needsFullRepaint() && everHadLayout();
 }
 
 bool RenderObject::checkForRepaintDuringLayout() const
@@ -3022,9 +3047,12 @@ PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyleFromParentOrShadowHo
     if (!node())
         return nullptr;
 
-    if (Element* shadowHost = node()->shadowHost()) {
-        if (shadowHost->isFormControlElement())
-            return shadowHost->renderer()->getUncachedPseudoStyle(PseudoStyleRequest(SELECTION));
+    if (ShadowRoot* root = node()->containingShadowRoot()) {
+        if (root->type() == ShadowRoot::UserAgentShadowRoot) {
+            if (Element* shadowHost = node()->shadowHost()) {
+                return shadowHost->renderer()->getUncachedPseudoStyle(PseudoStyleRequest(SELECTION));
+            }
+        }
     }
 
     return getUncachedPseudoStyle(PseudoStyleRequest(SELECTION));
@@ -3389,8 +3417,26 @@ void RenderObject::clearRepaintState()
 {
     setShouldDoFullRepaintAfterLayout(false);
     setShouldDoFullRepaintIfSelfPaintingLayer(false);
+    setOnlyNeededPositionedMovementLayout(false);
     setShouldRepaintOverflow(false);
     setLayoutDidGetCalled(false);
+    setMayNeedInvalidation(false);
+}
+
+bool RenderObject::isAllowedToModifyRenderTreeStructure(Document& document)
+{
+    return DeprecatedDisableModifyRenderTreeStructureAsserts::canModifyRenderTreeStateInAnyState()
+        || document.lifecycle().stateAllowsRenderTreeMutations();
+}
+
+DeprecatedDisableModifyRenderTreeStructureAsserts::DeprecatedDisableModifyRenderTreeStructureAsserts()
+    : m_disabler(gModifyRenderTreeStructureAnyState, true)
+{
+}
+
+bool DeprecatedDisableModifyRenderTreeStructureAsserts::canModifyRenderTreeStateInAnyState()
+{
+    return gModifyRenderTreeStructureAnyState;
 }
 
 } // namespace WebCore

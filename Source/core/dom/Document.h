@@ -30,6 +30,7 @@
 
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptValue.h"
+#include "core/animation/AnimationClock.h"
 #include "core/animation/CompositorPendingAnimations.h"
 #include "core/dom/ContainerNode.h"
 #include "core/dom/DocumentEncodingData.h"
@@ -64,7 +65,6 @@
 namespace WebCore {
 
 class AXObjectCache;
-class AnimationClock;
 class Attr;
 class CDATASection;
 class CSSFontSelector;
@@ -270,6 +270,8 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(copy);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(cut);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(paste);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockchange);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockerror);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(readystatechange);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(search);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(securitypolicyviolation);
@@ -440,6 +442,7 @@ public:
 
     // Called when one or more stylesheets in the document may have been added, removed, or changed.
     void styleResolverChanged(RecalcStyleTime, StyleResolverUpdateMode = FullStyleUpdate);
+    void styleResolverMayHaveChanged();
 
     // FIXME: Switch all callers of styleResolverChanged to these or better ones and then make them
     // do something smarter.
@@ -690,7 +693,6 @@ public:
     EventListener* getWindowAttributeEventListener(const AtomicString& eventType);
 
     PassRefPtrWillBeRawPtr<Event> createEvent(const String& eventType, ExceptionState&);
-    PassRefPtrWillBeRawPtr<Event> createEvent(ExceptionState&);
 
     // keep track of what types of event listeners are registered, so we don't
     // dispatch events unnecessarily
@@ -835,7 +837,7 @@ public:
     void popCurrentScript();
 
     void applyXSLTransform(ProcessingInstruction* pi);
-    PassRefPtr<Document> transformSourceDocument() { return m_transformSourceDocument; }
+    PassRefPtrWillBeRawPtr<Document> transformSourceDocument() { return m_transformSourceDocument; }
     void setTransformSourceDocument(Document* doc) { m_transformSourceDocument = doc; }
 
     void setTransformSource(PassOwnPtr<TransformSource>);
@@ -1020,14 +1022,14 @@ public:
     // Return a Locale for the default locale if the argument is null or empty.
     Locale& getCachedLocale(const AtomicString& locale = nullAtom);
 
-    AnimationClock& animationClock() { return *m_animationClock; }
+    AnimationClock& animationClock() { return m_animationClock; }
     DocumentTimeline& timeline() const { return *m_timeline; }
     DocumentTimeline& transitionTimeline() const { return *m_transitionTimeline; }
     CompositorPendingAnimations& compositorPendingAnimations() { return m_compositorPendingAnimations; }
 
     void addToTopLayer(Element*, const Element* before = 0);
     void removeFromTopLayer(Element*);
-    const Vector<RefPtr<Element> >& topLayerElements() const { return m_topLayerElements; }
+    const WillBeHeapVector<RefPtrWillBeMember<Element> >& topLayerElements() const { return m_topLayerElements; }
     HTMLDialogElement* activeModalDialog() const;
 
     // A non-null m_templateDocumentHost implies that |this| was created by ensureTemplateDocument().
@@ -1046,6 +1048,7 @@ public:
     DocumentLifecycle& lifecycle() { return m_lifecycle; }
     bool isActive() const { return m_lifecycle.isActive(); }
     bool isStopped() const { return m_lifecycle.state() == DocumentLifecycle::Stopped; }
+    bool isDisposed() const { return m_lifecycle.state() == DocumentLifecycle::Disposed; }
 
     enum HttpRefreshType {
         HttpRefreshFromHeader,
@@ -1190,10 +1193,10 @@ private:
     DOMWindow* m_domWindow;
     HTMLImportsController* m_importsController;
 
-    RefPtr<ResourceFetcher> m_fetcher;
+    RefPtrWillBeMember<ResourceFetcher> m_fetcher;
     RefPtr<DocumentParser> m_parser;
     unsigned m_activeParserCount;
-    RefPtr<ContextFeatures> m_contextFeatures;
+    RefPtrWillBeMember<ContextFeatures> m_contextFeatures;
 
     bool m_wellFormed;
 
@@ -1209,10 +1212,10 @@ private:
     // Mime-type of the document in case it was cloned or created by XHR.
     AtomicString m_mimeType;
 
-    RefPtr<DocumentType> m_docType;
-    OwnPtr<DOMImplementation> m_implementation;
+    RefPtrWillBeMember<DocumentType> m_docType;
+    OwnPtrWillBeMember<DOMImplementation> m_implementation;
 
-    RefPtrWillBePersistent<CSSStyleSheet> m_elemSheet;
+    RefPtrWillBeMember<CSSStyleSheet> m_elemSheet;
 
     bool m_printing;
     bool m_paginatedForScreen;
@@ -1222,11 +1225,11 @@ private:
 
     bool m_hasAutofocused;
     Timer<Document> m_clearFocusedElementTimer;
-    RefPtr<Element> m_autofocusElement;
-    RefPtr<Element> m_focusedElement;
-    RefPtr<Node> m_hoverNode;
-    RefPtr<Element> m_activeHoverElement;
-    RefPtr<Element> m_documentElement;
+    RefPtrWillBeMember<Element> m_autofocusElement;
+    RefPtrWillBeMember<Element> m_focusedElement;
+    RefPtrWillBeMember<Node> m_hoverNode;
+    RefPtrWillBeMember<Element> m_activeHoverElement;
+    RefPtrWillBeMember<Element> m_documentElement;
     UserActionElementSet m_userActionElements;
 
     uint64_t m_domTreeVersion;
@@ -1239,10 +1242,10 @@ private:
 
     MutationObserverOptions m_mutationObserverTypes;
 
-    OwnPtrWillBePersistent<StyleEngine> m_styleEngine;
+    OwnPtrWillBeMember<StyleEngine> m_styleEngine;
     RefPtrWillBeMember<StyleSheetList> m_styleSheetList;
 
-    OwnPtr<FormController> m_formController;
+    OwnPtrWillBeMember<FormController> m_formController;
 
     TextLinkColors m_textLinkColors;
     const OwnPtr<VisitedLinkState> m_visitedLinkState;
@@ -1264,7 +1267,7 @@ private:
     String m_title;
     String m_rawTitle;
     bool m_titleSetExplicitly;
-    RefPtr<Element> m_titleElement;
+    RefPtrWillBeMember<Element> m_titleElement;
 
     OwnPtr<AXObjectCache> m_axObjectCache;
     OwnPtr<DocumentMarkerController> m_markers;
@@ -1279,10 +1282,10 @@ private:
 
     OwnPtr<ScriptRunner> m_scriptRunner;
 
-    Vector<RefPtr<HTMLScriptElement> > m_currentScriptStack;
+    WillBeHeapVector<RefPtrWillBeMember<HTMLScriptElement> > m_currentScriptStack;
 
     OwnPtr<TransformSource> m_transformSource;
-    RefPtr<Document> m_transformSourceDocument;
+    RefPtrWillBeMember<Document> m_transformSourceDocument;
 
     String m_xmlEncoding;
     String m_xmlVersion;
@@ -1304,7 +1307,7 @@ private:
     bool m_hasAnnotatedRegions;
     bool m_annotatedRegionsDirty;
 
-    HashMap<String, RefPtr<HTMLCanvasElement> > m_cssCanvasElements;
+    WillBeHeapHashMap<String, RefPtrWillBeMember<HTMLCanvasElement> > m_cssCanvasElements;
 
     OwnPtr<SelectorQueryCache> m_selectorQueryCache;
 
@@ -1319,12 +1322,13 @@ private:
 
     RenderView* m_renderView;
 
+    // FIXME: Oilpan: We should use a real weak pointer here.
     WeakPtrFactory<Document> m_weakFactory;
     WeakPtr<Document> m_contextDocument;
 
     bool m_hasFullscreenElementStack; // For early return in FullscreenElementStack::fromIfExists()
 
-    Vector<RefPtr<Element> > m_topLayerElements;
+    WillBeHeapVector<RefPtrWillBeMember<Element> > m_topLayerElements;
 
     int m_loadEventDelayCount;
     Timer<Document> m_loadEventDelayTimer;
@@ -1365,16 +1369,19 @@ private:
     typedef HashMap<AtomicString, OwnPtr<Locale> > LocaleIdentifierToLocaleMap;
     LocaleIdentifierToLocaleMap m_localeCache;
 
-    OwnPtr<AnimationClock> m_animationClock;
+    AnimationClock m_animationClock;
     RefPtr<DocumentTimeline> m_timeline;
     RefPtr<DocumentTimeline> m_transitionTimeline;
     CompositorPendingAnimations m_compositorPendingAnimations;
 
-    RefPtr<Document> m_templateDocument;
-    Document* m_templateDocumentHost; // Manually managed weakref (backpointer from m_templateDocument).
+    RefPtrWillBeMember<Document> m_templateDocument;
+    // With Oilpan the templateDocument and the templateDocumentHost
+    // live and die together. Without Oilpan, the templateDocumentHost
+    // is a manually managed backpointer from m_templateDocument.
+    RawPtrWillBeMember<Document> m_templateDocumentHost;
 
     Timer<Document> m_didAssociateFormControlsTimer;
-    HashSet<RefPtr<Element> > m_associatedFormControls;
+    WillBeHeapHashSet<RefPtrWillBeMember<Element> > m_associatedFormControls;
 
     HashSet<SVGUseElement*> m_useElementsNeedingUpdate;
     HashSet<Element*> m_layerUpdateElements;

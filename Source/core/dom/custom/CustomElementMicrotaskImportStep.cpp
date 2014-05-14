@@ -33,17 +33,21 @@
 
 #include "core/dom/custom/CustomElementMicrotaskDispatcher.h"
 #include "core/dom/custom/CustomElementMicrotaskQueue.h"
+#include "core/html/imports/HTMLImportChild.h"
+#include "core/html/imports/HTMLImportLoader.h"
+#include <stdio.h>
 
 namespace WebCore {
 
-PassOwnPtr<CustomElementMicrotaskImportStep> CustomElementMicrotaskImportStep::create(PassRefPtr<CustomElementMicrotaskQueue> queue)
+PassOwnPtr<CustomElementMicrotaskImportStep> CustomElementMicrotaskImportStep::create(HTMLImportChild* import)
 {
-    return adoptPtr(new CustomElementMicrotaskImportStep(queue));
+    return adoptPtr(new CustomElementMicrotaskImportStep(import));
 }
 
-CustomElementMicrotaskImportStep::CustomElementMicrotaskImportStep(PassRefPtr<CustomElementMicrotaskQueue> queue)
-    : m_importFinished(false)
-    , m_queue(queue)
+CustomElementMicrotaskImportStep::CustomElementMicrotaskImportStep(HTMLImportChild* import)
+    : m_import(import->weakPtr())
+    , m_queue(import->loader()->microtaskQueue())
+    , m_weakFactory(this)
 {
 }
 
@@ -51,20 +55,42 @@ CustomElementMicrotaskImportStep::~CustomElementMicrotaskImportStep()
 {
 }
 
-void CustomElementMicrotaskImportStep::importDidFinish()
+bool CustomElementMicrotaskImportStep::shouldWaitForImport() const
 {
-    // imports should only "finish" once
-    ASSERT(!m_importFinished);
-    m_importFinished = true;
-    CustomElementMicrotaskDispatcher::instance().importDidFinish(this);
+    return m_import && !m_import->isLoaded();
+}
+
+bool CustomElementMicrotaskImportStep::shouldStopProcessing() const
+{
+    return m_import && m_import->isSync();
+}
+
+void CustomElementMicrotaskImportStep::didUpgradeAllCustomElements()
+{
+    ASSERT(m_queue);
+    if (m_import)
+        m_import->didFinishUpgradingCustomElements();
 }
 
 CustomElementMicrotaskStep::Result CustomElementMicrotaskImportStep::process()
 {
     Result result = m_queue->dispatch();
-    if (!m_importFinished)
-        result = Result(result | ShouldStop);
+    if (!(result & ShouldStop) && !shouldWaitForImport())
+        didUpgradeAllCustomElements();
+
+    if (shouldWaitForImport())
+        result = Result(result | ShouldRemain | ShouldStop);
+    if (!shouldStopProcessing())
+        result = Result(result & ~ShouldStop);
     return result;
 }
+
+#if !defined(NDEBUG)
+void CustomElementMicrotaskImportStep::show(unsigned indent)
+{
+    fprintf(stderr, "%*sImport(wait=%d sync=%d, url=%s)\n", indent, "", shouldWaitForImport(), shouldStopProcessing(), m_import ? m_import->url().string().utf8().data() : "null");
+    m_queue->show(indent + 1);
+}
+#endif
 
 } // namespace WebCore

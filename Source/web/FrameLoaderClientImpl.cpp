@@ -57,6 +57,7 @@
 #include "modules/device_orientation/DeviceOrientationController.h"
 #include "modules/gamepad/NavigatorGamepad.h"
 #include "modules/screen_orientation/ScreenOrientationController.h"
+#include "modules/serviceworkers/NavigatorServiceWorker.h"
 #include "platform/MIMETypeRegistry.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/exported/WrappedResourceRequest.h"
@@ -112,10 +113,10 @@ FrameLoaderClientImpl::~FrameLoaderClientImpl()
 {
 }
 
-void FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)
+void FrameLoaderClientImpl::dispatchDidClearWindowObjectInMainWorld()
 {
     if (m_webFrame->client()) {
-        m_webFrame->client()->didClearWindowObject(m_webFrame, world.worldId());
+        m_webFrame->client()->didClearWindowObject(m_webFrame);
         Document* document = m_webFrame->frame()->document();
         if (document) {
             WheelController::from(*document);
@@ -127,6 +128,8 @@ void FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&
                 ScreenOrientationController::from(*document);
             if (RuntimeEnabledFeatures::gamepadEnabled())
                 NavigatorGamepad::from(*document);
+            if (RuntimeEnabledFeatures::serviceWorkerEnabled())
+                NavigatorServiceWorker::from(*document);
         }
     }
 }
@@ -804,6 +807,12 @@ void FrameLoaderClientImpl::didStopAllLoaders()
 {
     if (m_webFrame->client())
         m_webFrame->client()->didAbortLoading(m_webFrame);
+}
+
+void FrameLoaderClientImpl::dispatchDidChangeManifest()
+{
+    if (m_webFrame->client())
+        m_webFrame->client()->didChangeManifest(m_webFrame);
 }
 
 } // namespace blink

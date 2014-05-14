@@ -310,7 +310,7 @@ static inline void recordFormStructure(const HTMLFormElement& form, StringBuilde
 {
     // 2 is enough to distinguish forms in webkit.org/b/91209#c0
     const size_t namedControlsToBeRecorded = 2;
-    const Vector<FormAssociatedElement*>& controls = form.associatedElements();
+    const FormAssociatedElement::List& controls = form.associatedElements();
     builder.append(" [");
     for (size_t i = 0, namedControls = 0; i < controls.size() && namedControls < namedControlsToBeRecorded; ++i) {
         if (!controls[i]->isFormControlElementWithState())
@@ -374,13 +374,18 @@ void FormKeyGenerator::willDeleteForm(HTMLFormElement* form)
 
 // ----------------------------------------------------------------------------
 
-PassRefPtr<DocumentState> DocumentState::create()
+PassRefPtrWillBeRawPtr<DocumentState> DocumentState::create()
 {
-    return adoptRef(new DocumentState);
+    return adoptRefWillBeNoop(new DocumentState);
 }
 
 DocumentState::~DocumentState()
 {
+}
+
+void DocumentState::trace(Visitor* visitor)
+{
+    visitor->trace(m_formControls);
 }
 
 void DocumentState::addControl(HTMLFormControlElementWithState* control)
@@ -441,6 +446,11 @@ FormController::FormController()
 
 FormController::~FormController()
 {
+}
+
+void FormController::trace(Visitor* visitor)
+{
+    visitor->trace(m_documentState);
 }
 
 DocumentState* FormController::formElementsState() const
@@ -511,7 +521,7 @@ void FormController::restoreControlStateFor(HTMLFormControlElementWithState& con
 
 void FormController::restoreControlStateIn(HTMLFormElement& form)
 {
-    const Vector<FormAssociatedElement*>& elements = form.associatedElements();
+    const FormAssociatedElement::List& elements = form.associatedElements();
     for (size_t i = 0; i < elements.size(); ++i) {
         if (!elements[i]->isFormControlElementWithState())
             continue;

@@ -18,6 +18,7 @@ GYP_TARGET_DEPENDENCIES := \
 ### Generated for rule "third_party_WebKit_Source_platform_blink_platform_gyp_blink_heap_asm_stubs_target_assemble":
 # "{'inputs': ['$(gyp_shared_intermediate_dir)/yasm'], 'extension': 'asm', 'process_outputs_as_sources': '1', 'outputs': ['$(gyp_shared_intermediate_dir)/webcore/heap/%(INPUT_ROOT)s.o'], 'rule_name': 'assemble', 'rule_sources': ['heap/asm/SaveRegisters_x86.asm'], 'action': ['$(gyp_shared_intermediate_dir)/yasm', '-DX64POSIX=1', '-DPIC', '-felf64', '-m', 'amd64', '-o', '$(gyp_shared_intermediate_dir)/webcore/heap/%(INPUT_ROOT)s.o', '$(RULE_SOURCES)'], 'message': 'Compile assembly $(RULE_SOURCES)'}":
 $(gyp_shared_intermediate_dir)/webcore/heap/SaveRegisters_x86.o: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/webcore/heap/SaveRegisters_x86.o: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/webcore/heap/SaveRegisters_x86.o: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/webcore/heap/SaveRegisters_x86.o: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/webcore/heap/SaveRegisters_x86.o: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -55,7 +56,6 @@ MY_CFLAGS_Debug := \
 	-Wno-format \
 	-m64 \
 	-march=x86-64 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \
@@ -141,7 +141,6 @@ MY_CFLAGS_Release := \
 	-Wno-format \
 	-m64 \
 	-march=x86-64 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \

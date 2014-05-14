@@ -97,6 +97,7 @@
 #include "core/page/PointerLockController.h"
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderView.h"
+#include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGElement.h"
 #include "platform/scroll/ScrollableArea.h"
@@ -167,11 +168,10 @@ Element::~Element()
 {
     ASSERT(needsAttach());
 
+#if !ENABLE(OILPAN)
     if (hasRareData())
         elementRareData()->clearShadow();
-
-    if (hasActiveAnimations())
-        activeAnimations()->dispose();
+#endif
 
     if (isCustomElement())
         CustomElement::wasDestroyed(this);
@@ -541,43 +541,43 @@ static float localZoomForRenderer(RenderObject& renderer)
     return zoomFactor;
 }
 
-static int adjustForLocalZoom(LayoutUnit value, RenderObject& renderer)
+static double adjustForLocalZoom(LayoutUnit value, RenderObject& renderer)
 {
     float zoomFactor = localZoomForRenderer(renderer);
     if (zoomFactor == 1)
-        return value;
-    return lroundf(value / zoomFactor);
+        return value.toDouble();
+    return value.toDouble() / zoomFactor;
 }
 
-int Element::offsetLeft()
+double Element::offsetLeft()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
-        return adjustForLocalZoom(renderer->pixelSnappedOffsetLeft(), *renderer);
+        return adjustForLocalZoom(renderer->offsetLeft(), *renderer);
     return 0;
 }
 
-int Element::offsetTop()
+double Element::offsetTop()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
-        return adjustForLocalZoom(renderer->pixelSnappedOffsetTop(), *renderer);
+        return adjustForLocalZoom(renderer->offsetTop(), *renderer);
     return 0;
 }
 
-int Element::offsetWidth()
+double Element::offsetWidth()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
-        return adjustLayoutUnitForAbsoluteZoom(renderer->pixelSnappedOffsetWidth(), *renderer).round();
+        return adjustLayoutUnitForAbsoluteZoom(renderer->offsetWidth(), *renderer).toFloat();
     return 0;
 }
 
-int Element::offsetHeight()
+double Element::offsetHeight()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBoxModelObject* renderer = renderBoxModelObject())
-        return adjustLayoutUnitForAbsoluteZoom(renderer->pixelSnappedOffsetHeight(), *renderer).round();
+        return adjustLayoutUnitForAbsoluteZoom(renderer->offsetHeight(), *renderer).toFloat();
     return 0;
 }
 
@@ -597,25 +597,25 @@ Element* Element::offsetParent()
     return 0;
 }
 
-int Element::clientLeft()
+double Element::clientLeft()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
     if (RenderBox* renderer = renderBox())
-        return adjustForAbsoluteZoom(roundToInt(renderer->clientLeft()), renderer);
+        return adjustForAbsoluteZoom(renderer->clientLeft(), renderer);
     return 0;
 }
 
-int Element::clientTop()
+double Element::clientTop()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
     if (RenderBox* renderer = renderBox())
-        return adjustForAbsoluteZoom(roundToInt(renderer->clientTop()), renderer);
+        return adjustForAbsoluteZoom(renderer->clientTop(), renderer);
     return 0;
 }
 
-int Element::clientWidth()
+double Element::clientWidth()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -631,11 +631,11 @@ int Element::clientWidth()
     }
 
     if (RenderBox* renderer = renderBox())
-        return adjustLayoutUnitForAbsoluteZoom(renderer->pixelSnappedClientWidth(), *renderer).round();
+        return adjustLayoutUnitForAbsoluteZoom(renderer->clientWidth(), *renderer).toFloat();
     return 0;
 }
 
-int Element::clientHeight()
+double Element::clientHeight()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -652,11 +652,11 @@ int Element::clientHeight()
     }
 
     if (RenderBox* renderer = renderBox())
-        return adjustLayoutUnitForAbsoluteZoom(renderer->pixelSnappedClientHeight(), *renderer).round();
+        return adjustLayoutUnitForAbsoluteZoom(renderer->clientHeight(), *renderer).toFloat();
     return 0;
 }
 
-int Element::scrollLeft()
+double Element::scrollLeft()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -679,7 +679,7 @@ int Element::scrollLeft()
     return 0;
 }
 
-int Element::scrollTop()
+double Element::scrollTop()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -702,13 +702,13 @@ int Element::scrollTop()
     return 0;
 }
 
-void Element::setScrollLeft(int newLeft)
+void Element::setScrollLeft(double newLeft)
 {
     document().updateLayoutIgnorePendingStylesheets();
 
     if (document().documentElement() != this) {
         if (RenderBox* rend = renderBox())
-            rend->setScrollLeft(static_cast<int>(newLeft * rend->style()->effectiveZoom()));
+            rend->setScrollLeft(roundf(newLeft * rend->style()->effectiveZoom()));
         return;
     }
 
@@ -723,7 +723,7 @@ void Element::setScrollLeft(int newLeft)
         if (!view)
             return;
 
-        view->setScrollPosition(IntPoint(static_cast<int>(newLeft * frame->pageZoomFactor()), view->scrollY()));
+        view->setScrollPosition(IntPoint(roundf(newLeft * frame->pageZoomFactor()), view->scrollY()));
     }
 }
 
@@ -748,13 +748,13 @@ void Element::setScrollLeft(const Dictionary& scrollOptionsHorizontal, Exception
     setScrollLeft(position);
 }
 
-void Element::setScrollTop(int newTop)
+void Element::setScrollTop(double newTop)
 {
     document().updateLayoutIgnorePendingStylesheets();
 
     if (document().documentElement() != this) {
         if (RenderBox* rend = renderBox())
-            rend->setScrollTop(static_cast<int>(newTop * rend->style()->effectiveZoom()));
+            rend->setScrollTop(roundf(newTop * rend->style()->effectiveZoom()));
         return;
     }
 
@@ -769,7 +769,7 @@ void Element::setScrollTop(int newTop)
         if (!view)
             return;
 
-        view->setScrollPosition(IntPoint(view->scrollX(), static_cast<int>(newTop * frame->pageZoomFactor())));
+        view->setScrollPosition(IntPoint(view->scrollX(), roundf(newTop * frame->pageZoomFactor())));
     }
 }
 
@@ -794,7 +794,7 @@ void Element::setScrollTop(const Dictionary& scrollOptionsVertical, ExceptionSta
     setScrollTop(position);
 }
 
-int Element::scrollWidth()
+double Element::scrollWidth()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
@@ -802,7 +802,7 @@ int Element::scrollWidth()
     return 0;
 }
 
-int Element::scrollHeight()
+double Element::scrollHeight()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
@@ -1402,22 +1402,12 @@ void Element::attach(const AttachContext& context)
     createPseudoElementIfNeeded(AFTER);
     createPseudoElementIfNeeded(BACKDROP);
 
-    if (hasRareData()) {
-        ElementRareData* data = elementRareData();
-        if (data->hasElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach)) {
-            if (isFocusable() && document().focusedElement() == this)
-                document().updateFocusAppearanceSoon(false /* don't restore selection */);
-            data->clearElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
-        }
-        if (!renderer()) {
-            if (ActiveAnimations* activeAnimations = data->activeAnimations()) {
-                activeAnimations->cssAnimations().cancel();
-                activeAnimations->setAnimationStyleChange(false);
-            }
+    if (hasRareData() && !renderer()) {
+        if (ActiveAnimations* activeAnimations = elementRareData()->activeAnimations()) {
+            activeAnimations->cssAnimations().cancel();
+            activeAnimations->setAnimationStyleChange(false);
         }
     }
-
-    document().didRecalculateStyleForElement();
 }
 
 void Element::detach(const AttachContext& context)
@@ -1440,7 +1430,7 @@ void Element::detach(const AttachContext& context)
 
         if (ActiveAnimations* activeAnimations = data->activeAnimations()) {
             if (context.performingReattach) {
-                // FIXME: We call detach from withing style recalc, so compositingState is not up to date.
+                // FIXME: We call detach from within style recalc, so compositingState is not up to date.
                 // https://code.google.com/p/chromium/issues/detail?id=339847
                 DisableCompositingQueryAsserts disabler;
 
@@ -1519,6 +1509,7 @@ PassRefPtr<RenderStyle> Element::styleForRenderer()
         activeAnimations->updateAnimationFlags(*style);
     }
 
+    document().didRecalculateStyleForElement();
     return style.release();
 }
 
@@ -1589,8 +1580,6 @@ StyleRecalcChange Element::recalcOwnStyle(StyleRecalcChange change)
     }
 
     ASSERT(oldStyle);
-
-    document().didRecalculateStyleForElement();
 
     if (localChange != NoChange)
         updateCallbackSelectors(oldStyle.get(), newStyle.get());
@@ -1719,6 +1708,19 @@ void Element::setNeedsAnimationStyleRecalc()
 
     setNeedsStyleRecalc(LocalStyleChange);
     setAnimationStyleChange(true);
+}
+
+void Element::setNeedsCompositingUpdate()
+{
+    if (!document().isActive())
+        return;
+    RenderBoxModelObject* renderer = renderBoxModelObject();
+    if (!renderer)
+        return;
+    if (!renderer->hasLayer())
+        return;
+    renderer->layer()->setNeedsToUpdateAncestorDependentProperties();
+    document().renderView()->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
 }
 
 void Element::setCustomElementDefinition(PassRefPtr<CustomElementDefinition> definition)
@@ -2074,39 +2076,24 @@ void Element::focus(bool restorePreviousSelection, FocusType type)
     if (!inDocument())
         return;
 
-    Document& doc = document();
-    if (doc.focusedElement() == this)
+    if (document().focusedElement() == this)
         return;
 
-    // If the stylesheets have already been loaded we can reliably check isFocusable.
-    // If not, we continue and set the focused node on the focus controller below so
-    // that it can be updated soon after attach.
-    if (doc.isRenderingReady()) {
-        doc.updateLayoutIgnorePendingStylesheets();
-        if (!isFocusable())
-            return;
-    }
-
-    if (!supportsFocus())
+    if (!document().isActive())
         return;
 
-    RefPtr<Node> protect;
-    if (Page* page = doc.page()) {
-        // Focus and change event handlers can cause us to lose our last ref.
-        // If a focus event handler changes the focus to a different node it
-        // does not make sense to continue and update appearence.
-        protect = this;
-        if (!page->focusController().setFocusedElement(this, doc.frame(), type))
-            return;
-    }
+    document().updateLayoutIgnorePendingStylesheets();
+    if (!isFocusable())
+        return;
+
+    RefPtr<Node> protect(this);
+    if (!document().page()->focusController().setFocusedElement(this, document().frame(), type))
+        return;
 
     // Setting the focused node above might have invalidated the layout due to scripts.
-    doc.updateLayoutIgnorePendingStylesheets();
-
-    if (!isFocusable()) {
-        setElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
+    document().updateLayoutIgnorePendingStylesheets();
+    if (!isFocusable())
         return;
-    }
 
     cancelFocusAppearanceUpdate();
     updateFocusAppearance(restorePreviousSelection);
@@ -2433,18 +2420,6 @@ bool Element::isInDescendantTreeOf(const Element* shadowHost) const
     return false;
 }
 
-LayoutSize Element::minimumSizeForResizing() const
-{
-    return hasRareData() ? elementRareData()->minimumSizeForResizing() : defaultMinimumSizeForResizing();
-}
-
-void Element::setMinimumSizeForResizing(const LayoutSize& size)
-{
-    if (!hasRareData() && size == defaultMinimumSizeForResizing())
-        return;
-    ensureElementRareData().setMinimumSizeForResizing(size);
-}
-
 RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
 {
     if (PseudoElement* element = pseudoElement(pseudoElementSpecifier))
@@ -2504,8 +2479,6 @@ Locale& Element::locale() const
 
 void Element::cancelFocusAppearanceUpdate()
 {
-    if (hasRareData())
-        clearElementFlag(NeedsFocusAppearanceUpdateSoonAfterAttach);
     if (document().focusedElement() == this)
         document().cancelFocusAppearanceUpdate();
 }
@@ -2827,7 +2800,7 @@ void Element::willModifyAttribute(const QualifiedName& name, const AtomicString&
     }
 
     if (oldValue != newValue) {
-        if (inActiveDocument())
+        if (inActiveDocument() && document().styleResolver() && styleChangeType() < SubtreeStyleChange)
             document().ensureStyleResolver().ensureUpdatedRuleFeatureSet().scheduleStyleInvalidationForAttributeChange(name, *this);
 
         if (isUpgradedCustomElement())
@@ -3319,6 +3292,14 @@ bool Element::supportsStyleSharing() const
     if (FullscreenElementStack::isActiveFullScreenElement(this))
         return false;
     return true;
+}
+
+void Element::trace(Visitor* visitor)
+{
+    if (hasRareData())
+        visitor->trace(elementRareData());
+
+    ContainerNode::trace(visitor);
 }
 
 } // namespace WebCore

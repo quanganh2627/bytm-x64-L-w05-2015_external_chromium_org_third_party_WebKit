@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "devtools_html":
 $(gyp_shared_intermediate_dir)/resources/inspector/devtools_extension_api.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/devtools_extension_api.js: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/resources/inspector/devtools_extension_api.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/devtools_extension_api.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/devtools_extension_api.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

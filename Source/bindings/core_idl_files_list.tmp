@@ -180,6 +180,7 @@
 ../core/html/HTMLOutputElement.idl
 ../core/html/HTMLParagraphElement.idl
 ../core/html/HTMLParamElement.idl
+../core/html/HTMLPictureElement.idl
 ../core/html/HTMLPreElement.idl
 ../core/html/HTMLProgressElement.idl
 ../core/html/HTMLQuoteElement.idl
@@ -271,9 +272,6 @@
 ../core/plugins/MimeTypeArray.idl
 ../core/plugins/Plugin.idl
 ../core/plugins/PluginArray.idl
-../core/speech/SpeechInputEvent.idl
-../core/speech/SpeechInputResult.idl
-../core/speech/SpeechInputResultList.idl
 ../core/storage/Storage.idl
 ../core/storage/StorageEvent.idl
 ../core/svg/SVGAElement.idl

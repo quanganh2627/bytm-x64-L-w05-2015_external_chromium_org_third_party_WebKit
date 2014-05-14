@@ -215,7 +215,9 @@ void ContextMenuClientImpl::showContextMenu(const WebCore::ContextMenu* defaultM
     // all else.
     data.linkURL = r.absoluteLinkURL();
 
-    if (!r.absoluteImageURL().isEmpty()) {
+    if (isHTMLCanvasElement(r.innerNonSharedNode())) {
+        data.mediaType = WebContextMenuData::MediaTypeCanvas;
+    } else if (!r.absoluteImageURL().isEmpty()) {
         data.srcURL = r.absoluteImageURL();
         data.mediaType = WebContextMenuData::MediaTypeImage;
         data.mediaFlags |= WebContextMenuData::MediaCanPrint;
@@ -305,10 +307,7 @@ void ContextMenuClientImpl::showContextMenu(const WebCore::ContextMenu* defaultM
 
     if (r.isContentEditable()) {
         data.isEditable = true;
-#if ENABLE(INPUT_SPEECH)
-        if (isHTMLInputElement(*r.innerNonSharedNode()))
-            data.isSpeechInputEnabled = toHTMLInputElement(r.innerNonSharedNode())->isSpeechEnabled();
-#endif
+
         // When Chrome enables asynchronous spellchecking, its spellchecker adds spelling markers to misspelled
         // words and attaches suggestions to these markers in the background. Therefore, when a user right-clicks
         // a mouse on a word, Chrome just needs to find a spelling marker on the word instead of spellchecking it.

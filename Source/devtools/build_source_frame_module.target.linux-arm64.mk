@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "build_source_frame_module":
 $(gyp_shared_intermediate_dir)/resources/inspector/source_frame/SourceFrame.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/source_frame/SourceFrame.js: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/resources/inspector/source_frame/SourceFrame.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/source_frame/SourceFrame.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/source_frame/SourceFrame.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

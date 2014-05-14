@@ -680,7 +680,7 @@ static void voidCallbackFunctionAttributeAttributeSetter(v8::Local<v8::Value> v8
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setVoidCallbackFunctionAttribute(cppValue);
 }
 
@@ -709,7 +709,7 @@ static void anyCallbackFunctionOptionalAnyArgAttributeAttributeSetter(v8::Local<
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setAnyCallbackFunctionOptionalAnyArgAttribute(cppValue);
 }
 
@@ -916,7 +916,7 @@ static void anyAttributeAttributeSetter(v8::Local<v8::Value> v8Value, const v8::
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setAnyAttribute(cppValue);
 }
 
@@ -945,7 +945,7 @@ static void promiseAttributeAttributeSetter(v8::Local<v8::Value> v8Value, const 
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptPromise, cppValue, ScriptPromise(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptPromise, cppValue, ScriptPromise(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setPromiseAttribute(cppValue);
 }
 
@@ -1652,9 +1652,9 @@ static void activityLoggingAccessForAllWorldsLongAttributeAttributeGetter(const 
 static void activityLoggingAccessForAllWorldsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessForAllWorldsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingAccessForAllWorldsLongAttribute");
     TestObjectV8Internal::activityLoggingAccessForAllWorldsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -1671,10 +1671,9 @@ static void activityLoggingAccessForAllWorldsLongAttributeAttributeSetter(v8::Lo
 static void activityLoggingAccessForAllWorldsLongAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
-        v8::Handle<v8::Value> loggerArg[] = { v8Value };
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessForAllWorldsLongAttribute", 1, &loggerArg[0], "Setter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        world.activityLogger()->logSetter("TestObject.activityLoggingAccessForAllWorldsLongAttribute", v8Value);
     }
     TestObjectV8Internal::activityLoggingAccessForAllWorldsLongAttributeAttributeSetter(v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -1690,9 +1689,9 @@ static void activityLoggingGetterForAllWorldsLongAttributeAttributeGetter(const 
 static void activityLoggingGetterForAllWorldsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingGetterForAllWorldsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingGetterForAllWorldsLongAttribute");
     TestObjectV8Internal::activityLoggingGetterForAllWorldsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -1739,10 +1738,9 @@ static void activityLoggingSetterForAllWorldsLongAttributeAttributeSetter(v8::Lo
 static void activityLoggingSetterForAllWorldsLongAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
-        v8::Handle<v8::Value> loggerArg[] = { v8Value };
-        contextData->activityLogger()->log("TestObject.activityLoggingSetterForAllWorldsLongAttribute", 1, &loggerArg[0], "Setter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        world.activityLogger()->logSetter("TestObject.activityLoggingSetterForAllWorldsLongAttribute", v8Value);
     }
     TestObjectV8Internal::activityLoggingSetterForAllWorldsLongAttributeAttributeSetter(v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -1776,7 +1774,7 @@ static void cachedAttributeAnyAttributeAttributeSetter(v8::Local<v8::Value> v8Va
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setCachedAttributeAnyAttribute(cppValue);
     V8HiddenValue::deleteHiddenValue(info.GetIsolate(), holder, v8AtomicString(info.GetIsolate(), "cachedAttributeAnyAttribute")); // Invalidate the cached value.
 }
@@ -1807,7 +1805,7 @@ static void callWithExecutionContextAnyAttributeAttributeSetter(v8::Local<v8::Va
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     impl->setCallWithExecutionContextAnyAttribute(scriptContext, cppValue);
 }
@@ -1838,7 +1836,7 @@ static void callWithScriptStateAnyAttributeAttributeSetter(v8::Local<v8::Value> 
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setCallWithScriptStateAnyAttribute(state, cppValue);
 }
 
@@ -1869,7 +1867,7 @@ static void callWithExecutionContextAndScriptStateAnyAttributeAttributeSetter(v8
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     impl->setCallWithExecutionContextAndScriptStateAnyAttribute(state, scriptContext, cppValue);
 }
@@ -2437,9 +2435,9 @@ static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetter(co
 static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -2456,10 +2454,9 @@ static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetter(v8
 static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
-        v8::Handle<v8::Value> loggerArg[] = { v8Value };
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", 1, &loggerArg[0], "Setter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        world.activityLogger()->logSetter("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", v8Value);
     }
     TestObjectV8Internal::activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetter(v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -2475,9 +2472,9 @@ static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetterFor
 static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetterCallbackForMainWorld(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingAccessPerWorldBindingsLongAttributeAttributeGetterForMainWorld(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -2494,10 +2491,9 @@ static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetterFor
 static void activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetterCallbackForMainWorld(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
-        v8::Handle<v8::Value> loggerArg[] = { v8Value };
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", 1, &loggerArg[0], "Setter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        world.activityLogger()->logSetter("TestObject.activityLoggingAccessPerWorldBindingsLongAttribute", v8Value);
     }
     TestObjectV8Internal::activityLoggingAccessPerWorldBindingsLongAttributeAttributeSetterForMainWorld(v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -2513,9 +2509,9 @@ static void activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeA
 static void activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -2532,10 +2528,9 @@ static void activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeA
 static void activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
-        v8::Handle<v8::Value> loggerArg[] = { v8Value };
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttribute", 1, &loggerArg[0], "Setter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        world.activityLogger()->logSetter("TestObject.activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttribute", v8Value);
     }
     TestObjectV8Internal::activityLoggingAccessForIsolatedWorldsPerWorldBindingsLongAttributeAttributeSetter(v8Value, info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -2581,9 +2576,9 @@ static void activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetter(co
 static void activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingGetterPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingGetterPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -2614,9 +2609,9 @@ static void activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetterFor
 static void activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetterCallbackForMainWorld(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingGetterPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingGetterPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingGetterPerWorldBindingsLongAttributeAttributeGetterForMainWorld(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -2647,9 +2642,9 @@ static void activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttributeA
 static void activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger())
-        contextData->activityLogger()->log("TestObject.activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttribute", 0, 0, "Getter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttribute");
     TestObjectV8Internal::activityLoggingGetterForIsolatedWorldsPerWorldBindingsLongAttributeAttributeGetter(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
@@ -3105,7 +3100,7 @@ static void cachedAttributeRaisesExceptionGetterAnyAttributeAttributeSetter(v8::
     v8::Handle<v8::Object> holder = info.Holder();
     ExceptionState exceptionState(ExceptionState::SetterContext, "cachedAttributeRaisesExceptionGetterAnyAttribute", "TestObject", holder, info.GetIsolate());
     TestObject* impl = V8TestObject::toNative(holder);
-    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(v8Value, info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, cppValue, ScriptValue(ScriptState::current(info.GetIsolate()), v8Value));
     impl->setCachedAttributeRaisesExceptionGetterAnyAttribute(cppValue, exceptionState);
     exceptionState.throwIfNeeded();
     V8HiddenValue::deleteHiddenValue(info.GetIsolate(), holder, v8AtomicString(info.GetIsolate(), "cachedAttributeRaisesExceptionGetterAnyAttribute")); // Invalidate the cached value.
@@ -4279,6 +4274,82 @@ static void unforgeableLongAttributeAttributeSetterCallback(v8::Local<v8::String
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
 
+static void activityLoggingSetterOnlyLogPreviousValueAttributeAttributeGetter(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    v8::Handle<v8::Object> holder = info.Holder();
+    TestObject* impl = V8TestObject::toNative(holder);
+    v8SetReturnValueInt(info, impl->activityLoggingSetterOnlyLogPreviousValueAttribute());
+}
+
+static void activityLoggingSetterOnlyLogPreviousValueAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
+    TestObjectV8Internal::activityLoggingSetterOnlyLogPreviousValueAttributeAttributeGetter(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void activityLoggingSetterOnlyLogPreviousValueAttributeAttributeSetter(v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
+{
+    v8::Handle<v8::Object> holder = info.Holder();
+    ExceptionState exceptionState(ExceptionState::SetterContext, "activityLoggingSetterOnlyLogPreviousValueAttribute", "TestObject", holder, info.GetIsolate());
+    TestObject* impl = V8TestObject::toNative(holder);
+    TONATIVE_VOID_EXCEPTIONSTATE(int, cppValue, toInt32(v8Value, exceptionState), exceptionState);
+    impl->setActivityLoggingSetterOnlyLogPreviousValueAttribute(cppValue);
+}
+
+static void activityLoggingSetterOnlyLogPreviousValueAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        TestObject* impl = V8TestObject::toNative(info.Holder());
+        int original = impl->activityLoggingSetterOnlyLogPreviousValueAttribute();
+        v8::Handle<v8::Value> originalValue = v8::Integer::New(info.GetIsolate(), original);
+        world.activityLogger()->logSetter("TestObject.activityLoggingSetterOnlyLogPreviousValueAttribute", v8Value, originalValue);
+    }
+    TestObjectV8Internal::activityLoggingSetterOnlyLogPreviousValueAttributeAttributeSetter(v8Value, info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void activityLoggingLogPreviousValueInterfaceAttributeAttributeGetter(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    v8::Handle<v8::Object> holder = info.Holder();
+    TestObject* impl = V8TestObject::toNative(holder);
+    v8SetReturnValueFast(info, WTF::getPtr(impl->activityLoggingLogPreviousValueInterfaceAttribute()), impl);
+}
+
+static void activityLoggingLogPreviousValueInterfaceAttributeAttributeGetterCallback(v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMGetter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger())
+        world.activityLogger()->logGetter("TestObject.activityLoggingLogPreviousValueInterfaceAttribute");
+    TestObjectV8Internal::activityLoggingLogPreviousValueInterfaceAttributeAttributeGetter(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void activityLoggingLogPreviousValueInterfaceAttributeAttributeSetter(v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
+{
+    v8::Handle<v8::Object> holder = info.Holder();
+    TestObject* impl = V8TestObject::toNative(holder);
+    TONATIVE_VOID(TestInterfaceEmpty*, cppValue, V8TestInterfaceEmpty::toNativeWithTypeCheck(info.GetIsolate(), v8Value));
+    impl->setActivityLoggingLogPreviousValueInterfaceAttribute(WTF::getPtr(cppValue));
+}
+
+static void activityLoggingLogPreviousValueInterfaceAttributeAttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMSetter");
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
+        TestObject* impl = V8TestObject::toNative(info.Holder());
+        RefPtr<TestInterfaceEmpty> original = impl->activityLoggingLogPreviousValueInterfaceAttribute();
+        v8::Handle<v8::Value> originalValue = toV8(original, info.Holder(), info.GetIsolate());
+        world.activityLogger()->logSetter("TestObject.activityLoggingLogPreviousValueInterfaceAttribute", v8Value, originalValue);
+    }
+    TestObjectV8Internal::activityLoggingLogPreviousValueInterfaceAttributeAttributeSetter(v8Value, info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
 static void testInterfaceAttributeAttributeGetter(const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     v8::Handle<v8::Object> holder = info.Holder();
@@ -5025,7 +5096,7 @@ static void voidMethodVoidCallbackFunctionArgMethod(const v8::FunctionCallbackIn
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID(ScriptValue, voidCallbackFunctionArg, ScriptValue(info[0], info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, voidCallbackFunctionArg, ScriptValue(ScriptState::current(info.GetIsolate()), info[0]));
     impl->voidMethodVoidCallbackFunctionArg(voidCallbackFunctionArg);
 }
 
@@ -5043,7 +5114,7 @@ static void voidMethodAnyCallbackFunctionOptionalAnyArgMethod(const v8::Function
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID(ScriptValue, anyCallbackFunctionOptionalAnyArgArg, ScriptValue(info[0], info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, anyCallbackFunctionOptionalAnyArgArg, ScriptValue(ScriptState::current(info.GetIsolate()), info[0]));
     impl->voidMethodAnyCallbackFunctionOptionalAnyArg(anyCallbackFunctionOptionalAnyArgArg);
 }
 
@@ -5123,7 +5194,7 @@ static void voidMethodMediaQueryListListenerArgMethod(const v8::FunctionCallback
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID(RefPtrWillBeRawPtr<MediaQueryListListener>, mediaQueryListListenerArg, MediaQueryListListener::create(ScriptValue(info[0], info.GetIsolate())));
+    TONATIVE_VOID(RefPtrWillBeRawPtr<MediaQueryListListener>, mediaQueryListListenerArg, MediaQueryListListener::create(ScriptValue(ScriptState::current(info.GetIsolate()), info[0])));
     impl->voidMethodMediaQueryListListenerArg(mediaQueryListListenerArg);
 }
 
@@ -5141,7 +5212,7 @@ static void voidMethodAnyArgMethod(const v8::FunctionCallbackInfo<v8::Value>& in
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID(ScriptValue, anyArg, ScriptValue(info[0], info.GetIsolate()));
+    TONATIVE_VOID(ScriptValue, anyArg, ScriptValue(ScriptState::current(info.GetIsolate()), info[0]));
     impl->voidMethodAnyArg(anyArg);
 }
 
@@ -5853,7 +5924,7 @@ static void voidMethodPromiseArgMethod(const v8::FunctionCallbackInfo<v8::Value>
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID(ScriptPromise, promiseArg, ScriptPromise(info[0], info.GetIsolate()));
+    TONATIVE_VOID(ScriptPromise, promiseArg, ScriptPromise(ScriptState::current(info.GetIsolate()), info[0]));
     if (!promiseArg.isUndefinedOrNull() && !promiseArg.isObject()) {
         throwTypeError(ExceptionMessages::failedToExecute("voidMethodPromiseArg", "TestObject", "parameter 1 ('promiseArg') is not an object."), info.GetIsolate());
         return;
@@ -6369,13 +6440,13 @@ static void overloadedMethodB2Method(const v8::FunctionCallbackInfo<v8::Value>& 
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID_EXCEPTIONSTATE(int, longArg1, toInt32(info[0], exceptionState), exceptionState);
+    TONATIVE_VOID(bool, booleanArg, info[0]->BooleanValue());
     if (UNLIKELY(info.Length() <= 1)) {
-        impl->overloadedMethodB(longArg1);
+        impl->overloadedMethodB(booleanArg);
         return;
     }
-    TONATIVE_VOID_EXCEPTIONSTATE(int, longArg2, toInt32(info[1], exceptionState), exceptionState);
-    impl->overloadedMethodB(longArg1, longArg2);
+    TONATIVE_VOID_EXCEPTIONSTATE(int, longArg, toInt32(info[1], exceptionState), exceptionState);
+    impl->overloadedMethodB(booleanArg, longArg);
 }
 
 static void overloadedMethodBMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
@@ -6424,9 +6495,9 @@ static void overloadedMethodC2Method(const v8::FunctionCallbackInfo<v8::Value>& 
         return;
     }
     TestObject* impl = V8TestObject::toNative(info.Holder());
-    TONATIVE_VOID_EXCEPTIONSTATE(int, longArg, toInt32(info[0], exceptionState), exceptionState);
+    TONATIVE_VOID(bool, booleanArg, info[0]->BooleanValue());
     TONATIVE_VOID(Vector<int>, longArgs, toNativeArguments<int>(info, 1));
-    impl->overloadedMethodC(longArg, longArgs);
+    impl->overloadedMethodC(booleanArg, longArgs);
 }
 
 static void overloadedMethodCMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
@@ -7071,10 +7142,10 @@ static void activityLoggingAccessForAllWorldsMethodMethod(const v8::FunctionCall
 static void activityLoggingAccessForAllWorldsMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
         Vector<v8::Handle<v8::Value> > loggerArgs = toNativeArguments<v8::Handle<v8::Value> >(info, 0);
-        contextData->activityLogger()->log("TestObject.activityLoggingAccessForAllWorldsMethod", info.Length(), loggerArgs.data(), "Method");
+        world.activityLogger()->logMethod("TestObject.activityLoggingAccessForAllWorldsMethod", info.Length(), loggerArgs.data());
     }
     TestObjectV8Internal::activityLoggingAccessForAllWorldsMethodMethod(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -7353,6 +7424,286 @@ static void measureAsVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8:
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
 }
 
+static void DeprecateAsOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->DeprecateAsOverloadedMethod();
+}
+
+static void DeprecateAsOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "DeprecateAsOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->DeprecateAsOverloadedMethod(arg);
+}
+
+static void DeprecateAsOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    if (((info.Length() == 0))) {
+        UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureA);
+        DeprecateAsOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureB);
+        DeprecateAsOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("DeprecateAsOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void DeprecateAsOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::DeprecateAsOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void DeprecateAsSameValueOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->DeprecateAsSameValueOverloadedMethod();
+}
+
+static void DeprecateAsSameValueOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "DeprecateAsSameValueOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->DeprecateAsSameValueOverloadedMethod(arg);
+}
+
+static void DeprecateAsSameValueOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeature);
+    if (((info.Length() == 0))) {
+        DeprecateAsSameValueOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        DeprecateAsSameValueOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("DeprecateAsSameValueOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void DeprecateAsSameValueOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::DeprecateAsSameValueOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void measureAsOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->measureAsOverloadedMethod();
+}
+
+static void measureAsOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "measureAsOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->measureAsOverloadedMethod(arg);
+}
+
+static void measureAsOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    if (((info.Length() == 0))) {
+        UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureA);
+        measureAsOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureB);
+        measureAsOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("measureAsOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void measureAsOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::measureAsOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void measureAsSameValueOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->measureAsSameValueOverloadedMethod();
+}
+
+static void measureAsSameValueOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "measureAsSameValueOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->measureAsSameValueOverloadedMethod(arg);
+}
+
+static void measureAsSameValueOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeature);
+    if (((info.Length() == 0))) {
+        measureAsSameValueOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        measureAsSameValueOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("measureAsSameValueOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void measureAsSameValueOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::measureAsSameValueOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void deprecateAsMeasureAsSameValueOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->deprecateAsMeasureAsSameValueOverloadedMethod();
+}
+
+static void deprecateAsMeasureAsSameValueOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "deprecateAsMeasureAsSameValueOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->deprecateAsMeasureAsSameValueOverloadedMethod(arg);
+}
+
+static void deprecateAsMeasureAsSameValueOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeature);
+    if (((info.Length() == 0))) {
+        UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureA);
+        deprecateAsMeasureAsSameValueOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureB);
+        deprecateAsMeasureAsSameValueOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("deprecateAsMeasureAsSameValueOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void deprecateAsMeasureAsSameValueOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::deprecateAsMeasureAsSameValueOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void deprecateAsSameValueMeasureAsOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->deprecateAsSameValueMeasureAsOverloadedMethod();
+}
+
+static void deprecateAsSameValueMeasureAsOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "deprecateAsSameValueMeasureAsOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->deprecateAsSameValueMeasureAsOverloadedMethod(arg);
+}
+
+static void deprecateAsSameValueMeasureAsOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeature);
+    if (((info.Length() == 0))) {
+        UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureA);
+        deprecateAsSameValueMeasureAsOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureB);
+        deprecateAsSameValueMeasureAsOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("deprecateAsSameValueMeasureAsOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void deprecateAsSameValueMeasureAsOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::deprecateAsSameValueMeasureAsOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
+static void deprecateAsSameValueMeasureAsSameValueOverloadedMethod1Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    impl->deprecateAsSameValueMeasureAsSameValueOverloadedMethod();
+}
+
+static void deprecateAsSameValueMeasureAsSameValueOverloadedMethod2Method(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    ExceptionState exceptionState(ExceptionState::ExecutionContext, "deprecateAsSameValueMeasureAsSameValueOverloadedMethod", "TestObject", info.Holder(), info.GetIsolate());
+    if (UNLIKELY(info.Length() < 1)) {
+        throwArityTypeError(exceptionState, 1, info.Length());
+        return;
+    }
+    TestObject* impl = V8TestObject::toNative(info.Holder());
+    TONATIVE_VOID_EXCEPTIONSTATE(int, arg, toInt32(info[0], exceptionState), exceptionState);
+    impl->deprecateAsSameValueMeasureAsSameValueOverloadedMethod(arg);
+}
+
+static void deprecateAsSameValueMeasureAsSameValueOverloadedMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureB);
+    UseCounter::countDeprecation(callingExecutionContext(info.GetIsolate()), UseCounter::TestFeatureA);
+    if (((info.Length() == 0))) {
+        deprecateAsSameValueMeasureAsSameValueOverloadedMethod1Method(info);
+        return;
+    }
+    if (((info.Length() == 1))) {
+        deprecateAsSameValueMeasureAsSameValueOverloadedMethod2Method(info);
+        return;
+    }
+    throwTypeError(ExceptionMessages::failedToExecute("deprecateAsSameValueMeasureAsSameValueOverloadedMethod", "TestObject", "No function was found that matched the signature provided."), info.GetIsolate());
+}
+
+static void deprecateAsSameValueMeasureAsSameValueOverloadedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
+    TestObjectV8Internal::deprecateAsSameValueMeasureAsSameValueOverloadedMethodMethod(info);
+    TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
+}
+
 static void notEnumerableVoidMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     TestObject* impl = V8TestObject::toNative(info.Holder());
@@ -7450,10 +7801,10 @@ static void activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethod(const v8
 static void activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
         Vector<v8::Handle<v8::Value> > loggerArgs = toNativeArguments<v8::Handle<v8::Value> >(info, 0);
-        contextData->activityLogger()->log("TestObject.activityLoggingForAllWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data(), "Method");
+        world.activityLogger()->logMethod("TestObject.activityLoggingForAllWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data());
     }
     TestObjectV8Internal::activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethod(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -7468,10 +7819,10 @@ static void activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodForMainWo
 static void activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodCallbackForMainWorld(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
         Vector<v8::Handle<v8::Value> > loggerArgs = toNativeArguments<v8::Handle<v8::Value> >(info, 0);
-        contextData->activityLogger()->log("TestObject.activityLoggingForAllWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data(), "Method");
+        world.activityLogger()->logMethod("TestObject.activityLoggingForAllWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data());
     }
     TestObjectV8Internal::activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodForMainWorld(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -7486,10 +7837,10 @@ static void activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethodMethod(con
 static void activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     TRACE_EVENT_SET_SAMPLING_STATE("Blink", "DOMMethod");
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
-    if (contextData && contextData->activityLogger()) {
+    DOMWrapperWorld& world = DOMWrapperWorld::current(info.GetIsolate());
+    if (world.activityLogger()) {
         Vector<v8::Handle<v8::Value> > loggerArgs = toNativeArguments<v8::Handle<v8::Value> >(info, 0);
-        contextData->activityLogger()->log("TestObject.activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data(), "Method");
+        world.activityLogger()->logMethod("TestObject.activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethod", info.Length(), loggerArgs.data());
     }
     TestObjectV8Internal::activityLoggingForIsolatedWorldsPerWorldBindingsVoidMethodMethod(info);
     TRACE_EVENT_SET_SAMPLING_STATE("V8", "V8Execution");
@@ -8062,6 +8413,8 @@ static const V8DOMConfiguration::AttributeConfiguration V8TestObjectAttributes[]
     {"urlStringAttribute", TestObjectV8Internal::urlStringAttributeAttributeGetterCallback, TestObjectV8Internal::urlStringAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     {"urlStringAttribute", TestObjectV8Internal::urlStringAttributeAttributeGetterCallback, TestObjectV8Internal::urlStringAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     {"unforgeableLongAttribute", TestObjectV8Internal::unforgeableLongAttributeAttributeGetterCallback, TestObjectV8Internal::unforgeableLongAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::PROHIBITS_OVERWRITING), static_cast<v8::PropertyAttribute>(v8::DontDelete), 0 /* on instance */},
+    {"activityLoggingSetterOnlyLogPreviousValueAttribute", TestObjectV8Internal::activityLoggingSetterOnlyLogPreviousValueAttributeAttributeGetterCallback, TestObjectV8Internal::activityLoggingSetterOnlyLogPreviousValueAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    {"activityLoggingLogPreviousValueInterfaceAttribute", TestObjectV8Internal::activityLoggingLogPreviousValueInterfaceAttributeAttributeGetterCallback, TestObjectV8Internal::activityLoggingLogPreviousValueInterfaceAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     {"testInterfaceAttribute", TestObjectV8Internal::testInterfaceAttributeAttributeGetterCallback, TestObjectV8Internal::testInterfaceAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     {"testInterfaceGarbageCollectedAttribute", TestObjectV8Internal::testInterfaceGarbageCollectedAttributeAttributeGetterCallback, TestObjectV8Internal::testInterfaceGarbageCollectedAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     {"testInterfaceGarbageCollectedOrNullAttribute", TestObjectV8Internal::testInterfaceGarbageCollectedOrNullAttributeAttributeGetterCallback, TestObjectV8Internal::testInterfaceGarbageCollectedOrNullAttributeAttributeSetterCallback, 0, 0, 0, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
@@ -8224,6 +8577,13 @@ static const V8DOMConfiguration::MethodConfiguration V8TestObjectMethods[] = {
     {"deprecatedVoidMethod", TestObjectV8Internal::deprecatedVoidMethodMethodCallback, 0, 0},
     {"implementedAsVoidMethod", TestObjectV8Internal::implementedAsVoidMethodMethodCallback, 0, 0},
     {"measureAsVoidMethod", TestObjectV8Internal::measureAsVoidMethodMethodCallback, 0, 0},
+    {"DeprecateAsOverloadedMethod", TestObjectV8Internal::DeprecateAsOverloadedMethodMethodCallback, 0, 0},
+    {"DeprecateAsSameValueOverloadedMethod", TestObjectV8Internal::DeprecateAsSameValueOverloadedMethodMethodCallback, 0, 0},
+    {"measureAsOverloadedMethod", TestObjectV8Internal::measureAsOverloadedMethodMethodCallback, 0, 0},
+    {"measureAsSameValueOverloadedMethod", TestObjectV8Internal::measureAsSameValueOverloadedMethodMethodCallback, 0, 0},
+    {"deprecateAsMeasureAsSameValueOverloadedMethod", TestObjectV8Internal::deprecateAsMeasureAsSameValueOverloadedMethodMethodCallback, 0, 0},
+    {"deprecateAsSameValueMeasureAsOverloadedMethod", TestObjectV8Internal::deprecateAsSameValueMeasureAsOverloadedMethodMethodCallback, 0, 0},
+    {"deprecateAsSameValueMeasureAsSameValueOverloadedMethod", TestObjectV8Internal::deprecateAsSameValueMeasureAsSameValueOverloadedMethodMethodCallback, 0, 0},
     {"perWorldBindingsVoidMethod", TestObjectV8Internal::perWorldBindingsVoidMethodMethodCallback, TestObjectV8Internal::perWorldBindingsVoidMethodMethodCallbackForMainWorld, 0},
     {"perWorldBindingsVoidMethodTestInterfaceEmptyArg", TestObjectV8Internal::perWorldBindingsVoidMethodTestInterfaceEmptyArgMethodCallback, TestObjectV8Internal::perWorldBindingsVoidMethodTestInterfaceEmptyArgMethodCallbackForMainWorld, 1},
     {"activityLoggingForAllWorldsPerWorldBindingsVoidMethod", TestObjectV8Internal::activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodCallback, TestObjectV8Internal::activityLoggingForAllWorldsPerWorldBindingsVoidMethodMethodCallbackForMainWorld, 0},

@@ -42,7 +42,6 @@
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptController.h"
 #include "core/accessibility/AXObjectCache.h"
-#include "core/animation/AnimationClock.h"
 #include "core/animation/DocumentAnimations.h"
 #include "core/animation/DocumentTimeline.h"
 #include "core/animation/css/TransitionTimeline.h"
@@ -71,7 +70,6 @@
 #include "core/dom/Element.h"
 #include "core/dom/ElementDataCache.h"
 #include "core/dom/ElementTraversal.h"
-#include "core/dom/EventHandlerRegistry.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/ExecutionContextTask.h"
 #include "core/dom/MainThreadTaskRunner.h"
@@ -477,10 +475,9 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
 #ifndef NDEBUG
     , m_didDispatchViewportPropertiesChanged(false)
 #endif
-    , m_animationClock(AnimationClock::create())
     , m_timeline(DocumentTimeline::create(this))
     , m_transitionTimeline(TransitionTimeline::create(this))
-    , m_templateDocumentHost(0)
+    , m_templateDocumentHost(nullptr)
     , m_didAssociateFormControlsTimer(this, &Document::didAssociateFormControlsTimerFired)
     , m_hasViewportUnits(false)
     , m_styleRecalcElementCounter(0)
@@ -535,14 +532,20 @@ Document::~Document()
     // When they die in the same GC round, the list of visibility observers
     // will not be empty on Document destruction.
     ASSERT(m_visibilityObservers.isEmpty());
-#endif
 
     if (m_templateDocument)
-        m_templateDocument->m_templateDocumentHost = 0; // balanced in ensureTemplateDocument().
+        m_templateDocument->m_templateDocumentHost = nullptr; // balanced in ensureTemplateDocument().
+#endif
 
     m_scriptRunner.clear();
 
+    // FIXME: Oilpan: Not removing event listeners here also means that we do
+    // not notify the inspector instrumentation that the event listeners are
+    // gone. The Document and all the nodes in the document are gone, so maybe
+    // that is OK?
+#if !ENABLE(OILPAN)
     removeAllEventListenersRecursively();
+#endif
 
     // Currently we believe that Document can never outlive the parser.
     // Although the Document may be replaced synchronously, DocumentParsers
@@ -569,25 +572,27 @@ Document::~Document()
     m_timeline->detachFromDocument();
     m_transitionTimeline->detachFromDocument();
 
+#if !ENABLE(OILPAN)
     // We need to destroy CSSFontSelector before destroying m_fetcher.
     if (m_styleEngine)
         m_styleEngine->detachFromDocument();
 
-#if !ENABLE(OILPAN)
     if (m_elemSheet)
         m_elemSheet->clearOwnerNode();
-#endif
 
     // It's possible for multiple Documents to end up referencing the same ResourceFetcher (e.g., SVGImages
     // load the initial empty document and the SVGDocument with the same DocumentLoader).
     if (m_fetcher->document() == this)
-        m_fetcher->setDocument(0);
+        m_fetcher->setDocument(nullptr);
     m_fetcher.clear();
+#endif
 
     // We must call clearRareData() here since a Document class inherits TreeScope
     // as well as Node. See a comment on TreeScope.h for the reason.
+#if !ENABLE(OILPAN)
     if (hasRareData())
         clearRareData();
+#endif
 
     ASSERT(!m_listsInvalidatedAtDocument.size());
 
@@ -601,7 +606,9 @@ Document::~Document()
 
 void Document::dispose()
 {
+#if !ENABLE(OILPAN)
     ASSERT_WITH_SECURITY_IMPLICATION(!m_deletionHasBegun);
+
     // We must make sure not to be retaining any of our children through
     // these extra pointers or we will create a reference cycle.
     m_docType = nullptr;
@@ -615,6 +622,7 @@ void Document::dispose()
     m_associatedFormControls.clear();
 
     detachParser();
+#endif
 
     m_registrationContext.clear();
 
@@ -623,16 +631,20 @@ void Document::dispose()
         m_importsController = 0;
     }
 
+#if !ENABLE(OILPAN)
     // removeDetachedChildren() doesn't always unregister IDs,
     // so tear down scope information upfront to avoid having stale references in the map.
     destroyTreeScopeData();
+
     removeDetachedChildren();
+
     // removeDetachedChildren() can access FormController.
     m_formController.clear();
 
     m_markers->clear();
 
     m_cssCanvasElements.clear();
+#endif
 
     // FIXME: consider using ActiveDOMObject.
     if (m_scriptedAnimationController)
@@ -1363,7 +1375,7 @@ void Document::setTitle(const String& title)
     else if (!m_titleElement) {
         if (HTMLElement* headElement = head()) {
             m_titleElement = HTMLTitleElement::create(*this);
-            headElement->appendChild(m_titleElement);
+            headElement->appendChild(m_titleElement.get());
         }
     }
 
@@ -1638,6 +1650,7 @@ void Document::scheduleRenderTreeUpdate()
     m_lifecycle.ensureStateAtMost(DocumentLifecycle::VisualUpdatePending);
 
     TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "ScheduleStyleRecalculation", "frame", frame());
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentation::didScheduleStyleRecalculation(this);
 }
@@ -1811,6 +1824,7 @@ void Document::updateRenderTree(StyleRecalcChange change)
 
     m_styleRecalcElementCounter = 0;
     TRACE_EVENT_BEGIN1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "RecalculateStyles", "frame", frame());
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline.stack"), "CallStack", "stack", InspectorCallStackEvent::currentCallStack());
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRecalculateStyle(this);
 
@@ -1848,6 +1862,10 @@ void Document::updateRenderTree(StyleRecalcChange change)
     if (svgExtensions())
         accessSVGExtensions().removePendingSVGFontFaceElementsForRemoval();
 #endif
+
+    ASSERT(!m_timeline->hasOutdatedAnimationPlayer());
+    ASSERT(!m_transitionTimeline->hasOutdatedAnimationPlayer());
+
     TRACE_EVENT_END1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "RecalculateStyles", "elementCount", m_styleRecalcElementCounter);
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
     InspectorInstrumentation::didRecalculateStyle(cookie, m_styleRecalcElementCounter);
@@ -2227,6 +2245,15 @@ void Document::detach(const AttachContext& context)
 
     lifecycleNotifier().notifyDocumentWasDetached();
     m_lifecycle.advanceTo(DocumentLifecycle::Stopped);
+#if ENABLE(OILPAN)
+    // FIXME: Oilpan: With Oilpan dispose should not be needed. At
+    // this point we still have dispose in order to clear out some
+    // RefPtrs that would otherwise cause leaks. However, when the
+    // Document is detached the document can still be alive, so we
+    // really shouldn't clear anything at this point. It should just
+    // die with the document when the document is no longer reachable.
+    dispose();
+#endif
 }
 
 void Document::prepareForDestruction()
@@ -2969,7 +2996,8 @@ void Document::didLoadAllImports()
 {
     if (!haveStylesheetsLoaded())
         return;
-
+    if (!importLoader())
+        styleResolverMayHaveChanged();
     didLoadAllScriptBlockingResources();
 }
 
@@ -2977,14 +3005,13 @@ void Document::didRemoveAllPendingStylesheet()
 {
     m_needsNotifyRemoveAllPendingStylesheet = false;
 
-    styleResolverChanged(RecalcStyleDeferred, hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
+    styleResolverMayHaveChanged();
 
+    // Only imports on master documents can trigger rendering.
     if (HTMLImportLoader* import = importLoader())
         import->didRemoveAllPendingStylesheet();
-
     if (!haveImportsLoaded())
         return;
-
     didLoadAllScriptBlockingResources();
 }
 
@@ -3437,6 +3464,11 @@ void Document::styleResolverChanged(RecalcStyleTime updateTime, StyleResolverUpd
         updateRenderTreeIfNeeded();
 }
 
+void Document::styleResolverMayHaveChanged()
+{
+    styleResolverChanged(RecalcStyleDeferred, hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
+}
+
 void Document::setHoverNode(PassRefPtr<Node> newHoverNode)
 {
     m_hoverNode = newHoverNode;
@@ -3530,7 +3562,7 @@ bool Document::setFocusedElement(PassRefPtr<Element> prpNewFocusedElement, Focus
         return true;
 
     bool focusChangeBlocked = false;
-    RefPtr<Element> oldFocusedElement = m_focusedElement;
+    RefPtrWillBeRawPtr<Element> oldFocusedElement = m_focusedElement;
     m_focusedElement = nullptr;
 
     // Remove focus from the existing focus node (if any)
@@ -3860,18 +3892,6 @@ PassRefPtrWillBeRawPtr<Event> Document::createEvent(const String& eventType, Exc
 
     exceptionState.throwDOMException(NotSupportedError, "The provided event type ('" + eventType + "') is invalid.");
     return nullptr;
-}
-
-PassRefPtrWillBeRawPtr<Event> Document::createEvent(ExceptionState& exceptionState)
-{
-    if (!isSVGDocument()) {
-        exceptionState.throwTypeError(ExceptionMessages::notEnoughArguments(1, 0));
-        return nullptr;
-    }
-
-    UseCounter::count(this, UseCounter::DocumentCreateEventOptionalArgument);
-    // Legacy SVGDocument behavior.
-    return createEvent("undefined", exceptionState);
 }
 
 void Document::addMutationEventListenerTypeIfEnabled(ListenerType listenerType)
@@ -4584,7 +4604,7 @@ void Document::finishedParsing()
         // adding extra latency. Note that the first render tree update can be expensive since it
         // triggers the parsing of the default stylesheets which are compiled-in.
         const bool mainResourceWasAlreadyRequested =
-            m_frame->loader().stateMachine()->startedFirstRealLoad();
+            m_frame->loader().stateMachine()->committedFirstRealDocumentLoad();
 
         // FrameLoader::finishedParsing() might end up calling Document::implicitClose() if all
         // resource loads are complete. HTMLObjectElements can start loading their resources from
@@ -4883,7 +4903,7 @@ void Document::getCSSCanvasContext(const String& type, const String& name, int w
 
 HTMLCanvasElement& Document::getCSSCanvasElement(const String& name)
 {
-    RefPtr<HTMLCanvasElement>& element = m_cssCanvasElements.add(name, nullptr).storedValue->value;
+    RefPtrWillBeMember<HTMLCanvasElement>& element = m_cssCanvasElements.add(name, nullptr).storedValue->value;
     if (!element) {
         element = HTMLCanvasElement::create(*this);
         element->setAccelerationDisabled(true);
@@ -5309,7 +5329,7 @@ void Document::decrementActiveParserCount()
 
 void Document::setContextFeatures(ContextFeatures& features)
 {
-    m_contextFeatures = PassRefPtr<ContextFeatures>(features);
+    m_contextFeatures = PassRefPtrWillBeRawPtr<ContextFeatures>(features);
 }
 
 static RenderObject* nearestCommonHoverAncestor(RenderObject* obj1, RenderObject* obj2)
@@ -5668,9 +5688,30 @@ void Document::clearWeakMembers(Visitor* visitor)
 
 void Document::trace(Visitor* visitor)
 {
+    visitor->trace(m_docType);
+    visitor->trace(m_implementation);
+    visitor->trace(m_autofocusElement);
+    visitor->trace(m_focusedElement);
+    visitor->trace(m_hoverNode);
+    visitor->trace(m_activeHoverElement);
+    visitor->trace(m_documentElement);
+    visitor->trace(m_titleElement);
+    visitor->trace(m_currentScriptStack);
+    visitor->trace(m_transformSourceDocument);
+    visitor->trace(m_cssCanvasElements);
+    visitor->trace(m_topLayerElements);
+    visitor->trace(m_elemSheet);
+    visitor->trace(m_styleEngine);
+    visitor->trace(m_formController);
+    visitor->trace(m_fetcher);
+    visitor->trace(m_contextFeatures);
     visitor->trace(m_styleSheetList);
     visitor->trace(m_mediaQueryMatcher);
+    visitor->trace(m_associatedFormControls);
+    visitor->trace(m_templateDocument);
+    visitor->trace(m_templateDocumentHost);
     visitor->trace(m_visibilityObservers);
+    visitor->trace(m_userActionElements);
     visitor->registerWeakMembers<Document, &Document::clearWeakMembers>(this);
     DocumentSupplementable::trace(visitor);
     TreeScope::trace(visitor);

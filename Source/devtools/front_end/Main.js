@@ -52,9 +52,9 @@ WebInspector.Main.prototype = {
     {
         var configuration;
         if (!Capabilities.isMainFrontend) {
-            configuration = ["main", "sources", "timeline", "profiles", "console", "source_frame", "search"];
+            configuration = ["main", "sources", "timeline", "profiler", "console", "source_frame", "search"];
         } else {
-            configuration = ["main", "elements", "network", "sources", "timeline", "profiles", "resources", "audits", "console", "source_frame", "extensions", "settings", "search"];
+            configuration = ["main", "elements", "network", "sources", "timeline", "profiler", "resources", "audits", "console", "source_frame", "extensions", "settings", "search"];
             if (WebInspector.experimentsSettings.layersPanel.isEnabled())
                 configuration.push("layers");
             if (WebInspector.experimentsSettings.devicesPanel.isEnabled())
@@ -212,7 +212,6 @@ WebInspector.Main.prototype = {
             return;
         }
 
-        InspectorFrontendAPI.dispatchQueryParameters(WebInspector.queryParam("dispatch"));
         new InspectorBackendClass.StubConnection(onConnectionReady);
     },
 
@@ -336,8 +335,8 @@ WebInspector.Main.prototype = {
         WebInspector.shortcutRegistry = new WebInspector.ShortcutRegistry(WebInspector.actionRegistry);
         this._registerForwardedShortcuts();
 
-        WebInspector.panels = {};
         WebInspector.inspectorView = new WebInspector.InspectorView();
+
         // Screencast controller creates a root view itself.
         if (mainTarget.canScreencast)
             this._screencastController = new WebInspector.ScreencastController();

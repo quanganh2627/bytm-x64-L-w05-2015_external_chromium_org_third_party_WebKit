@@ -33,6 +33,7 @@
 
 #include "core/dom/Document.h"
 #include "core/dom/custom/CustomElement.h"
+#include "core/dom/custom/CustomElementMicrotaskDispatcher.h"
 #include "core/dom/custom/CustomElementMicrotaskImportStep.h"
 #include "core/html/imports/HTMLImportChildClient.h"
 #include "core/html/imports/HTMLImportLoader.h"
@@ -48,7 +49,7 @@ HTMLImportChild::HTMLImportChild(Document& master, const KURL& url, SyncMode syn
     , m_master(master)
 #endif
     , m_url(url)
-    , m_customElementMicrotaskStep(0)
+    , m_weakFactory(this)
     , m_loader(0)
     , m_client(0)
 {
@@ -61,12 +62,6 @@ HTMLImportChild::~HTMLImportChild()
 {
     // importDestroyed() should be called before the destruction.
     ASSERT(!m_loader);
-
-    if (m_customElementMicrotaskStep) {
-        // if Custom Elements were blocked, must unblock them before death
-        m_customElementMicrotaskStep->importDidFinish();
-        m_customElementMicrotaskStep = 0;
-    }
 
     if (m_client)
         m_client->importChildWasDestroyed(this);
@@ -98,17 +93,25 @@ void HTMLImportChild::didFinish()
 {
     if (m_client)
         m_client->didFinish();
-
-    if (m_customElementMicrotaskStep) {
-        m_customElementMicrotaskStep->importDidFinish();
-        m_customElementMicrotaskStep = 0;
-    }
 }
 
 void HTMLImportChild::didFinishLoading()
 {
     clearResource();
     stateWillChange();
+    if (m_customElementMicrotaskStep)
+        CustomElementMicrotaskDispatcher::instance().importDidFinish(m_customElementMicrotaskStep.get());
+}
+
+void HTMLImportChild::didFinishUpgradingCustomElements()
+{
+    stateWillChange();
+    m_customElementMicrotaskStep.clear();
+}
+
+bool HTMLImportChild::isLoaded() const
+{
+    return m_loader && m_loader->isDone();
 }
 
 Document* HTMLImportChild::importedDocument() const
@@ -157,9 +160,9 @@ void HTMLImportChild::ensureLoader()
     else
         createLoader();
 
-    if (isSync() && !isDone()) {
+    if (!isDone() && !formsCycle()) {
         ASSERT(!m_customElementMicrotaskStep);
-        m_customElementMicrotaskStep = CustomElement::didCreateImport(this);
+        m_customElementMicrotaskStep = CustomElement::didCreateImport(this)->weakPtr();
     }
 }
 
@@ -181,7 +184,7 @@ void HTMLImportChild::shareLoader(HTMLImportChild* loader)
 
 bool HTMLImportChild::isDone() const
 {
-    return m_loader && m_loader->isDone();
+    return m_loader && m_loader->isDone() && !m_customElementMicrotaskStep;
 }
 
 bool HTMLImportChild::loaderHasError() const
@@ -215,8 +218,9 @@ HTMLLinkElement* HTMLImportChild::link() const
 void HTMLImportChild::showThis()
 {
     HTMLImport::showThis();
-    fprintf(stderr, " loader=%p sync=%s url=%s",
+    fprintf(stderr, " loader=%p step=%p sync=%s url=%s",
         m_loader,
+        m_customElementMicrotaskStep.get(),
         isSync() ? "Y" : "N",
         url().string().utf8().data());
 }

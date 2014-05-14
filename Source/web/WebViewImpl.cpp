@@ -137,7 +137,6 @@
 #include "web/MIDIClientProxy.h"
 #include "web/PopupContainer.h"
 #include "web/PrerendererClientImpl.h"
-#include "web/SpeechInputClientImpl.h"
 #include "web/SpeechRecognitionClientProxy.h"
 #include "web/StorageQuotaClientImpl.h"
 #include "web/ValidationMessageClientImpl.h"
@@ -421,9 +420,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     m_page = adoptPtrWillBeNoop(new Page(pageClients));
     MediaKeysController::provideMediaKeysTo(*m_page, &m_mediaKeysClientImpl);
     provideMIDITo(*m_page, MIDIClientProxy::create(client ? client->webMIDIClient() : 0));
-#if ENABLE(INPUT_SPEECH)
-    provideSpeechInputTo(*m_page, SpeechInputClientImpl::create(client));
-#endif
     provideSpeechRecognitionTo(*m_page, SpeechRecognitionClientProxy::create(client ? client->speechRecognizer() : 0));
     provideNavigatorContentUtilsTo(*m_page, NavigatorContentUtilsClientImpl::create(this));
 
@@ -1615,18 +1611,22 @@ void WebViewImpl::resize(const WebSize& newSize)
         // Avoids unnecessary invalidations while various bits of state in FastTextAutosizer are updated.
         FastTextAutosizer::DeferUpdatePageInfo deferUpdatePageInfo(page());
 
+        m_pageScaleConstraintsSet.didChangeViewSize(m_size);
+
         updatePageDefinedViewportConstraints(mainFrameImpl()->frame()->document()->viewportDescription());
         updateMainFrameLayoutSize();
 
         WebDevToolsAgentPrivate* agentPrivate = devToolsAgentPrivate();
         if (agentPrivate)
             agentPrivate->webViewResized(newSize);
-        WebLocalFrameImpl* webFrame = mainFrameImpl();
-        if (webFrame->frameView()) {
-            webFrame->frameView()->resize(m_size);
-            if (pinchVirtualViewportEnabled())
-                page()->frameHost().pinchViewport().mainFrameDidChangeSize();
-        }
+
+        // If the virtual viewport pinch mode is enabled, the main frame will be resized
+        // after layout so it can be sized to the contentsSize.
+        if (!pinchVirtualViewportEnabled() && mainFrameImpl()->frameView())
+            mainFrameImpl()->frameView()->resize(m_size);
+
+        if (pinchVirtualViewportEnabled())
+            page()->frameHost().pinchViewport().setSize(m_size);
     }
 
     if (settings()->viewportEnabled() && !m_fixedLayoutSizeLock) {
@@ -1806,12 +1806,28 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect, PaintOptions opt
     }
 }
 
-bool WebViewImpl::compositeAndReadbackAsync(WebCompositeAndReadbackAsyncCallback* callback)
+#if OS(ANDROID)
+void WebViewImpl::paintCompositedDeprecated(WebCanvas* canvas, const WebRect& rect)
 {
-    if (!isAcceleratedCompositingActive())
-        return false;
+    // Note: This method exists on OS(ANDROID) and will hopefully be
+    //       removed once the link disambiguation feature renders using
+    //       the compositor.
+    ASSERT(isAcceleratedCompositingActive());
+
+    FrameView* view = page()->mainFrame()->view();
+    PaintBehavior oldPaintBehavior = view->paintBehavior();
+    view->setPaintBehavior(oldPaintBehavior | PaintBehaviorFlattenCompositingLayers);
+
+    PageWidgetDelegate::paint(m_page.get(), pageOverlays(), canvas, rect, isTransparent() ? PageWidgetDelegate::Translucent : PageWidgetDelegate::Opaque);
+
+    view->setPaintBehavior(oldPaintBehavior);
+}
+#endif
+
+void WebViewImpl::compositeAndReadbackAsync(WebCompositeAndReadbackAsyncCallback* callback)
+{
+    ASSERT(isAcceleratedCompositingActive());
     m_layerTreeView->compositeAndReadbackAsync(callback);
-    return true;
 }
 
 bool WebViewImpl::isTrackingRepaints() const
@@ -2246,6 +2262,14 @@ bool WebViewImpl::selectionBounds(WebRect& anchor, WebRect& focus) const
 
     IntRect scaledAnchor(frame->view()->contentsToWindow(anchor));
     IntRect scaledFocus(frame->view()->contentsToWindow(focus));
+
+    if (pinchVirtualViewportEnabled()) {
+        IntPoint pinchViewportOffset =
+            roundedIntPoint(page()->frameHost().pinchViewport().visibleRect().location());
+        scaledAnchor.moveBy(-pinchViewportOffset);
+        scaledFocus.moveBy(-pinchViewportOffset);
+    }
+
     scaledAnchor.scale(pageScaleFactor());
     scaledFocus.scale(pageScaleFactor());
     anchor = scaledAnchor;
@@ -2889,8 +2913,11 @@ void WebViewImpl::refreshPageScaleFactorAfterLayout()
         int verticalScrollbarWidth = 0;
         if (view->verticalScrollbar() && !view->verticalScrollbar()->isOverlayScrollbar())
             verticalScrollbarWidth = view->verticalScrollbar()->width();
-        m_pageScaleConstraintsSet.adjustFinalConstraintsToContentsSize(m_size, contentsSize(), verticalScrollbarWidth);
+        m_pageScaleConstraintsSet.adjustFinalConstraintsToContentsSize(contentsSize(), verticalScrollbarWidth);
     }
+
+    if (pinchVirtualViewportEnabled())
+        mainFrameImpl()->frameView()->resize(m_pageScaleConstraintsSet.mainFrameSize(contentsSize()));
 
     float newPageScaleFactor = pageScaleFactor();
     if (m_pageScaleConstraintsSet.needsReset() && m_pageScaleConstraintsSet.finalConstraints().initialScale != -1) {
@@ -2940,7 +2967,7 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
     }
 
     float oldInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
-    m_pageScaleConstraintsSet.updatePageDefinedConstraints(adjustedDescription, m_size, defaultMinWidth);
+    m_pageScaleConstraintsSet.updatePageDefinedConstraints(adjustedDescription, defaultMinWidth);
 
     if (settingsImpl()->clobberUserAgentInitialScaleQuirk()
         && m_pageScaleConstraintsSet.userAgentConstraints().initialScale != -1
@@ -2950,7 +2977,7 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
             setInitialPageScaleOverride(-1);
     }
 
-    m_pageScaleConstraintsSet.adjustForAndroidWebViewQuirks(adjustedDescription, m_size, defaultMinWidth.intValue(), deviceScaleFactor(), settingsImpl()->supportDeprecatedTargetDensityDPI(), page()->settings().wideViewportQuirkEnabled(), page()->settings().useWideViewport(), page()->settings().loadWithOverviewMode(), settingsImpl()->viewportMetaNonUserScalableQuirk());
+    m_pageScaleConstraintsSet.adjustForAndroidWebViewQuirks(adjustedDescription, defaultMinWidth.intValue(), deviceScaleFactor(), settingsImpl()->supportDeprecatedTargetDensityDPI(), page()->settings().wideViewportQuirkEnabled(), page()->settings().useWideViewport(), page()->settings().loadWithOverviewMode(), settingsImpl()->viewportMetaNonUserScalableQuirk());
     float newInitialScale = m_pageScaleConstraintsSet.pageDefinedConstraints().initialScale;
     if (oldInitialScale != newInitialScale && newInitialScale != -1) {
         m_pageScaleConstraintsSet.setNeedsReset(true);
@@ -2968,7 +2995,7 @@ void WebViewImpl::updatePageDefinedViewportConstraints(const ViewportDescription
 
 void WebViewImpl::updateMainFrameLayoutSize()
 {
-    if (m_fixedLayoutSizeLock || !mainFrameImpl())
+    if (m_fixedLayoutSizeLock || m_shouldAutoResize || !mainFrameImpl())
         return;
 
     RefPtr<FrameView> view = mainFrameImpl()->frameView();
@@ -3162,6 +3189,21 @@ void WebViewImpl::copyImageAt(const WebPoint& point)
     }
 
     m_page->mainFrame()->editor().copyImage(result);
+}
+
+void WebViewImpl::saveImageAt(const WebPoint& point)
+{
+    if (!m_page)
+        return;
+
+    KURL url = hitTestResultForWindowPos(point).absoluteImageURL();
+
+    if (url.isEmpty())
+        return;
+
+    ResourceRequest request(url);
+    m_page->mainFrame()->loader().client()->loadURLExternally(
+        request, NavigationPolicyDownloadTo, WebString());
 }
 
 void WebViewImpl::dragSourceEndedAt(
@@ -3592,6 +3634,10 @@ void WebViewImpl::layoutUpdated(WebLocalFrameImpl* webframe)
         WebSize frameSize = mainFrameImpl()->frame()->view()->frameRect().size();
         if (frameSize != m_size) {
             m_size = frameSize;
+
+            page()->frameHost().pinchViewport().setSize(m_size);
+            m_pageScaleConstraintsSet.didChangeViewSize(m_size);
+
             m_client->didAutoResize(m_size);
             sendResizeEventAndRepaint();
         }

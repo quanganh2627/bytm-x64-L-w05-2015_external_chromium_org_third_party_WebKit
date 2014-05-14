@@ -362,6 +362,9 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
 
 void RenderBlock::repaintTreeAfterLayout()
 {
+    if (!shouldCheckForInvalidationAfterLayout())
+        return;
+
     RenderBox::repaintTreeAfterLayout();
 
     // Take care of positioned objects. This is required as LayoutState keeps a single clip rect.
@@ -1457,12 +1460,6 @@ void RenderBlock::addVisualOverflowFromTheme()
     addVisualOverflow(inflatedRect);
 }
 
-bool RenderBlock::createsBlockFormattingContext() const
-{
-    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || isFlexItemIncludingDeprecated()
-        || style()->specifiesColumns() || isRenderFlowThread() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
-}
-
 void RenderBlock::updateBlockChildDirtyBitsBeforeLayout(bool relayoutChildren, RenderBox* child)
 {
     // FIXME: Technically percentage height objects only need a relayout if their percentage isn't going to be turned into
@@ -1529,11 +1526,6 @@ bool RenderBlock::simplifiedLayout()
         // Lay out positioned descendants or objects that just need to recompute overflow.
         if (needsSimplifiedNormalFlowLayout())
             simplifiedNormalFlowLayout();
-
-        // Make sure a forced break is applied after the content if we are a flow thread in a simplified layout.
-        // This ensures the size information is correctly computed for the last auto-height region receiving content.
-        if (isRenderFlowThread())
-            toRenderFlowThread(this)->applyBreakAfterContent(clientLogicalBottom());
 
         // Lay out our positioned objects if our positioned child bit is set.
         // Also, if an absolute position element inside a relative positioned container moves, and the absolute element has a fixed position
@@ -2703,12 +2695,6 @@ void RenderBlock::markLinesDirtyInBlockRange(LayoutUnit logicalTop, LayoutUnit l
         afterLowest->markDirty();
         afterLowest = afterLowest->prevRootBox();
     }
-}
-
-bool RenderBlock::avoidsFloats() const
-{
-    // Floats can't intrude into our box if we have a non-auto column count or width.
-    return RenderBox::avoidsFloats() || !style()->hasAutoColumnCount() || !style()->hasAutoColumnWidth();
 }
 
 bool RenderBlock::isPointInOverflowControl(HitTestResult& result, const LayoutPoint& locationInContainer, const LayoutPoint& accumulatedOffset)
@@ -4033,8 +4019,12 @@ void RenderBlock::createFirstLetterRenderer(RenderObject* firstLetterBlock, Rend
     else
         firstLetter = RenderBlockFlow::createAnonymous(&document());
     firstLetter->setStyle(pseudoStyle);
-    firstLetterContainer->addChild(firstLetter, currentChild);
 
+    // FIXME: The first letter code should not modify the render tree during
+    // layout. crbug.com/370458
+    DeprecatedDisableModifyRenderTreeStructureAsserts disabler;
+
+    firstLetterContainer->addChild(firstLetter, currentChild);
     RenderText* textObj = toRenderText(currentChild);
 
     // The original string is going to be either a generated content string or a DOM node's

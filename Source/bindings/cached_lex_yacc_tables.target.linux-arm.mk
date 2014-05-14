@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "cache_lex_yacc_tables":
 $(gyp_shared_intermediate_dir)/blink/bindings/lextab.py: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/bindings/lextab.py: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/bindings/lextab.py: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/lextab.py: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/lextab.py: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

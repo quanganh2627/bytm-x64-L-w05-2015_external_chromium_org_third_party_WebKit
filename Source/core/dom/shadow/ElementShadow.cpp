@@ -122,9 +122,9 @@ inline void DistributionPool::detachNonDistributedNodes()
     }
 }
 
-PassOwnPtr<ElementShadow> ElementShadow::create()
+PassOwnPtrWillBeRawPtr<ElementShadow> ElementShadow::create()
 {
-    return adoptPtr(new ElementShadow());
+    return adoptPtrWillBeNoop(new ElementShadow());
 }
 
 ElementShadow::ElementShadow()
@@ -135,7 +135,9 @@ ElementShadow::ElementShadow()
 
 ElementShadow::~ElementShadow()
 {
+#if !ENABLE(OILPAN)
     removeDetachedShadowRoots();
+#endif
 }
 
 ShadowRoot& ElementShadow::addShadowRoot(Element& shadowHost, ShadowRoot::ShadowRootType type)
@@ -161,6 +163,7 @@ ShadowRoot& ElementShadow::addShadowRoot(Element& shadowHost, ShadowRoot::Shadow
     return *m_shadowRoots.head();
 }
 
+#if !ENABLE(OILPAN)
 void ElementShadow::removeDetachedShadowRoots()
 {
     // Dont protect this ref count.
@@ -176,8 +179,8 @@ void ElementShadow::removeDetachedShadowRoots()
         oldRoot->setPrev(0);
         oldRoot->setNext(0);
     }
-
 }
+#endif
 
 void ElementShadow::attach(const Node::AttachContext& context)
 {
@@ -348,6 +351,14 @@ void ElementShadow::clearDistribution()
 
     for (ShadowRoot* root = youngestShadowRoot(); root; root = root->olderShadowRoot())
         root->setShadowInsertionPointOfYoungerShadowRoot(nullptr);
+}
+
+void ElementShadow::trace(Visitor* visitor)
+{
+    // Shadow roots are linked with previous and next pointers which are traced.
+    // It is therefore enough to trace one of the shadow roots here and the
+    // rest will be traced from there.
+    visitor->trace(m_shadowRoots.head());
 }
 
 } // namespace

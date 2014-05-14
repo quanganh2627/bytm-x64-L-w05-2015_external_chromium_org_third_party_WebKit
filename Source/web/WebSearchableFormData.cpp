@@ -80,8 +80,8 @@ bool IsHTTPFormSubmit(const HTMLFormElement* form)
 HTMLFormControlElement* GetButtonToActivate(HTMLFormElement* form)
 {
     HTMLFormControlElement* firstSubmitButton = 0;
-    const Vector<FormAssociatedElement*>& element = form->associatedElements();
-    for (Vector<FormAssociatedElement*>::const_iterator i(element.begin()); i != element.end(); ++i) {
+    const FormAssociatedElement::List& element = form->associatedElements();
+    for (FormAssociatedElement::List::const_iterator i(element.begin()); i != element.end(); ++i) {
         if (!(*i)->isFormControlElement())
             continue;
         HTMLFormControlElement* control = toHTMLFormControlElement(*i);
@@ -155,8 +155,8 @@ bool IsInDefaultState(HTMLFormControlElement* formElement)
 HTMLInputElement* findSuitableSearchInputElement(const HTMLFormElement* form)
 {
     HTMLInputElement* textElement = 0;
-    const Vector<FormAssociatedElement*>& element = form->associatedElements();
-    for (Vector<FormAssociatedElement*>::const_iterator i(element.begin()); i != element.end(); ++i) {
+    const FormAssociatedElement::List& element = form->associatedElements();
+    for (FormAssociatedElement::List::const_iterator i(element.begin()); i != element.end(); ++i) {
         if (!(*i)->isFormControlElement())
             continue;
 
@@ -198,8 +198,8 @@ bool buildSearchString(const HTMLFormElement* form, Vector<char>* encodedString,
 {
     bool isElementFound = false;
 
-    Vector<FormAssociatedElement*> elements = form->associatedElements();
-    for (Vector<FormAssociatedElement*>::const_iterator i(elements.begin()); i != elements.end(); ++i) {
+    const FormAssociatedElement::List& elements = form->associatedElements();
+    for (FormAssociatedElement::List::const_iterator i(elements.begin()); i != elements.end(); ++i) {
         if (!(*i)->isFormControlElement())
             continue;
 
@@ -235,8 +235,8 @@ namespace blink {
 
 WebSearchableFormData::WebSearchableFormData(const WebFormElement& form, const WebInputElement& selectedInputElement)
 {
-    RefPtr<HTMLFormElement> formElement = form.operator PassRefPtr<HTMLFormElement>();
-    HTMLInputElement* inputElement = selectedInputElement.operator PassRefPtr<HTMLInputElement>().get();
+    RefPtrWillBeRawPtr<HTMLFormElement> formElement = static_cast<PassRefPtrWillBeRawPtr<HTMLFormElement> >(form);
+    HTMLInputElement* inputElement = static_cast<PassRefPtrWillBeRawPtr<HTMLInputElement> >(selectedInputElement).get();
 
     // Only consider forms that GET data.
     // Allow HTTPS only when an input element is provided.

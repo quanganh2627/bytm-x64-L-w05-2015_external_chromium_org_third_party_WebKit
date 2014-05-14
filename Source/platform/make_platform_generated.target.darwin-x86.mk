@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "FontFamilyNames":
 $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -27,6 +28,7 @@ $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.h: $(gyp_shared_intermediat
 
 ### Rules for action "RuntimeEnabledFeatures":
 $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -38,6 +40,7 @@ $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.h: $(gyp_shared_inte
 
 ### Rules for action "ColorData":
 $(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/ColorData.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

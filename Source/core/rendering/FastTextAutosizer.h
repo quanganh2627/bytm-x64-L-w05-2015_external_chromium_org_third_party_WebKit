@@ -201,7 +201,8 @@ private:
     public:
         void add(const RenderObject*, Fingerprint);
         void addTentativeClusterRoot(const RenderBlock*, Fingerprint);
-        void remove(const RenderObject*);
+        // Returns true if any BlockSet was modified or freed by the removal.
+        bool remove(const RenderObject*);
         Fingerprint get(const RenderObject*);
         BlockSet& getTentativeClusterRoots(Fingerprint);
     private:
@@ -274,6 +275,9 @@ private:
     const RenderObject* findTextLeaf(const RenderObject*, size_t&, TextLeafSearch);
     bool shouldDescendForTableInflation(RenderObject*);
     BlockFlags classifyBlock(const RenderObject*, BlockFlags mask = UINT_MAX);
+#ifdef AUTOSIZING_DOM_DEBUG_INFO
+    void writeClusterDebugInfo(Cluster*);
+#endif
 
     const Document* m_document;
     const RenderBlock* m_firstBlockToBeginLayout;

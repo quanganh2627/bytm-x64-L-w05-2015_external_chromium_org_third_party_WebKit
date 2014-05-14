@@ -1558,8 +1558,14 @@ void RenderBox::repaintTreeAfterLayout()
     ASSERT(RuntimeEnabledFeatures::repaintAfterLayoutEnabled());
     ASSERT(!needsLayout());
 
+    if (!shouldCheckForInvalidationAfterLayout())
+        return;
+
     const LayoutRect oldRepaintRect = previousRepaintRect();
-    setPreviousRepaintRect(clippedOverflowRectForRepaint(containerForRepaint()));
+    const LayoutPoint oldPositionFromRepaintContainer = previousPositionFromRepaintContainer();
+    const RenderLayerModelObject* repaintContainer = containerForRepaint();
+    setPreviousRepaintRect(clippedOverflowRectForRepaint(repaintContainer));
+    setPreviousPositionFromRepaintContainer(positionFromRepaintContainer(repaintContainer));
 
     // If we are set to do a full repaint that means the RenderView will be
     // invalidated. We can then skip issuing of invalidations for the child
@@ -1577,9 +1583,10 @@ void RenderBox::repaintTreeAfterLayout()
         setShouldDoFullRepaintAfterLayout(true);
     }
 
-    const LayoutRect newRepaintRect = previousRepaintRect();
+    const LayoutRect& newRepaintRect = previousRepaintRect();
+    const LayoutPoint& newPositionFromRepaintContainer = previousPositionFromRepaintContainer();
     bool didFullRepaint = repaintAfterLayoutIfNeeded(containerForRepaint(),
-        shouldDoFullRepaintAfterLayout(), oldRepaintRect, &newRepaintRect);
+        shouldDoFullRepaintAfterLayout(), oldRepaintRect, oldPositionFromRepaintContainer, &newRepaintRect, &newPositionFromRepaintContainer);
 
     if (!didFullRepaint)
         repaintOverflowIfNeeded();
@@ -2784,8 +2791,8 @@ LayoutUnit RenderBox::computeReplacedLogicalWidthUsing(Length logicalWidth) cons
                 return computeIntrinsicLogicalWidthUsing(logicalWidth, cw, borderAndPaddingLogicalWidth()) - borderAndPaddingLogicalWidth();
             if (cw > 0 || (!cw && (containerLogicalWidth.isFixed() || containerLogicalWidth.isPercent())))
                 return adjustContentBoxLogicalWidthForBoxSizing(minimumValueForLength(logicalWidth, cw));
+            return 0;
         }
-        // fall through
         case Intrinsic:
         case MinIntrinsic:
         case Auto:
@@ -4101,7 +4108,16 @@ bool RenderBox::shrinkToAvoidFloats() const
 
 bool RenderBox::avoidsFloats() const
 {
-    return isReplaced() || hasOverflowClip() || isHR() || isLegend() || isWritingModeRoot() || isFlexItemIncludingDeprecated();
+    // CSS2.1: "The border box of a table, a block-level replaced element, or an element in the normal flow that establishes a new block formatting
+    // context .. must not overlap the margin box of any floats in the same block formatting context."
+    // FIXME: The inclusion of horizontal rule and legend elements here isn't covered by any spec.
+    return isReplaced() || isHR() || isLegend() || isTable() || (!isFloatingOrOutOfFlowPositioned() && createsBlockFormattingContext());
+}
+
+bool RenderBox::createsBlockFormattingContext() const
+{
+    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || isFlexItemIncludingDeprecated()
+        || style()->specifiesColumns() || isRenderFlowThread() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
 }
 
 void RenderBox::markForPaginationRelayoutIfNeeded(SubtreeLayoutScope& layoutScope)

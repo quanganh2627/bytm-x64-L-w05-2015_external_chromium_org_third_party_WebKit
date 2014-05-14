@@ -1521,6 +1521,21 @@ class Port(object):
     def sample_process(self, name, pid):
         pass
 
+    def physical_test_suites(self):
+        return [
+            # For example, to turn on force-compositing-mode in the svg/ directory:
+            # PhysicalTestSuite('svg',
+            #                   ['--force-compositing-mode']),
+            PhysicalTestSuite('compositing',
+                              ['--force-compositing-mode']),
+            PhysicalTestSuite('css',
+                              ['--force-compositing-mode']),
+            PhysicalTestSuite('editing',
+                              ['--force-compositing-mode']),
+            PhysicalTestSuite('fast',
+                              ['--force-compositing-mode']),
+            ]
+
     def virtual_test_suites(self):
         return [
             VirtualTestSuite('gpu',
@@ -1595,12 +1610,19 @@ class Port(object):
             VirtualTestSuite('stable',
                              'http/tests/security/mixedContent/websocket',
                              ['--stable-release-mode']),
+            VirtualTestSuite('stable',
+                             'web-animations-api/eased-keyframes.html',
+                             ['--stable-release-mode']),
             VirtualTestSuite('linux-subpixel',
                              'platform/linux/fast/text/subpixel',
                              ['--enable-webkit-text-subpixel-positioning']),
             VirtualTestSuite('windows-directwrite',
                              'fast/text',
-                             ['--enable-direct-write', '--enable-font-smoothing']),
+                             ['--enable-direct-write', '--enable-font-antialiasing']),
+            VirtualTestSuite('mac-antialiasedtext',
+                             'fast/text',
+                             ['--enable-font-antialiasing']),
+
         ]
 
     @memoized
@@ -1647,6 +1669,12 @@ class Port(object):
 
     def lookup_virtual_test_args(self, test_name):
         for suite in self.populated_virtual_test_suites():
+            if test_name.startswith(suite.name):
+                return suite.args
+        return []
+
+    def lookup_physical_test_args(self, test_name):
+        for suite in self.physical_test_suites():
             if test_name.startswith(suite.name):
                 return suite.args
         return []
@@ -1768,3 +1796,14 @@ class VirtualTestSuite(object):
 
     def __repr__(self):
         return "VirtualTestSuite('%s', '%s', %s)" % (self.name, self.base, self.args)
+
+
+class PhysicalTestSuite(object):
+    def __init__(self, base, args):
+        self.name = base
+        self.base = base
+        self.args = args
+        self.tests = set()
+
+    def __repr__(self):
+        return "PhysicalTestSuite('%s', '%s', %s)" % (self.name, self.base, self.args)

@@ -43,30 +43,74 @@
 #include "core/rendering/RenderTableCell.h"
 #include "core/rendering/RenderView.h"
 
+#ifdef AUTOSIZING_DOM_DEBUG_INFO
+#include "core/dom/ExecutionContextTask.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
 
 #ifdef AUTOSIZING_DOM_DEBUG_INFO
-static void writeDebugInfo(RenderObject* renderObject, const AtomicString& output)
+class WriteDebugInfoTask : public ExecutionContextTask {
+public:
+    WriteDebugInfoTask(PassRefPtr<Element> element, AtomicString value)
+        : m_element(element)
+        , m_value(value)
+    {
+    }
+
+    virtual void performTask(ExecutionContext*)
+    {
+        m_element->setAttribute("data-autosizing", m_value, ASSERT_NO_EXCEPTION);
+    }
+
+private:
+    RefPtr<Element> m_element;
+    AtomicString m_value;
+};
+
+static void writeDebugInfo(RenderObject* renderer, const AtomicString& output)
 {
-    Node* node = renderObject->node();
+    Node* node = renderer->node();
     if (!node)
         return;
     if (node->isDocumentNode())
         node = toDocument(node)->documentElement();
-    if (node->isElementNode())
-        toElement(node)->setAttribute("data-autosizing", output, ASSERT_NO_EXCEPTION);
+    if (!node->isElementNode())
+        return;
+    node->document().postTask(adoptPtr(new WriteDebugInfoTask(toElement(node), output)));
 }
 
-static void writeDebugPageInfo(const Document* document, float baseMultiplier, int layoutWidth, int frameWidth)
+void FastTextAutosizer::writeClusterDebugInfo(Cluster* cluster)
 {
-    if (Element* element = document->documentElement()) {
-        element->setAttribute("data-autosizing-pageinfo",
-            AtomicString(String::format("bm %f * (lw %d / fw %d)",
-                baseMultiplier, layoutWidth, frameWidth)),
-            ASSERT_NO_EXCEPTION);
+    String explanation = "";
+    if (cluster->m_flags & SUPPRESSING) {
+        explanation = "[suppressed]";
+    } else if (!(cluster->m_flags & (INDEPENDENT | WIDER_OR_NARROWER))) {
+        explanation = "[inherited]";
+    } else if (cluster->m_supercluster) {
+        explanation = "[supercluster]";
+    } else if (!clusterHasEnoughTextToAutosize(cluster)) {
+        explanation = "[insufficient-text]";
+    } else {
+        const RenderBlock* widthProvider = clusterWidthProvider(cluster->m_root);
+        if (cluster->m_hasTableAncestor && cluster->m_multiplier < multiplierFromBlock(widthProvider)) {
+            explanation = "[table-ancestor-limited]";
+        } else {
+            explanation = String::format("[from width %d of %s]",
+                static_cast<int>(widthFromBlock(widthProvider)), widthProvider->debugName().utf8().data());
+        }
     }
+    String pageInfo = "";
+    if (cluster->m_root->isRenderView()) {
+        pageInfo = String::format("; pageinfo: bm %f * (lw %d / fw %d)",
+            m_pageInfo.m_baseMultiplier, m_pageInfo.m_layoutWidth, m_pageInfo.m_frameWidth);
+    }
+    float multiplier = cluster->m_flags & SUPPRESSING ? 1.0 : cluster->m_multiplier;
+    writeDebugInfo(const_cast<RenderBlock*>(cluster->m_root),
+        AtomicString(String::format("cluster: %f %s%s", multiplier,
+            explanation.utf8().data(), pageInfo.utf8().data())));
 }
 #endif
 
@@ -276,9 +320,17 @@ void FastTextAutosizer::destroy(const RenderBlock* block)
 {
     if (!m_pageInfo.m_settingEnabled)
         return;
+
     ASSERT(!m_blocksThatHaveBegunLayout.contains(block));
 
-    m_fingerprintMapper.remove(block);
+    if (m_fingerprintMapper.remove(block) && m_firstBlockToBeginLayout) {
+        // RenderBlock with a fingerprint was destroyed during layout.
+        // Clear the cluster stack and the supercluster map to avoid stale pointers.
+        // Speculative fix for http://crbug.com/369485.
+        m_firstBlockToBeginLayout = 0;
+        m_clusterStack.clear();
+        m_superclusters.clear();
+    }
 }
 
 FastTextAutosizer::BeginLayoutBehavior FastTextAutosizer::prepareForLayout(const RenderBlock* block)
@@ -288,9 +340,6 @@ FastTextAutosizer::BeginLayoutBehavior FastTextAutosizer::prepareForLayout(const
 #endif
 
     if (!m_firstBlockToBeginLayout) {
-#ifdef AUTOSIZING_DOM_DEBUG_INFO
-        writeDebugPageInfo(m_document, m_pageInfo.m_baseMultiplier, m_pageInfo.m_layoutWidth, m_pageInfo.m_frameWidth);
-#endif
         m_firstBlockToBeginLayout = block;
         prepareClusterStack(block->parent());
     } else if (block == currentCluster()->m_root) {
@@ -605,7 +654,8 @@ bool FastTextAutosizer::clusterHasEnoughTextToAutosize(Cluster* cluster, const R
     RenderObject* descendant = root->nextInPreOrder(root);
     while (descendant) {
         if (descendant->isRenderBlock()) {
-            if (!descendant->isTableCell() && classifyBlock(descendant, INDEPENDENT | SUPPRESSING)) {
+            if (!(descendant->isTableCell() || (root->isTableCell() && descendant->isTable()))
+                && classifyBlock(descendant, INDEPENDENT | SUPPRESSING)) {
                 descendant = descendant->nextInPreOrderAfterChildren(root);
                 continue;
             }
@@ -687,7 +737,13 @@ FastTextAutosizer::Cluster* FastTextAutosizer::maybeCreateCluster(const RenderBl
     if (!(flags & INDEPENDENT) && !(flags & EXPLICIT_WIDTH) && !!(flags & SUPPRESSING) == parentSuppresses)
         return 0;
 
-    return new Cluster(block, flags, parentCluster, getSupercluster(block));
+    Cluster* cluster = new Cluster(block, flags, parentCluster, getSupercluster(block));
+#ifdef AUTOSIZING_DOM_DEBUG_INFO
+    // Non-SUPPRESSING clusters are annotated in clusterMultiplier.
+    if (flags & SUPPRESSING)
+        writeClusterDebugInfo(cluster);
+#endif
+    return cluster;
 }
 
 FastTextAutosizer::Supercluster* FastTextAutosizer::getSupercluster(const RenderBlock* block)
@@ -734,25 +790,7 @@ float FastTextAutosizer::clusterMultiplier(Cluster* cluster)
     }
 
 #ifdef AUTOSIZING_DOM_DEBUG_INFO
-    // FIXME(crbug.com/339213): Reduce redundant logic by storing the explanation category in the Cluster.
-    String explanation = "";
-    if (!(cluster->m_flags & (INDEPENDENT | WIDER_OR_NARROWER))) {
-        explanation = "[inherited]";
-    } else if (cluster->m_supercluster) {
-        explanation = "[supercluster]";
-    } else if (!clusterHasEnoughTextToAutosize(cluster)) {
-        explanation = "[insufficient-text]";
-    } else {
-        const RenderBlock* widthProvider = clusterWidthProvider(cluster->m_root);
-        if (cluster->m_hasTableAncestor && cluster->m_multiplier < multiplierFromBlock(widthProvider)) {
-            explanation = "[table-ancestor-limited]";
-        } else {
-            explanation = String::format("[from width %d of %s]",
-                static_cast<int>(widthFromBlock(widthProvider)), widthProvider->debugName().utf8().data());
-        }
-    }
-    writeDebugInfo(const_cast<RenderBlock*>(cluster->m_root),
-        AtomicString(String::format("cluster: %f %s", cluster->m_multiplier, explanation.utf8().data())));
+    writeClusterDebugInfo(cluster);
 #endif
 
     ASSERT(cluster->m_multiplier);
@@ -811,14 +849,18 @@ const RenderBlock* FastTextAutosizer::maxClusterWidthProvider(const Supercluster
             result = widthProvider;
         }
     }
+    RELEASE_ASSERT(result);
     return result;
 }
 
 float FastTextAutosizer::widthFromBlock(const RenderBlock* block)
 {
+    RELEASE_ASSERT(block);
+    RELEASE_ASSERT(block->style());
     if (block->isTable()) {
         RenderBlock* containingBlock = block->containingBlock();
-        ASSERT(block->containingBlock());
+        // containingBlock should only be null in detached subtrees.
+        RELEASE_ASSERT(block->containingBlock());
         if (block->style()->logicalWidth().isSpecified())
             return floatValueForLength(block->style()->logicalWidth(), containingBlock->contentLogicalWidth().toFloat());
         return containingBlock->contentLogicalWidth().toFloat();
@@ -887,8 +929,10 @@ const RenderBlock* FastTextAutosizer::deepestBlockContainingAllText(const Render
     // its text node's lowest common ancestor as isAutosizingCluster would have made them into their
     // own independent cluster.
     const RenderBlock* containingBlock = firstNode->containingBlock();
-    ASSERT(containingBlock->isDescendantOf(root));
+    if (!containingBlock)
+        return root;
 
+    ASSERT(containingBlock->isDescendantOf(root));
     return containingBlock;
 }
 
@@ -930,12 +974,12 @@ void FastTextAutosizer::applyMultiplier(RenderObject* renderer, float multiplier
     style->setTextAutosizingMultiplier(multiplier);
     style->setUnique();
 
-    // Don't free currentStyle until the end of the layout pass. This allows other parts of the system
-    // to safely hold raw RenderStyle* pointers during layout, e.g. BreakingContext::m_currentStyle.
-    m_stylesRetainedDuringLayout.append(currentStyle);
-
     switch (relayoutBehavior) {
     case AlreadyInLayout:
+        // Don't free currentStyle until the end of the layout pass. This allows other parts of the system
+        // to safely hold raw RenderStyle* pointers during layout, e.g. BreakingContext::m_currentStyle.
+        m_stylesRetainedDuringLayout.append(currentStyle);
+
         renderer->setStyleInternal(style.release());
         renderer->setNeedsLayout();
         if (renderer->isRenderBlock())
@@ -1024,15 +1068,15 @@ void FastTextAutosizer::FingerprintMapper::addTentativeClusterRoot(const RenderB
 #endif
 }
 
-void FastTextAutosizer::FingerprintMapper::remove(const RenderObject* renderer)
+bool FastTextAutosizer::FingerprintMapper::remove(const RenderObject* renderer)
 {
     Fingerprint fingerprint = m_fingerprints.take(renderer);
     if (!fingerprint || !renderer->isRenderBlock())
-        return;
+        return false;
 
     ReverseFingerprintMap::iterator blocksIter = m_blocksForFingerprint.find(fingerprint);
     if (blocksIter == m_blocksForFingerprint.end())
-        return;
+        return false;
 
     BlockSet& blocks = *blocksIter->value;
     blocks.remove(toRenderBlock(renderer));
@@ -1041,6 +1085,7 @@ void FastTextAutosizer::FingerprintMapper::remove(const RenderObject* renderer)
 #ifndef NDEBUG
     assertMapsAreConsistent();
 #endif
+    return true;
 }
 
 FastTextAutosizer::Fingerprint FastTextAutosizer::FingerprintMapper::get(const RenderObject* renderer)

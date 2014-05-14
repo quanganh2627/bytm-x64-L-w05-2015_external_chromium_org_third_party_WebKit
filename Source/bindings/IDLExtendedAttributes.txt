@@ -55,8 +55,9 @@ DoNotCheckSignature
 EnforceRange
 EventConstructor
 ExposeJSAccessors
+Exposed=*
 GarbageCollected
-GlobalContext=Window|WorkerGlobalScope|SharedWorkerGlobalScope|DedicatedWorkerGlobalScope|ServiceWorkerGlobalScope
+Global=|*
 Immutable
 ImplementedAs=*
 InitializedByEventConstructor
@@ -64,6 +65,7 @@ LegacyTreatAsPartialInterface
 LegacyOverloadString
 LogActivity=|GetterOnly|SetterOnly
 LogAllWorlds
+LogPreviousValue
 MeasureAs=*
 NamedConstructor=*
 NoInterfaceObject
@@ -74,6 +76,7 @@ PartialInterfaceImplementedAs=*
 # ContextFeatures::FeatureType in Source/core/dom/ContextFeatures.h
 PerContextEnabled=*
 PerWorldBindings
+PrimaryGlobal=|*
 PutForwards=*
 RaisesException=|Getter|Setter|Constructor
 ReadOnly

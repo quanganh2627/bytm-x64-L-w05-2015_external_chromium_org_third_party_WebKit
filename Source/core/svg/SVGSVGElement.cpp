@@ -213,9 +213,6 @@ void SVGSVGElement::updateCurrentTranslate()
 {
     if (RenderObject* object = renderer())
         object->setNeedsLayout();
-
-    if (parentNode() == document() && document().renderer())
-        document().renderer()->repaint();
 }
 
 void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -273,8 +270,9 @@ void SVGSVGElement::collectStyleForPresentationAttribute(const QualifiedName& na
 {
     if (isOutermostSVGSVGElement() && (name == SVGNames::widthAttr || name == SVGNames::heightAttr)) {
         RefPtr<SVGLength> length = SVGLength::create(LengthModeOther);
-        length->setValueAsString(value, IGNORE_EXCEPTION);
-        if (length->unitType() != LengthTypeUnknown) {
+        TrackExceptionState exceptionState;
+        length->setValueAsString(value, exceptionState);
+        if (!exceptionState.hadException()) {
             if (name == SVGNames::widthAttr)
                 addPropertyToPresentationAttributeStyle(style, CSSPropertyWidth, value);
             else if (name == SVGNames::heightAttr)
@@ -319,7 +317,7 @@ void SVGSVGElement::svgAttributeChanged(const QualifiedName& attrName)
             object->setNeedsTransformUpdate();
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    SVGElement::InvalidationGuard invalidationGuard(this);
 
     if (updateRelativeLengthsOrViewBox
         || SVGZoomAndPan::isKnownAttribute(attrName)) {
@@ -771,6 +769,19 @@ void SVGSVGElement::inheritViewAttributes(SVGViewElement* viewElement)
         view->setZoomAndPan(viewElement->zoomAndPan());
     else
         view->setZoomAndPan(zoomAndPan());
+}
+
+void SVGSVGElement::finishParsingChildren()
+{
+    SVGGraphicsElement::finishParsingChildren();
+
+    // The outermost SVGSVGElement SVGLoad event is fired through Document::dispatchWindowLoadEvent.
+    if (isOutermostSVGSVGElement())
+        return;
+
+    // finishParsingChildren() is called when the close tag is reached for an element (e.g. </svg>)
+    // we send SVGLoad events here if we can, otherwise they'll be sent when any required loads finish
+    sendSVGLoadEventIfPossible();
 }
 
 }

@@ -227,7 +227,7 @@ static ResourceRequest::TargetType requestTargetType(const ResourceFetcher* fetc
 }
 
 ResourceFetcher::ResourceFetcher(DocumentLoader* documentLoader)
-    : m_document(0)
+    : m_document(nullptr)
     , m_documentLoader(documentLoader)
     , m_requestCount(0)
     , m_garbageCollectDocumentResourcesTimer(this, &ResourceFetcher::garbageCollectDocumentResourcesTimerFired)
@@ -241,7 +241,7 @@ ResourceFetcher::ResourceFetcher(DocumentLoader* documentLoader)
 ResourceFetcher::~ResourceFetcher()
 {
     m_documentLoader = 0;
-    m_document = 0;
+    m_document = nullptr;
 
     clearPreloads();
 
@@ -978,6 +978,12 @@ ResourceFetcher::RevalidationPolicy ResourceFetcher::determineRevalidationPolicy
         WTF_LOG(ResourceLoading, "ResourceFetcher::determineRevalidationPolicye reloading due to resource being in the error state");
         return Reload;
     }
+
+    // List of available images logic allows images to be re-used without cache validation. We restrict this only to images
+    // from memory cache which are the same as the version in the current document.
+    if (type == Resource::Image && existingResource == cachedResource(request.url()))
+        return Use;
+
     // If any of the redirects in the chain to loading the resource were not cacheable, we cannot reuse our cached resource.
     if (!existingResource->canReuseRedirectChain()) {
         WTF_LOG(ResourceLoading, "ResourceFetcher::determineRevalidationPolicy reloading due to an uncacheable redirect");
@@ -1072,7 +1078,7 @@ void ResourceFetcher::redirectReceived(Resource* resource, const ResourceRespons
 void ResourceFetcher::didLoadResource(Resource* resource)
 {
     RefPtr<DocumentLoader> protectDocumentLoader(m_documentLoader);
-    RefPtr<Document> protectDocument(m_document);
+    RefPtrWillBeRawPtr<Document> protectDocument(m_document.get());
 
     if (resource && resource->response().isHTTP() && ((!resource->errorOccurred() && !resource->wasCanceled()) || resource->response().httpStatusCode() == 304) && document()) {
         ResourceTimingInfoMap::iterator it = m_resourceTimingInfoMap.find(resource);
@@ -1344,6 +1350,7 @@ bool ResourceFetcher::canAccessRedirect(Resource* resource, ResourceRequest& req
     return true;
 }
 
+#if !ENABLE(OILPAN)
 void ResourceFetcher::refResourceLoaderHost()
 {
     ref();
@@ -1353,6 +1360,7 @@ void ResourceFetcher::derefResourceLoaderHost()
 {
     deref();
 }
+#endif
 
 #if PRELOAD_DEBUG
 void ResourceFetcher::printPreloadStats()
@@ -1443,6 +1451,12 @@ void ResourceFetcher::DeadResourceStatsRecorder::update(RevalidationPolicy polic
         ++m_useCount;
         return;
     }
+}
+
+void ResourceFetcher::trace(Visitor* visitor)
+{
+    visitor->trace(m_document);
+    ResourceLoaderHost::trace(visitor);
 }
 
 }

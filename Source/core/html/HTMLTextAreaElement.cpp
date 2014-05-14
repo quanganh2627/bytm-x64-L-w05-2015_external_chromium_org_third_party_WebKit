@@ -88,9 +88,9 @@ HTMLTextAreaElement::HTMLTextAreaElement(Document& document, HTMLFormElement* fo
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<HTMLTextAreaElement> HTMLTextAreaElement::create(Document& document, HTMLFormElement* form)
+PassRefPtrWillBeRawPtr<HTMLTextAreaElement> HTMLTextAreaElement::create(Document& document, HTMLFormElement* form)
 {
-    RefPtr<HTMLTextAreaElement> textArea = adoptRef(new HTMLTextAreaElement(document, form));
+    RefPtrWillBeRawPtr<HTMLTextAreaElement> textArea = adoptRefWillBeRefCountedGarbageCollected(new HTMLTextAreaElement(document, form));
     textArea->ensureUserAgentShadowRoot();
     return textArea.release();
 }
@@ -335,7 +335,7 @@ String HTMLTextAreaElement::value() const
 
 void HTMLTextAreaElement::setValue(const String& value, TextFieldEventBehavior eventBehavior)
 {
-    RefPtr<HTMLTextAreaElement> protector(this);
+    RefPtrWillBeRawPtr<HTMLTextAreaElement> protector(this);
     setValueCommon(value, eventBehavior);
     m_isDirty = true;
     setNeedsValidityCheck();
@@ -541,14 +541,14 @@ bool HTMLTextAreaElement::matchesReadWritePseudoClass() const
 void HTMLTextAreaElement::updatePlaceholderText()
 {
     HTMLElement* placeholder = placeholderElement();
-    String placeholderText = strippedPlaceholder();
+    const AtomicString& placeholderText = fastGetAttribute(placeholderAttr);
     if (placeholderText.isEmpty()) {
         if (placeholder)
             userAgentShadowRoot()->removeChild(placeholder);
         return;
     }
     if (!placeholder) {
-        RefPtr<HTMLDivElement> newElement = HTMLDivElement::create(document());
+        RefPtrWillBeRawPtr<HTMLDivElement> newElement = HTMLDivElement::create(document());
         placeholder = newElement.get();
         placeholder->setShadowPseudoId(AtomicString("-webkit-input-placeholder", AtomicString::ConstructFromLiteral));
         placeholder->setAttribute(idAttr, ShadowElementNames::placeholder());

@@ -149,8 +149,6 @@ public:
 
     void beginPath();
 
-    PassRefPtr<Path2D> currentPath();
-    void setCurrentPath(Path2D*);
     void fill(const String& winding = "nonzero");
     void fill(Path2D*, const String& winding = "nonzero");
     void stroke();
@@ -247,7 +245,7 @@ private:
         // CSSFontSelectorClient implementation
         virtual void fontsNeedUpdate(CSSFontSelector*) OVERRIDE;
 
-        virtual void trace(Visitor*) OVERRIDE { }
+        virtual void trace(Visitor* visitor) OVERRIDE { CSSFontSelectorClient::trace(visitor); }
 
         unsigned m_unrealizedSaveCount;
 

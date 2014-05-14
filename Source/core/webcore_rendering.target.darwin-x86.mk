@@ -75,7 +75,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderImageResource.cpp \
 	third_party/WebKit/Source/core/rendering/RenderImageResourceStyleImage.cpp \
 	third_party/WebKit/Source/core/rendering/RenderInline.cpp \
-	third_party/WebKit/Source/core/rendering/RenderInputSpeech.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayer.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerBlendInfo.cpp \
 	third_party/WebKit/Source/core/rendering/RenderLayerClipper.cpp \
@@ -104,7 +103,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/RenderProgress.cpp \
 	third_party/WebKit/Source/core/rendering/RenderQuote.cpp \
 	third_party/WebKit/Source/core/rendering/RenderRegion.cpp \
-	third_party/WebKit/Source/core/rendering/RenderRegionSet.cpp \
 	third_party/WebKit/Source/core/rendering/RenderReplaced.cpp \
 	third_party/WebKit/Source/core/rendering/RenderReplica.cpp \
 	third_party/WebKit/Source/core/rendering/RenderRuby.cpp \
@@ -145,6 +143,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/rendering/TextAutosizer.cpp \
 	third_party/WebKit/Source/core/rendering/break_lines.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositedLayerMapping.cpp \
+	third_party/WebKit/Source/core/rendering/compositing/CompositingLayerAssigner.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingPropertyUpdater.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingReasonFinder.cpp \
 	third_party/WebKit/Source/core/rendering/compositing/CompositingRequirementsUpdater.cpp \
@@ -209,7 +208,6 @@ MY_CFLAGS_Debug := \
 	-mfpmath=sse \
 	-mmmx \
 	-m32 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \
@@ -252,8 +250,9 @@ MY_DEFS_Debug := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
+	'-DWTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1' \
+	'-DENABLE_WEB_AUDIO=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -266,11 +265,6 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
 	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
@@ -308,6 +302,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
+	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
@@ -368,7 +363,6 @@ MY_CFLAGS_Release := \
 	-mfpmath=sse \
 	-mmmx \
 	-m32 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \
@@ -411,8 +405,9 @@ MY_DEFS_Release := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
+	'-DWTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1' \
+	'-DENABLE_WEB_AUDIO=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -425,11 +420,6 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
 	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
@@ -468,6 +458,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
 	$(gyp_shared_intermediate_dir)/blink/bindings \
+	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \

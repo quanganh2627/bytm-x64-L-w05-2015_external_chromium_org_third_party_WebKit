@@ -115,14 +115,9 @@ HTMLAnchorElement::HTMLAnchorElement(const QualifiedName& tagName, Document& doc
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<HTMLAnchorElement> HTMLAnchorElement::create(Document& document)
+PassRefPtrWillBeRawPtr<HTMLAnchorElement> HTMLAnchorElement::create(Document& document)
 {
-    return adoptRef(new HTMLAnchorElement(aTag, document));
-}
-
-PassRefPtr<HTMLAnchorElement> HTMLAnchorElement::create(const QualifiedName& tagName, Document& document)
-{
-    return adoptRef(new HTMLAnchorElement(tagName, document));
+    return adoptRefWillBeRefCountedGarbageCollected(new HTMLAnchorElement(aTag, document));
 }
 
 HTMLAnchorElement::~HTMLAnchorElement()
@@ -340,12 +335,6 @@ short HTMLAnchorElement::tabIndex() const
 AtomicString HTMLAnchorElement::target() const
 {
     return getAttribute(targetAttr);
-}
-
-
-String HTMLAnchorElement::text()
-{
-    return innerText();
 }
 
 bool HTMLAnchorElement::isLiveLink() const

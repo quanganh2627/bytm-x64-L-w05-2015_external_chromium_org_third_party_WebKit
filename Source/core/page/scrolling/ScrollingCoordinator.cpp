@@ -32,10 +32,11 @@
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/Node.h"
 #include "core/dom/WheelController.h"
-#include "core/html/HTMLElement.h"
+#include "core/frame/EventHandlerRegistry.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
+#include "core/html/HTMLElement.h"
 #include "core/page/Page.h"
 #include "core/plugins/PluginView.h"
 #include "core/rendering/RenderGeometryMap.h"
@@ -348,8 +349,9 @@ bool ScrollingCoordinator::scrollableAreaScrollLayerDidChange(ScrollableArea* sc
     GraphicsLayer* scrollLayer = scrollableArea->layerForScrolling();
 
     if (scrollLayer) {
+        ASSERT(m_page);
         // With pinch virtual viewport we no longer need to special case the main frame.
-        bool pinchVirtualViewportEnabled = m_page->mainFrame()->document()->settings()->pinchVirtualViewportEnabled();
+        bool pinchVirtualViewportEnabled = m_page->settings().pinchVirtualViewportEnabled();
         bool layerScrollShouldFireGraphicsLayerDidScroll = isForMainFrame(scrollableArea) && !pinchVirtualViewportEnabled;
         scrollLayer->setScrollableArea(scrollableArea, layerScrollShouldFireGraphicsLayerDidScroll);
     }
@@ -678,8 +680,7 @@ void ScrollingCoordinator::updateHaveScrollEventHandlers()
     // instead on a per-layer basis. We therefore only update this information for the root
     // scrolling layer.
     if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
-        // TODO(skyostil): Hook this up.
-        bool haveHandlers = false;
+        bool haveHandlers = m_page->frameHost().eventHandlerRegistry().hasEventHandlers(EventHandlerRegistry::ScrollEvent);
         scrollLayer->setHaveScrollEventHandlers(haveHandlers);
     }
 }

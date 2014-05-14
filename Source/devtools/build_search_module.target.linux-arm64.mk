@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "build_search_module":
 $(gyp_shared_intermediate_dir)/resources/inspector/search/AdvancedSearchView.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/search/AdvancedSearchView.js: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/resources/inspector/search/AdvancedSearchView.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/search/AdvancedSearchView.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/search/AdvancedSearchView.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

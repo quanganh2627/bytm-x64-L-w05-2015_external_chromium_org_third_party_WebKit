@@ -41,6 +41,7 @@
 #include "bindings/v8/SerializedScriptValue.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
+#include "core/dom/ViewportDescription.h"
 #include "core/editing/Editor.h"
 #include "core/editing/UndoStack.h"
 #include "core/events/Event.h"
@@ -257,10 +258,15 @@ void FrameLoader::setHistoryItemStateForCommit(HistoryCommitType historyCommitTy
 {
     if (m_provisionalItem)
         m_currentItem = m_provisionalItem.release();
-    if (!m_currentItem || historyCommitType == StandardCommit)
+
+    if (!m_currentItem || historyCommitType == StandardCommit) {
         m_currentItem = HistoryItem::create();
-    else if (!isPushOrReplaceState && m_documentLoader->url() != m_currentItem->url())
-        m_currentItem->generateNewSequenceNumbers();
+    } else if (!isPushOrReplaceState && m_documentLoader->url() != m_currentItem->url()) {
+        m_currentItem->generateNewItemSequenceNumber();
+        if (!equalIgnoringFragmentIdentifier(m_documentLoader->url(), m_currentItem->url()))
+            m_currentItem->generateNewDocumentSequenceNumber();
+    }
+
     m_currentItem->setURL(m_documentLoader->urlForHistory());
     m_currentItem->setDocumentState(m_frame->document()->formElementsState());
     m_currentItem->setTarget(m_frame->tree().uniqueName());
@@ -301,7 +307,7 @@ void FrameLoader::receivedFirstData()
 
     InspectorInstrumentation::didCommitLoad(m_frame, m_documentLoader.get());
     m_frame->page()->didCommitLoad(m_frame);
-    dispatchDidClearWindowObjectsInAllWorlds();
+    dispatchDidClearDocumentOfWindowObject();
 }
 
 static void didFailContentSecurityPolicyCheck(FrameLoader* loader)
@@ -329,7 +335,7 @@ void FrameLoader::didBeginDocument(bool dispatch)
         m_frame->domWindow()->statePopped(m_provisionalItem->stateObject());
 
     if (dispatch)
-        dispatchDidClearWindowObjectsInAllWorlds();
+        dispatchDidClearDocumentOfWindowObject();
 
     m_frame->document()->initContentSecurityPolicy(m_documentLoader ? ContentSecurityPolicyResponseHeaders(m_documentLoader->response()) : ContentSecurityPolicyResponseHeaders());
 
@@ -621,7 +627,7 @@ bool FrameLoader::isScriptTriggeredFormSubmissionInChildFrame(const FrameLoadReq
 
 FrameLoadType FrameLoader::determineFrameLoadType(const FrameLoadRequest& request)
 {
-    if (m_frame->tree().parent() && !m_stateMachine.startedFirstRealLoad())
+    if (m_frame->tree().parent() && !m_stateMachine.committedFirstRealDocumentLoad())
         return FrameLoadTypeInitialInChildFrame;
     if (!m_frame->tree().parent() && !m_frame->page()->backForward().backForwardListCount())
         return FrameLoadTypeStandard;
@@ -959,10 +965,15 @@ bool FrameLoader::checkLoadCompleteForThisFrame()
     m_frame->domWindow()->finishedLoading();
 
     const ResourceError& error = m_documentLoader->mainDocumentError();
-    if (!error.isNull())
+    if (!error.isNull()) {
         m_client->dispatchDidFailLoad(error);
-    else
+    } else {
+        // Report mobile vs. desktop page statistics. This will only report on Android.
+        if (m_frame->isMainFrame())
+            m_frame->document()->viewportDescription().reportMobilePageStats(m_frame);
+
         m_client->dispatchDidFinishLoad();
+    }
     m_loadType = FrameLoadTypeStandard;
     return true;
 }
@@ -1086,10 +1097,15 @@ void FrameLoader::detachClient()
     // back to FrameLoaderClient via V8WindowShell.
     m_frame->script().clearForClose();
 
-    // After this, we must no longer talk to the client since this clears
-    // its owning reference back to our owning LocalFrame.
-    m_client->detachedFromParent();
-    m_client = 0;
+    // m_client should never be null because that means we somehow re-entered
+    // the frame detach code... but it is sometimes.
+    // FIXME: Understand why this is happening so we can document this insanity.
+    if (m_client) {
+        // After this, we must no longer talk to the client since this clears
+        // its owning reference back to our owning LocalFrame.
+        m_client->detachedFromParent();
+        m_client = 0;
+    }
 }
 
 void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, const AtomicString& origin)
@@ -1210,9 +1226,6 @@ void FrameLoader::loadWithNavigationAction(const NavigationAction& action, Frame
         return;
 
     const ResourceRequest& request = action.resourceRequest();
-
-    if (!m_stateMachine.startedFirstRealLoad())
-        m_stateMachine.advanceTo(FrameLoaderStateMachine::StartedFirstRealLoad);
 
     // The current load should replace the history item if it is the first real
     // load of the frame.
@@ -1364,27 +1377,28 @@ void FrameLoader::dispatchDocumentElementAvailable()
     m_client->documentElementAvailable();
 }
 
-void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
+void FrameLoader::dispatchDidClearDocumentOfWindowObject()
 {
     if (!m_frame->script().canExecuteScripts(NotAboutToExecuteScript))
         return;
 
     if (Page* page = m_frame->page())
-        page->inspectorController().didClearWindowObjectInMainWorld(m_frame);
-    InspectorInstrumentation::didClearWindowObjectInMainWorld(m_frame);
+        page->inspectorController().didClearDocumentOfWindowObject(m_frame);
+    InspectorInstrumentation::didClearDocumentOfWindowObject(m_frame);
 
-    Vector<RefPtr<DOMWrapperWorld> > worlds;
-    DOMWrapperWorld::allWorldsInMainThread(worlds);
-    for (size_t i = 0; i < worlds.size(); ++i)
-        m_client->dispatchDidClearWindowObjectInWorld(*worlds[i]);
+    // We just cleared the document, not the entire window object, but for the
+    // embedder that's close enough.
+    m_client->dispatchDidClearWindowObjectInMainWorld();
 }
 
-void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)
+void FrameLoader::dispatchDidClearWindowObjectInMainWorld()
 {
-    if (!m_frame->script().canExecuteScripts(NotAboutToExecuteScript) || !m_frame->script().existingWindowShell(world))
+    if (!m_frame->script().canExecuteScripts(NotAboutToExecuteScript))
         return;
 
-    m_client->dispatchDidClearWindowObjectInWorld(world);
+    // FIXME: Why isn't the inspector notified of this?
+
+    m_client->dispatchDidClearWindowObjectInMainWorld();
 }
 
 SandboxFlags FrameLoader::effectiveSandboxFlags() const

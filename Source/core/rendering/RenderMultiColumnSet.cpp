@@ -35,7 +35,7 @@ using namespace std;
 namespace WebCore {
 
 RenderMultiColumnSet::RenderMultiColumnSet(RenderFlowThread* flowThread)
-    : RenderRegionSet(0, flowThread)
+    : RenderRegion(0, flowThread)
     , m_computedColumnCount(1)
     , m_computedColumnWidth(0)
     , m_computedColumnHeight(0)
@@ -118,17 +118,16 @@ unsigned RenderMultiColumnSet::findRunWithTallestColumns() const
 
 void RenderMultiColumnSet::distributeImplicitBreaks()
 {
-    unsigned breakCount = forcedBreaksCount();
-
 #ifndef NDEBUG
     // There should be no implicit breaks assumed at this point.
-    for (unsigned i = 0; i < breakCount; i++)
+    for (unsigned i = 0; i < forcedBreaksCount(); i++)
         ASSERT(!m_contentRuns[i].assumedImplicitBreaks());
 #endif // NDEBUG
 
-    // There will always be at least one break, since the flow thread reports a "forced break" at
-    // end of content.
-    ASSERT(breakCount >= 1);
+    // Insert a final content run to encompass all content. This will include overflow if this is
+    // the last set.
+    addForcedBreak(logicalBottomInFlowThread());
+    unsigned breakCount = forcedBreaksCount();
 
     // If there is room for more breaks (to reach the used value of column-count), imagine that we
     // insert implicit breaks at suitable locations. At any given time, the content run with the
@@ -143,7 +142,7 @@ void RenderMultiColumnSet::distributeImplicitBreaks()
     }
 }
 
-LayoutUnit RenderMultiColumnSet::calculateBalancedHeight(bool initial) const
+LayoutUnit RenderMultiColumnSet::calculateColumnHeight(bool initial) const
 {
     if (initial) {
         // Start with the lowest imaginable column height.
@@ -191,14 +190,14 @@ void RenderMultiColumnSet::addForcedBreak(LayoutUnit offsetFromFirstPage)
         m_contentRuns.append(ContentRun(offsetFromFirstPage));
 }
 
-bool RenderMultiColumnSet::recalculateBalancedHeight(bool initial)
+bool RenderMultiColumnSet::recalculateColumnHeight(bool initial)
 {
     ASSERT(multiColumnFlowThread()->requiresBalancing());
 
     LayoutUnit oldColumnHeight = m_computedColumnHeight;
     if (initial)
         distributeImplicitBreaks();
-    LayoutUnit newColumnHeight = calculateBalancedHeight(initial);
+    LayoutUnit newColumnHeight = calculateColumnHeight(initial);
     setAndConstrainColumnHeight(newColumnHeight);
 
     // After having calculated an initial column height, the multicol container typically needs at
@@ -284,6 +283,23 @@ void RenderMultiColumnSet::prepareForLayout()
 
     // Nuke previously stored minimum column height. Contents may have changed for all we know.
     m_minimumColumnHeight = 0;
+}
+
+void RenderMultiColumnSet::expandToEncompassFlowThreadContentsIfNeeded()
+{
+    ASSERT(multiColumnFlowThread()->lastMultiColumnSet() == this);
+    LayoutRect rect(flowThreadPortionRect());
+
+    // Get the offset within the flow thread in its block progression direction. Then get the
+    // flow thread's remaining logical height including its overflow and expand our rect
+    // to encompass that remaining height and overflow. The idea is that we will generate
+    // additional columns and pages to hold that overflow, since people do write bad
+    // content like <body style="height:0px"> in multi-column layouts.
+    bool isHorizontal = flowThread()->isHorizontalWritingMode();
+    LayoutUnit logicalTopOffset = isHorizontal ? rect.y() : rect.x();
+    LayoutRect layoutRect = flowThread()->layoutOverflowRect();
+    LayoutUnit logicalHeightWithOverflow = (isHorizontal ? layoutRect.maxY() : layoutRect.maxX()) - logicalTopOffset;
+    setFlowThreadPortionRect(LayoutRect(rect.x(), rect.y(), isHorizontal ? rect.width() : logicalHeightWithOverflow, isHorizontal ? logicalHeightWithOverflow : rect.height()));
 }
 
 void RenderMultiColumnSet::computeLogicalHeight(LayoutUnit, LayoutUnit logicalTop, LogicalExtentComputedValues& computedValues) const

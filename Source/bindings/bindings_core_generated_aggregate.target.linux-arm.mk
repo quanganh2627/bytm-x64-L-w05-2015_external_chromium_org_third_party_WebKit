@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "generate_aggregate_bindings_core":
 $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

@@ -58,7 +58,7 @@
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
-#include "core/svg/SVGDocument.h"
+#include "core/svg/SVGDocumentExtensions.h"
 #include "platform/DragImage.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/graphics/ImageBuffer.h"
@@ -101,7 +101,6 @@ inline LocalFrame::LocalFrame(FrameLoaderClient* client, FrameHost* host, HTMLFr
     , m_inputMethodController(InputMethodController::create(*this))
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
-    , m_orientation(0)
     , m_inViewSourceMode(false)
 {
 }
@@ -154,16 +153,19 @@ void LocalFrame::setView(PassRefPtr<FrameView> view)
 
     m_view = view;
 
-    if (m_view && isMainFrame())
-        m_view->setVisibleContentScaleFactor(page()->pageScaleFactor());
+    if (m_view && isMainFrame()) {
+        if (settings()->pinchVirtualViewportEnabled())
+            m_host->pinchViewport().mainFrameDidChangeSize();
+        else
+            m_view->setVisibleContentScaleFactor(page()->pageScaleFactor());
+    }
 }
 
-void LocalFrame::sendOrientationChangeEvent(int orientation)
+void LocalFrame::sendOrientationChangeEvent()
 {
     if (!RuntimeEnabledFeatures::orientationEventEnabled())
         return;
 
-    m_orientation = orientation;
     if (DOMWindow* window = domWindow())
         window->dispatchEvent(Event::create(EventTypeNames::orientationchange));
 }
@@ -444,7 +446,7 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
     // Respect SVGs zoomAndPan="disabled" property in standalone SVG documents.
     // FIXME: How to handle compound documents + zoomAndPan="disabled"? Needs SVG WG clarification.
     if (document->isSVGDocument()) {
-        if (!toSVGDocument(document)->zoomAndPanEnabled())
+        if (!document->accessSVGExtensions().zoomAndPanEnabled())
             return;
     }
 

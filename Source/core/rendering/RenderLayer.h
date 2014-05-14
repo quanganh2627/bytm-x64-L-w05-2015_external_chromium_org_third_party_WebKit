@@ -125,8 +125,6 @@ public:
     void styleChanged(StyleDifference, const RenderStyle* oldStyle);
 
     bool isSelfPaintingLayer() const { return m_isSelfPaintingLayer; }
-    bool isOverflowOnlyLayer() const { return m_layerType == OverflowClipLayer; }
-    bool isForcedLayer() const { return m_layerType == ForcedLayer; }
 
     void setLayerType(LayerType layerType) { m_layerType = layerType; }
 
@@ -163,8 +161,6 @@ public:
     // Notification from the renderer that its content changed (e.g. current frame of image changed).
     // Allows updates of layer content without repainting.
     void contentChanged(ContentChangeType);
-
-    bool canRender3DTransforms() const;
 
     enum UpdateLayerPositionsFlag {
         CheckForRepaint = 1 << 0,
@@ -270,6 +266,7 @@ public:
     // paints the layers that intersect the damage rect from back to
     // front.  The hitTest method looks for mouse events by walking
     // layers that intersect the point from front to back.
+    // paint() assumes that the caller will clip to the bounds of damageRect if necessary.
     void paint(GraphicsContext*, const LayoutRect& damageRect, PaintBehavior = PaintBehaviorNormal, RenderObject* paintingRoot = 0, PaintLayerFlags = 0);
     bool hitTest(const HitTestRequest&, HitTestResult&);
     bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
@@ -446,6 +443,7 @@ public:
         return isRootLayer() || layerRenderer->isPositioned() || hasTransform();
     }
 
+    // paintLayer() assumes that the caller will clip to the bounds of the painting dirty if necessary.
     void paintLayer(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
 
     PassOwnPtr<Vector<FloatRect> > collectTrackedRepaintRects() const;
@@ -497,15 +495,13 @@ public:
     bool shouldIsolateCompositedDescendants() const { ASSERT(isAllowedToQueryCompositingState()); return m_shouldIsolateCompositedDescendants; }
     void setShouldIsolateCompositedDescendants(bool b)  { m_shouldIsolateCompositedDescendants = b; }
 
-    bool suppressingCompositedLayerCreation() const { ASSERT(isAllowedToQueryCompositingState()); return m_suppressingCompositedLayerCreation; }
-    void setSuppressingCompositedLayerCreation(bool b) { m_suppressingCompositedLayerCreation = b; }
-
     void updateDescendantDependentFlags();
 
     void updateOrRemoveFilterEffectRenderer();
 
     void updateSelfPaintingLayer();
 
+    // paintLayerContents() assumes that the caller will clip to the bounds of the painting dirty rect if necessary.
     void paintLayerContents(GraphicsContext*, const LayerPaintingInfo&, PaintLayerFlags);
 
     RenderLayer* enclosingTransformedAncestor() const;
@@ -547,7 +543,6 @@ private:
 
     void setNextSibling(RenderLayer* next) { m_next = next; }
     void setPreviousSibling(RenderLayer* prev) { m_previous = prev; }
-    void setParent(RenderLayer* parent);
     void setFirstChild(RenderLayer* first) { m_first = first; }
     void setLastChild(RenderLayer* last) { m_last = last; }
 
@@ -702,9 +697,6 @@ private:
     // True if this render layer just lost its grouped mapping due to the CompositedLayerMapping being destroyed,
     // and we don't yet know to what graphics layer this RenderLayer will be assigned.
     unsigned m_lostGroupedMapping : 1;
-
-    // Whether this render layer is trying to avoid becoming composited, if possible.
-    unsigned m_suppressingCompositedLayerCreation : 1;
 
     // The reason, if any exists, that a fixed-position layer is chosen not to be composited.
     unsigned m_viewportConstrainedNotCompositedReason : ViewportConstrainedNotCompositedReasonBits;

@@ -684,7 +684,7 @@ void HTMLMediaElement::prepareForLoad()
     }
 
     // 5 - Set the playbackRate attribute to the value of the defaultPlaybackRate attribute.
-    setPlaybackRate(defaultPlaybackRate(), IGNORE_EXCEPTION);
+    setPlaybackRate(defaultPlaybackRate());
 
     // 6 - Set the error attribute to null and the autoplaying flag to true.
     m_error = nullptr;
@@ -1886,11 +1886,6 @@ double HTMLMediaElement::currentTime() const
 
 void HTMLMediaElement::setCurrentTime(double time, ExceptionState& exceptionState)
 {
-    // FIXME: generated bindings should check isfinite: http://crbug.com/354298
-    if (!std::isfinite(time)) {
-        exceptionState.throwTypeError(ExceptionMessages::notAFiniteNumber(time));
-        return;
-    }
     if (m_mediaController) {
         exceptionState.throwDOMException(InvalidStateError, "The element is slaved to a MediaController.");
         return;
@@ -1929,17 +1924,13 @@ double HTMLMediaElement::defaultPlaybackRate() const
     return m_defaultPlaybackRate;
 }
 
-void HTMLMediaElement::setDefaultPlaybackRate(double rate, ExceptionState& exceptionState)
+void HTMLMediaElement::setDefaultPlaybackRate(double rate)
 {
-    // FIXME: generated bindings should check isfinite: http://crbug.com/354298
-    if (!std::isfinite(rate)) {
-        exceptionState.throwTypeError(ExceptionMessages::notAFiniteNumber(rate));
+    if (m_defaultPlaybackRate == rate)
         return;
-    }
-    if (m_defaultPlaybackRate != rate) {
-        m_defaultPlaybackRate = rate;
-        scheduleEvent(EventTypeNames::ratechange);
-    }
+
+    m_defaultPlaybackRate = rate;
+    scheduleEvent(EventTypeNames::ratechange);
 }
 
 double HTMLMediaElement::playbackRate() const
@@ -1947,15 +1938,9 @@ double HTMLMediaElement::playbackRate() const
     return m_playbackRate;
 }
 
-void HTMLMediaElement::setPlaybackRate(double rate, ExceptionState& exceptionState)
+void HTMLMediaElement::setPlaybackRate(double rate)
 {
     WTF_LOG(Media, "HTMLMediaElement::setPlaybackRate(%f)", rate);
-
-    // FIXME: generated bindings should check isfinite: http://crbug.com/354298
-    if (!std::isfinite(rate)) {
-        exceptionState.throwTypeError(ExceptionMessages::notAFiniteNumber(rate));
-        return;
-    }
 
     if (m_playbackRate != rate) {
         m_playbackRate = rate;
@@ -2121,22 +2106,17 @@ void HTMLMediaElement::setVolume(double vol, ExceptionState& exceptionState)
 {
     WTF_LOG(Media, "HTMLMediaElement::setVolume(%f)", vol);
 
-    // FIXME: generated bindings should check isfinite: http://crbug.com/354298
-    if (!std::isfinite(vol)) {
-        exceptionState.throwTypeError(ExceptionMessages::notAFiniteNumber(vol));
+    if (m_volume == vol)
         return;
-    }
 
     if (vol < 0.0f || vol > 1.0f) {
         exceptionState.throwDOMException(IndexSizeError, ExceptionMessages::indexOutsideRange("volume", vol, 0.0, ExceptionMessages::InclusiveBound, 1.0, ExceptionMessages::InclusiveBound));
         return;
     }
 
-    if (m_volume != vol) {
-        m_volume = vol;
-        updateVolume();
-        scheduleEvent(EventTypeNames::volumechange);
-    }
+    m_volume = vol;
+    updateVolume();
+    scheduleEvent(EventTypeNames::volumechange);
 }
 
 bool HTMLMediaElement::muted() const
@@ -2562,8 +2542,8 @@ bool HTMLMediaElement::havePotentialSourceChild()
 {
     // Stash the current <source> node and next nodes so we can restore them after checking
     // to see there is another potential.
-    RefPtr<HTMLSourceElement> currentSourceNode = m_currentSourceNode;
-    RefPtr<Node> nextNode = m_nextChildNodeToConsider;
+    RefPtrWillBeRawPtr<HTMLSourceElement> currentSourceNode = m_currentSourceNode;
+    RefPtrWillBeRawPtr<Node> nextNode = m_nextChildNodeToConsider;
 
     KURL nextURL = selectNextSourceChild(0, 0, DoNothing);
 
@@ -3610,7 +3590,7 @@ void HTMLMediaElement::mediaPlayerSetWebLayer(blink::WebLayer* webLayer)
 
     // If either of the layers is null we need to enable or disable compositing. This is done by triggering a style recalc.
     if (!m_webLayer || !webLayer)
-        scheduleLayerUpdate();
+        setNeedsCompositingUpdate();
 
     if (m_webLayer)
         GraphicsLayer::unregisterContentsLayer(m_webLayer);
@@ -3632,9 +3612,11 @@ bool HTMLMediaElement::isInteractiveContent() const
 
 void HTMLMediaElement::trace(Visitor* visitor)
 {
+    visitor->trace(m_currentSourceNode);
+    visitor->trace(m_nextChildNodeToConsider);
     visitor->trace(m_textTracks);
     visitor->trace(m_textTracksWhenResourceSelectionBegan);
-    Supplementable<HTMLMediaElement>::trace(visitor);
+    WillBeHeapSupplementable<HTMLMediaElement>::trace(visitor);
     HTMLElement::trace(visitor);
 }
 

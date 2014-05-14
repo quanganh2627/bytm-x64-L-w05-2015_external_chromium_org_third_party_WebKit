@@ -22,9 +22,67 @@ GYP_GENERATED_OUTPUTS :=
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
 
-LOCAL_GENERATED_SOURCES :=
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings01.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings02.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings03.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings04.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings05.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings06.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings07.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings08.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings09.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings10.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings11.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings12.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings13.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings14.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings15.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings16.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings17.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings18.cpp
+	mkdir -p $(@D); cp $< $@
+$(gyp_intermediate_dir)/V8GeneratedModulesBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedModulesBindings19.cpp
+	mkdir -p $(@D); cp $< $@
+LOCAL_GENERATED_SOURCES := \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings01.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings02.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings03.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings04.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings05.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings06.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings07.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings08.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings09.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings10.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings11.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings12.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings13.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings14.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings15.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings16.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings17.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings18.cpp \
+	$(gyp_intermediate_dir)/V8GeneratedModulesBindings19.cpp
 
-GYP_COPIED_SOURCE_ORIGIN_DIRS :=
+GYP_COPIED_SOURCE_ORIGIN_DIRS := \
+	$(gyp_shared_intermediate_dir)/blink/bindings
 
 LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/battery/BatteryDispatcher.cpp \
@@ -383,7 +441,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -397,11 +454,6 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
 	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
@@ -527,7 +579,6 @@ MY_DEFS_Release := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_FAST_MOBILE_SCROLLING=1' \
-	'-DENABLE_INPUT_SPEECH=0' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
@@ -541,11 +592,6 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_PROCXFERMODE' \
-	'-DSK_SUPPORT_LEGACY_DERIVED_PICTURE_CLASSES' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_HEADERS' \
-	'-DSK_SUPPORT_LEGACY_PICTURE_CAN_RECORD' \
-	'-DSK_SUPPORT_DEPRECATED_RECORD_FLAGS' \
 	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \

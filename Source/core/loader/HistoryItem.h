@@ -52,7 +52,8 @@ public:
 
     // Used when the frame this item represents was navigated to a different
     // url but a new item wasn't created.
-    void generateNewSequenceNumbers();
+    void generateNewItemSequenceNumber();
+    void generateNewDocumentSequenceNumber();
 
     const String& urlString() const;
     KURL url() const;
@@ -94,13 +95,6 @@ public:
     void setFormData(PassRefPtr<FormData>);
     void setFormContentType(const AtomicString&);
 
-    // HistoryItem's concept of children is deprecated and can be removed once chromium's
-    // HistoryItem serialization/deserialization code knows about HistoryController's
-    // representation of the histroy tree.
-    void deprecatedAddChildItem(PassRefPtr<HistoryItem>);
-    const HistoryItemVector& deprecatedChildren() const;
-    void deprecatedClearChildren();
-
     bool isCurrentDocument(Document*) const;
 
 private:
@@ -113,9 +107,7 @@ private:
     IntPoint m_scrollPoint;
     float m_pageScaleFactor;
     Vector<String> m_documentStateVector;
-    RefPtr<DocumentState> m_documentState;
-
-    HistoryItemVector m_children;
+    RefPtrWillBePersistent<DocumentState> m_documentState;
 
     // If two HistoryItems have the same item sequence number, then they are
     // clones of one another. Traversing history from one such HistoryItem to

@@ -33,7 +33,6 @@
 
 #include "bindings/v8/CustomElementBinding.h"
 #include "bindings/v8/ScopedPersistent.h"
-#include "bindings/v8/V8DOMActivityLogger.h"
 #include "bindings/v8/V8PersistentValueMap.h"
 #include "bindings/v8/WrapperTypeInfo.h"
 #include "gin/public/context_holder.h"
@@ -48,7 +47,6 @@
 namespace WebCore {
 
 class CustomElementDefinition;
-class DOMWrapperWorld;
 class V8PerContextData;
 struct V8NPObject;
 typedef WTF::Vector<V8NPObject*> V8NPObjectVector;
@@ -61,7 +59,7 @@ enum V8ContextEmbedderDataField {
 
 class V8PerContextData {
 public:
-    static PassOwnPtr<V8PerContextData> create(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
+    static PassOwnPtr<V8PerContextData> create(v8::Handle<v8::Context>);
 
     static V8PerContextData* from(v8::Handle<v8::Context>);
 
@@ -87,15 +85,13 @@ public:
     v8::Local<v8::Object> prototypeForType(const WrapperTypeInfo*);
 
     V8NPObjectMap* v8NPObjectMap() { return &m_v8NPObjectMap; }
-    V8DOMActivityLogger* activityLogger() { return m_activityLogger; }
-    void setActivityLogger(V8DOMActivityLogger* logger) { m_activityLogger = logger; }
 
     void addCustomElementBinding(CustomElementDefinition*, PassOwnPtr<CustomElementBinding>);
     void clearCustomElementBinding(CustomElementDefinition*);
     CustomElementBinding* customElementBinding(CustomElementDefinition*);
 
 private:
-    V8PerContextData(v8::Handle<v8::Context>, PassRefPtr<DOMWrapperWorld>);
+    V8PerContextData(v8::Handle<v8::Context>);
 
     v8::Local<v8::Object> createWrapperFromCacheSlowCase(const WrapperTypeInfo*);
     v8::Local<v8::Function> constructorForTypeSlowCase(const WrapperTypeInfo*);
@@ -109,10 +105,6 @@ private:
     ConstructorMap m_constructorMap;
 
     V8NPObjectMap m_v8NPObjectMap;
-    // We cache a pointer to the V8DOMActivityLogger associated with the world
-    // corresponding to this context. The ownership of the pointer is retained
-    // by the DOMActivityLoggerMap in DOMWrapperWorld.
-    V8DOMActivityLogger* m_activityLogger;
 
     v8::Isolate* m_isolate;
     OwnPtr<gin::ContextHolder> m_contextHolder;

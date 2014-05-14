@@ -17,6 +17,7 @@ GYP_TARGET_DEPENDENCIES := \
 
 ### Rules for action "generateInspectorProtocolBackendSources":
 $(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

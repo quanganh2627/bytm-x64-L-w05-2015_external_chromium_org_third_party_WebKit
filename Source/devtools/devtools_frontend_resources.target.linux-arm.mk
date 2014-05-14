@@ -27,6 +27,7 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_profiler_module_gyp,,,$(GYP_VAR_PREFIX))/build_profiler_module.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_resources_module_gyp,,,$(GYP_VAR_PREFIX))/build_resources_module.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_search_module_gyp,,,$(GYP_VAR_PREFIX))/build_search_module.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_settings_module_gyp,,,$(GYP_VAR_PREFIX))/build_settings_module.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_source_frame_module_gyp,,,$(GYP_VAR_PREFIX))/build_source_frame_module.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_sources_module_gyp,,,$(GYP_VAR_PREFIX))/build_sources_module.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_devtools_build_timeline_module_gyp,,,$(GYP_VAR_PREFIX))/build_timeline_module.stamp \

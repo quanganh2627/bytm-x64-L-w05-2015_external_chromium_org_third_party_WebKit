@@ -93,7 +93,8 @@ private:
     virtual void addRegionToThread(RenderRegion*) OVERRIDE;
     virtual void willBeRemovedFromTree() OVERRIDE;
     virtual void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const OVERRIDE;
-    virtual LayoutUnit initialLogicalWidth() const OVERRIDE;
+    virtual void updateLogicalWidth() OVERRIDE FINAL;
+    virtual void layout() OVERRIDE FINAL;
     virtual void setPageBreak(LayoutUnit offset, LayoutUnit spaceShortage) OVERRIDE;
     virtual void updateMinimumPageHeight(LayoutUnit offset, LayoutUnit minHeight) OVERRIDE;
     virtual RenderRegion* regionAtBlockOffset(LayoutUnit) const OVERRIDE;
@@ -104,7 +105,7 @@ private:
     LayoutUnit m_columnWidth; // The used value of column-width
     LayoutUnit m_columnHeightAvailable; // Total height available to columns, or 0 if auto.
     bool m_inBalancingPass; // Set when relayouting for column balancing.
-    bool m_needsRebalancing;
+    bool m_needsColumnHeightsRecalculation; // Set when we need to recalculate the column set heights after layout.
 };
 
 } // namespace WebCore

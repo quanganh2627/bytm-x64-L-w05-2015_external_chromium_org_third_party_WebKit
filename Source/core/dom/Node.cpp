@@ -42,7 +42,6 @@
 #include "core/dom/Element.h"
 #include "core/dom/ElementRareData.h"
 #include "core/dom/ElementTraversal.h"
-#include "core/dom/EventHandlerRegistry.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/LiveNodeList.h"
 #include "core/dom/NodeRareData.h"
@@ -74,6 +73,7 @@
 #include "core/events/TouchEvent.h"
 #include "core/events/UIEvent.h"
 #include "core/events/WheelEvent.h"
+#include "core/frame/EventHandlerRegistry.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLAnchorElement.h"
 #include "core/html/HTMLDialogElement.h"
@@ -266,24 +266,26 @@ Node::~Node()
     liveNodeSet.remove(this);
 #endif
 
+#if !ENABLE(OILPAN)
     if (hasRareData())
         clearRareData();
 
     RELEASE_ASSERT(!renderer());
 
-#if !ENABLE(OILPAN)
     if (!isContainerNode())
         willBeDeletedFromDocument();
-#endif
 
     if (m_previous)
         m_previous->setNextSibling(0);
     if (m_next)
         m_next->setPreviousSibling(0);
 
-#if !ENABLE(OILPAN)
     if (m_treeScope)
         m_treeScope->guardDeref();
+#else
+    // With Oilpan, the rare data finalizer also asserts for
+    // this condition (we cannot directly access it here.)
+    RELEASE_ASSERT(hasRareData() || !renderer());
 #endif
 
     InspectorCounters::decrementCounter(InspectorCounters::NodeCounter);
@@ -304,7 +306,8 @@ void Node::willBeDeletedFromDocument()
     if (hasEventTargetData()) {
         clearEventTargetData();
         document.didClearTouchEventHandlers(this);
-        EventHandlerRegistry::from(document)->didRemoveAllEventHandlers(*this);
+        if (document.frameHost())
+            document.frameHost()->eventHandlerRegistry().didRemoveAllEventHandlers(*this);
     }
 
     if (AXObjectCache* cache = document.existingAXObjectCache())
@@ -325,36 +328,32 @@ NodeRareData& Node::ensureRareData()
     if (hasRareData())
         return *rareData();
 
-    NodeRareData* data;
     if (isElementNode())
-        data = ElementRareData::create(m_data.m_renderer).leakPtr();
+        m_data.m_rareData = ElementRareData::create(m_data.m_renderer);
     else
-        data = NodeRareData::create(m_data.m_renderer).leakPtr();
-    ASSERT(data);
+        m_data.m_rareData = NodeRareData::create(m_data.m_renderer);
 
-    m_data.m_rareData = data;
+    ASSERT(m_data.m_rareData);
+
     setFlag(HasRareDataFlag);
-    return *data;
+    return *rareData();
 }
 
+#if !ENABLE(OILPAN)
 void Node::clearRareData()
 {
     ASSERT(hasRareData());
     ASSERT(!transientMutationObserverRegistry() || transientMutationObserverRegistry()->isEmpty());
 
     RenderObject* renderer = m_data.m_rareData->renderer();
-    if (isElementNode()) {
-        ElementRareData* rareData = static_cast<ElementRareData*>(m_data.m_rareData);
-        rareData->dispose();
-        delete rareData;
-    } else {
-        NodeRareData* rareData = static_cast<NodeRareData*>(m_data.m_rareData);
-        rareData->dispose();
-        delete rareData;
-    }
+    if (isElementNode())
+        delete static_cast<ElementRareData*>(m_data.m_rareData);
+    else
+        delete static_cast<NodeRareData*>(m_data.m_rareData);
     m_data.m_renderer = renderer;
     clearFlag(HasRareDataFlag);
 }
+#endif
 
 Node* Node::toNode()
 {
@@ -996,6 +995,8 @@ bool Node::inDetach() const
 
 void Node::detach(const AttachContext& context)
 {
+    DeprecatedDisableModifyRenderTreeStructureAsserts disabler;
+
 #ifndef NDEBUG
     ASSERT(!detachingNode);
     detachingNode = this;
@@ -1023,6 +1024,8 @@ void Node::detach(const AttachContext& context)
 
     if (StyleResolver* resolver = document().styleResolver())
         resolver->ruleFeatureSet().styleInvalidator().clearInvalidation(*this);
+    clearChildNeedsStyleInvalidation();
+    clearNeedsStyleInvalidation();
 
 #ifndef NDEBUG
     detachingNode = 0;
@@ -1961,7 +1964,12 @@ void Node::didMoveToNewDocument(Document& oldDocument)
             document().didAddTouchEventHandler(this);
         }
     }
-    EventHandlerRegistry::from(document())->didMoveFromOtherDocument(*this, oldDocument);
+    if (oldDocument.frameHost() != document().frameHost()) {
+        if (oldDocument.frameHost())
+            oldDocument.frameHost()->eventHandlerRegistry().didMoveOutOfFrameHost(*this);
+        if (document().frameHost())
+            document().frameHost()->eventHandlerRegistry().didMoveIntoFrameHost(*this);
+    }
 
     if (WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* registry = mutationObserverRegistry()) {
         for (size_t i = 0; i < registry->size(); ++i) {
@@ -1987,7 +1995,8 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomicString& eve
         WheelController::from(document)->didAddWheelEventHandler(document);
     else if (isTouchEventType(eventType))
         document.didAddTouchEventHandler(targetNode);
-    EventHandlerRegistry::from(document)->didAddEventHandler(*targetNode, eventType);
+    if (document.frameHost())
+        document.frameHost()->eventHandlerRegistry().didAddEventHandler(*targetNode, eventType);
 
     return true;
 }
@@ -2009,7 +2018,8 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomicString& 
         WheelController::from(document)->didRemoveWheelEventHandler(document);
     else if (isTouchEventType(eventType))
         document.didRemoveTouchEventHandler(targetNode);
-    EventHandlerRegistry::from(document)->didRemoveEventHandler(*targetNode, eventType);
+    if (document.frameHost())
+        document.frameHost()->eventHandlerRegistry().didRemoveEventHandler(*targetNode, eventType);
 
     return true;
 }
@@ -2021,8 +2031,8 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
 
 void Node::removeAllEventListeners()
 {
-    if (hasEventListeners())
-        EventHandlerRegistry::from(document())->didRemoveAllEventHandlers(*this);
+    if (hasEventListeners() && document().frameHost())
+        document().frameHost()->eventHandlerRegistry().didRemoveAllEventHandlers(*this);
     EventTarget::removeAllEventListeners();
     document().didClearTouchEventHandlers(this);
 }
@@ -2130,7 +2140,7 @@ void Node::registerMutationObserver(MutationObserver& observer, MutationObserver
     }
 
     if (!registration) {
-        registry.append(MutationObserverRegistration::create(observer, *this, options, attributeFilter));
+        registry.append(MutationObserverRegistration::create(observer, this, options, attributeFilter));
         registration = registry.last().get();
     }
 
@@ -2153,9 +2163,11 @@ void Node::unregisterMutationObserver(MutationObserverRegistration* registration
     // before that, in case |this| is destroyed (see MutationObserverRegistration::m_registrationNodeKeepAlive).
     // FIXME: Simplify the registration/transient registration logic to make this understandable by humans.
     RefPtr<Node> protect(this);
-    // The explicit dispose() is motivated by Oilpan; the registration
-    // object needs to unregister itself promptly.
+#if ENABLE(OILPAN)
+    // The explicit dispose() is needed to have the registration
+    // object unregister itself promptly.
     registration->dispose();
+#endif
     registry->remove(index);
 }
 
@@ -2367,13 +2379,8 @@ bool Node::willRespondToTouchEvents()
     return hasEventListeners(EventTypeNames::touchstart) || hasEventListeners(EventTypeNames::touchmove) || hasEventListeners(EventTypeNames::touchcancel) || hasEventListeners(EventTypeNames::touchend);
 }
 
+#if !ENABLE(OILPAN)
 // This is here for inlining
-#if ENABLE(OILPAN)
-inline void TreeScope::removedLastRefToScope()
-{
-    dispose();
-}
-#else
 inline void TreeScope::removedLastRefToScope()
 {
     ASSERT_WITH_SECURITY_IMPLICATION(!deletionHasBegun());
@@ -2399,7 +2406,6 @@ inline void TreeScope::removedLastRefToScope()
         delete this;
     }
 }
-#endif
 
 // It's important not to inline removedLastRef, because we don't want to inline the code to
 // delete a Node at each deref call site.
@@ -2413,13 +2419,12 @@ void Node::removedLastRef()
         return;
     }
 
-#if !ENABLE(OILPAN)
 #if SECURITY_ASSERT_ENABLED
     m_deletionHasBegun = true;
 #endif
     delete this;
-#endif
 }
+#endif
 
 unsigned Node::connectedSubframeCount() const
 {
@@ -2563,6 +2568,12 @@ void Node::setCustomElementState(CustomElementState newState)
 
 void Node::trace(Visitor* visitor)
 {
+    visitor->trace(m_parentOrShadowHostNode);
+    visitor->trace(m_previous);
+    visitor->trace(m_next);
+    if (hasRareData())
+        visitor->trace(rareData());
+
     visitor->trace(m_treeScope);
 }
 

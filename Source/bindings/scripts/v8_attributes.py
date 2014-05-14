@@ -79,6 +79,10 @@ def generate_attribute(interface, attribute):
         (has_extended_attribute_value(interface, 'TypeChecking', 'Nullable') or
          has_extended_attribute_value(attribute, 'TypeChecking', 'Nullable')) and
          idl_type.is_wrapper_type)
+    has_type_checking_unrestricted = (
+        (has_extended_attribute_value(interface, 'TypeChecking', 'Unrestricted') or
+         has_extended_attribute_value(attribute, 'TypeChecking', 'Unrestricted')) and
+         idl_type.name in ('Float', 'Double'))
 
     if (base_idl_type == 'EventHandler' and
         interface.name in ['Window', 'WorkerGlobalScope'] and
@@ -89,27 +93,34 @@ def generate_attribute(interface, attribute):
         'access_control_list': access_control_list(attribute),
         'activity_logging_world_list_for_getter': v8_utilities.activity_logging_world_list(attribute, 'Getter'),  # [ActivityLogging]
         'activity_logging_world_list_for_setter': v8_utilities.activity_logging_world_list(attribute, 'Setter'),  # [ActivityLogging]
+        'activity_logging_include_old_value_for_setter': 'LogPreviousValue' in extended_attributes,  # [ActivityLogging]
         'cached_attribute_validation_method': extended_attributes.get('CachedAttribute'),
         'conditional_string': v8_utilities.conditional_string(attribute),
         'constructor_type': idl_type.constructor_type_name
                             if is_constructor_attribute(attribute) else None,
         'cpp_name': cpp_name(attribute),
         'cpp_type': idl_type.cpp_type,
+        'cpp_value_to_v8_value': idl_type.cpp_value_to_v8_value(cpp_value='original', creation_context='info.Holder()'),
         'deprecate_as': v8_utilities.deprecate_as(attribute),  # [DeprecateAs]
         'enum_validation_expression': idl_type.enum_validation_expression,
         'has_custom_getter': has_custom_getter,
         'has_custom_setter': has_custom_setter,
+        'has_setter_exception_state':
+            is_setter_raises_exception or has_type_checking_interface or
+            has_type_checking_nullable or has_type_checking_unrestricted or
+            idl_type.is_integer_type,
         'has_type_checking_interface': has_type_checking_interface,
         'has_type_checking_nullable': has_type_checking_nullable,
+        'has_type_checking_unrestricted': has_type_checking_unrestricted,
         'idl_type': str(idl_type),  # need trailing [] on array for Dictionary::ConversionContext::setConversionType
         'is_call_with_execution_context': v8_utilities.has_extended_attribute_value(attribute, 'CallWith', 'ExecutionContext'),
         'is_call_with_script_state': v8_utilities.has_extended_attribute_value(attribute, 'CallWith', 'ScriptState'),
         'is_check_security_for_node': is_check_security_for_node,
         'is_custom_element_callbacks': is_custom_element_callbacks,
         'is_expose_js_accessors': 'ExposeJSAccessors' in extended_attributes,
-        'is_getter_raises_exception': (  # [RaisesException]
+        'is_getter_raises_exception':  # [RaisesException]
             'RaisesException' in extended_attributes and
-            extended_attributes['RaisesException'] in [None, 'Getter']),
+            extended_attributes['RaisesException'] in (None, 'Getter'),
         'is_initialized_by_event_constructor':
             'InitializedByEventConstructor' in extended_attributes,
         'is_keep_alive_for_gc': is_keep_alive_for_gc(interface, attribute),
@@ -122,9 +133,6 @@ def generate_attribute(interface, attribute):
         'is_replaceable': 'Replaceable' in attribute.extended_attributes,
         'is_setter_call_with_execution_context': v8_utilities.has_extended_attribute_value(attribute, 'SetterCallWith', 'ExecutionContext'),
         'is_setter_raises_exception': is_setter_raises_exception,
-        'has_setter_exception_state': (
-            is_setter_raises_exception or has_type_checking_interface or
-            has_type_checking_nullable or idl_type.is_integer_type),
         'is_static': attribute.is_static,
         'is_url': 'URL' in extended_attributes,
         'is_unforgeable': 'Unforgeable' in extended_attributes,

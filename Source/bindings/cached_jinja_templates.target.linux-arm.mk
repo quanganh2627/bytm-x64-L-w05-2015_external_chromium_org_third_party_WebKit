@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "cache_jinja_templates":
 $(gyp_shared_intermediate_dir)/blink/bindings/cached_jinja_templates.stamp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/bindings/cached_jinja_templates.stamp: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/bindings/cached_jinja_templates.stamp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/cached_jinja_templates.stamp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/cached_jinja_templates.stamp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

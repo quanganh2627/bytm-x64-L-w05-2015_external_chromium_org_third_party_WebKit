@@ -53,9 +53,13 @@ HistoryItem::~HistoryItem()
 {
 }
 
-void HistoryItem::generateNewSequenceNumbers()
+void HistoryItem::generateNewItemSequenceNumber()
 {
     m_itemSequenceNumber = generateSequenceNumber();
+}
+
+void HistoryItem::generateNewDocumentSequenceNumber()
+{
     m_documentSequenceNumber = generateSequenceNumber();
 }
 
@@ -158,21 +162,6 @@ void HistoryItem::clearDocumentState()
 void HistoryItem::setStateObject(PassRefPtr<SerializedScriptValue> object)
 {
     m_stateObject = object;
-}
-
-void HistoryItem::deprecatedAddChildItem(PassRefPtr<HistoryItem> child)
-{
-    m_children.append(child);
-}
-
-const HistoryItemVector& HistoryItem::deprecatedChildren() const
-{
-    return m_children;
-}
-
-void HistoryItem::deprecatedClearChildren()
-{
-    m_children.clear();
 }
 
 const AtomicString& HistoryItem::formContentType() const

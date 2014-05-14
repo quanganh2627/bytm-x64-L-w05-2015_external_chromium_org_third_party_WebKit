@@ -34,7 +34,6 @@
 #include "RuntimeEnabledFeatures.h"
 #include "StylePropertyShorthand.h"
 #include "core/animation/ActiveAnimations.h"
-#include "core/animation/AnimatableLength.h"
 #include "core/animation/AnimatableValue.h"
 #include "core/animation/Animation.h"
 #include "core/animation/DocumentTimeline.h"
@@ -133,6 +132,7 @@ StyleResolver::StyleResolver(Document& document)
     , m_viewportStyleResolver(ViewportStyleResolver::create(&document))
     , m_needCollectFeatures(false)
     , m_styleResourceLoader(document.fetcher())
+    , m_styleSharingDepth(0)
     , m_styleResolverStatsSequence(0)
     , m_accessCount(0)
 {
@@ -197,7 +197,7 @@ void StyleResolver::appendCSSStyleSheet(CSSStyleSheet* cssSheet)
 void StyleResolver::appendPendingAuthorStyleSheets()
 {
     setBuildScopedStyleTreeInDocumentOrder(false);
-    for (ListHashSet<CSSStyleSheet*, 16>::iterator it = m_pendingStyleSheets.begin(); it != m_pendingStyleSheets.end(); ++it)
+    for (WillBeHeapListHashSet<RawPtrWillBeMember<CSSStyleSheet>, 16>::iterator it = m_pendingStyleSheets.begin(); it != m_pendingStyleSheets.end(); ++it)
         appendCSSStyleSheet(*it);
 
     m_pendingStyleSheets.clear();
@@ -318,14 +318,29 @@ void StyleResolver::addToStyleSharingList(Element& element)
     if (!document().inStyleRecalc())
         return;
     INCREMENT_STYLE_STATS_COUNTER(*this, sharedStyleCandidates);
-    if (m_styleSharingList.size() >= styleSharingListSize)
-        m_styleSharingList.remove(--m_styleSharingList.end());
-    m_styleSharingList.prepend(&element);
+    StyleSharingList& list = styleSharingList();
+    if (list.size() >= styleSharingListSize)
+        list.remove(--list.end());
+    list.prepend(&element);
+}
+
+StyleSharingList& StyleResolver::styleSharingList()
+{
+    m_styleSharingLists.resize(styleSharingMaxDepth);
+
+    // We never put things at depth 0 into the list since that's only the <html> element
+    // and it has no siblings or cousins to share with.
+    unsigned depth = std::max(std::min(m_styleSharingDepth, styleSharingMaxDepth), 1u) - 1u;
+    ASSERT(depth >= 0);
+
+    if (!m_styleSharingLists[depth])
+        m_styleSharingLists[depth] = adoptPtr(new StyleSharingList);
+    return *m_styleSharingLists[depth];
 }
 
 void StyleResolver::clearStyleSharingList()
 {
-    m_styleSharingList.clear();
+    m_styleSharingLists.resize(0);
 }
 
 void StyleResolver::fontsNeedUpdate(CSSFontSelector* fontSelector)
@@ -565,6 +580,12 @@ static void addContentAttrValuesToFeatures(const Vector<AtomicString>& contentAt
         features.addContentAttr(contentAttrValues[i]);
 }
 
+void StyleResolver::adjustRenderStyle(StyleResolverState& state, Element* element)
+{
+    StyleAdjuster adjuster(state.cachedUAStyle(), m_document.inQuirksMode());
+    adjuster.adjustRenderStyle(state.style(), state.parentStyle(), element);
+}
+
 // Start loading resources referenced by this style.
 void StyleResolver::loadPendingResources(StyleResolverState& state)
 {
@@ -582,7 +603,7 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
 
     // Once an element has a renderer, we don't try to destroy it, since otherwise the renderer
     // will vanish if a style recalc happens during loading.
-    if (sharingBehavior == AllowStyleSharing && !document().styleEngine()->haveStylesheetsLoaded() && !element->renderer()) {
+    if (sharingBehavior == AllowStyleSharing && !document().isRenderingReady() && !element->renderer()) {
         if (!s_styleNotYetAvailable) {
             s_styleNotYetAvailable = RenderStyle::create().leakRef();
             s_styleNotYetAvailable->setDisplay(NONE);
@@ -650,15 +671,14 @@ PassRefPtr<RenderStyle> StyleResolver::styleForElement(Element* element, RenderS
 
         addContentAttrValuesToFeatures(state.contentAttrValues(), m_features);
     }
-    {
-        StyleAdjuster adjuster(state.cachedUAStyle(), m_document.inQuirksMode());
-        adjuster.adjustRenderStyle(state.style(), state.parentStyle(), element);
-    }
+
+    adjustRenderStyle(state, element);
 
     // FIXME: The CSSWG wants to specify that the effects of animations are applied before
     // important rules, but this currently happens here as we require adjustment to have happened
     // before deciding which properties to transition.
-    applyAnimatedProperties(state, element);
+    if (applyAnimatedProperties(state, element))
+        adjustRenderStyle(state, element);
 
     // FIXME: Shouldn't this be on RenderBody::styleDidChange?
     if (isHTMLBodyElement(*element))
@@ -824,17 +844,16 @@ bool StyleResolver::pseudoStyleForElementInternal(Element& element, const Pseudo
 
         addContentAttrValuesToFeatures(state.contentAttrValues(), m_features);
     }
-    {
-        StyleAdjuster adjuster(state.cachedUAStyle(), m_document.inQuirksMode());
-        // FIXME: Passing 0 as the Element* introduces a lot of complexity
-        // in the adjustRenderStyle code.
-        adjuster.adjustRenderStyle(state.style(), state.parentStyle(), 0);
-    }
+
+    // FIXME: Passing 0 as the Element* introduces a lot of complexity
+    // in the adjustRenderStyle code.
+    adjustRenderStyle(state, 0);
 
     // FIXME: The CSSWG wants to specify that the effects of animations are applied before
     // important rules, but this currently happens here as we require adjustment to have happened
     // before deciding which properties to transition.
-    applyAnimatedProperties(state, element.pseudoElement(pseudoStyleRequest.pseudoId));
+    if (applyAnimatedProperties(state, element.pseudoElement(pseudoStyleRequest.pseudoId)))
+        adjustRenderStyle(state, 0);
 
     didAccess();
 
@@ -994,7 +1013,7 @@ void StyleResolver::collectPseudoRulesForElement(Element* element, ElementRuleCo
 // -------------------------------------------------------------------------------------
 // this is mostly boring stuff on how to apply a certain rule to the renderstyle...
 
-void StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* animatingElement)
+bool StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* animatingElement)
 {
     const Element* element = state.element();
     ASSERT(element);
@@ -1007,11 +1026,11 @@ void StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* 
     if (!(animatingElement && animatingElement->hasActiveAnimations())
         && !(state.style()->transitions() && !state.style()->transitions()->isEmpty())
         && !(state.style()->animations() && !state.style()->animations()->isEmpty()))
-        return;
+        return false;
 
     state.setAnimationUpdate(CSSAnimations::calculateUpdate(animatingElement, *element, *state.style(), state.parentStyle(), this));
     if (!state.animationUpdate())
-        return;
+        return false;
 
     const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& activeInterpolationsForAnimations = state.animationUpdate()->activeInterpolationsForAnimations();
     const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >& activeInterpolationsForTransitions = state.animationUpdate()->activeInterpolationsForTransitions();
@@ -1020,15 +1039,10 @@ void StyleResolver::applyAnimatedProperties(StyleResolverState& state, Element* 
     applyAnimatedProperties<LowPriorityProperties>(state, activeInterpolationsForAnimations);
     applyAnimatedProperties<LowPriorityProperties>(state, activeInterpolationsForTransitions);
 
-    // If the animations/transitions change opacity or transform, we need to update
-    // the style to impose the stacking rules. Note that this is also
-    // done in StyleResolver::adjustRenderStyle().
-    RenderStyle* style = state.style();
-    if (style->hasAutoZIndex() && (style->opacity() < 1.0f || style->hasTransformRelatedProperty()))
-        style->setZIndex(0);
-
     // Start loading resources used by animations.
     loadPendingResources(state);
+
+    return true;
 }
 
 template <StyleResolver::StyleApplicationPass pass>
@@ -1093,6 +1107,127 @@ static inline bool isValidCueStyleProperty(CSSPropertyID id)
     return false;
 }
 
+static inline bool isValidFirstLetterStyleProperty(CSSPropertyID id)
+{
+    switch (id) {
+    // Valid ::first-letter properties listed in spec:
+    // http://www.w3.org/TR/css3-selectors/#application-in-css
+    case CSSPropertyBackgroundAttachment:
+    case CSSPropertyBackgroundBlendMode:
+    case CSSPropertyBackgroundClip:
+    case CSSPropertyBackgroundColor:
+    case CSSPropertyBackgroundImage:
+    case CSSPropertyBackgroundOrigin:
+    case CSSPropertyBackgroundPosition:
+    case CSSPropertyBackgroundPositionX:
+    case CSSPropertyBackgroundPositionY:
+    case CSSPropertyBackgroundRepeat:
+    case CSSPropertyBackgroundRepeatX:
+    case CSSPropertyBackgroundRepeatY:
+    case CSSPropertyBackgroundSize:
+    case CSSPropertyBorderBottomColor:
+    case CSSPropertyBorderBottomLeftRadius:
+    case CSSPropertyBorderBottomRightRadius:
+    case CSSPropertyBorderBottomStyle:
+    case CSSPropertyBorderBottomWidth:
+    case CSSPropertyBorderImageOutset:
+    case CSSPropertyBorderImageRepeat:
+    case CSSPropertyBorderImageSlice:
+    case CSSPropertyBorderImageSource:
+    case CSSPropertyBorderImageWidth:
+    case CSSPropertyBorderLeftColor:
+    case CSSPropertyBorderLeftStyle:
+    case CSSPropertyBorderLeftWidth:
+    case CSSPropertyBorderRightColor:
+    case CSSPropertyBorderRightStyle:
+    case CSSPropertyBorderRightWidth:
+    case CSSPropertyBorderTopColor:
+    case CSSPropertyBorderTopLeftRadius:
+    case CSSPropertyBorderTopRightRadius:
+    case CSSPropertyBorderTopStyle:
+    case CSSPropertyBorderTopWidth:
+    case CSSPropertyColor:
+    case CSSPropertyFloat:
+    case CSSPropertyFont:
+    case CSSPropertyFontFamily:
+    case CSSPropertyFontKerning:
+    case CSSPropertyFontSize:
+    case CSSPropertyFontStretch:
+    case CSSPropertyFontStyle:
+    case CSSPropertyFontVariant:
+    case CSSPropertyFontVariantLigatures:
+    case CSSPropertyFontWeight:
+    case CSSPropertyLetterSpacing:
+    case CSSPropertyLineHeight:
+    case CSSPropertyMarginBottom:
+    case CSSPropertyMarginLeft:
+    case CSSPropertyMarginRight:
+    case CSSPropertyMarginTop:
+    case CSSPropertyPaddingBottom:
+    case CSSPropertyPaddingLeft:
+    case CSSPropertyPaddingRight:
+    case CSSPropertyPaddingTop:
+    case CSSPropertyTextTransform:
+    case CSSPropertyVerticalAlign:
+    case CSSPropertyWebkitBackgroundClip:
+    case CSSPropertyWebkitBackgroundComposite:
+    case CSSPropertyWebkitBackgroundOrigin:
+    case CSSPropertyWebkitBackgroundSize:
+    case CSSPropertyWebkitBorderAfter:
+    case CSSPropertyWebkitBorderAfterColor:
+    case CSSPropertyWebkitBorderAfterStyle:
+    case CSSPropertyWebkitBorderAfterWidth:
+    case CSSPropertyWebkitBorderBefore:
+    case CSSPropertyWebkitBorderBeforeColor:
+    case CSSPropertyWebkitBorderBeforeStyle:
+    case CSSPropertyWebkitBorderBeforeWidth:
+    case CSSPropertyWebkitBorderEnd:
+    case CSSPropertyWebkitBorderEndColor:
+    case CSSPropertyWebkitBorderEndStyle:
+    case CSSPropertyWebkitBorderEndWidth:
+    case CSSPropertyWebkitBorderFit:
+    case CSSPropertyWebkitBorderHorizontalSpacing:
+    case CSSPropertyWebkitBorderImage:
+    case CSSPropertyWebkitBorderRadius:
+    case CSSPropertyWebkitBorderStart:
+    case CSSPropertyWebkitBorderStartColor:
+    case CSSPropertyWebkitBorderStartStyle:
+    case CSSPropertyWebkitBorderStartWidth:
+    case CSSPropertyWebkitBorderVerticalSpacing:
+    case CSSPropertyWebkitFontSmoothing:
+    case CSSPropertyWebkitMarginAfter:
+    case CSSPropertyWebkitMarginAfterCollapse:
+    case CSSPropertyWebkitMarginBefore:
+    case CSSPropertyWebkitMarginBeforeCollapse:
+    case CSSPropertyWebkitMarginBottomCollapse:
+    case CSSPropertyWebkitMarginCollapse:
+    case CSSPropertyWebkitMarginEnd:
+    case CSSPropertyWebkitMarginStart:
+    case CSSPropertyWebkitMarginTopCollapse:
+    case CSSPropertyWordSpacing:
+        return true;
+    case CSSPropertyTextDecorationColor:
+    case CSSPropertyTextDecorationLine:
+    case CSSPropertyTextDecorationStyle:
+        return RuntimeEnabledFeatures::css3TextDecorationsEnabled();
+
+    // text-shadow added in text decoration spec:
+    // http://www.w3.org/TR/css-text-decor-3/#text-shadow-property
+    case CSSPropertyTextShadow:
+    // box-shadox added in CSS3 backgrounds spec:
+    // http://www.w3.org/TR/css3-background/#placement
+    case CSSPropertyBoxShadow:
+    case CSSPropertyWebkitBoxShadow:
+    // Properties that we currently support outside of spec.
+    case CSSPropertyWebkitLineBoxContain:
+    case CSSPropertyVisibility:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 template <StyleResolver::StyleApplicationPass pass>
 bool StyleResolver::isPropertyForPass(CSSPropertyID property)
 {
@@ -1136,6 +1271,8 @@ void StyleResolver::applyProperties(StyleResolverState& state, const StyleProper
         CSSPropertyID property = current.id();
 
         if (propertyWhitelistType == PropertyWhitelistCue && !isValidCueStyleProperty(property))
+            continue;
+        if (propertyWhitelistType == PropertyWhitelistFirstLetter && !isValidFirstLetterStyleProperty(property))
             continue;
         if (!isPropertyForPass<pass>(property))
             continue;
@@ -1364,6 +1501,8 @@ void StyleResolver::trace(Visitor* visitor)
     visitor->trace(m_uncommonAttributeRuleSet);
     visitor->trace(m_watchedSelectorsRules);
     visitor->trace(m_treeBoundaryCrossingRules);
+    visitor->trace(m_pendingStyleSheets);
+    CSSFontSelectorClient::trace(visitor);
 }
 
 } // namespace WebCore

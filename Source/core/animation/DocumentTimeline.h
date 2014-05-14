@@ -62,7 +62,7 @@ public:
     static PassRefPtr<DocumentTimeline> create(Document*, PassOwnPtr<PlatformTiming> = nullptr);
     ~DocumentTimeline();
 
-    void serviceAnimations(AnimationPlayer::UpdateReason);
+    void serviceAnimations(TimingUpdateReason);
 
     // Creates a player attached to this timeline, but without a start time.
     AnimationPlayer* createAnimationPlayer(TimedItem*);
@@ -89,10 +89,11 @@ public:
     size_t numberOfActiveAnimationsForTesting() const;
 
     void setOutdatedAnimationPlayer(AnimationPlayer*);
-    bool hasOutdatedAnimationPlayer() const { return m_hasOutdatedAnimationPlayer; }
+    bool hasOutdatedAnimationPlayer() const;
 
     Document* document() { return m_document; }
     void detachFromDocument();
+    void wake();
 
 protected:
     DocumentTimeline(Document*, PassOwnPtr<PlatformTiming>);
@@ -104,9 +105,6 @@ private:
     // i.e. current, in effect, or had timing changed
     HashSet<RefPtr<AnimationPlayer> > m_playersNeedingUpdate;
     HashSet<AnimationPlayer*> m_players;
-    bool m_hasOutdatedAnimationPlayer;
-
-    void wake();
 
     friend class SMILTimeContainer;
     static const double s_minimumDelay;

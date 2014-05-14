@@ -132,7 +132,6 @@ RenderLayer::RenderLayer(RenderLayerModelObject* renderer, LayerType type)
     , m_hasNonCompositedChild(false)
     , m_shouldIsolateCompositedDescendants(false)
     , m_lostGroupedMapping(false)
-    , m_suppressingCompositedLayerCreation(false)
     , m_viewportConstrainedNotCompositedReason(NoNotCompositedReason)
     , m_renderer(renderer)
     , m_parent(0)
@@ -212,16 +211,19 @@ void RenderLayer::contentChanged(ContentChangeType changeType)
     if (changeType == CanvasChanged || changeType == VideoChanged || changeType == FullScreenChanged)
         compositor()->updateLayerCompositingState(this);
 
-    if (changeType == CanvasContextChanged)
-        compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCanvasContextChange);
+    if (changeType == CanvasContextChanged) {
+        compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
+
+        // Although we're missing test coverage, we need to call
+        // GraphicsLayer::setContentsToPlatformLayer with the new platform
+        // layer for this canvas.
+        // See http://crbug.com/349195
+        if (hasCompositedLayerMapping())
+            compositedLayerMapping()->setNeedsGraphicsLayerUpdate();
+    }
 
     if (m_compositedLayerMapping)
         m_compositedLayerMapping->contentChanged(changeType);
-}
-
-bool RenderLayer::canRender3DTransforms() const
-{
-    return compositor()->canRender3DTransforms();
 }
 
 bool RenderLayer::paintsWithFilters() const
@@ -408,6 +410,7 @@ bool RenderLayer::scrollsWithRespectTo(const RenderLayer* other) const
     const bool isRootFixedPos = position == FixedPosition && containingBlock->enclosingLayer() == rootLayer;
     const bool otherIsRootFixedPos = otherPosition == FixedPosition && otherContainingBlock->enclosingLayer() == rootLayer;
 
+    // FIXME: some of these cases don't look quite right.
     if (isRootFixedPos && otherIsRootFixedPos)
         return false;
     if (isRootFixedPos || otherIsRootFixedPos)
@@ -420,8 +423,13 @@ bool RenderLayer::scrollsWithRespectTo(const RenderLayer* other) const
     // closest scrollable ancestor.
     HashSet<const RenderObject*> containingBlocks;
     while (containingBlock) {
-        if (containingBlock->enclosingLayer()->scrollsOverflow())
+        if (containingBlock->enclosingLayer()->scrollsOverflow()) {
             break;
+        }
+        if (containingBlock->enclosingLayer() == other) {
+            // This layer does not scroll with respect to the other layer if the other one does not scroll and this one is a child.
+            return false;
+        }
         containingBlocks.add(containingBlock);
         containingBlock = containingBlock->containingBlock();
     }
@@ -429,9 +437,14 @@ bool RenderLayer::scrollsWithRespectTo(const RenderLayer* other) const
     // Do the same for the 2nd layer, but if we find a common containing block,
     // it means both layers are contained within a single non-scrolling subtree.
     // Hence, they will not scroll with respect to each other.
+    bool thisLayerScrollsOverflow = scrollsOverflow();
     while (otherContainingBlock) {
         if (containingBlocks.contains(otherContainingBlock))
             return false;
+        // The other layer scrolls with respect to this one if this one scrolls and it's a child.
+        if (!thisLayerScrollsOverflow && otherContainingBlock->enclosingLayer() == this)
+            return false;
+        // The other layer does not scroll with respect to this one if this one does not scroll and it's a child.
         if (otherContainingBlock->enclosingLayer()->scrollsOverflow())
             break;
         otherContainingBlock = otherContainingBlock->containingBlock();
@@ -531,7 +544,7 @@ void RenderLayer::updateTransform()
         ASSERT(box);
         m_transform->makeIdentity();
         box->style()->applyTransform(*m_transform, box->pixelSnappedBorderBoxRect().size(), RenderStyle::IncludeTransformOrigin);
-        makeMatrixRenderable(*m_transform, canRender3DTransforms());
+        makeMatrixRenderable(*m_transform, compositor()->hasAcceleratedCompositing());
     }
 
     if (had3DTransform != has3DTransform())
@@ -568,7 +581,7 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
         RenderBox* box = renderBox();
         TransformationMatrix currTransform;
         box->style()->applyTransform(currTransform, box->pixelSnappedBorderBoxRect().size(), RenderStyle::ExcludeTransformOrigin);
-        makeMatrixRenderable(currTransform, canRender3DTransforms());
+        makeMatrixRenderable(currTransform, compositor()->hasAcceleratedCompositing());
         return currTransform;
     }
 
@@ -1396,7 +1409,7 @@ void RenderLayer::addChild(RenderLayer* child, RenderLayer* beforeChild)
     } else
         setLastChild(child);
 
-    child->setParent(this);
+    child->m_parent = this;
 
     setNeedsToUpdateAncestorDependentProperties();
 
@@ -1467,7 +1480,7 @@ RenderLayer* RenderLayer::removeChild(RenderLayer* oldChild)
 
     oldChild->setPreviousSibling(0);
     oldChild->setNextSibling(0);
-    oldChild->setParent(0);
+    oldChild->m_parent = 0;
 
     oldChild->updateDescendantDependentFlags();
     if (subtreeContainsOutOfFlowPositionedLayer(oldChild)) {
@@ -1764,7 +1777,7 @@ void RenderLayer::updateStackingNode()
 void RenderLayer::updateScrollableArea()
 {
     if (requiresScrollableArea())
-        m_scrollableArea = adoptPtr(new RenderLayerScrollableArea(*renderBox()));
+        m_scrollableArea = adoptPtr(new RenderLayerScrollableArea(*this));
     else
         m_scrollableArea = nullptr;
 }
@@ -3415,7 +3428,12 @@ LayoutRect RenderLayer::boundingBoxForCompositing(const RenderLayer* ancestorLay
 
     RenderLayerStackingNodeIterator iterator(*m_stackingNode.get(), AllChildren);
     while (RenderLayerStackingNode* node = iterator.next()) {
-        if (node->layer()->hasCompositedLayerMapping() && options != ApplyBoundsChickenEggHacks)
+        // Here we exclude both directly composted layers and squashing layers
+        // because those RenderLayers don't paint into the graphics layer
+        // for this RenderLayer. For example, the bounds of squashed RenderLayers
+        // will be included in the computation of the appropriate squashing
+        // GraphicsLayer.
+        if (options != ApplyBoundsChickenEggHacks && node->layer()->compositingState() != NotComposited)
             continue;
         result.unite(node->layer()->boundingBoxForCompositing(this, options));
     }
@@ -3602,20 +3620,6 @@ bool RenderLayer::childBackgroundIsKnownToBeOpaqueInRect(const LayoutRect& local
             return true;
     }
     return false;
-}
-
-void RenderLayer::setParent(RenderLayer* parent)
-{
-    if (parent == m_parent)
-        return;
-
-    if (m_parent && !renderer()->documentBeingDestroyed())
-        compositor()->layerWillBeRemoved(m_parent, this);
-
-    m_parent = parent;
-
-    if (m_parent && !renderer()->documentBeingDestroyed())
-        compositor()->layerWasAdded(m_parent, this);
 }
 
 bool RenderLayer::shouldBeSelfPaintingLayer() const

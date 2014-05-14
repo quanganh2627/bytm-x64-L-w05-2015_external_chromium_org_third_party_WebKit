@@ -93,7 +93,7 @@ public:
     bool isSharingStyle(Element*, Element*, ExceptionState&) const;
 
     size_t numberOfScopedHTMLStyleChildren(const Node*, ExceptionState&) const;
-    PassRefPtr<CSSComputedStyleDeclaration> computedStyleIncludingVisitedInfo(Node*, ExceptionState&) const;
+    PassRefPtrWillBeRawPtr<CSSComputedStyleDeclaration> computedStyleIncludingVisitedInfo(Node*, ExceptionState&) const;
 
     ShadowRoot* shadowRoot(Element* host, ExceptionState&);
     ShadowRoot* youngestShadowRoot(Element* host, ExceptionState&);
@@ -310,14 +310,13 @@ public:
 
     void setShouldRevealPassword(Element*, bool, ExceptionState&);
 
-    ScriptPromise createPromise(ExecutionContext*);
-    ScriptPromise createResolvedPromise(ExecutionContext*, ScriptValue);
-    ScriptPromise createRejectedPromise(ExecutionContext*, ScriptValue);
+    ScriptPromise createPromise(ScriptState*);
+    ScriptPromise createResolvedPromise(ScriptState*, ScriptValue);
+    ScriptPromise createRejectedPromise(ScriptState*, ScriptValue);
     ScriptPromise addOneToPromise(ExecutionContext*, ScriptPromise);
 
     void trace(Visitor*);
 
-    void startSpeechInput(Element*);
     void setValueForUser(Element*, const String&);
 
     String textSurroundingNode(Node*, int x, int y, unsigned long maxLength);

@@ -16,6 +16,7 @@ GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "build_temp_storage_shared_worker_module":
 $(gyp_shared_intermediate_dir)/resources/inspector/temp_storage_shared_worker/TempStorageSharedWorker.js: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/resources/inspector/temp_storage_shared_worker/TempStorageSharedWorker.js: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/resources/inspector/temp_storage_shared_worker/TempStorageSharedWorker.js: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/temp_storage_shared_worker/TempStorageSharedWorker.js: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/resources/inspector/temp_storage_shared_worker/TempStorageSharedWorker.js: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))

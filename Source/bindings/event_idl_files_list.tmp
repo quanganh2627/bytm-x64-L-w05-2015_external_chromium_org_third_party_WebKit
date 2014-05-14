@@ -28,7 +28,6 @@
 ../core/html/MediaKeyEvent.idl
 ../core/html/canvas/WebGLContextEvent.idl
 ../core/html/track/TrackEvent.idl
-../core/speech/SpeechInputEvent.idl
 ../core/storage/StorageEvent.idl
 ../core/svg/SVGZoomEvent.idl
 ../core/xml/XMLHttpRequestProgressEvent.idl
