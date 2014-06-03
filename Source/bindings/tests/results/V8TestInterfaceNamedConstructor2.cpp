@@ -68,10 +68,13 @@ static void V8TestInterfaceNamedConstructor2ConstructorCallback(const v8::Functi
     toV8(document, info.Holder(), isolate);
 
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForConstructor("TestInterfaceNamedConstructor2", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForConstructor("TestInterfaceNamedConstructor2", 1, info.Length(), info.GetIsolate());
         return;
     }
-    TOSTRING_VOID(V8StringResource<>, stringArg, info[0]);
+    V8StringResource<> stringArg;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(stringArg, info[0]);
+    }
     RefPtr<TestInterfaceNamedConstructor2> impl = TestInterfaceNamedConstructor2::createForJSConstructor(*document, stringArg);
 
     v8::Handle<v8::Object> wrapper = info.Holder();

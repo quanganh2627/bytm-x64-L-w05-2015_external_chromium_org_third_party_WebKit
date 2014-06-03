@@ -53,6 +53,7 @@
 #include "core/page/Page.h"
 #include "core/page/WindowFeatures.h"
 #include "core/rendering/HitTestResult.h"
+#include "modules/device_light/DeviceLightController.h"
 #include "modules/device_orientation/DeviceMotionController.h"
 #include "modules/device_orientation/DeviceOrientationController.h"
 #include "modules/gamepad/NavigatorGamepad.h"
@@ -120,10 +121,10 @@ void FrameLoaderClientImpl::dispatchDidClearWindowObjectInMainWorld()
         Document* document = m_webFrame->frame()->document();
         if (document) {
             WheelController::from(*document);
-            if (RuntimeEnabledFeatures::deviceMotionEnabled())
-                DeviceMotionController::from(*document);
-            if (RuntimeEnabledFeatures::deviceOrientationEnabled())
-                DeviceOrientationController::from(*document);
+            DeviceMotionController::from(*document);
+            DeviceOrientationController::from(*document);
+            if (RuntimeEnabledFeatures::deviceLightEnabled())
+                DeviceLightController::from(*document);
             if (RuntimeEnabledFeatures::screenOrientationEnabled())
                 ScreenOrientationController::from(*document);
             if (RuntimeEnabledFeatures::gamepadEnabled())
@@ -245,8 +246,7 @@ bool FrameLoaderClientImpl::hasWebView() const
 
 Frame* FrameLoaderClientImpl::opener() const
 {
-    WebLocalFrameImpl* opener = toWebLocalFrameImpl(m_webFrame->opener());
-    return opener ? opener->frame() : 0;
+    return toWebCoreFrame(m_webFrame->opener());
 }
 
 void FrameLoaderClientImpl::setOpener(Frame* opener)
@@ -257,38 +257,32 @@ void FrameLoaderClientImpl::setOpener(Frame* opener)
 
 Frame* FrameLoaderClientImpl::parent() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->parent());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->parent());
 }
 
 Frame* FrameLoaderClientImpl::top() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->top());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->top());
 }
 
 Frame* FrameLoaderClientImpl::previousSibling() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->previousSibling());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->previousSibling());
 }
 
 Frame* FrameLoaderClientImpl::nextSibling() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->nextSibling());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->nextSibling());
 }
 
 Frame* FrameLoaderClientImpl::firstChild() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->firstChild());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->firstChild());
 }
 
 Frame* FrameLoaderClientImpl::lastChild() const
 {
-    WebLocalFrameImpl* frame = toWebLocalFrameImpl(m_webFrame->lastChild());
-    return frame ? frame->frame() : 0;
+    return toWebCoreFrame(m_webFrame->lastChild());
 }
 
 void FrameLoaderClientImpl::detachedFromParent()

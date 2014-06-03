@@ -92,7 +92,7 @@ static bool makesCycle(HTMLImport* parent, const KURL& url)
 HTMLImportChild* HTMLImportsController::createChild(const KURL& url, HTMLImport* parent, HTMLImportChildClient* client)
 {
     HTMLImport::SyncMode mode = client->isSync() && !makesCycle(parent, url) ? HTMLImport::Sync : HTMLImport::Async;
-    OwnPtr<HTMLImportChild> loader = adoptPtr(new HTMLImportChild(*m_master, url, mode));
+    OwnPtr<HTMLImportChild> loader = adoptPtr(new HTMLImportChild(url, mode));
     loader->setClient(client);
     parent->appendImport(loader.get());
     m_imports.append(loader.release());
@@ -102,6 +102,7 @@ HTMLImportChild* HTMLImportsController::createChild(const KURL& url, HTMLImport*
 HTMLImportChild* HTMLImportsController::load(HTMLImport* parent, HTMLImportChildClient* client, FetchRequest request)
 {
     ASSERT(!request.url().isEmpty() && request.url().isValid());
+    ASSERT(parent == this || toHTMLImportChild(parent)->loader()->isFirstImport(toHTMLImportChild(parent)));
 
     if (findLinkFor(request.url())) {
         HTMLImportChild* child = createChild(request.url(), parent, client);

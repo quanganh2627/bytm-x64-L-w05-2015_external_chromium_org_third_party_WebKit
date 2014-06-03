@@ -37,7 +37,7 @@ class SVGUseElement FINAL : public SVGGraphicsElement,
                             public SVGURIReference,
                             public DocumentResourceClient {
 public:
-    static PassRefPtr<SVGUseElement> create(Document&, bool wasInsertedByParser);
+    static PassRefPtrWillBeRawPtr<SVGUseElement> create(Document&);
     virtual ~SVGUseElement();
 
     SVGElementInstance* instanceRoot();
@@ -58,7 +58,7 @@ public:
     virtual void trace(Visitor*) OVERRIDE;
 
 private:
-    SVGUseElement(Document&, bool wasInsertedByParser);
+    explicit SVGUseElement(Document&);
 
     virtual bool isStructurallyExternal() const OVERRIDE { return !hrefString().isNull() && isExternalURIReference(hrefString(), document()); }
 
@@ -78,7 +78,6 @@ private:
     void scheduleShadowTreeRecreation();
     virtual bool haveLoadedRequiredResources() OVERRIDE { return !isStructurallyExternal() || m_haveFiredLoadEvent; }
 
-    virtual void finishParsingChildren() OVERRIDE;
     virtual bool selfHasRelativeLengths() const OVERRIDE;
 
     // Instance tree handling
@@ -112,7 +111,6 @@ private:
 
     virtual Timer<SVGElement>* svgLoadEventTimer() OVERRIDE { return &m_svgLoadEventTimer; }
 
-    bool m_wasInsertedByParser;
     bool m_haveFiredLoadEvent;
     bool m_needsShadowTreeRecreation;
     RefPtrWillBeMember<SVGElementInstance> m_targetElementInstance;

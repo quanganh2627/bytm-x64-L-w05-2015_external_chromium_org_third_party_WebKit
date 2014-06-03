@@ -62,7 +62,7 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const Position& start, const P
     RefPtr<Element> selectedListItem = enclosingBlock(lastNodeInSelectedParagraph.get());
 
     // FIXME: we need to deal with the case where there is no li (malformed HTML)
-    if (!isHTMLLIElement(*selectedListItem))
+    if (!selectedListItem || !isHTMLLIElement(*selectedListItem))
         return false;
 
     // FIXME: previousElementSibling does not ignore non-rendered content like <span></span>.  Should we?
@@ -72,7 +72,7 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const Position& start, const P
     // We should calculate visible range in list item because inserting new
     // list element will change visibility of list item, e.g. :first-child
     // CSS selector.
-    RefPtr<Element> newList = document().createElement(listNode->tagQName(), false);
+    RefPtrWillBeRawPtr<Element> newList = document().createElement(listNode->tagQName(), false);
     insertNodeBefore(newList, selectedListItem.get());
 
     // We should clone all the children of the list item for indenting purposes. However, in case the current

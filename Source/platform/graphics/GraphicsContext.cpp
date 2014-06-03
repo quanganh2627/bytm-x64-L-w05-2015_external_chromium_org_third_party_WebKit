@@ -857,11 +857,10 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& pt, float widt
     originY *= deviceScaleFactor;
 #endif
 
+    SkMatrix localMatrix;
+    localMatrix.setTranslate(originX, originY);
     RefPtr<SkShader> shader = adoptRef(SkShader::CreateBitmapShader(
-        *misspellBitmap[index], SkShader::kRepeat_TileMode, SkShader::kRepeat_TileMode));
-    SkMatrix matrix;
-    matrix.setTranslate(originX, originY);
-    shader->setLocalMatrix(matrix);
+        *misspellBitmap[index], SkShader::kRepeat_TileMode, SkShader::kRepeat_TileMode, &localMatrix));
 
     SkPaint paint;
     paint.setShader(shader.get());
@@ -1699,7 +1698,7 @@ void GraphicsContext::drawOuterPath(const SkPath& path, SkPaint& paint, int widt
 #if OS(MACOSX)
     paint.setAlpha(64);
     paint.setStrokeWidth(width);
-    paint.setPathEffect(new SkCornerPathEffect((width - 1) * 0.5f))->unref();
+    paint.setPathEffect(SkCornerPathEffect::Create((width - 1) * 0.5f))->unref();
 #else
     paint.setStrokeWidth(1);
     paint.setPathEffect(SkCornerPathEffect::Create(1))->unref();

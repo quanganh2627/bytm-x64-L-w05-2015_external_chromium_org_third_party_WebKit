@@ -32,7 +32,6 @@
 #define RenderSVGModelObject_h
 
 #include "core/rendering/RenderObject.h"
-#include "core/rendering/svg/SVGRenderSupport.h"
 #include "core/svg/SVGElement.h"
 #include "platform/geometry/FloatRect.h"
 
@@ -68,7 +67,7 @@ public:
 
     virtual bool isSVG() const OVERRIDE FINAL { return true; }
 
-    virtual void repaintTreeAfterLayout() OVERRIDE;
+    virtual void repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer) OVERRIDE;
 
 protected:
     virtual void addLayerHitTestRects(LayerHitTestRects&, const RenderLayer* currentCompositedLayer, const LayoutPoint& layerOffset, const LayoutRect& containerRect) const OVERRIDE FINAL;

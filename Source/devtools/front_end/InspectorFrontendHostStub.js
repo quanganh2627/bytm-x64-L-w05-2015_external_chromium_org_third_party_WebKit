@@ -86,7 +86,15 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         this._windowVisible = false;
     },
 
-    setIsDocked: function(isDocked)
+    setIsDocked: function(isDocked, callback)
+    {
+    },
+
+    /**
+     * Requests inspected page to be placed atop of the inspector frontend with specified bounds.
+     * @param {{x: number, y: number, width: number, height: number}} bounds
+     */
+    setInspectedPageBounds: function(bounds)
     {
     },
 
@@ -114,7 +122,7 @@ WebInspector.InspectorFrontendHostStub.prototype = {
 
     inspectedURLChanged: function(url)
     {
-        document.title = WebInspector.UIString(Preferences.applicationTitle, url);
+        document.title = WebInspector.UIString("Developer Tools - %s", url);
     },
 
     copyText: function(text)
@@ -236,11 +244,17 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
-    startRemoteDevicesListener: function()
+    /**
+     * @param {string} eventType
+     */
+    subscribe: function(eventType)
     {
     },
 
-    stopRemoteDevicesListener: function()
+    /**
+     * @param {string} eventType
+     */
+    unsubscribe: function(eventType)
     {
     }
 }

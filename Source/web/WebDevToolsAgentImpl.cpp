@@ -44,6 +44,7 @@
 #include "core/frame/Settings.h"
 #include "core/inspector/InjectedScriptHost.h"
 #include "core/inspector/InspectorController.h"
+#include "core/page/FocusController.h"
 #include "core/page/Page.h"
 #include "core/rendering/RenderView.h"
 #include "platform/JSONValues.h"
@@ -136,6 +137,8 @@ private:
             views.append(view);
             view->setIgnoreInputEvents(true);
         }
+        // Notify embedder about pausing.
+        agent->client()->willEnterDebugLoop();
 
         // 2. Disable active objects
         WebView::willEnterModalLoop();
@@ -153,6 +156,7 @@ private:
                 (*it)->setIgnoreInputEvents(false);
             }
         }
+        agent->client()->didExitDebugLoop();
 
         // 6. All views have been resumed, clear the set.
         m_frozenViews.clear();
@@ -206,6 +210,9 @@ WebDevToolsAgentImpl::WebDevToolsAgentImpl(
     , m_emulateViewportEnabled(false)
     , m_originalViewportEnabled(false)
     , m_isOverlayScrollbarsEnabled(false)
+    , m_originalMinimumPageScaleFactor(0)
+    , m_originalMaximumPageScaleFactor(0)
+    , m_pageScaleLimitsOverriden(false)
     , m_touchEventEmulationEnabled(false)
 {
     ASSERT(m_hostId > 0);
@@ -353,39 +360,41 @@ bool WebDevToolsAgentImpl::handleInputEvent(WebCore::Page* page, const WebInputE
     return false;
 }
 
-void WebDevToolsAgentImpl::overrideDeviceMetrics(int width, int height, float deviceScaleFactor, bool emulateViewport, bool fitWindow)
+void WebDevToolsAgentImpl::setDeviceMetricsOverride(int width, int height, float deviceScaleFactor, bool emulateViewport, bool fitWindow)
 {
-    if (!width && !height && !deviceScaleFactor) {
-        if (m_deviceMetricsEnabled) {
-            m_deviceMetricsEnabled = false;
-            m_webViewImpl->setBackgroundColorOverride(Color::transparent);
-            disableViewportEmulation();
-            m_client->disableDeviceEmulation();
-        }
-    } else {
-        if (!m_deviceMetricsEnabled) {
-            m_deviceMetricsEnabled = true;
-            m_webViewImpl->setBackgroundColorOverride(Color::darkGray);
-        }
-        if (emulateViewport)
-            enableViewportEmulation();
-        else
-            disableViewportEmulation();
+    if (!m_deviceMetricsEnabled) {
+        m_deviceMetricsEnabled = true;
+        m_webViewImpl->setBackgroundColorOverride(Color::darkGray);
+    }
+    if (emulateViewport)
+        enableViewportEmulation();
+    else
+        disableViewportEmulation();
 
-        WebDeviceEmulationParams params;
-        params.screenPosition = emulateViewport ? WebDeviceEmulationParams::Mobile : WebDeviceEmulationParams::Desktop;
-        params.deviceScaleFactor = deviceScaleFactor;
-        params.viewSize = WebSize(width, height);
-        params.fitToView = fitWindow;
-        params.viewInsets = WebSize(10, 10);
-        m_client->enableDeviceEmulation(params);
+    WebDeviceEmulationParams params;
+    params.screenPosition = emulateViewport ? WebDeviceEmulationParams::Mobile : WebDeviceEmulationParams::Desktop;
+    params.deviceScaleFactor = deviceScaleFactor;
+    params.viewSize = WebSize(width, height);
+    params.fitToView = fitWindow;
+    params.viewInsets = WebSize(0, 0);
+    m_client->enableDeviceEmulation(params);
+}
+
+void WebDevToolsAgentImpl::clearDeviceMetricsOverride()
+{
+    if (m_deviceMetricsEnabled) {
+        m_deviceMetricsEnabled = false;
+        m_webViewImpl->setBackgroundColorOverride(Color::transparent);
+        disableViewportEmulation();
+        m_client->disableDeviceEmulation();
     }
 }
 
 void WebDevToolsAgentImpl::setTouchEventEmulationEnabled(bool enabled)
 {
-    m_client->setTouchEventEmulationEnabled(enabled, m_emulateViewportEnabled);
+    m_client->setTouchEventEmulationEnabled(enabled, enabled);
     m_touchEventEmulationEnabled = enabled;
+    updatePageScaleFactorLimits();
 }
 
 void WebDevToolsAgentImpl::enableViewportEmulation()
@@ -401,11 +410,9 @@ void WebDevToolsAgentImpl::enableViewportEmulation()
     m_webViewImpl->settings()->setViewportMetaEnabled(true);
     m_webViewImpl->settings()->setShrinksViewportContentToFit(true);
     m_webViewImpl->setIgnoreViewportTagScaleLimits(true);
-    m_webViewImpl->setPageScaleFactorLimits(-1, -1);
     m_webViewImpl->setZoomFactorOverride(1);
     // FIXME: with touch and viewport emulation enabled, we may want to disable overscroll navigation.
-    if (m_touchEventEmulationEnabled)
-        m_client->setTouchEventEmulationEnabled(m_touchEventEmulationEnabled, m_emulateViewportEnabled);
+    updatePageScaleFactorLimits();
 }
 
 void WebDevToolsAgentImpl::disableViewportEmulation()
@@ -418,11 +425,26 @@ void WebDevToolsAgentImpl::disableViewportEmulation()
     m_webViewImpl->settings()->setViewportMetaEnabled(false);
     m_webViewImpl->settings()->setShrinksViewportContentToFit(false);
     m_webViewImpl->setIgnoreViewportTagScaleLimits(false);
-    m_webViewImpl->setPageScaleFactorLimits(1, 1);
     m_webViewImpl->setZoomFactorOverride(0);
     m_emulateViewportEnabled = false;
-    if (m_touchEventEmulationEnabled)
-        m_client->setTouchEventEmulationEnabled(m_touchEventEmulationEnabled, m_emulateViewportEnabled);
+    updatePageScaleFactorLimits();
+}
+
+void WebDevToolsAgentImpl::updatePageScaleFactorLimits()
+{
+    if (m_touchEventEmulationEnabled || m_emulateViewportEnabled) {
+        if (!m_pageScaleLimitsOverriden) {
+            m_originalMinimumPageScaleFactor = m_webViewImpl->minimumPageScaleFactor();
+            m_originalMaximumPageScaleFactor = m_webViewImpl->maximumPageScaleFactor();
+            m_pageScaleLimitsOverriden = true;
+        }
+        m_webViewImpl->setPageScaleFactorLimits(1, 4);
+    } else {
+        if (m_pageScaleLimitsOverriden) {
+            m_pageScaleLimitsOverriden = false;
+            m_webViewImpl->setPageScaleFactorLimits(m_originalMinimumPageScaleFactor, m_originalMaximumPageScaleFactor);
+        }
+    }
 }
 
 void WebDevToolsAgentImpl::getAllocatedObjects(HashSet<const void*>& set)
@@ -559,6 +581,9 @@ void WebDevToolsAgentImpl::processGPUEvent(const GPUEvent& event)
 
 void WebDevToolsAgentImpl::dispatchKeyEvent(const PlatformKeyboardEvent& event)
 {
+    if (!m_webViewImpl->page()->focusController().isFocused())
+        m_webViewImpl->setFocus(true);
+
     m_generatingEvent = true;
     WebKeyboardEvent webEvent = WebKeyboardEventBuilder(event);
     if (!webEvent.keyIdentifier[0] && webEvent.type != WebInputEvent::Char)
@@ -569,6 +594,9 @@ void WebDevToolsAgentImpl::dispatchKeyEvent(const PlatformKeyboardEvent& event)
 
 void WebDevToolsAgentImpl::dispatchMouseEvent(const PlatformMouseEvent& event)
 {
+    if (!m_webViewImpl->page()->focusController().isFocused())
+        m_webViewImpl->setFocus(true);
+
     m_generatingEvent = true;
     WebMouseEvent webEvent = WebMouseEventBuilder(m_webViewImpl->mainFrameImpl()->frameView(), event);
     m_webViewImpl->handleInputEvent(webEvent);

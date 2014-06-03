@@ -60,8 +60,8 @@ static LayoutSize sizeFor(HTMLImageElement* image)
 
 static IntSize sizeFor(HTMLVideoElement* video)
 {
-    if (MediaPlayer* player = video->player())
-        return player->naturalSize();
+    if (blink::WebMediaPlayer* webMediaPlayer = video->webMediaPlayer())
+        return webMediaPlayer->naturalSize();
     return IntSize();
 }
 
@@ -72,7 +72,7 @@ static ScriptPromise fulfillImageBitmap(ScriptState* scriptState, PassRefPtrWill
     if (imageBitmap) {
         resolver->resolve(imageBitmap);
     } else {
-        resolver->reject(ScriptValue(v8::Null(scriptState->isolate()), scriptState->isolate()));
+        resolver->reject(ScriptValue(scriptState, v8::Null(scriptState->isolate())));
     }
     return promise;
 }
@@ -143,7 +143,8 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
         exceptionState.throwSecurityError("The source video contains image data from multiple origins.");
         return ScriptPromise();
     }
-    if (!video->player()->didPassCORSAccessCheck() && eventTarget.toDOMWindow()->document()->securityOrigin()->taintsCanvas(video->currentSrc())) {
+    if (!(video->webMediaPlayer() && video->webMediaPlayer()->didPassCORSAccessCheck())
+        && eventTarget.toDOMWindow()->document()->securityOrigin()->taintsCanvas(video->currentSrc())) {
         exceptionState.throwSecurityError("Cross-origin access to the source video is denied.");
         return ScriptPromise();
     }
@@ -186,7 +187,7 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
 
 ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, EventTarget& eventTarget, Blob* blob, ExceptionState& exceptionState)
 {
-    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), eventTarget.executionContext(), IntRect());
+    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(), scriptState);
     ScriptPromise promise = loader->promise();
     from(eventTarget).addLoader(loader);
     loader->loadBlobAsync(eventTarget.executionContext(), blob);
@@ -199,7 +200,7 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
         exceptionState.throwDOMException(IndexSizeError, String::format("The source %s provided is 0.", sw ? "height" : "width"));
         return ScriptPromise();
     }
-    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), eventTarget.executionContext(), IntRect(sx, sy, sw, sh));
+    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(sx, sy, sw, sh), scriptState);
     ScriptPromise promise = loader->promise();
     from(eventTarget).addLoader(loader);
     loader->loadBlobAsync(eventTarget.executionContext(), blob);
@@ -272,10 +273,10 @@ void ImageBitmapFactories::didFinishLoading(ImageBitmapLoader* loader)
     m_pendingLoaders.remove(loader);
 }
 
-ImageBitmapFactories::ImageBitmapLoader::ImageBitmapLoader(ImageBitmapFactories& factory, ExecutionContext* context, const IntRect& cropRect)
+ImageBitmapFactories::ImageBitmapLoader::ImageBitmapLoader(ImageBitmapFactories& factory, const IntRect& cropRect, ScriptState* scriptState)
     : m_loader(FileReaderLoader::ReadAsArrayBuffer, this)
     , m_factory(&factory)
-    , m_resolver(ScriptPromiseResolverWithContext::create(ScriptState::current(toIsolate(context))))
+    , m_resolver(ScriptPromiseResolverWithContext::create(scriptState))
     , m_cropRect(cropRect)
 {
 }

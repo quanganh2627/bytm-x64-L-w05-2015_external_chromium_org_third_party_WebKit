@@ -282,6 +282,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_tracksAreReady(true)
     , m_haveVisibleTextTrack(false)
     , m_processingPreferenceChange(false)
+#if ENABLE(OILPAN)
+    , m_isFinalizing(false)
+#endif
     , m_lastTextTrackUpdateTime(-1)
     , m_textTracks(nullptr)
     , m_ignoreTrackDisplayUpdate(0)
@@ -310,7 +313,22 @@ HTMLMediaElement::~HTMLMediaElement()
 
     m_asyncEventQueue->close();
 
+#if ENABLE(OILPAN)
+    // If the HTMLMediaElement dies with the document we are not
+    // allowed to touch the document to adjust delay load event counts
+    // because the document could have been already
+    // destructed. However, if the HTMLMediaElement dies with the
+    // document there is no need to change the delayed load counts
+    // because no load event will fire anyway. If the document is
+    // still alive we do have to decrement the load delay counts. We
+    // determine if the document is alive by inspecting the weak
+    // documentToElementSetMap. If the document is dead it has been
+    // removed from the map during weak processing.
+    if (documentToElementSetMap().contains(&document()))
+        setShouldDelayLoadEvent(false);
+#else
     setShouldDelayLoadEvent(false);
+#endif
 
 #if !ENABLE(OILPAN)
     if (m_textTracks)
@@ -348,6 +366,20 @@ HTMLMediaElement::~HTMLMediaElement()
     document().incrementLoadEventDelayCount();
 #endif
 
+#if ENABLE(OILPAN)
+    // Oilpan: the player must be released, but the player object
+    // cannot safely access this player client any longer as parts of
+    // it may have been finalized already (like the media element's
+    // supplementable table.)  Handled for now by entering an
+    // is-finalizing state, which is explicitly checked for if the
+    // player tries to access the media element during shutdown.
+    //
+    // FIXME: Oilpan: move the media player to the heap instead and
+    // avoid having to finalize it from here; this whole #if block
+    // could then be removed (along with the state bit it depends on.)
+    // crbug.com/378229
+    m_isFinalizing = true;
+#endif
     clearMediaPlayerAndAudioSourceProviderClient();
 
 #if !ENABLE(OILPAN)
@@ -386,11 +418,6 @@ void HTMLMediaElement::didMoveToNewDocument(Document& oldDocument)
 
     ActiveDOMObject::didMoveToNewExecutionContext(&document());
     HTMLElement::didMoveToNewDocument(oldDocument);
-}
-
-bool HTMLMediaElement::hasCustomFocusLogic() const
-{
-    return true;
 }
 
 bool HTMLMediaElement::supportsFocus() const
@@ -556,7 +583,7 @@ void HTMLMediaElement::loadTimerFired(Timer<HTMLMediaElement>*)
     m_pendingActionFlags = 0;
 }
 
-PassRefPtr<MediaError> HTMLMediaElement::error() const
+PassRefPtrWillBeRawPtr<MediaError> HTMLMediaElement::error() const
 {
     return m_error;
 }
@@ -638,8 +665,6 @@ void HTMLMediaElement::prepareForLoad()
     // a task to fire a simple event named abort at the media element.
     if (m_networkState == NETWORK_LOADING || m_networkState == NETWORK_IDLE)
         scheduleEvent(EventTypeNames::abort);
-
-    closeMediaSource();
 
     createMediaPlayer();
 
@@ -872,11 +897,10 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
     if (attemptLoad && canLoadURL(url, contentType, keySystem)) {
         ASSERT(!webMediaPlayer());
 
-        if (m_preload == MediaPlayer::None) {
+        if (m_preload == MediaPlayer::None)
             m_delayingLoadForPreloadNone = true;
-        } else {
-            m_player->load(loadType(), m_currentSrc, corsMode());
-        }
+        else
+            startPlayerLoad();
     } else {
         mediaLoadingFailed(MediaPlayer::FormatError);
     }
@@ -887,6 +911,30 @@ void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType, c
 
     if (renderer())
         renderer()->updateFromElement();
+}
+
+void HTMLMediaElement::startPlayerLoad()
+{
+    // Filter out user:pass as those two URL components aren't
+    // considered for media resource fetches (including for the CORS
+    // use-credentials mode.) That behavior aligns with Gecko, with IE
+    // being more restrictive and not allowing fetches to such URLs.
+    //
+    // Spec reference: http://whatwg.org/c/#concept-media-load-resource
+    //
+    // FIXME: when the HTML spec switches to specifying resource
+    // fetches in terms of Fetch (http://fetch.spec.whatwg.org), and
+    // along with that potentially also specifying a setting for its
+    // 'authentication flag' to control how user:pass embedded in a
+    // media resource URL should be treated, then update the handling
+    // here to match.
+    KURL requestURL = m_currentSrc;
+    if (!requestURL.user().isEmpty())
+        requestURL.setUser(String());
+    if (!requestURL.pass().isEmpty())
+        requestURL.setPass(String());
+
+    m_player->load(loadType(), requestURL, corsMode());
 }
 
 void HTMLMediaElement::setPlayerPreload()
@@ -903,7 +951,7 @@ void HTMLMediaElement::startDelayedLoad()
 
     m_delayingLoadForPreloadNone = false;
 
-    m_player->load(loadType(), m_currentSrc, corsMode());
+    startPlayerLoad();
 }
 
 WebMediaPlayer::LoadType HTMLMediaElement::loadType() const
@@ -1410,7 +1458,7 @@ void HTMLMediaElement::noneSupported()
         renderer()->updateFromElement();
 }
 
-void HTMLMediaElement::mediaEngineError(PassRefPtr<MediaError> err)
+void HTMLMediaElement::mediaEngineError(PassRefPtrWillBeRawPtr<MediaError> err)
 {
     WTF_LOG(Media, "HTMLMediaElement::mediaEngineError(%d)", static_cast<int>(err->code()));
 
@@ -1767,11 +1815,6 @@ void HTMLMediaElement::seek(double time, ExceptionState& exceptionState)
     // cancel poster display.
     bool noSeekRequired = !seekableRanges->length() || (time == now && displayMode() != Poster);
 
-    // Always notify the media engine of a seek if the source is not closed. This ensures that the source is
-    // always in a flushed state when the 'seeking' event fires.
-    if (m_mediaSource && m_mediaSource->isClosed())
-        noSeekRequired = false;
-
     if (noSeekRequired) {
         if (time == now) {
             scheduleEvent(EventTypeNames::seeking);
@@ -1828,7 +1871,7 @@ HTMLMediaElement::ReadyState HTMLMediaElement::readyState() const
 
 bool HTMLMediaElement::hasAudio() const
 {
-    return m_player ? m_player->hasAudio() : false;
+    return webMediaPlayer() && webMediaPlayer()->hasAudio();
 }
 
 bool HTMLMediaElement::seeking() const
@@ -3246,16 +3289,16 @@ void HTMLMediaElement::setClosedCaptionsVisible(bool closedCaptionVisible)
 
 unsigned HTMLMediaElement::webkitAudioDecodedByteCount() const
 {
-    if (!m_player)
+    if (!webMediaPlayer())
         return 0;
-    return m_player->audioDecodedByteCount();
+    return webMediaPlayer()->audioDecodedByteCount();
 }
 
 unsigned HTMLMediaElement::webkitVideoDecodedByteCount() const
 {
-    if (!m_player)
+    if (!webMediaPlayer())
         return 0;
-    return m_player->videoDecodedByteCount();
+    return webMediaPlayer()->videoDecodedByteCount();
 }
 
 bool HTMLMediaElement::isURLAttribute(const Attribute& attribute) const
@@ -3299,7 +3342,7 @@ bool HTMLMediaElement::createMediaControls()
     if (hasMediaControls())
         return true;
 
-    RefPtr<MediaControls> mediaControls = MediaControls::create(*this);
+    RefPtrWillBeRawPtr<MediaControls> mediaControls = MediaControls::create(*this);
     if (!mediaControls)
         return false;
 
@@ -3400,8 +3443,7 @@ void HTMLMediaElement::createMediaPlayer()
         m_audioSourceNode->lock();
 #endif
 
-    if (m_mediaSource)
-        closeMediaSource();
+    closeMediaSource();
 
     m_player = MediaPlayer::create(this);
 
@@ -3610,8 +3652,18 @@ bool HTMLMediaElement::isInteractiveContent() const
     return fastHasAttribute(controlsAttr);
 }
 
+void HTMLMediaElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == EventTypeNames::focusin) {
+        if (hasMediaControls())
+            mediaControls()->mediaElementFocused();
+    }
+    HTMLElement::defaultEventHandler(event);
+}
+
 void HTMLMediaElement::trace(Visitor* visitor)
 {
+    visitor->trace(m_error);
     visitor->trace(m_currentSourceNode);
     visitor->trace(m_nextChildNodeToConsider);
     visitor->trace(m_textTracks);

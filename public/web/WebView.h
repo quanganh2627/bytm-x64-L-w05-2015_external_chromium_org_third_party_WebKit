@@ -58,7 +58,6 @@ class WebRange;
 class WebSettings;
 class WebSpellCheckClient;
 class WebString;
-class WebPasswordGeneratorClient;
 class WebViewClient;
 struct WebActiveWheelFlingParameters;
 struct WebMediaPlayerAction;
@@ -99,7 +98,6 @@ public:
     virtual void setDevToolsAgentClient(WebDevToolsAgentClient*) = 0;
     virtual void setPrerendererClient(WebPrerendererClient*) = 0;
     virtual void setSpellCheckClient(WebSpellCheckClient*) = 0;
-    virtual void setPasswordGeneratorClient(WebPasswordGeneratorClient*) = 0;
 
     // Options -------------------------------------------------------------
 
@@ -179,9 +177,6 @@ public:
     // to ensure that a text field on the page is not eating keystrokes we
     // send it.
     virtual void clearFocusedElement() = 0;
-
-    // Scrolls the node currently in focus into view.
-    virtual void scrollFocusedNodeIntoView() = 0;
 
     // Scrolls the node currently in focus into |rect|, where |rect| is in
     // window space.
@@ -271,14 +266,6 @@ public:
 
     virtual float minimumPageScaleFactor() const = 0;
     virtual float maximumPageScaleFactor() const = 0;
-
-    // Save the WebView's current scroll and scale state. Each call to this function
-    // overwrites the previously saved scroll and scale state.
-    virtual void saveScrollAndScaleState() = 0;
-
-    // Restore the previously saved scroll and scale state. After restoring the
-    // state, this function deletes any saved scroll and scale state.
-    virtual void restoreScrollAndScaleState() = 0;
 
     // Reset any saved values for the scroll and scale state.
     virtual void resetScrollAndScaleState() = 0;
@@ -502,6 +489,13 @@ public:
     virtual void addPageOverlay(WebPageOverlay*, int /*z-order*/) = 0;
     virtual void removePageOverlay(WebPageOverlay*) = 0;
 
+
+    // i18n -----------------------------------------------------------------
+
+    // Inform the WebView that the accept languages have changed.
+    // If the WebView wants to get the accept languages value, it will have
+    // to call the WebViewClient::acceptLanguages().
+    virtual void acceptLanguagesChanged() = 0;
 
     // Testing functionality for TestRunner ---------------------------------
 

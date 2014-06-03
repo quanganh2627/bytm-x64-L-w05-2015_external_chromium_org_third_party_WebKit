@@ -132,8 +132,6 @@ public:
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) OVERRIDE { }
     virtual void scheduleAnimation() OVERRIDE { }
 
-    virtual bool isCompositorFramePending() const OVERRIDE { return false; }
-
     virtual IntRect rootViewToScreen(const IntRect& r) const OVERRIDE { return r; }
     virtual blink::WebScreenInfo screenInfo() const OVERRIDE { return blink::WebScreenInfo(); }
     virtual void contentsSizeChanged(LocalFrame*, const IntSize&) const OVERRIDE { }
@@ -163,7 +161,7 @@ public:
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE { return false; }
 
-    virtual void didAssociateFormControls(const Vector<RefPtr<Element> >&) OVERRIDE { }
+    virtual void didAssociateFormControls(const WillBeHeapVector<RefPtrWillBeMember<Element> >&) OVERRIDE { }
 
     virtual void annotatedRegionsChanged() OVERRIDE { }
     virtual bool paintCustomOverhangArea(GraphicsContext*, const IntRect&, const IntRect&, const IntRect&) OVERRIDE { return false; }
@@ -295,7 +293,6 @@ public:
     virtual bool canCopyCut(LocalFrame*, bool defaultValue) const OVERRIDE { return defaultValue; }
     virtual bool canPaste(LocalFrame*, bool defaultValue) const OVERRIDE { return defaultValue; }
 
-    virtual void didExecuteCommand(String) OVERRIDE { }
     virtual bool handleKeyboardEvent() OVERRIDE { return false; }
 };
 

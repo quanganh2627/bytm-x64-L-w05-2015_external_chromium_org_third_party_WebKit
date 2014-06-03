@@ -191,7 +191,7 @@ static bool executeApplyParagraphStyle(LocalFrame& frame, EditorCommandSource so
     return false;
 }
 
-static bool executeInsertFragment(LocalFrame& frame, PassRefPtr<DocumentFragment> fragment)
+static bool executeInsertFragment(LocalFrame& frame, PassRefPtrWillBeRawPtr<DocumentFragment> fragment)
 {
     ASSERT(frame.document());
     ReplaceSelectionCommand::create(*frame.document(), fragment, ReplaceSelectionCommand::PreventNesting, EditActionUnspecified)->apply();
@@ -201,7 +201,7 @@ static bool executeInsertFragment(LocalFrame& frame, PassRefPtr<DocumentFragment
 static bool executeInsertNode(LocalFrame& frame, PassRefPtr<Node> content)
 {
     ASSERT(frame.document());
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(*frame.document());
+    RefPtrWillBeRawPtr<DocumentFragment> fragment = DocumentFragment::create(*frame.document());
     TrackExceptionState exceptionState;
     fragment->appendChild(content, exceptionState);
     if (exceptionState.hadException())
@@ -488,7 +488,7 @@ static bool executeInsertBacktab(LocalFrame& frame, Event* event, EditorCommandS
 static bool executeInsertHorizontalRule(LocalFrame& frame, Event*, EditorCommandSource, const String& value)
 {
     ASSERT(frame.document());
-    RefPtr<HTMLHRElement> rule = HTMLHRElement::create(*frame.document());
+    RefPtrWillBeRawPtr<HTMLHRElement> rule = HTMLHRElement::create(*frame.document());
     if (!value.isEmpty())
         rule->setIdAttribute(AtomicString(value));
     return executeInsertNode(frame, rule.release());
@@ -504,7 +504,7 @@ static bool executeInsertImage(LocalFrame& frame, Event*, EditorCommandSource, c
 {
     // FIXME: If userInterface is true, we should display a dialog box and let the user choose a local image.
     ASSERT(frame.document());
-    RefPtr<HTMLImageElement> image = HTMLImageElement::create(*frame.document());
+    RefPtrWillBeRawPtr<HTMLImageElement> image = HTMLImageElement::create(*frame.document());
     image->setSrc(value);
     return executeInsertNode(frame, image.release());
 }

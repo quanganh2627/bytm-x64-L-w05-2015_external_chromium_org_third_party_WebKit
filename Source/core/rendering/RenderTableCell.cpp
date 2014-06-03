@@ -104,7 +104,7 @@ void RenderTableCell::colSpanOrRowSpanChanged()
 
     // FIXME: I suspect that we could return early here if !m_hasColSpan && !m_hasRowSpan.
 
-    setNeedsLayoutAndPrefWidthsRecalc();
+    setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
     if (parent() && section())
         section()->setNeedsCellRecalc();
 }
@@ -308,7 +308,7 @@ void RenderTableCell::setOverrideLogicalContentHeightFromRowHeight(LayoutUnit ro
     setOverrideLogicalContentHeight(max<LayoutUnit>(0, rowHeight - borderAndPaddingLogicalHeight()));
 }
 
-LayoutSize RenderTableCell::offsetFromContainer(RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
+LayoutSize RenderTableCell::offsetFromContainer(const RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
 {
     ASSERT(o == container());
 
@@ -741,7 +741,7 @@ CollapsedBorderValue RenderTableCell::computeCollapsedBeforeBorder(IncludeBorder
         if (prevCell->section() == section())
             prevRow = parent()->previousSibling();
         else
-            prevRow = prevCell->section()->lastChild();
+            prevRow = prevCell->section()->lastRow();
 
         if (prevRow) {
             result = chooseBorder(CollapsedBorderValue(prevRow->style()->borderAfter(), includeColor ? prevRow->resolveColor(afterColorProperty) : Color(), BROW), result);

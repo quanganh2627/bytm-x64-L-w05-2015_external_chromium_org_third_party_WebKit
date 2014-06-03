@@ -35,7 +35,7 @@
     WillBeGarbageCollected,
 ] interface Window : EventTarget {
     // DOM Level 0
-    [Replaceable] readonly attribute Screen screen;
+    readonly attribute Screen screen;
     readonly attribute History history;
     [Replaceable, MeasureAs=BarPropLocationbar] readonly attribute BarProp locationbar;
     [Replaceable, MeasureAs=BarPropMenubar] readonly attribute BarProp menubar;
@@ -67,7 +67,8 @@
                                        optional any dialogArgs,
                                        optional DOMString featureArgs);
 
-    void alert([Default=NullString] optional DOMString message);
+    void alert();
+    void alert(DOMString message);
     boolean confirm([Default=NullString] optional DOMString message);
     [TreatReturnedNullStringAs=Null] DOMString prompt([Default=NullString] optional DOMString message,
                                                       [Default=NullString] optional DOMString defaultValue);

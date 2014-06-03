@@ -75,7 +75,6 @@
 #include "core/rendering/compositing/CompositedLayerMapping.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/rendering/style/ContentData.h"
-#include "core/rendering/style/CursorList.h"
 #include "core/rendering/style/ShadowList.h"
 #include "core/rendering/svg/SVGRenderSupport.h"
 #include "platform/JSONValues.h"
@@ -356,7 +355,7 @@ void RenderObject::removeChild(RenderObject* oldChild)
 
 RenderObject* RenderObject::nextInPreOrder() const
 {
-    if (RenderObject* o = firstChild())
+    if (RenderObject* o = slowFirstChild())
         return o;
 
     return nextInPreOrderAfterChildren();
@@ -378,7 +377,7 @@ RenderObject* RenderObject::nextInPreOrderAfterChildren() const
 
 RenderObject* RenderObject::nextInPreOrder(const RenderObject* stayWithin) const
 {
-    if (RenderObject* o = firstChild())
+    if (RenderObject* o = slowFirstChild())
         return o;
 
     return nextInPreOrderAfterChildren(stayWithin);
@@ -402,8 +401,8 @@ RenderObject* RenderObject::nextInPreOrderAfterChildren(const RenderObject* stay
 RenderObject* RenderObject::previousInPreOrder() const
 {
     if (RenderObject* o = previousSibling()) {
-        while (o->lastChild())
-            o = o->lastChild();
+        while (RenderObject* lastChild = o->slowLastChild())
+            o = lastChild;
         return o;
     }
 
@@ -420,7 +419,7 @@ RenderObject* RenderObject::previousInPreOrder(const RenderObject* stayWithin) c
 
 RenderObject* RenderObject::childAt(unsigned index) const
 {
-    RenderObject* child = firstChild();
+    RenderObject* child = slowFirstChild();
     for (unsigned i = 0; child && i < index; i++)
         child = child->nextSibling();
     return child;
@@ -428,10 +427,10 @@ RenderObject* RenderObject::childAt(unsigned index) const
 
 RenderObject* RenderObject::lastLeafChild() const
 {
-    RenderObject* r = lastChild();
+    RenderObject* r = slowLastChild();
     while (r) {
         RenderObject* n = 0;
-        n = r->lastChild();
+        n = r->slowLastChild();
         if (!n)
             break;
         r = n;
@@ -454,7 +453,7 @@ static void addLayers(RenderObject* obj, RenderLayer* parentLayer, RenderObject*
         return;
     }
 
-    for (RenderObject* curr = obj->firstChild(); curr; curr = curr->nextSibling())
+    for (RenderObject* curr = obj->slowFirstChild(); curr; curr = curr->nextSibling())
         addLayers(curr, parentLayer, newObject, beforeChild);
 }
 
@@ -478,7 +477,7 @@ void RenderObject::removeLayers(RenderLayer* parentLayer)
         return;
     }
 
-    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+    for (RenderObject* curr = slowFirstChild(); curr; curr = curr->nextSibling())
         curr->removeLayers(parentLayer);
 }
 
@@ -496,7 +495,7 @@ void RenderObject::moveLayers(RenderLayer* oldParent, RenderLayer* newParent)
         return;
     }
 
-    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+    for (RenderObject* curr = slowFirstChild(); curr; curr = curr->nextSibling())
         curr->moveLayers(oldParent, newParent);
 }
 
@@ -515,7 +514,7 @@ RenderLayer* RenderObject::findNextLayer(RenderLayer* parentLayer, RenderObject*
     // Step 2: If we don't have a layer, or our layer is the desired parent, then descend
     // into our siblings trying to find the next layer whose parent is the desired parent.
     if (!ourLayer || ourLayer == parentLayer) {
-        for (RenderObject* curr = startPoint ? startPoint->nextSibling() : firstChild();
+        for (RenderObject* curr = startPoint ? startPoint->nextSibling() : slowFirstChild();
              curr; curr = curr->nextSibling()) {
             RenderLayer* nextLayer = curr->findNextLayer(parentLayer, 0, false);
             if (nextLayer)
@@ -789,7 +788,7 @@ RenderBlock* RenderObject::containingBlock() const
             if (o->style()->position() != StaticPosition && (!o->isInline() || o->isReplaced()))
                 break;
 
-            if (o->canContainAbsolutePositionObjects())
+            if (o->canContainFixedPositionObjects())
                 break;
 
             if (o->style()->hasInFlowPosition() && o->isInline() && !o->isReplaced()) {
@@ -1252,7 +1251,8 @@ void RenderObject::paintOutline(PaintInfo& paintInfo, const LayoutRect& paintRec
 // FIXME: In repaint-after-layout, we should be able to change the logic to remove the need for this function. See crbug.com/368416.
 LayoutPoint RenderObject::positionFromRepaintContainer(const RenderLayerModelObject* repaintContainer) const
 {
-    ASSERT(containerForRepaint() == repaintContainer);
+    // FIXME: This assert should be re-enabled when we move repaint to after compositing update. crbug.com/360286
+    // ASSERT(containerForRepaint() == repaintContainer);
 
     LayoutPoint offset = isBox() ? toRenderBox(this)->location() : LayoutPoint();
     if (repaintContainer == this)
@@ -1330,7 +1330,7 @@ void RenderObject::addAbsoluteRectForLayer(LayoutRect& result)
 {
     if (hasLayer())
         result.unite(absoluteBoundingBoxRectIgnoringTransforms());
-    for (RenderObject* current = firstChild(); current; current = current->nextSibling())
+    for (RenderObject* current = slowFirstChild(); current; current = current->nextSibling())
         current->addAbsoluteRectForLayer(result);
 }
 
@@ -1338,7 +1338,7 @@ LayoutRect RenderObject::paintingRootRect(LayoutRect& topLevelRect)
 {
     LayoutRect result = absoluteBoundingBoxRectIgnoringTransforms();
     topLevelRect = result;
-    for (RenderObject* current = firstChild(); current; current = current->nextSibling())
+    for (RenderObject* current = slowFirstChild(); current; current = current->nextSibling())
         current->addAbsoluteRectForLayer(result);
     return result;
 }
@@ -1352,16 +1352,24 @@ const RenderLayerModelObject* RenderObject::containerForRepaint() const
     if (!isRooted())
         return 0;
 
-    const RenderLayerModelObject* repaintContainer = 0;
+    return adjustCompositedContainerForSpecialAncestors(enclosingCompositedContainer());
+}
 
-    RenderView* renderView = view();
-    if (renderView->usesCompositing()) {
+const RenderLayerModelObject* RenderObject::enclosingCompositedContainer() const
+{
+    RenderLayerModelObject* container = 0;
+    if (view()->usesCompositing()) {
         // FIXME: CompositingState is not necessarily up to date for many callers of this function.
         DisableCompositingQueryAsserts disabler;
 
         if (RenderLayer* compositingLayer = enclosingLayer()->enclosingCompositingLayerForRepaint())
-            repaintContainer = compositingLayer->renderer();
+            container = compositingLayer->renderer();
     }
+    return container;
+}
+
+const RenderLayerModelObject* RenderObject::adjustCompositedContainerForSpecialAncestors(const RenderLayerModelObject* repaintContainer) const
+{
 
     if (document().view()->hasSoftwareFilters()) {
         if (RenderLayer* enclosingFilterLayer = enclosingLayer()->enclosingFilterLayer())
@@ -1377,7 +1385,12 @@ const RenderLayerModelObject* RenderObject::containerForRepaint() const
         if (!repaintContainer || repaintContainer->flowThreadContainingBlock() != parentRenderFlowThread)
             repaintContainer = parentRenderFlowThread;
     }
-    return repaintContainer ? repaintContainer : renderView;
+    return repaintContainer ? repaintContainer : view();
+}
+
+bool RenderObject::isRepaintContainer() const
+{
+    return hasLayer() && toRenderLayerModelObject(this)->layer()->isRepaintContainer();
 }
 
 template<typename T> PassRefPtr<JSONValue> jsonObjectForRect(const T& rect)
@@ -1523,7 +1536,7 @@ const char* RenderObject::invalidationReasonToString(InvalidationReason reason) 
     return "";
 }
 
-void RenderObject::repaintTreeAfterLayout()
+void RenderObject::repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer)
 {
     // If we didn't need invalidation then our children don't need as well.
     // Skip walking down the tree as everything should be fine below us.
@@ -1532,9 +1545,9 @@ void RenderObject::repaintTreeAfterLayout()
 
     clearRepaintState();
 
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = slowFirstChild(); child; child = child->nextSibling()) {
         if (!child->isOutOfFlowPositioned())
-            child->repaintTreeAfterLayout();
+            child->repaintTreeAfterLayout(repaintContainer);
     }
 }
 
@@ -1814,7 +1827,7 @@ void RenderObject::showRenderTreeAndMark(const RenderObject* markedObject1, cons
     if (!this)
         return;
 
-    for (const RenderObject* child = firstChild(); child; child = child->nextSibling())
+    for (const RenderObject* child = slowFirstChild(); child; child = child->nextSibling())
         child->showRenderTreeAndMark(markedObject1, markedLabel1, markedObject2, markedLabel2, depth + 1);
 }
 
@@ -1896,7 +1909,7 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
         diff.setNeedsFullLayout();
 
     // If transform changed, and the layer does not paint into its own separate backing, then we need to repaint.
-    if (contextSensitiveProperties & ContextSensitivePropertyTransform  && !diff.needsLayout()) {
+    if (contextSensitiveProperties & ContextSensitivePropertyTransform) {
         // Text nodes share style with their parents but transforms don't apply to them,
         // hence the !isText() check.
         if (!isText() && (!hasLayer() || !toRenderLayerModelObject(this)->layer()->hasDirectReasonsForCompositing()))
@@ -1972,7 +1985,7 @@ inline bool RenderObject::hasImmediateNonWhitespaceTextChildOrPropertiesDependen
 {
     if (style()->hasBorder() || style()->hasOutline())
         return true;
-    for (const RenderObject* r = firstChild(); r; r = r->nextSibling()) {
+    for (const RenderObject* r = slowFirstChild(); r; r = r->nextSibling()) {
         if (r->isText() && !toRenderText(r)->isAllCollapsibleWhitespace())
             return true;
         if (r->style()->hasOutline() || r->style()->hasBorder())
@@ -2055,14 +2068,13 @@ void RenderObject::setStyle(PassRefPtr<RenderStyle> style)
             toRenderBox(this)->updateLayerTransform();
     }
 
-    // FIXME: The !needsFullLayout() check is temporary to keep the original StyleDifference
-    // behavior that we did't repaint here on StyleDifferenceLayout.
-    // In the next steps we will not always repaint on selfNeedsLayout(), and should force
-    // repaint here if needsRepaint is set.
-    if (updatedDiff.needsRepaint() && !updatedDiff.needsFullLayout()) {
-        // Do a repaint with the new style now, e.g., for example if we go from
-        // not having an outline to having an outline.
-        repaint();
+    if (updatedDiff.needsRepaint()) {
+        // Repaint with the new style, e.g., for example if we go from not having
+        // an outline to having an outline.
+        if (needsLayout())
+            setShouldDoFullRepaintAfterLayout(true);
+        else
+            repaint();
     }
 }
 
@@ -2099,12 +2111,12 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle& newS
             }
         }
 
-        // FIXME: The !needsFullLayout() check is temporary to keep the original StyleDifference
-        // behavior that we did't repaint here on StyleDifferenceLayout.
-        // In the next steps we will not always repaint on selfNeedsLayout(), and should force
-        // repaint here if needsRepaintObject is set.
-        if (m_parent && diff.needsRepaintObject() && !diff.needsFullLayout())
-            repaint();
+        if (m_parent && diff.needsRepaintObject()) {
+            if (diff.needsLayout() || needsLayout())
+                setShouldDoFullRepaintAfterLayout(true);
+            else
+                repaint();
+        }
 
         if (isFloating() && (m_style->floating() != newStyle.floating()))
             // For changes in float styles, we need to conceivably remove ourselves
@@ -2227,7 +2239,7 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 void RenderObject::propagateStyleToAnonymousChildren(bool blockChildrenOnly)
 {
     // FIXME: We could save this call when the change only affected non-inherited properties.
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = slowFirstChild(); child; child = child->nextSibling()) {
         if (!child->isAnonymous() || child->style()->styleType() != NOPSEUDO)
             continue;
 
@@ -2421,7 +2433,7 @@ FloatPoint RenderObject::localToContainerPoint(const FloatPoint& localPoint, con
     return transformState.lastPlanarPoint();
 }
 
-LayoutSize RenderObject::offsetFromContainer(RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
+LayoutSize RenderObject::offsetFromContainer(const RenderObject* o, const LayoutPoint& point, bool* offsetDependsOnPoint) const
 {
     ASSERT(o == container());
 
@@ -2436,13 +2448,13 @@ LayoutSize RenderObject::offsetFromContainer(RenderObject* o, const LayoutPoint&
     return offset;
 }
 
-LayoutSize RenderObject::offsetFromAncestorContainer(RenderObject* container) const
+LayoutSize RenderObject::offsetFromAncestorContainer(const RenderObject* container) const
 {
     LayoutSize offset;
     LayoutPoint referencePoint;
     const RenderObject* currContainer = this;
     do {
-        RenderObject* nextContainer = currContainer->container();
+        const RenderObject* nextContainer = currContainer->container();
         ASSERT(nextContainer);  // This means we reached the top without finding container.
         if (!nextContainer)
             break;
@@ -2536,7 +2548,7 @@ void RenderObject::addLayerHitTestRects(LayerHitTestRects& layerRects, const Ren
     // partially redundant rectangles. If we find examples where this is expensive, then we could
     // rewrite Region to be more efficient. See https://bugs.webkit.org/show_bug.cgi?id=100814.
     if (!isRenderView()) {
-        for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
+        for (RenderObject* curr = slowFirstChild(); curr; curr = curr->nextSibling()) {
             curr->addLayerHitTestRects(layerRects, currentLayer,  layerOffset, newContainerRect);
         }
     }
@@ -2704,7 +2716,7 @@ void RenderObject::insertedIntoTree()
     // Keep our layer hierarchy updated. Optimize for the common case where we don't have any children
     // and don't have a layer attached to ourselves.
     RenderLayer* layer = 0;
-    if (firstChild() || hasLayer()) {
+    if (slowFirstChild() || hasLayer()) {
         layer = parent()->enclosingLayer();
         addLayers(layer);
     }
@@ -2735,7 +2747,7 @@ void RenderObject::willBeRemovedFromTree()
     }
 
     // Keep our layer hierarchy updated.
-    if (firstChild() || hasLayer()) {
+    if (slowFirstChild() || hasLayer()) {
         if (!layer)
             layer = parent()->enclosingLayer();
         removeLayers(layer);
@@ -2791,7 +2803,7 @@ void RenderObject::destroyAndCleanupAnonymousWrappers()
         if (destroyRootParent->isRenderFlowThread() || destroyRootParent->isAnonymousColumnSpanBlock())
             break;
 
-        if (destroyRootParent->firstChild() != this || destroyRootParent->lastChild() != this)
+        if (destroyRootParent->slowFirstChild() != this || destroyRootParent->slowLastChild() != this)
             break;
     }
 
@@ -2855,7 +2867,7 @@ void RenderObject::updateDragState(bool dragOn)
         else if (style()->affectedByDrag())
             node()->setNeedsStyleRecalc(LocalStyleChange);
     }
-    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+    for (RenderObject* curr = slowFirstChild(); curr; curr = curr->nextSibling())
         curr->updateDragState(dragOn);
 }
 
@@ -3063,23 +3075,6 @@ bool RenderObject::hasBlendMode() const
     return RuntimeEnabledFeatures::cssCompositingEnabled() && style() && style()->hasBlendMode();
 }
 
-static Color decorationColor(const RenderObject* object, RenderStyle* style)
-{
-    // Check for text decoration color first.
-    StyleColor result = style->visitedDependentDecorationColor();
-    if (!result.isCurrentColor())
-        return result.color();
-
-    if (style->textStrokeWidth() > 0) {
-        // Prefer stroke color if possible but not if it's fully transparent.
-        Color textStrokeColor = object->resolveColor(style, CSSPropertyWebkitTextStrokeColor);
-        if (textStrokeColor.alpha())
-            return textStrokeColor;
-    }
-
-    return object->resolveColor(style, CSSPropertyWebkitTextFillColor);
-}
-
 void RenderObject::getTextDecorations(unsigned decorations, AppliedTextDecoration& underline, AppliedTextDecoration& overline, AppliedTextDecoration& linethrough, bool quirksMode, bool firstlineStyle)
 {
     RenderObject* curr = this;
@@ -3091,7 +3086,7 @@ void RenderObject::getTextDecorations(unsigned decorations, AppliedTextDecoratio
         styleToUse = curr->style(firstlineStyle);
         currDecs = styleToUse->textDecoration();
         currDecs &= decorations;
-        resultColor = decorationColor(this, styleToUse);
+        resultColor = styleToUse->visitedDependentDecorationColor();
         resultStyle = styleToUse->textDecorationStyle();
         // Parameter 'decorations' is cast as an int to enable the bitwise operations below.
         if (currDecs) {
@@ -3121,7 +3116,7 @@ void RenderObject::getTextDecorations(unsigned decorations, AppliedTextDecoratio
     // If we bailed out, use the element we bailed out at (typically a <font> or <a> element).
     if (decorations && curr) {
         styleToUse = curr->style(firstlineStyle);
-        resultColor = decorationColor(this, styleToUse);
+        resultColor = styleToUse->visitedDependentDecorationColor();
         if (decorations & TextDecorationUnderline) {
             underline.color = resultColor;
             underline.style = resultStyle;
@@ -3164,7 +3159,7 @@ void RenderObject::collectAnnotatedRegions(Vector<AnnotatedRegionValue>& regions
         return;
 
     addAnnotatedRegions(regions);
-    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
+    for (RenderObject* curr = slowFirstChild(); curr; curr = curr->nextSibling())
         curr->collectAnnotatedRegions(regions);
 }
 

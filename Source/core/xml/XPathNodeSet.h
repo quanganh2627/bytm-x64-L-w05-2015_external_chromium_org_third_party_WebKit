@@ -35,10 +35,12 @@ namespace WebCore {
 
     namespace XPath {
 
-        class NodeSet {
-            WTF_MAKE_FAST_ALLOCATED;
+        class NodeSet : public NoBaseWillBeGarbageCollected<NodeSet> {
+            WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED;
         public:
-            NodeSet() : m_isSorted(true), m_subtreesAreDisjoint(false) { }
+            static PassOwnPtrWillBeRawPtr<NodeSet> create() { return adoptPtrWillBeNoop(new NodeSet); }
+            static PassOwnPtrWillBeRawPtr<NodeSet> create(const NodeSet&);
+            void trace(Visitor* visitor) { visitor->trace(m_nodes); }
 
             size_t size() const { return m_nodes.size(); }
             bool isEmpty() const { return !m_nodes.size(); }
@@ -48,8 +50,7 @@ namespace WebCore {
             void swap(NodeSet& other) { std::swap(m_isSorted, other.m_isSorted); std::swap(m_subtreesAreDisjoint, other.m_subtreesAreDisjoint); m_nodes.swap(other.m_nodes); }
 
             // NodeSet itself does not verify that nodes in it are unique.
-            void append(Node* node) { m_nodes.append(node); }
-            void append(PassRefPtr<Node> node) { m_nodes.append(node); }
+            void append(PassRefPtrWillBeRawPtr<Node> node) { m_nodes.append(node); }
             void append(const NodeSet& nodeSet) { m_nodes.appendVector(nodeSet.m_nodes); }
 
             // Returns the set's first node in document order, or 0 if the set is empty.
@@ -71,11 +72,12 @@ namespace WebCore {
             void reverse();
 
         private:
+            NodeSet() : m_isSorted(true), m_subtreesAreDisjoint(false) { }
             void traversalSort() const;
 
             bool m_isSorted;
             bool m_subtreesAreDisjoint;
-            Vector<RefPtr<Node> > m_nodes;
+            WillBeHeapVector<RefPtrWillBeMember<Node> > m_nodes;
         };
 
     }

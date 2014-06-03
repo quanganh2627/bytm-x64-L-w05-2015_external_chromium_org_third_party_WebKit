@@ -28,7 +28,6 @@
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/events/Event.h"
 #include "core/events/MessageEvent.h"
 #include "core/fileapi/Blob.h"
 #include "public/platform/WebRTCPeerConnectionHandler.h"
@@ -52,20 +51,20 @@ static void throwNoBlobSupportException(ExceptionState& exceptionState)
     exceptionState.throwDOMException(NotSupportedError, "Blob support not implemented yet");
 }
 
-PassRefPtr<RTCDataChannel> RTCDataChannel::create(ExecutionContext* context, PassOwnPtr<blink::WebRTCDataChannelHandler> handler)
+PassRefPtrWillBeRawPtr<RTCDataChannel> RTCDataChannel::create(ExecutionContext* context, PassOwnPtr<blink::WebRTCDataChannelHandler> handler)
 {
     ASSERT(handler);
-    return adoptRef(new RTCDataChannel(context, handler));
+    return adoptRefWillBeRefCountedGarbageCollected(new RTCDataChannel(context, handler));
 }
 
-PassRefPtr<RTCDataChannel> RTCDataChannel::create(ExecutionContext* context, blink::WebRTCPeerConnectionHandler* peerConnectionHandler, const String& label, const blink::WebRTCDataChannelInit& init, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<RTCDataChannel> RTCDataChannel::create(ExecutionContext* context, blink::WebRTCPeerConnectionHandler* peerConnectionHandler, const String& label, const blink::WebRTCDataChannelInit& init, ExceptionState& exceptionState)
 {
     OwnPtr<blink::WebRTCDataChannelHandler> handler = adoptPtr(peerConnectionHandler->createDataChannel(label, init));
     if (!handler) {
         exceptionState.throwDOMException(NotSupportedError, "RTCDataChannel is not supported");
         return nullptr;
     }
-    return adoptRef(new RTCDataChannel(context, handler.release()));
+    return adoptRefWillBeRefCountedGarbageCollected(new RTCDataChannel(context, handler.release()));
 }
 
 RTCDataChannel::RTCDataChannel(ExecutionContext* context, PassOwnPtr<blink::WebRTCDataChannelHandler> handler)
@@ -312,6 +311,12 @@ void RTCDataChannel::scheduledEventTimerFired(Timer<RTCDataChannel>*)
         dispatchEvent((*it).release());
 
     events.clear();
+}
+
+void RTCDataChannel::trace(Visitor* visitor)
+{
+    visitor->trace(m_scheduledEvents);
+    EventTargetWithInlineData::trace(visitor);
 }
 
 } // namespace WebCore

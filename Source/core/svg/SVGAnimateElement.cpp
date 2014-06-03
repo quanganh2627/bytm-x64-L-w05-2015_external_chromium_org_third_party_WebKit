@@ -42,13 +42,14 @@ SVGAnimateElement::SVGAnimateElement(const QualifiedName& tagName, Document& doc
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<SVGAnimateElement> SVGAnimateElement::create(Document& document)
+PassRefPtrWillBeRawPtr<SVGAnimateElement> SVGAnimateElement::create(Document& document)
 {
-    return adoptRef(new SVGAnimateElement(SVGNames::animateTag, document));
+    return adoptRefWillBeRefCountedGarbageCollected(new SVGAnimateElement(SVGNames::animateTag, document));
 }
 
 SVGAnimateElement::~SVGAnimateElement()
 {
+    // FIXME: Oilpan: Below prevent stopAnimValAnimation being called on |targetElement|. This should be moved to |removeFrom| equivalent.
 #if !ENABLE(OILPAN)
     if (targetElement())
         clearAnimatedType(targetElement());
@@ -143,10 +144,10 @@ bool SVGAnimateElement::calculateFromAndByValues(const String& fromString, const
 
 namespace {
 
-Vector<SVGElement*> findElementInstances(SVGElement* targetElement)
+WillBeHeapVector<RawPtrWillBeMember<SVGElement> > findElementInstances(SVGElement* targetElement)
 {
     ASSERT(targetElement);
-    Vector<SVGElement*> animatedElements;
+    WillBeHeapVector<RawPtrWillBeMember<SVGElement> > animatedElements;
 
     animatedElements.append(targetElement);
 
@@ -176,23 +177,22 @@ void SVGAnimateElement::resetAnimatedType()
 
     if (shouldApply == ApplyXMLAnimation) {
         // SVG DOM animVal animation code-path.
-        m_animatedElements = findElementInstances(targetElement);
-        ASSERT(!m_animatedElements.isEmpty());
+        WillBeHeapVector<RawPtrWillBeMember<SVGElement> > animatedElements = findElementInstances(targetElement);
+        ASSERT(!animatedElements.isEmpty());
 
-        Vector<SVGElement*>::const_iterator end = m_animatedElements.end();
-        for (Vector<SVGElement*>::const_iterator it = m_animatedElements.begin(); it != end; ++it)
+        WillBeHeapVector<RawPtrWillBeMember<SVGElement> >::const_iterator end = animatedElements.end();
+        for (WillBeHeapVector<RawPtrWillBeMember<SVGElement> >::const_iterator it = animatedElements.begin(); it != end; ++it)
             document().accessSVGExtensions().addElementReferencingTarget(this, *it);
 
         if (!m_animatedProperty)
-            m_animatedProperty = animator->startAnimValAnimation(m_animatedElements);
+            m_animatedProperty = animator->startAnimValAnimation(animatedElements);
         else
-            m_animatedProperty = animator->resetAnimValToBaseVal(m_animatedElements);
+            m_animatedProperty = animator->resetAnimValToBaseVal(animatedElements);
 
         return;
     }
 
     // CSS properties animation code-path.
-    ASSERT(m_animatedElements.isEmpty());
     String baseValue;
 
     if (shouldApply == ApplyCSSAnimation) {
@@ -287,8 +287,7 @@ static inline void notifyTargetAndInstancesAboutAnimValChange(SVGElement* target
     const WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >& instances = targetElement->instancesForElement();
     const WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >::const_iterator end = instances.end();
     for (WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >::const_iterator it = instances.begin(); it != end; ++it) {
-        if (SVGElement* shadowTreeElement = *it)
-            notifyTargetAboutAnimValChange(shadowTreeElement, attributeName);
+        notifyTargetAboutAnimValChange(*it, attributeName);
     }
 }
 
@@ -302,7 +301,7 @@ void SVGAnimateElement::clearAnimatedType(SVGElement* targetElement)
         return;
     }
 
-    if (m_animatedElements.isEmpty()) {
+    if (ensureAnimator()->isAnimatingCSSProperty()) {
         // CSS properties animation code-path.
         removeCSSPropertyFromTargetAndInstances(targetElement, attributeName());
         m_animatedProperty.clear();
@@ -311,11 +310,11 @@ void SVGAnimateElement::clearAnimatedType(SVGElement* targetElement)
 
     // SVG DOM animVal animation code-path.
     if (m_animator) {
-        m_animator->stopAnimValAnimation(m_animatedElements);
+        WillBeHeapVector<RawPtrWillBeMember<SVGElement> > animatedElements = findElementInstances(targetElement);
+        m_animator->stopAnimValAnimation(animatedElements);
         notifyTargetAndInstancesAboutAnimValChange(targetElement, attributeName());
     }
 
-    m_animatedElements.clear();
     m_animatedProperty.clear();
 }
 
@@ -329,7 +328,7 @@ void SVGAnimateElement::applyResultsToTarget()
     if (!m_animatedProperty)
         return;
 
-    if (m_animatedElements.isEmpty()) {
+    if (ensureAnimator()->isAnimatingCSSProperty()) {
         // CSS properties animation code-path.
         // Convert the result of the animation to a String and apply it as CSS property on the target & all instances.
         applyCSSPropertyToTargetAndInstances(targetElement(), attributeName(), m_animatedProperty->valueAsString());
@@ -404,6 +403,12 @@ SVGAnimatedTypeAnimator* SVGAnimateElement::ensureAnimator()
         m_animator = SVGAnimatedTypeAnimator::create(m_animatedPropertyType, this, targetElement());
     ASSERT(m_animatedPropertyType == m_animator->type());
     return m_animator.get();
+}
+
+void SVGAnimateElement::trace(Visitor* visitor)
+{
+    visitor->trace(m_animator);
+    SVGAnimationElement::trace(visitor);
 }
 
 }

@@ -41,9 +41,9 @@ inline SVGScriptElement::SVGScriptElement(Document& document, bool wasInsertedBy
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<SVGScriptElement> SVGScriptElement::create(Document& document, bool insertedByParser)
+PassRefPtrWillBeRawPtr<SVGScriptElement> SVGScriptElement::create(Document& document, bool insertedByParser)
 {
-    return adoptRef(new SVGScriptElement(document, insertedByParser, false));
+    return adoptRefWillBeRefCountedGarbageCollected(new SVGScriptElement(document, insertedByParser, false));
 }
 
 bool SVGScriptElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -114,12 +114,6 @@ void SVGScriptElement::didNotifySubtreeInsertionsToDocument()
     }
 }
 
-void SVGScriptElement::didMoveToNewDocument(Document& oldDocument)
-{
-    SVGElement::didMoveToNewDocument(oldDocument);
-    m_loader->cancel(&oldDocument);
-}
-
 void SVGScriptElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
@@ -187,9 +181,9 @@ bool SVGScriptElement::hasSourceAttribute() const
     return href()->isSpecified();
 }
 
-PassRefPtr<Element> SVGScriptElement::cloneElementWithoutAttributesAndChildren()
+PassRefPtrWillBeRawPtr<Element> SVGScriptElement::cloneElementWithoutAttributesAndChildren()
 {
-    return adoptRef(new SVGScriptElement(document(), false, m_loader->alreadyStarted()));
+    return adoptRefWillBeRefCountedGarbageCollected(new SVGScriptElement(document(), false, m_loader->alreadyStarted()));
 }
 
 void SVGScriptElement::dispatchLoadEvent()

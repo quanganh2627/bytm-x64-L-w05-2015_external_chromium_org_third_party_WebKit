@@ -58,9 +58,9 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(const DocumentInit& initializer, 
     lockCompatibilityMode();
 }
 
-PassRefPtr<DocumentParser> HTMLViewSourceDocument::createParser()
+PassRefPtrWillBeRawPtr<DocumentParser> HTMLViewSourceDocument::createParser()
 {
-    return HTMLViewSourceParser::create(this, m_type);
+    return HTMLViewSourceParser::create(*this, m_type);
 }
 
 void HTMLViewSourceDocument::createContainingTable()
@@ -242,8 +242,7 @@ void HTMLViewSourceDocument::addText(const String& text, const AtomicString& cla
             finishLine();
             continue;
         }
-        RefPtr<Text> t = Text::create(*this, substring);
-        m_current->parserAppendChild(t);
+        m_current->parserAppendChild(Text::create(*this, substring));
         if (i < size - 1)
             finishLine();
     }

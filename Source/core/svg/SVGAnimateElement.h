@@ -34,8 +34,10 @@ class SVGAnimatedTypeAnimator;
 
 class SVGAnimateElement : public SVGAnimationElement {
 public:
-    static PassRefPtr<SVGAnimateElement> create(Document&);
+    static PassRefPtrWillBeRawPtr<SVGAnimateElement> create(Document&);
     virtual ~SVGAnimateElement();
+
+    virtual void trace(Visitor*) OVERRIDE;
 
 protected:
     SVGAnimateElement(const QualifiedName&, Document&);
@@ -68,8 +70,7 @@ private:
     RefPtr<SVGPropertyBase> m_toAtEndOfDurationProperty;
     RefPtr<SVGPropertyBase> m_animatedProperty;
 
-    Vector<SVGElement*> m_animatedElements;
-    OwnPtr<SVGAnimatedTypeAnimator> m_animator;
+    OwnPtrWillBeMember<SVGAnimatedTypeAnimator> m_animator;
 };
 
 inline bool isSVGAnimateElement(const Node& node)

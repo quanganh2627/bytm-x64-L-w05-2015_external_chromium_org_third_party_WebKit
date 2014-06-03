@@ -151,8 +151,6 @@ public:
     virtual void scheduleAnimation() = 0;
     // End methods used by HostWindow.
 
-    virtual bool isCompositorFramePending() const = 0;
-
     virtual void dispatchViewportPropertiesDidChange(const ViewportDescription&) const { }
 
     virtual void contentsSizeChanged(LocalFrame*, const IntSize&) const = 0;
@@ -207,10 +205,6 @@ public:
     virtual void setPagePopupDriver(PagePopupDriver*) = 0;
     virtual void resetPagePopupDriver() = 0;
 
-    // FIXME: Should these be on a different client interface?
-    virtual bool isPasswordGenerationEnabled() const { return false; }
-    virtual void openPasswordGenerator(HTMLInputElement*) { }
-
     virtual void postAccessibilityNotification(AXObject*, AXObjectCache::AXNotification) { }
     virtual String acceptLanguages() = 0;
 
@@ -233,7 +227,7 @@ public:
 
     virtual bool isChromeClientImpl() const { return false; }
 
-    virtual void didAssociateFormControls(const Vector<RefPtr<Element> >&) { };
+    virtual void didAssociateFormControls(const WillBeHeapVector<RefPtrWillBeMember<Element> >&) { };
     virtual void didChangeValueInTextField(HTMLFormControlElement&) { }
     virtual void didEndEditingOnTextField(HTMLInputElement&) { }
     virtual void handleKeyboardEventOnTextField(HTMLInputElement&, KeyboardEvent&) { }

@@ -201,6 +201,7 @@ def generate_getter(interface, attribute, contents):
 
     contents.update({
         'cpp_value': cpp_value,
+        'cpp_value_to_v8_value': idl_type.cpp_value_to_v8_value(cpp_value=cpp_value, creation_context='info.Holder()'),
         'v8_set_return_value_for_main_world': v8_set_return_value_statement(for_main_world=True),
         'v8_set_return_value': v8_set_return_value_statement(),
     })
@@ -327,7 +328,7 @@ def setter_expression(interface, attribute, contents):
             includes.add('bindings/v8/V8ErrorHandler.h')
             arguments.append('V8EventListenerList::findOrCreateWrapper<V8ErrorHandler>(v8Value, true, info.GetIsolate())')
         else:
-            arguments.append('V8EventListenerList::getEventListener(v8Value, true, ListenerFindOrCreate)')
+            arguments.append('V8EventListenerList::getEventListener(ScriptState::current(info.GetIsolate()), v8Value, true, ListenerFindOrCreate)')
     elif idl_type.is_interface_type and not idl_type.array_type:
         # FIXME: should be able to eliminate WTF::getPtr in most or all cases
         arguments.append('WTF::getPtr(cppValue)')

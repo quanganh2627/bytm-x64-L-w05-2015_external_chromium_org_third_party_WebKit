@@ -2024,6 +2024,32 @@ void CanvasRenderingContext2D::strokeText(const String& text, float x, float y, 
     drawTextInternal(text, x, y, false, maxWidth, true);
 }
 
+static inline bool isSpaceCharacter(UChar c)
+{
+    // According to specification all space characters should be replaced with 0x0020 space character.
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#text-preparation-algorithm
+    // The space characters according to specification are : U+0020, U+0009, U+000A, U+000C, and U+000D.
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/common-microsyntaxes.html#space-character
+    // This function returns true for 0x000B also, so that this is backward compatible.
+    // Otherwise, the test LayoutTests/canvas/philip/tests/2d.text.draw.space.collapse.space.html will fail
+    return c == 0x0009 || c == 0x000A || c == 0x000B || c == 0x000C || c == 0x000D;
+}
+
+static String normalizeSpaces(const String& text)
+{
+    unsigned textLength = text.length();
+    Vector<UChar> charVector(textLength);
+
+    for (unsigned i = 0; i < textLength; i++) {
+        if (isSpaceCharacter(text[i]))
+            charVector[i] = ' ';
+        else
+            charVector[i] = text[i];
+    }
+
+    return String(charVector);
+}
+
 PassRefPtr<TextMetrics> CanvasRenderingContext2D::measureText(const String& text)
 {
     RefPtr<TextMetrics> metrics = TextMetrics::create();
@@ -2035,7 +2061,8 @@ PassRefPtr<TextMetrics> CanvasRenderingContext2D::measureText(const String& text
     FontCachePurgePreventer fontCachePurgePreventer;
     canvas()->document().updateRenderTreeIfNeeded();
     const Font& font = accessFont();
-    const TextRun textRun(text);
+    String normalizedText = normalizeSpaces(text);
+    const TextRun textRun(normalizedText);
     FloatRect textBounds = font.selectionRectForText(textRun, FloatPoint(), font.fontDescription().computedSize(), 0, -1, true);
 
     // x direction
@@ -2063,16 +2090,6 @@ PassRefPtr<TextMetrics> CanvasRenderingContext2D::measureText(const String& text
     metrics->setAlphabeticBaseline(baselineY);
     metrics->setIdeographicBaseline(descent + baselineY);
     return metrics.release();
-}
-
-static void replaceCharacterInString(String& text, WTF::CharacterMatchFunctionPtr matchFunction, const String& replacement)
-{
-    const size_t replacementLength = replacement.length();
-    size_t index = 0;
-    while ((index = text.find(matchFunction, index)) != kNotFound) {
-        text.replace(index, 1, replacement);
-        index += replacementLength;
-    }
 }
 
 void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, float y, bool fill, float maxWidth, bool useMaxWidth)
@@ -2109,9 +2126,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 
     const Font& font = accessFont();
     const FontMetrics& fontMetrics = font.fontMetrics();
-    // According to spec, all the space characters must be replaced with U+0020 SPACE characters.
-    String normalizedText = text;
-    replaceCharacterInString(normalizedText, isSpaceOrNewline, " ");
+    String normalizedText = normalizeSpaces(text);
 
     // FIXME: Need to turn off font smoothing.
 
@@ -2281,7 +2296,6 @@ void CanvasRenderingContext2D::drawFocusIfNeededInternal(const Path& path, Eleme
     if (!focusRingCallIsValid(path, element))
         return;
 
-    updateFocusRingAccessibility(path, element);
     // Note: we need to check document->focusedElement() rather than just calling
     // element->focused(), because element->focused() isn't updated until after
     // focus events fire.
@@ -2293,8 +2307,6 @@ bool CanvasRenderingContext2D::drawCustomFocusRing(Element* element)
 {
     if (!focusRingCallIsValid(m_path, element))
         return false;
-
-    updateFocusRingAccessibility(m_path, element);
 
     // Return true if the application should draw the focus ring. The spec allows us to
     // override this for accessibility, but currently Blink doesn't take advantage of this.
@@ -2312,39 +2324,6 @@ bool CanvasRenderingContext2D::focusRingCallIsValid(const Path& path, Element* e
         return false;
 
     return true;
-}
-
-void CanvasRenderingContext2D::updateFocusRingAccessibility(const Path& path, Element* element)
-{
-    if (!canvas()->renderer())
-        return;
-
-    // If accessibility is already enabled in this frame, associate this path's
-    // bounding box with the accessible object. Do this even if the element
-    // isn't focused because assistive technology might try to explore the object's
-    // location before it gets focus.
-    if (AXObjectCache* axObjectCache = element->document().existingAXObjectCache()) {
-        if (AXObject* obj = axObjectCache->getOrCreate(element)) {
-            // Get the bounding rect and apply transformations.
-            FloatRect bounds = path.boundingRect();
-            AffineTransform ctm = state().m_transform;
-            FloatRect transformedBounds = ctm.mapRect(bounds);
-            LayoutRect elementRect = LayoutRect(transformedBounds);
-
-            // Offset by the canvas rect and set the bounds of the accessible element.
-            IntRect canvasRect = canvas()->renderer()->absoluteBoundingBoxRect();
-            elementRect.moveBy(canvasRect.location());
-            obj->setElementRect(elementRect);
-
-            // Set the bounds of any ancestor accessible elements, up to the canvas element,
-            // otherwise this element will appear to not be within its parent element.
-            obj = obj->parentObject();
-            while (obj && obj->node() != canvas()) {
-                obj->setElementRect(elementRect);
-                obj = obj->parentObject();
-            }
-        }
-    }
 }
 
 void CanvasRenderingContext2D::drawFocusRing(const Path& path)

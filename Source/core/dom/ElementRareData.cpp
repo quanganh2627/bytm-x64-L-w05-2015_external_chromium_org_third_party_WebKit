@@ -38,8 +38,7 @@ namespace WebCore {
 struct SameSizeAsElementRareData : NodeRareData {
     short indices[2];
     IntSize scrollOffset;
-    void* pointers[11];
-    OwnPtrWillBeMember<ActiveAnimations> activeAnimations;
+    void* pointers[12];
 };
 
 CSSStyleDeclaration& ElementRareData::ensureInlineCSSStyleDeclaration(Element* ownerElement)
@@ -55,8 +54,12 @@ void ElementRareData::traceAfterDispatch(Visitor* visitor)
     visitor->trace(m_classList);
     visitor->trace(m_shadow);
     visitor->trace(m_attributeMap);
+    visitor->trace(m_inputMethodContext);
     visitor->trace(m_activeAnimations);
     visitor->trace(m_cssomWrapper);
+    visitor->trace(m_generatedBefore);
+    visitor->trace(m_generatedAfter);
+    visitor->trace(m_backdrop);
     NodeRareData::traceAfterDispatch(visitor);
 }
 

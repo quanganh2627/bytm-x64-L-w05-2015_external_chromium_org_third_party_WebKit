@@ -30,6 +30,7 @@
 
 /**
  * @constructor
+ * @implements {WebInspector.ViewportElement}
  * @param {!WebInspector.ConsoleMessage} consoleMessage
  * @param {?WebInspector.Linkifier} linkifier
  * @param {number} nestingLevel
@@ -64,6 +65,14 @@ WebInspector.ConsoleViewMessage.prototype = {
         return this.consoleMessage().target();
     },
 
+    /**
+     * @return {!Element}
+     */
+    element: function()
+    {
+        return this.toMessageElement();
+    },
+
     wasShown: function()
     {
         for (var i = 0; this._dataGrids && i < this._dataGrids.length; ++i) {
@@ -76,11 +85,28 @@ WebInspector.ConsoleViewMessage.prototype = {
 
     willHide: function()
     {
+        this._cachedHeight = this.contentElement().clientHeight;
         for (var i = 0; this._dataGrids && i < this._dataGrids.length; ++i) {
             var dataGrid = this._dataGrids[i];
             this._dataGridParents.put(dataGrid, dataGrid.element.parentElement);
             dataGrid.detach();
         }
+    },
+
+    /**
+     * @return {number}
+     */
+    fastHeight: function()
+    {
+        if (this._cachedHeight)
+            return this._cachedHeight;
+        const defaultConsoleRowHeight = 17;
+        if (this._message.type === WebInspector.ConsoleMessage.MessageType.Table) {
+            var table = this._message.parameters[0];
+            if (table && table.preview)
+                return defaultConsoleRowHeight * table.preview.properties.length;
+        }
+        return defaultConsoleRowHeight;
     },
 
     /**
@@ -397,6 +423,7 @@ WebInspector.ConsoleViewMessage.prototype = {
             var lossless = this._appendObjectPreview(obj, description, titleElement);
             if (lossless) {
                 elem.appendChild(titleElement);
+                titleElement.addEventListener("contextmenu", this._contextMenuEventFired.bind(this, obj), false);
                 return;
             }
         }
@@ -406,6 +433,16 @@ WebInspector.ConsoleViewMessage.prototype = {
 
         var note = section.titleElement.createChild("span", "object-info-state-note");
         note.title = WebInspector.UIString("Object state below is captured upon first expansion");
+    },
+
+    /**
+     * @param {!WebInspector.RemoteObject} obj
+     */
+    _contextMenuEventFired: function(obj, event)
+    {
+        var contextMenu = new WebInspector.ContextMenu(event);
+        contextMenu.appendApplicableItems(obj);
+        contextMenu.show();
     },
 
     /**
@@ -593,13 +630,18 @@ WebInspector.ConsoleViewMessage.prototype = {
                 flatValues.push(rowValue[columnNames[j]]);
         }
 
-        if (!flatValues.length)
-            return element;
+        var dataGridContainer = element.createChild("span");
+        if (!preview.lossless || !flatValues.length) {
+            element.appendChild(this._formatParameter(table, true, false));
+            if (!flatValues.length)
+                return element;
+        }
+
         columnNames.unshift(WebInspector.UIString("(index)"));
         var dataGrid = WebInspector.DataGrid.createSortableDataGrid(columnNames, flatValues);
         dataGrid.renderInline();
         this._dataGrids.push(dataGrid);
-        this._dataGridParents.put(dataGrid, element);
+        this._dataGridParents.put(dataGrid, dataGridContainer);
         return element;
     },
 
@@ -668,6 +710,7 @@ WebInspector.ConsoleViewMessage.prototype = {
         appendUndefined(elem, length);
 
         elem.appendChild(document.createTextNode("]"));
+        elem.addEventListener("contextmenu", this._contextMenuEventFired.bind(this, array), false);
     },
 
     /**

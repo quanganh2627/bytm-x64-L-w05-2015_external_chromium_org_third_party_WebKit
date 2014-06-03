@@ -28,6 +28,7 @@
 #ifndef Frame_h
 #define Frame_h
 
+#include "core/page/FrameTree.h"
 #include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
 #include "wtf/HashSet.h"
@@ -41,6 +42,7 @@ namespace WebCore {
 
 class DOMWindow;
 class ChromeClient;
+class FrameClient;
 class FrameDestructionObserver;
 class FrameHost;
 class HTMLFrameOwnerElement;
@@ -61,6 +63,9 @@ public:
     virtual void willDetachFrameHost();
     virtual void detachFromFrameHost();
 
+    FrameClient* client() const;
+    void clearClient();
+
     // NOTE: Page is moving out of Blink up into the browser process as
     // part of the site-isolation (out of process iframes) work.
     // FrameHost should be used instead where possible.
@@ -78,11 +83,10 @@ public:
     virtual void setDOMWindow(PassRefPtrWillBeRawPtr<DOMWindow>);
     DOMWindow* domWindow() const;
 
+    FrameTree& tree() const;
     ChromeClient& chromeClient() const;
 
     RenderPart* ownerRenderer() const; // Renderer for the element that contains this frame.
-
-    int64_t frameID() const { return m_frameID; }
 
     // FIXME: These should move to RemoteFrame when that is instantiated.
     void setRemotePlatformLayer(blink::WebLayer* remotePlatformLayer) { m_remotePlatformLayer = remotePlatformLayer; }
@@ -97,7 +101,9 @@ public:
     bool isRemoteFrameTemporary() const { return m_remotePlatformLayer; }
 
 protected:
-    Frame(FrameHost*, HTMLFrameOwnerElement*);
+    Frame(FrameClient*, FrameHost*, HTMLFrameOwnerElement*);
+
+    mutable FrameTree m_treeNode;
 
     FrameHost* m_host;
     HTMLFrameOwnerElement* m_ownerElement;
@@ -105,14 +111,21 @@ protected:
     RefPtrWillBePersistent<DOMWindow> m_domWindow;
 
 private:
-
+    FrameClient* m_client;
     HashSet<FrameDestructionObserver*> m_destructionObservers;
-
-    // Temporary hack for history.
-    int64_t m_frameID;
 
     blink::WebLayer* m_remotePlatformLayer;
 };
+
+inline FrameClient* Frame::client() const
+{
+    return m_client;
+}
+
+inline void Frame::clearClient()
+{
+    m_client = 0;
+}
 
 inline DOMWindow* Frame::domWindow() const
 {
@@ -122,6 +135,11 @@ inline DOMWindow* Frame::domWindow() const
 inline HTMLFrameOwnerElement* Frame::ownerElement() const
 {
     return m_ownerElement;
+}
+
+inline FrameTree& Frame::tree() const
+{
+    return m_treeNode;
 }
 
 } // namespace WebCore

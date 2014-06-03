@@ -38,6 +38,7 @@
 #include "core/html/HTMLVideoElement.h"
 #include "core/html/ImageData.h"
 #include "core/html/canvas/ANGLEInstancedArrays.h"
+#include "core/html/canvas/EXTBlendMinMax.h"
 #include "core/html/canvas/EXTFragDepth.h"
 #include "core/html/canvas/EXTShaderTextureLOD.h"
 #include "core/html/canvas/EXTTextureFilterAnisotropic.h"
@@ -636,18 +637,6 @@ void WebGLRenderingContextBase::setupFlags()
 
     m_isGLES2NPOTStrict = !extensionsUtil()->isExtensionEnabled("GL_OES_texture_npot");
     m_isDepthStencilSupported = extensionsUtil()->isExtensionEnabled("GL_OES_packed_depth_stencil");
-}
-
-bool WebGLRenderingContextBase::allowPrivilegedExtensions() const
-{
-    if (Page* p = canvas()->document().page())
-        return p->settings().privilegedWebGLExtensionsEnabled();
-    return false;
-}
-
-bool WebGLRenderingContextBase::allowWebGLDebugRendererInfo() const
-{
-    return true;
 }
 
 void WebGLRenderingContextBase::addCompressedTextureFormat(GLenum format)
@@ -2127,10 +2116,6 @@ bool WebGLRenderingContextBase::ExtensionTracker::matchesNameWithPrefixes(const 
 
 bool WebGLRenderingContextBase::extensionSupportedAndAllowed(const ExtensionTracker* tracker)
 {
-    if (tracker->webglDebugRendererInfo() && !allowWebGLDebugRendererInfo())
-        return false;
-    if (tracker->privileged() && !allowPrivilegedExtensions())
-        return false;
     if (tracker->draft() && !RuntimeEnabledFeatures::webGLDraftExtensionsEnabled())
         return false;
     if (!tracker->supported(this))
@@ -5090,6 +5075,12 @@ bool WebGLRenderingContextBase::validateBlendEquation(const char* functionName, 
     case GL_FUNC_SUBTRACT:
     case GL_FUNC_REVERSE_SUBTRACT:
         return true;
+    case GL_MIN_EXT:
+    case GL_MAX_EXT:
+        if (extensionEnabled(EXTBlendMinMaxName))
+            return true;
+        synthesizeGLError(GL_INVALID_ENUM, functionName, "invalid mode");
+        return false;
     default:
         synthesizeGLError(GL_INVALID_ENUM, functionName, "invalid mode");
         return false;

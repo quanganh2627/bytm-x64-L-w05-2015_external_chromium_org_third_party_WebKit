@@ -33,6 +33,7 @@
 
 #include "core/fetch/RawResource.h"
 #include "core/fetch/ResourceOwner.h"
+#include "platform/heap/Handle.h"
 #include "wtf/OwnPtr.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/Vector.h"
@@ -73,7 +74,9 @@ public:
     Document* importedDocument() const;
     void addImport(HTMLImportChild*);
     void removeImport(HTMLImportChild*);
+    void moveToFirst(HTMLImportChild*);
     HTMLImportChild* firstImport() const { return m_imports[0]; }
+    bool isFirstImport(const HTMLImportChild* child) const { return m_imports.size() ? firstImport() == child : false; }
 
     bool isDone() const { return m_state == StateLoaded || m_state == StateError; }
     bool hasError() const { return m_state == StateError; }
@@ -84,7 +87,7 @@ public:
     void didFinishParsing();
     void didRemoveAllPendingStylesheet();
 
-    PassRefPtr<CustomElementMicrotaskQueue> microtaskQueue() const;
+    PassRefPtrWillBeRawPtr<CustomElementMicrotaskQueue> microtaskQueue() const;
 
 private:
     HTMLImportLoader(HTMLImportsController*);
@@ -109,7 +112,7 @@ private:
     State m_state;
     RefPtr<Document> m_importedDocument;
     RefPtr<DocumentWriter> m_writer;
-    RefPtr<CustomElementMicrotaskQueue> m_microtaskQueue;
+    RefPtrWillBePersistent<CustomElementMicrotaskQueue> m_microtaskQueue;
 };
 
 } // namespace WebCore

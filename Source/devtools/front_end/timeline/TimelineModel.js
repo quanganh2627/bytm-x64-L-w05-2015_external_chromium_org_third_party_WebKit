@@ -700,9 +700,6 @@ WebInspector.TimelineModel.RecordImpl = function(model, timelineEvent, parentRec
 
     this._selfTime = this.endTime() - this.startTime();
 
-    if (parentRecord && parentRecord.callSiteStackTrace())
-        this._callSiteStackTrace = parentRecord.callSiteStackTrace();
-
     var recordTypes = WebInspector.TimelineModel.RecordType;
     switch (timelineEvent.type) {
     case recordTypes.ResourceSendRequest:
@@ -743,25 +740,17 @@ WebInspector.TimelineModel.RecordImpl = function(model, timelineEvent, parentRec
     case recordTypes.InvalidateLayout:
         // Consider style recalculation as a reason for layout invalidation,
         // but only if we had no earlier layout invalidation records.
-        var initiator = this;
+        var layoutInitator = this;
         if (!bindings._layoutInvalidate[this.frameId()] && parentRecord.type() === recordTypes.RecalculateStyles)
-            initiator = parentRecord;
-        bindings._layoutInvalidate[this.frameId()] = initiator;
+            layoutInitator = parentRecord._initiator;
+        bindings._layoutInvalidate[this.frameId()] = layoutInitator;
         break;
 
     case recordTypes.Layout:
         this._initiator = bindings._layoutInvalidate[this.frameId()];
-        if (this._initiator)
-            this._callSiteStackTrace = this._initiator.callSiteStackTrace()
-        if (this.stackTrace())
-            this._addWarning(WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
-
         bindings._layoutInvalidate[this.frameId()] = null;
-        this.highlightQuad = timelineEvent.data.root || WebInspector.TimelineModel._quadFromRectData(timelineEvent.data);
-        break;
-
-    case recordTypes.Paint:
-        this.highlightQuad = timelineEvent.data.clip || WebInspector.TimelineModel._quadFromRectData(timelineEvent.data);
+        if (this.stackTrace())
+            this.addWarning(WebInspector.UIString("Forced synchronous layout is a possible performance bottleneck."));
         break;
 
     case recordTypes.WebSocketCreate:
@@ -772,10 +761,6 @@ WebInspector.TimelineModel.RecordImpl = function(model, timelineEvent, parentRec
     case recordTypes.WebSocketReceiveHandshakeResponse:
     case recordTypes.WebSocketDestroy:
         this._initiator = bindings._webSocketCreateRecords[timelineEvent.data["identifier"]];
-        break;
-
-    case recordTypes.EmbedderCallback:
-        this.embedderCallbackName = timelineEvent.data["callbackName"];
         break;
     }
 }
@@ -799,8 +784,6 @@ WebInspector.TimelineModel.RecordImpl.prototype = {
      */
     callSiteStackTrace: function()
     {
-        if (this._callSiteStackTrace)
-            return this._callSiteStackTrace;
         return this._initiator ? this._initiator.stackTrace() : null;
     },
 
@@ -963,7 +946,7 @@ WebInspector.TimelineModel.RecordImpl.prototype = {
     /**
      * @param {string} message
      */
-    _addWarning: function(message)
+    addWarning: function(message)
     {
         if (this._warnings)
             this._warnings.push(message);
@@ -1250,19 +1233,4 @@ WebInspector.TimelineMergingRecordBuffer.prototype = {
         this._backgroundRecordsBuffer = [];
         return result;
     }
-}
-
-/**
- * @param {!Object} data
- * @return {?Array.<number>}
- */
-WebInspector.TimelineModel._quadFromRectData = function(data)
-{
-    if (typeof data["x"] === "undefined" || typeof data["y"] === "undefined")
-        return null;
-    var x0 = data["x"];
-    var x1 = data["x"] + data["width"];
-    var y0 = data["y"];
-    var y1 = data["y"] + data["height"];
-    return [x0, y0, x1, y0, x1, y1, x0, y1];
 }

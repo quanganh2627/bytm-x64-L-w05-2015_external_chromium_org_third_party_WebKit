@@ -27,132 +27,41 @@
 #include "core/dom/ContainerNodeAlgorithms.h"
 
 #include "core/dom/Element.h"
+#include "core/dom/NodeTraversal.h"
 #include "core/dom/shadow/ElementShadow.h"
 #include "core/dom/shadow/ShadowRoot.h"
 
 namespace WebCore {
 
-class ShadowRootVector : public Vector<RefPtr<ShadowRoot> > {
-public:
-    explicit ShadowRootVector(ElementShadow* tree)
-    {
-        for (ShadowRoot* root = tree->youngestShadowRoot(); root; root = root->olderShadowRoot())
-            append(root);
-    }
-};
-
-void ChildNodeInsertionNotifier::notifyDescendantInsertedIntoDocument(ContainerNode& node)
+void ChildNodeInsertionNotifier::notifyNodeInserted(Node& root)
 {
-    ChildNodesLazySnapshot snapshot(node);
-    while (RefPtr<Node> child = snapshot.nextNode()) {
-        // If we have been removed from the document during this loop, then
-        // we don't want to tell the rest of our children that they've been
-        // inserted into the document because they haven't.
-        if (node.inDocument() && child->parentNode() == node)
-            notifyNodeInsertedIntoDocument(*child);
-    }
-
-    if (!node.isElementNode())
-        return;
-
-    if (ElementShadow* shadow = toElement(node).shadow()) {
-        ShadowRootVector roots(shadow);
-        for (size_t i = 0; i < roots.size(); ++i) {
-            if (node.inDocument() && roots[i]->host() == node)
-                notifyNodeInsertedIntoDocument(*roots[i]);
-        }
+    for (Node* node = &root; node; node = NodeTraversal::next(*node, &root)) {
+        // As an optimization we don't notify leaf nodes when when inserting
+        // into detached subtrees.
+        if (!m_insertionPoint.inDocument() && !node->isContainerNode())
+            continue;
+        if (Node::InsertionShouldCallDidNotifySubtreeInsertions == node->insertedInto(&m_insertionPoint))
+            m_postInsertionNotificationTargets.append(node);
+        for (ShadowRoot* shadowRoot = node->youngestShadowRoot(); shadowRoot; shadowRoot = shadowRoot->olderShadowRoot())
+            notifyNodeInserted(*shadowRoot);
     }
 }
 
-void ChildNodeInsertionNotifier::notifyDescendantInsertedIntoTree(ContainerNode& node)
+void ChildNodeRemovalNotifier::notifyNodeRemoved(Node& root)
 {
-    for (Node* child = node.firstChild(); child; child = child->nextSibling()) {
-        if (child->isContainerNode())
-            notifyNodeInsertedIntoTree(toContainerNode(*child));
-    }
-
-    for (ShadowRoot* root = node.youngestShadowRoot(); root; root = root->olderShadowRoot())
-        notifyNodeInsertedIntoTree(*root);
-}
-
-void ChildNodeRemovalNotifier::notifyDescendantRemovedFromDocument(ContainerNode& node)
-{
-    ChildNodesLazySnapshot snapshot(node);
-    while (RefPtr<Node> child = snapshot.nextNode()) {
-        // If we have been added to the document during this loop, then we
-        // don't want to tell the rest of our children that they've been
-        // removed from the document because they haven't.
-        if (!node.inDocument() && child->parentNode() == node)
-            notifyNodeRemovedFromDocument(*child);
-    }
-
-    if (!node.isElementNode())
-        return;
-
-    if (node.document().cssTarget() == node)
-        node.document().setCSSTarget(0);
-
-    if (ElementShadow* shadow = toElement(node).shadow()) {
-        ShadowRootVector roots(shadow);
-        for (size_t i = 0; i < roots.size(); ++i) {
-            if (!node.inDocument() && roots[i]->host() == node)
-                notifyNodeRemovedFromDocument(*roots[i]);
-        }
+    Document& document = root.document();
+    for (Node* node = &root; node; node = NodeTraversal::next(*node, &root)) {
+        // As an optimization we skip notifying Text nodes and other leaf nodes
+        // of removal when they're not in the Document tree since the virtual
+        // call to removedFrom is not needed.
+        if (!node->inDocument() && !node->isContainerNode())
+            continue;
+        if (document.cssTarget() == node)
+            document.setCSSTarget(0);
+        node->removedFrom(&m_insertionPoint);
+        for (ShadowRoot* shadowRoot = node->youngestShadowRoot(); shadowRoot; shadowRoot = shadowRoot->olderShadowRoot())
+            notifyNodeRemoved(*shadowRoot);
     }
 }
-
-void ChildNodeRemovalNotifier::notifyDescendantRemovedFromTree(ContainerNode& node)
-{
-    for (Node* child = node.firstChild(); child; child = child->nextSibling()) {
-        if (child->isContainerNode())
-            notifyNodeRemovedFromTree(toContainerNode(*child));
-    }
-
-    if (!node.isElementNode())
-        return;
-
-    if (ElementShadow* shadow = toElement(node).shadow()) {
-        ShadowRootVector roots(shadow);
-        for (size_t i = 0; i < roots.size(); ++i)
-            notifyNodeRemovedFromTree(*roots[i]);
-    }
-}
-
-void ChildFrameDisconnector::collectFrameOwners(ElementShadow& shadow)
-{
-    for (ShadowRoot* root = shadow.youngestShadowRoot(); root; root = root->olderShadowRoot())
-        collectFrameOwners(*root);
-}
-
-#ifndef NDEBUG
-unsigned assertConnectedSubrameCountIsConsistent(Node& node)
-{
-    unsigned count = 0;
-
-    if (node.isElementNode()) {
-        if (node.isFrameOwnerElement() && toHTMLFrameOwnerElement(node).contentFrame())
-            count++;
-
-        if (ElementShadow* shadow = toElement(node).shadow()) {
-            for (ShadowRoot* root = shadow->youngestShadowRoot(); root; root = root->olderShadowRoot())
-                count += assertConnectedSubrameCountIsConsistent(*root);
-        }
-    }
-
-    for (Node* child = node.firstChild(); child; child = child->nextSibling())
-        count += assertConnectedSubrameCountIsConsistent(*child);
-
-    // If we undercount there's possibly a security bug since we'd leave frames
-    // in subtrees outside the document.
-    ASSERT(node.connectedSubframeCount() >= count);
-
-    // If we overcount it's safe, but not optimal because it means we'll traverse
-    // through the document in ChildFrameDisconnector looking for frames that have
-    // already been disconnected.
-    ASSERT(node.connectedSubframeCount() == count);
-
-    return count;
-}
-#endif
 
 }

@@ -31,21 +31,25 @@
 #ifndef AnimationPlayer_h
 #define AnimationPlayer_h
 
-#include "core/animation/TimedItem.h"
+#include "core/animation/AnimationNode.h"
+#include "core/dom/ActiveDOMObject.h"
 #include "core/events/EventTarget.h"
 #include "wtf/RefPtr.h"
 
 namespace WebCore {
 
-class DocumentTimeline;
+class AnimationTimeline;
 class ExceptionState;
 
-class AnimationPlayer FINAL : public RefCounted<AnimationPlayer>, public EventTargetWithInlineData {
+class AnimationPlayer FINAL : public RefCountedWillBeRefCountedGarbageCollected<AnimationPlayer>
+    , public ActiveDOMObject
+    , public EventTargetWithInlineData {
     REFCOUNTED_EVENT_TARGET(AnimationPlayer);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(AnimationPlayer);
 public:
 
     ~AnimationPlayer();
-    static PassRefPtr<AnimationPlayer> create(DocumentTimeline&, TimedItem*);
+    static PassRefPtrWillBeRawPtr<AnimationPlayer> create(ExecutionContext*, AnimationTimeline&, AnimationNode*);
 
     // Returns whether the player is finished.
     bool update(TimingUpdateReason);
@@ -78,13 +82,18 @@ public:
 
     virtual const AtomicString& interfaceName() const OVERRIDE;
     virtual ExecutionContext* executionContext() const OVERRIDE;
+    virtual bool hasPendingActivity() const OVERRIDE;
+    virtual void stop() OVERRIDE;
+    virtual bool dispatchEvent(PassRefPtrWillBeRawPtr<Event>) OVERRIDE;
 
     double playbackRate() const { return m_playbackRate; }
     void setPlaybackRate(double);
-    const DocumentTimeline* timeline() const { return m_timeline; }
-    DocumentTimeline* timeline() { return m_timeline; }
+    const AnimationTimeline* timeline() const { return m_timeline; }
+    AnimationTimeline* timeline() { return m_timeline; }
 
-    void timelineDestroyed() { m_timeline = 0; }
+#if !ENABLE(OILPAN)
+    void timelineDestroyed() { m_timeline = nullptr; }
+#endif
 
     bool hasStartTime() const { return !isNull(m_startTime); }
     double startTime() const { return m_startTime * 1000; }
@@ -92,10 +101,10 @@ public:
     void setStartTime(double startTime) { setStartTimeInternal(startTime / 1000); }
     void setStartTimeInternal(double, bool isUpdateFromCompositor = false);
 
-    const TimedItem* source() const { return m_content.get(); }
-    TimedItem* source() { return m_content.get(); }
-    TimedItem* source(bool& isNull) { isNull = !m_content; return m_content.get(); }
-    void setSource(TimedItem*);
+    const AnimationNode* source() const { return m_content.get(); }
+    AnimationNode* source() { return m_content.get(); }
+    AnimationNode* source(bool& isNull) { isNull = !m_content; return m_content.get(); }
+    void setSource(AnimationNode*);
 
     double timeLag() { return timeLagInternal() * 1000; }
     double timeLagInternal() { return currentTimeWithoutLag() - currentTimeInternal(); }
@@ -124,7 +133,8 @@ public:
         SortInfo(unsigned sequenceNumber, double startTime)
             : m_sequenceNumber(sequenceNumber)
             , m_startTime(startTime)
-        { }
+        {
+        }
         unsigned m_sequenceNumber;
         double m_startTime;
     };
@@ -136,14 +146,18 @@ public:
         return player1->sortInfo() < player2->sortInfo();
     }
 
+#if !ENABLE(OILPAN)
     // Checks if the AnimationStack is the last reference holder to the Player.
     // This won't be needed when AnimationPlayer is moved to Oilpan.
     bool canFree() const;
+#endif
 
     virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture = false) OVERRIDE;
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 private:
-    AnimationPlayer(DocumentTimeline&, TimedItem*);
+    AnimationPlayer(ExecutionContext*, AnimationTimeline&, AnimationNode*);
     double sourceEnd() const;
     bool limited(double currentTime) const;
     double currentTimeWithoutLag() const;
@@ -158,10 +172,8 @@ private:
 
     SortInfo m_sortInfo;
 
-    RefPtr<TimedItem> m_content;
-    // FIXME: We should keep the timeline alive and have this as non-null
-    // but this is tricky to do without Oilpan
-    DocumentTimeline* m_timeline;
+    RefPtrWillBeMember<AnimationNode> m_content;
+    RawPtrWillBeMember<AnimationTimeline> m_timeline;
     // Reflects all pausing, including via pauseForTesting().
     bool m_paused;
     bool m_held;
@@ -172,6 +184,10 @@ private:
     bool m_outdated;
 
     bool m_finished;
+    // Holds a 'finished' event queued for asynchronous dispatch via the
+    // ScriptedAnimationController. This object remains active until the
+    // event is actually dispatched.
+    RefPtrWillBeMember<Event> m_pendingFinishedEvent;
 };
 
 } // namespace

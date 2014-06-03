@@ -41,7 +41,6 @@
 #include "core/fetch/ResourceLoader.h"
 #include "core/fetch/ResourceLoaderSet.h"
 #include "core/fetch/ScriptResource.h"
-#include "core/fetch/ShaderResource.h"
 #include "core/fetch/XSLStyleSheetResource.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/HTMLFrameOwnerElement.h"
@@ -92,13 +91,11 @@ static Resource* createResource(Resource::Type type, const ResourceRequest& requ
     case Resource::Media:
         return new RawResource(request, type);
     case Resource::XSLStyleSheet:
-        return new XSLStyleSheetResource(request);
+        return new XSLStyleSheetResource(request, charset);
     case Resource::LinkPrefetch:
         return new Resource(request, Resource::LinkPrefetch);
     case Resource::LinkSubresource:
         return new Resource(request, Resource::LinkSubresource);
-    case Resource::Shader:
-        return new ShaderResource(request);
     case Resource::ImportResource:
         return new RawResource(request, type);
     }
@@ -140,8 +137,6 @@ static ResourceLoadPriority loadPriority(Resource::Type type, const FetchRequest
         return ResourceLoadPriorityLow;
     case Resource::TextTrack:
         return ResourceLoadPriorityLow;
-    case Resource::Shader:
-        return ResourceLoadPriorityMedium;
     }
     ASSERT_NOT_REACHED();
     return ResourceLoadPriorityUnresolved;
@@ -207,7 +202,6 @@ static ResourceRequest::TargetType requestTargetType(const ResourceFetcher* fetc
         return ResourceRequest::TargetIsFont;
     case Resource::Image:
         return ResourceRequest::TargetIsImage;
-    case Resource::Shader:
     case Resource::Raw:
     case Resource::ImportResource:
         return ResourceRequest::TargetIsSubresource;
@@ -224,6 +218,14 @@ static ResourceRequest::TargetType requestTargetType(const ResourceFetcher* fetc
     }
     ASSERT_NOT_REACHED();
     return ResourceRequest::TargetIsSubresource;
+}
+
+static void reportFontResourceCORSFailed(Resource* resource, const KURL& url, LocalFrame* frame)
+{
+    FontResource* fontResource = toFontResource(resource);
+    fontResource->setCORSFailed();
+    if (frame && frame->document())
+        frame->document()->addConsoleMessage(JSMessageSource, WarningMessageLevel, "Blink is considering rejecting non spec-compliant cross-origin web font requests: " + url.string() + ". Please use Access-Control-Allow-Origin to make these requests spec-compliant.");
 }
 
 ResourceFetcher::ResourceFetcher(DocumentLoader* documentLoader)
@@ -316,11 +318,6 @@ void ResourceFetcher::preCacheDataURIImage(const FetchRequest& request)
 ResourcePtr<FontResource> ResourceFetcher::fetchFont(FetchRequest& request)
 {
     return toFontResource(requestResource(Resource::Font, request));
-}
-
-ResourcePtr<ShaderResource> ResourceFetcher::fetchShader(FetchRequest& request)
-{
-    return toShaderResource(requestResource(Resource::Shader, request));
 }
 
 ResourcePtr<RawResource> ResourceFetcher::fetchImport(FetchRequest& request)
@@ -426,7 +423,6 @@ bool ResourceFetcher::checkInsecureContent(Resource::Type type, const KURL& url,
             break;
 
         case Resource::TextTrack:
-        case Resource::Shader:
         case Resource::Raw:
         case Resource::Image:
         case Resource::Font:
@@ -456,6 +452,8 @@ bool ResourceFetcher::checkInsecureContent(Resource::Type type, const KURL& url,
             LocalFrame* top = f->tree().top();
             if (!top->loader().mixedContentChecker()->canDisplayInsecureContent(top->document()->securityOrigin(), url))
                 return false;
+            if (type == Resource::Font && MixedContentChecker::isMixedContent(top->document()->securityOrigin(), url))
+                UseCounter::count(top->document(), UseCounter::MixedContentFont);
         }
     } else {
         ASSERT(treatment == TreatAsAlwaysAllowedContent);
@@ -492,7 +490,6 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
     case Resource::LinkPrefetch:
     case Resource::LinkSubresource:
     case Resource::TextTrack:
-    case Resource::Shader:
     case Resource::ImportResource:
     case Resource::Media:
         // By default these types of resources can be loaded from any origin.
@@ -535,8 +532,6 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
             }
         }
         break;
-    case Resource::Shader:
-        // Since shaders are referenced from CSS Styles use the same rules here.
     case Resource::CSSStyleSheet:
         if (!shouldBypassMainWorldContentSecurityPolicy && !m_document->contentSecurityPolicy()->allowStyleFromSource(url, cspReporting))
             return false;
@@ -590,10 +585,7 @@ bool ResourceFetcher::canAccessResource(Resource* resource, SecurityOrigin* sour
     if (!resource->passesAccessControlCheck(sourceOrigin, errorDescription)) {
         // FIXME: Remove later, http://crbug.com/286681
         if (resource->type() == Resource::Font) {
-            FontResource* fontResource = toFontResource(resource);
-            fontResource->setCORSFailed();
-            if (frame() && frame()->document())
-                frame()->document()->addConsoleMessage(JSMessageSource, WarningMessageLevel, "Blink is considering rejecting non spec-compliant cross-origin web font requests: " + url.string() + ". Please use Access-Control-Allow-Origin to make these requests spec-compliant.");
+            reportFontResourceCORSFailed(resource, url, frame());
             return false;
         }
 
@@ -866,6 +858,12 @@ void ResourceFetcher::storeResourceTimingInitiatorInformation(Resource* resource
         return;
 
     RefPtr<ResourceTimingInfo> info = ResourceTimingInfo::create(resource->options().initiatorInfo.name, monotonicallyIncreasingTime());
+
+    if (resource->isCacheValidator()) {
+        const AtomicString& timingAllowOrigin = resource->resourceToRevalidate()->response().httpHeaderField("Timing-Allow-Origin");
+        if (!timingAllowOrigin.isEmpty())
+            info->setOriginalTimingAllowOrigin(timingAllowOrigin);
+    }
 
     if (resource->type() == Resource::MainResource) {
         // <iframe>s should report the initial navigation requested by the parent document, but not subsequent navigations.
@@ -1340,6 +1338,12 @@ bool ResourceFetcher::canAccessRedirect(Resource* resource, ResourceRequest& req
 
         String errorMessage;
         if (!CrossOriginAccessControl::handleRedirect(resource, sourceOrigin, request, redirectResponse, options, errorMessage)) {
+            // FIXME: Remove later, http://crbug.com/286681
+            if (resource->type() == Resource::Font) {
+                reportFontResourceCORSFailed(resource, request.url(), frame());
+                return false;
+            }
+
             if (frame() && frame()->document())
                 frame()->document()->addConsoleMessage(JSMessageSource, ErrorMessageLevel, errorMessage);
             return false;

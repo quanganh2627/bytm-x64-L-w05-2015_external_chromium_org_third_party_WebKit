@@ -76,7 +76,7 @@ SVGElement::SVGElement(const QualifiedName& tagName, Document& document, Constru
 #endif
     // |m_isContextElement| must be initialized before |m_className|, as SVGAnimatedString tear-off c-tor currently set this to true.
     , m_isContextElement(false)
-    , m_hasSVGRareData(false)
+    , m_SVGRareData(nullptr)
     , m_className(SVGAnimatedString::create(this, HTMLNames::classAttr, SVGString::create()))
 {
     ScriptWrappable::init(this);
@@ -90,29 +90,14 @@ SVGElement::~SVGElement()
 
     // The below teardown is all handled by weak pointer processing in oilpan.
 #if !ENABLE(OILPAN)
-    if (!hasSVGRareData())
-        ASSERT(!SVGElementRareData::rareDataMap().contains(this));
-    else {
-        SVGElementRareData::SVGElementRareDataMap& rareDataMap = SVGElementRareData::rareDataMap();
-        SVGElementRareData::SVGElementRareDataMap::iterator it = rareDataMap.find(this);
-        ASSERT_WITH_SECURITY_IMPLICATION(it != rareDataMap.end());
-
-        SVGElementRareData* rareData = it->value;
-        if (SVGCursorElement* cursorElement = rareData->cursorElement())
+    if (hasSVGRareData()) {
+        if (SVGCursorElement* cursorElement = svgRareData()->cursorElement())
             cursorElement->removeReferencedElement(this);
-        if (CSSCursorImageValue* cursorImageValue = rareData->cursorImageValue())
+        if (CSSCursorImageValue* cursorImageValue = svgRareData()->cursorImageValue())
             cursorImageValue->removeReferencedElement(this);
-
-        delete rareData;
-
-        // The rare data cleanup may have caused other SVG nodes to be deleted,
-        // modifying the rare data map. Do not rely on the existing iterator.
-        ASSERT(rareDataMap.contains(this));
-        rareDataMap.remove(this);
-        // Clear HasSVGRareData flag now so that we are in a consistent state when
-        // calling rebuildAllElementReferencesForTarget() and
-        // removeAllElementReferencesForTarget() below.
-        clearHasSVGRareData();
+        // Clear the rare data now so that we are in a consistent state when
+        // calling rebuildAllElementReferencesForTarget() below.
+        m_SVGRareData.clear();
     }
 
     // With Oilpan, either removedFrom has been called or the document is dead
@@ -157,7 +142,13 @@ void SVGElement::buildPendingResourcesIfNeeded()
     while (Element* clientElement = extensions.removeElementFromPendingResourcesForRemoval(resourceId)) {
         ASSERT(clientElement->hasPendingResources());
         if (clientElement->hasPendingResources()) {
-            clientElement->buildPendingResource();
+            // FIXME: Ideally we'd always resolve pending resources async instead of inside
+            // insertedInto and svgAttributeChanged. For now we only do it for <use> since
+            // that would stamp out DOM.
+            if (isSVGUseElement(clientElement))
+                toSVGUseElement(clientElement)->invalidateShadowTree();
+            else
+                clientElement->buildPendingResource();
             extensions.clearHasPendingResourcesIfPossible(clientElement);
         }
     }
@@ -176,22 +167,13 @@ bool SVGElement::rendererIsNeeded(const RenderStyle& style)
     return false;
 }
 
-SVGElementRareData* SVGElement::svgRareData() const
-{
-    ASSERT(hasSVGRareData());
-    return SVGElementRareData::rareDataFromMap(this);
-}
-
 SVGElementRareData* SVGElement::ensureSVGRareData()
 {
     if (hasSVGRareData())
         return svgRareData();
 
-    ASSERT(!SVGElementRareData::rareDataMap().contains(this));
-    SVGElementRareData* data = new SVGElementRareData(this);
-    SVGElementRareData::rareDataMap().set(this, data);
-    setHasSVGRareData();
-    return data;
+    m_SVGRareData = adoptPtrWillBeNoop(new SVGElementRareData(this));
+    return m_SVGRareData.get();
 }
 
 bool SVGElement::isOutermostSVGSVGElement() const
@@ -482,11 +464,11 @@ void SVGElement::invalidateRelativeLengthClients(SubtreeLayoutScope* layoutScope
         if (renderer->isSVGResourceContainer())
             toRenderSVGResourceContainer(renderer)->invalidateCacheAndMarkForLayout(layoutScope);
         else
-            renderer->setNeedsLayout(MarkContainingBlockChain, layoutScope);
+            renderer->setNeedsLayoutAndFullRepaint(MarkContainingBlockChain, layoutScope);
     }
 
-    HashSet<SVGElement*>::iterator end = m_elementsWithRelativeLengths.end();
-    for (HashSet<SVGElement*>::iterator it = m_elementsWithRelativeLengths.begin(); it != end; ++it) {
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >::iterator end = m_elementsWithRelativeLengths.end();
+    for (WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >::iterator it = m_elementsWithRelativeLengths.begin(); it != end; ++it) {
         if (*it != this)
             (*it)->invalidateRelativeLengthClients(layoutScope);
     }
@@ -542,7 +524,6 @@ void SVGElement::removeInstanceMapping(SVGElement* instance)
 {
     ASSERT(instance);
     ASSERT(instance->inUseShadowTree());
-    ASSERT(hasSVGRareData());
 
     WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >& instances = svgRareData()->elementInstances();
     ASSERT(instances.contains(instance));
@@ -591,7 +572,6 @@ void SVGElement::setCursorElement(SVGCursorElement* cursorElement)
 #if !ENABLE(OILPAN)
 void SVGElement::cursorElementRemoved()
 {
-    ASSERT(hasSVGRareData());
     svgRareData()->setCursorElement(0);
 }
 #endif
@@ -612,7 +592,6 @@ void SVGElement::setCursorImageValue(CSSCursorImageValue* cursorImageValue)
 #if !ENABLE(OILPAN)
 void SVGElement::cursorImageValueRemoved()
 {
-    ASSERT(hasSVGRareData());
     svgRareData()->setCursorImageValue(0);
 }
 #endif
@@ -886,15 +865,15 @@ static bool hasLoadListener(Element* element)
 
 void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
 {
-    RefPtr<SVGElement> currentTarget = this;
+    RefPtrWillBeRawPtr<SVGElement> currentTarget = this;
     while (currentTarget && currentTarget->haveLoadedRequiredResources()) {
-        RefPtr<Element> parent;
+        RefPtrWillBeRawPtr<Element> parent = nullptr;
         if (sendParentLoadEvents)
             parent = currentTarget->parentOrShadowHostElement(); // save the next parent to dispatch too incase dispatching the event changes the tree
         if (hasLoadListener(currentTarget.get())
             && (currentTarget->isStructurallyExternal() || isSVGSVGElement(*currentTarget)))
             currentTarget->dispatchEvent(Event::create(EventTypeNames::load));
-        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : RefPtr<SVGElement>();
+        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : nullptr;
         SVGElement* element = currentTarget.get();
         if (!element || !element->isOutermostSVGSVGElement())
             continue;
@@ -1185,4 +1164,12 @@ bool SVGElement::isAnimatableAttribute(const QualifiedName& name) const
     return animatableAttributes.contains(name);
 }
 #endif
+
+void SVGElement::trace(Visitor* visitor)
+{
+    visitor->trace(m_elementsWithRelativeLengths);
+    visitor->trace(m_SVGRareData);
+    Element::trace(visitor);
+}
+
 }

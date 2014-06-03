@@ -209,7 +209,7 @@ static RenderBoxModelObject* enclosingBoxModelObject(RenderObject* object)
 int PrintContext::pageNumberForElement(Element* element, const FloatSize& pageSizeInPixels)
 {
     // Make sure the element is not freed during the layout.
-    RefPtr<Element> elementRef(element);
+    RefPtrWillBeRawPtr<Element> protect(element);
     element->document().updateLayout();
 
     RenderBoxModelObject* box = enclosingBoxModelObject(element->renderer());
@@ -333,7 +333,7 @@ int PrintContext::numberOfPages(LocalFrame* frame, const FloatSize& pageSizeInPi
 
 void PrintContext::spoolAllPagesWithBoundaries(LocalFrame* frame, GraphicsContext& graphicsContext, const FloatSize& pageSizeInPixels)
 {
-    if (!frame->document() || !frame->view() || !frame->document()->renderer())
+    if (!frame->document() || !frame->view() || !frame->document()->renderView())
         return;
 
     frame->document()->updateLayout();

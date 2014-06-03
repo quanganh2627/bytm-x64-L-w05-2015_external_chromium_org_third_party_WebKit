@@ -14,7 +14,7 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_generated_testing_idls_gyp,,,$(GYP_VAR_PREFIX))/generated_testing_idls.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/core_bindings_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_core_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/core_bindings_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp
 
 ### Rules for action "generateXMLViewerCSS":
@@ -266,9 +266,9 @@ $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_var_prefix := $
 $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/make-css-file-arrays.pl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/preprocessor.pm $(LOCAL_PATH)/third_party/WebKit/Source/core/css/html.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/quirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/view-source.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromium.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumLinux.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumSkia.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeMac.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWin.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWinQuirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/svg.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mathml.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControls.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControlsAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/fullscreen.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/xhtmlmp.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/viewportAndroid.css $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/make-css-file-arrays.pl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/preprocessor.pm $(LOCAL_PATH)/third_party/WebKit/Source/core/css/html.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/quirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/view-source.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromium.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumLinux.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumSkia.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeMac.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWin.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWinQuirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/svg.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/navigationTransitions.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mathml.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControls.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControlsAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/fullscreen.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/xhtmlmp.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/viewportAndroid.css $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_UserAgentStyleSheets ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/action_useragentstylesheets.py "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h" "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp" css/html.css css/quirks.css css/view-source.css css/themeChromium.css css/themeChromiumAndroid.css css/themeChromiumLinux.css css/themeChromiumSkia.css css/themeMac.css css/themeWin.css css/themeWinQuirks.css css/svg.css css/mathml.css css/mediaControls.css css/mediaControlsAndroid.css css/fullscreen.css css/xhtmlmp.css css/viewportAndroid.css -- css/make-css-file-arrays.pl ../build/scripts/preprocessor.pm -- --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"ENABLE_OPENTYPE_VERTICAL=1\"" --preprocessor "/usr/bin/gcc -E -P -x c++" --perl perl
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/action_useragentstylesheets.py "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h" "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp" css/html.css css/quirks.css css/view-source.css css/themeChromium.css css/themeChromiumAndroid.css css/themeChromiumLinux.css css/themeChromiumSkia.css css/themeMac.css css/themeWin.css css/themeWinQuirks.css css/svg.css css/navigationTransitions.css css/mathml.css css/mediaControls.css css/mediaControlsAndroid.css css/fullscreen.css css/xhtmlmp.css css/viewportAndroid.css -- css/make-css-file-arrays.pl ../build/scripts/preprocessor.pm -- --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"ENABLE_OPENTYPE_VERTICAL=1\"" --preprocessor "/usr/bin/gcc -E -P -x c++" --perl perl
 
 $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp: $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h ;
 
@@ -519,6 +519,7 @@ MY_CFLAGS_Debug := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-EL \
 	-mhard-float \
 	-ffunction-sections \
@@ -551,12 +552,17 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
@@ -606,6 +612,7 @@ MY_CFLAGS_Release := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-EL \
 	-mhard-float \
 	-ffunction-sections \
@@ -638,12 +645,17 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \

@@ -23,17 +23,17 @@ protected:
         : document(Document::create())
         , element(document->createElement("foo", ASSERT_NO_EXCEPTION))
         , m_isolate(v8::Isolate::GetCurrent())
-        , m_scope(V8ExecutionScope::create(m_isolate))
+        , m_scope(V8TestingScope::create(m_isolate))
     {
     }
 
     RefPtr<Document> document;
-    RefPtr<Element> element;
+    RefPtrWillBePersistent<Element> element;
     TrackExceptionState exceptionState;
     v8::Isolate* m_isolate;
 
 private:
-    OwnPtr<V8ExecutionScope> m_scope;
+    OwnPtr<V8TestingScope> m_scope;
 };
 
 TEST_F(AnimationEffectInputTest, SortedOffsets)

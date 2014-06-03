@@ -36,6 +36,7 @@
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/canvas/CanvasRenderingContext.h"
 #include "core/inspector/InspectorInstrumentation.h"
+#include "core/inspector/InspectorNodeIds.h"
 #include "core/inspector/InspectorTraceEvents.h"
 #include "core/page/Chrome.h"
 #include "core/frame/FrameView.h"
@@ -217,6 +218,8 @@ PassOwnPtr<GraphicsLayer> CompositedLayerMapping::createGraphicsLayer(Compositin
     OwnPtr<GraphicsLayer> graphicsLayer = GraphicsLayer::create(graphicsLayerFactory, this);
 
     graphicsLayer->setCompositingReasons(reasons);
+    if (Node* owningNode = m_owningLayer.renderer()->generatingNode())
+        graphicsLayer->setOwnerNodeId(InspectorNodeIds::idForNode(owningNode));
 
     return graphicsLayer.release();
 }
@@ -334,11 +337,10 @@ void CompositedLayerMapping::updateCompositedBounds(GraphicsLayerUpdater::Update
     if (!shouldUpdateGraphicsLayer(updateType))
         return;
 
-    // We need to know if we draw content in order to update our bounds (this has an effect
-    // on whether or not descendands will paint into our backing). Update this value now.
-    updateDrawsContent();
-
     LayoutRect layerBounds = m_owningLayer.boundingBoxForCompositing();
+
+    // FIXME: either move this hack to RenderLayer or find a way to get rid of it. Removing it from here
+    // will alow us to get rid of m_compositedBounds.
 
     // If the element has a transform-origin that has fixed lengths, and the renderer has zero size,
     // then we need to ensure that the compositing layer has non-zero size so that we can apply
@@ -453,9 +455,16 @@ bool CompositedLayerMapping::updateGraphicsLayerConfiguration(GraphicsLayerUpdat
     }
 
     bool hasChildClippingLayer = compositor->clipsCompositingDescendants(&m_owningLayer) && (hasClippingLayer() || hasScrollingLayer());
-    bool needsChildClippingMask = (renderer->style()->clipPath() || renderer->style()->hasBorderRadius()) && (hasChildClippingLayer || isAcceleratedContents(renderer));
+    // If we have a border radius or clip path on a scrolling layer, we need a clipping mask to properly
+    // clip the scrolled contents, even if there are no composited descendants.
+    bool hasClipPath = renderer->style()->clipPath();
+    bool needsChildClippingMask = (hasClipPath || renderer->style()->hasBorderRadius()) && (hasChildClippingLayer || isAcceleratedContents(renderer) || hasScrollingLayer());
     if (updateClippingMaskLayers(needsChildClippingMask)) {
-        if (hasClippingLayer())
+        // Clip path clips the entire subtree, including scrollbars. It must be attached directly onto
+        // the main m_graphicsLayer.
+        if (hasClipPath)
+            m_graphicsLayer->setMaskLayer(m_childClippingMaskLayer.get());
+        else if (hasClippingLayer())
             clippingLayer()->setMaskLayer(m_childClippingMaskLayer.get());
         else if (hasScrollingLayer())
             scrollingLayer()->setMaskLayer(m_childClippingMaskLayer.get());
@@ -524,88 +533,99 @@ static LayoutPoint computeOffsetFromCompositedAncestor(const RenderLayer* layer,
     return offset;
 }
 
-void CompositedLayerMapping::adjustBoundsForSubPixelAccumulation(const RenderLayer* compositedAncestor, IntRect& localBounds, IntRect& relativeBounds, IntPoint& delta)
+void CompositedLayerMapping::computeBoundsOfOwningLayer(const RenderLayer* compositedAncestor, IntRect& localBounds, IntRect& compositingBoundsRelativeToCompositedAncestor, LayoutPoint& offsetFromCompositedAncestor,
+    IntPoint& snappedOffsetFromCompositedAncestor)
 {
     LayoutRect localRawCompositingBounds = compositedBounds();
-    LayoutPoint rawDelta = computeOffsetFromCompositedAncestor(&m_owningLayer, compositedAncestor);
-    delta = IntPoint(rawDelta.x().round(), rawDelta.y().round());
-    LayoutSize subpixelAccumulation = rawDelta - delta;
+    offsetFromCompositedAncestor = computeOffsetFromCompositedAncestor(&m_owningLayer, compositedAncestor);
+    snappedOffsetFromCompositedAncestor = IntPoint(offsetFromCompositedAncestor.x().round(), offsetFromCompositedAncestor.y().round());
+
+    LayoutSize subpixelAccumulation = offsetFromCompositedAncestor - snappedOffsetFromCompositedAncestor;
     m_owningLayer.setSubpixelAccumulation(subpixelAccumulation);
 
     // Move the bounds by the subpixel accumulation so that it pixel-snaps relative to absolute pixels instead of local coordinates.
     localRawCompositingBounds.move(subpixelAccumulation);
     localBounds = pixelSnappedIntRect(localRawCompositingBounds);
 
-    relativeBounds = localBounds;
-    relativeBounds.moveBy(delta);
+    compositingBoundsRelativeToCompositedAncestor = localBounds;
+    compositingBoundsRelativeToCompositedAncestor.moveBy(snappedOffsetFromCompositedAncestor);
 }
 
-void CompositedLayerMapping::updateSquashingLayerGeometry(const IntPoint& delta)
+void CompositedLayerMapping::updateSquashingLayerGeometry(const LayoutPoint& offsetFromCompositedAncestor, const IntPoint& graphicsLayerParentLocation, const RenderLayer& referenceLayer,
+    Vector<GraphicsLayerPaintInfo>& layers, GraphicsLayer* squashingLayer, LayoutPoint* offsetFromTransformedAncestor)
 {
-    if (!m_squashingLayer)
+    if (!squashingLayer)
         return;
-
     ASSERT(compositor()->layerSquashingEnabled());
 
+    LayoutPoint offsetFromReferenceLayerToParentGraphicsLayer(offsetFromCompositedAncestor);
+    offsetFromReferenceLayerToParentGraphicsLayer.moveBy(-graphicsLayerParentLocation);
+
+    // FIXME: Cache these offsets.
+    LayoutPoint referenceOffsetFromTransformedAncestor = referenceLayer.computeOffsetFromTransformedAncestor();
+
     LayoutRect totalSquashBounds;
-    for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
-        LayoutRect squashedBounds = m_squashedLayers[i].renderLayer->boundingBoxForCompositing();
+    for (size_t i = 0; i < layers.size(); ++i) {
+        LayoutRect squashedBounds = layers[i].renderLayer->boundingBoxForCompositing();
 
         // Store the local bounds of the RenderLayer subtree before applying the offset.
-        m_squashedLayers[i].compositedBounds = squashedBounds;
+        layers[i].compositedBounds = squashedBounds;
 
-        squashedBounds.move(m_squashedLayers[i].offsetFromSquashingCLM);
+        LayoutPoint offsetFromTransformedAncestorForSquashedLayer = layers[i].renderLayer->computeOffsetFromTransformedAncestor();
+        LayoutSize offsetFromSquashingLayer = offsetFromTransformedAncestorForSquashedLayer - referenceOffsetFromTransformedAncestor;
+
+        squashedBounds.move(offsetFromSquashingLayer);
         totalSquashBounds.unite(squashedBounds);
     }
 
-    m_squashingLayerOffsetFromTransformedAncestor = m_owningLayer.computeOffsetFromTransformedAncestor();
-    m_squashingLayerOffsetFromTransformedAncestor.moveBy(totalSquashBounds.location());
+    *offsetFromTransformedAncestor = referenceOffsetFromTransformedAncestor;
+    offsetFromTransformedAncestor->moveBy(totalSquashBounds.location());
 
-    // The totalSquashBounds is positioned with respect to m_owningLayer of this CompositedLayerMapping.
+    // The totalSquashBounds is positioned with respect to referenceLayer of this CompositedLayerMapping.
     // But the squashingLayer needs to be positioned with respect to the ancestor CompositedLayerMapping.
-    // The conversion between m_owningLayer and the ancestor CLM is already computed in the caller as
-    // |delta| + |subpixelAccumulation|.
-    LayoutPoint rawDelta = delta + m_owningLayer.subpixelAccumulation();
-    totalSquashBounds.moveBy(rawDelta);
+    // The conversion between referenceLayer and the ancestor CLM is already computed in the caller as
+    // offsetFromReferenceLayerToCompositedAncestor.
+    totalSquashBounds.moveBy(offsetFromReferenceLayerToParentGraphicsLayer);
     IntRect squashLayerBounds = enclosingIntRect(totalSquashBounds);
     IntPoint squashLayerOrigin = squashLayerBounds.location();
-    LayoutPoint squashLayerOriginInOwningLayerSpace = LayoutPoint(squashLayerOrigin - rawDelta);
+    LayoutSize squashLayerOriginInOwningLayerSpace = squashLayerOrigin - offsetFromReferenceLayerToParentGraphicsLayer;
 
-    m_squashingLayer->setPosition(squashLayerBounds.location());
-    m_squashingLayer->setSize(squashLayerBounds.size());
+    squashingLayer->setPosition(squashLayerBounds.location());
+    squashingLayer->setSize(squashLayerBounds.size());
 
     // Now that the squashing bounds are known, we can convert the RenderLayer painting offsets
     // from CLM owning layer space to the squashing layer space.
     //
     // The painting offset we want to compute for each squashed RenderLayer is essentially the position of
-    // the squashed RenderLayer described w.r.t. m_squashingLayer's origin. For this purpose we already cached
+    // the squashed RenderLayer described w.r.t. referenceLayer's origin. For this purpose we already cached
     // offsetFromSquashingCLM before, which describes where the squashed RenderLayer is located w.r.t.
-    // m_owningLayer. So we just need to convert that point from m_owningLayer space to m_squashingLayer
+    // referenceLayer. So we just need to convert that point from referenceLayer space to referenceLayer
     // space. This is simply done by subtracing squashLayerOriginInOwningLayerSpace, but then the offset
     // overall needs to be negated because that's the direction that the painting code expects the
     // offset to be.
-    for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
-        LayoutSize offsetFromSquashLayerOrigin = LayoutPoint(m_squashedLayers[i].offsetFromSquashingCLM) - squashLayerOriginInOwningLayerSpace;
-        m_squashedLayers[i].offsetFromRenderer = -flooredIntSize(offsetFromSquashLayerOrigin);
+    for (size_t i = 0; i < layers.size(); ++i) {
+        LayoutPoint offsetFromTransformedAncestorForSquashedLayer = layers[i].renderLayer->computeOffsetFromTransformedAncestor();
+        LayoutSize offsetFromSquashLayerOrigin = (offsetFromTransformedAncestorForSquashedLayer - referenceOffsetFromTransformedAncestor) - squashLayerOriginInOwningLayerSpace;
+        layers[i].offsetFromRenderer = -flooredIntSize(offsetFromSquashLayerOrigin);
 
-        m_squashedLayers[i].renderLayer->setSubpixelAccumulation(offsetFromSquashLayerOrigin.fraction());
-        ASSERT(m_squashedLayers[i].renderLayer->subpixelAccumulation() ==
-            toLayoutSize(computeOffsetFromCompositedAncestor(m_squashedLayers[i].renderLayer, m_squashedLayers[i].renderLayer->ancestorCompositingLayer())).fraction());
+        layers[i].renderLayer->setSubpixelAccumulation(offsetFromSquashLayerOrigin.fraction());
+        ASSERT(layers[i].renderLayer->subpixelAccumulation() ==
+            toLayoutSize(computeOffsetFromCompositedAncestor(layers[i].renderLayer, layers[i].renderLayer->ancestorCompositingLayer())).fraction());
 
         // FIXME: find a better design to avoid this redundant value - most likely it will make
         // sense to move the paint task info into RenderLayer's m_compositingProperties.
-        m_squashedLayers[i].renderLayer->setOffsetFromSquashingLayerOrigin(m_squashedLayers[i].offsetFromRenderer);
+        layers[i].renderLayer->setOffsetFromSquashingLayerOrigin(layers[i].offsetFromRenderer);
 
     }
 
-    for (size_t i = 0; i < m_squashedLayers.size(); ++i)
-        m_squashedLayers[i].localClipRectForSquashedLayer = localClipRectForSquashedLayer(m_squashedLayers[i]);
+    for (size_t i = 0; i < layers.size(); ++i)
+        layers[i].localClipRectForSquashedLayer = localClipRectForSquashedLayer(referenceLayer, layers[i], layers);
 }
 
 void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType, const RenderLayer* compositingContainer)
 {
     // If we haven't built z-order lists yet, wait until later.
-    if (m_owningLayer.stackingNode()->isStackingContainer() && m_owningLayer.stackingNode()->zOrderListsDirty())
+    if (m_owningLayer.stackingNode()->isStackingContext() && m_owningLayer.stackingNode()->zOrderListsDirty())
         return;
 
     if (!shouldUpdateGraphicsLayer(updateType))
@@ -622,20 +642,6 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     m_owningLayer.updateDescendantDependentFlags();
 
-    // m_graphicsLayer is the corresponding GraphicsLayer for this RenderLayer and its non-compositing
-    // descendants. So, the visibility flag for m_graphicsLayer should be true if there are any
-    // non-compositing visible layers.
-    bool contentsVisible = m_owningLayer.hasVisibleContent() || hasVisibleNonCompositingDescendantLayers();
-    if (RuntimeEnabledFeatures::overlayFullscreenVideoEnabled() && renderer()->isVideo()) {
-        HTMLMediaElement* mediaElement = toHTMLMediaElement(renderer()->node());
-        if (mediaElement->isFullscreen())
-            contentsVisible = false;
-    }
-    m_graphicsLayer->setContentsVisible(contentsVisible);
-
-    RenderStyle* style = renderer()->style();
-    m_graphicsLayer->setBackfaceVisibility(style->backfaceVisibility() == BackfaceVisibilityVisible);
-
     // We compute everything relative to the enclosing compositing layer.
     IntRect ancestorCompositingBounds;
     if (compositingContainer) {
@@ -645,10 +651,85 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
 
     IntRect localCompositingBounds;
     IntRect relativeCompositingBounds;
-    IntPoint delta;
-    adjustBoundsForSubPixelAccumulation(compositingContainer, localCompositingBounds, relativeCompositingBounds, delta);
+    LayoutPoint offsetFromCompositedAncestor;
+    IntPoint snappedOffsetFromCompositedAncestor;
+    computeBoundsOfOwningLayer(compositingContainer, localCompositingBounds, relativeCompositingBounds, offsetFromCompositedAncestor, snappedOffsetFromCompositedAncestor);
 
     IntPoint graphicsLayerParentLocation;
+    computeGraphicsLayerParentLocation(compositingContainer, ancestorCompositingBounds, graphicsLayerParentLocation);
+
+    // Might update graphicsLayerParentLocation.
+    updateAncestorClippingLayerGeometry(compositingContainer, snappedOffsetFromCompositedAncestor, graphicsLayerParentLocation);
+
+    FloatSize contentsSize = relativeCompositingBounds.size();
+
+    updateMainGraphicsLayerGeometry(relativeCompositingBounds, localCompositingBounds, graphicsLayerParentLocation);
+    updateSquashingLayerGeometry(offsetFromCompositedAncestor, graphicsLayerParentLocation, m_owningLayer, m_squashedLayers, m_squashingLayer.get(), &m_squashingLayerOffsetFromTransformedAncestor);
+
+    // If we have a layer that clips children, position it.
+    IntRect clippingBox;
+    if (m_childContainmentLayer)
+        clippingBox = clipBox(toRenderBox(renderer()));
+
+    updateChildContainmentLayerGeometry(clippingBox, localCompositingBounds);
+    updateChildTransformLayerGeometry();
+
+    updateMaskLayerGeometry();
+    updateTransformGeometry(snappedOffsetFromCompositedAncestor, relativeCompositingBounds);
+    updateForegroundLayerGeometry(contentsSize, clippingBox);
+    updateBackgroundLayerGeometry(contentsSize);
+    updateReflectionLayerGeometry();
+    updateScrollingLayerGeometry(localCompositingBounds);
+    updateChildClippingMaskLayerGeometry();
+
+    if (m_owningLayer.scrollableArea() && m_owningLayer.scrollableArea()->scrollsOverflow())
+        m_owningLayer.scrollableArea()->positionOverflowControls();
+
+    if (RuntimeEnabledFeatures::cssCompositingEnabled()) {
+        updateLayerBlendMode(renderer()->style());
+        updateIsRootForIsolatedGroup();
+    }
+
+    updateContentsRect();
+    updateBackgroundColor();
+    updateDrawsContent();
+    updateContentsOpaque();
+    updateAfterWidgetResize();
+    updateRenderingContext();
+    updateShouldFlattenTransform();
+    updateChildrenTransform();
+    updateScrollParent(compositor()->acceleratedCompositingForOverflowScrollEnabled() ? m_owningLayer.scrollParent() : 0);
+    registerScrollingLayers();
+
+    updateCompositingReasons();
+}
+
+void CompositedLayerMapping::updateMainGraphicsLayerGeometry(const IntRect& relativeCompositingBounds, const IntRect& localCompositingBounds, IntPoint& graphicsLayerParentLocation)
+{
+    m_graphicsLayer->setPosition(FloatPoint(relativeCompositingBounds.location() - graphicsLayerParentLocation));
+    m_graphicsLayer->setOffsetFromRenderer(toIntSize(localCompositingBounds.location()));
+
+    FloatSize oldSize = m_graphicsLayer->size();
+    const IntSize& contentsSize = relativeCompositingBounds.size();
+    if (oldSize != contentsSize)
+        m_graphicsLayer->setSize(contentsSize);
+
+    // m_graphicsLayer is the corresponding GraphicsLayer for this RenderLayer and its non-compositing
+    // descendants. So, the visibility flag for m_graphicsLayer should be true if there are any
+    // non-compositing visible layers.
+    bool contentsVisible = m_owningLayer.hasVisibleContent() || hasVisibleNonCompositingDescendant(&m_owningLayer);
+    if (RuntimeEnabledFeatures::overlayFullscreenVideoEnabled() && renderer()->isVideo()) {
+        HTMLMediaElement* mediaElement = toHTMLMediaElement(renderer()->node());
+        if (mediaElement->isFullscreen())
+            contentsVisible = false;
+    }
+    m_graphicsLayer->setContentsVisible(contentsVisible);
+
+    m_graphicsLayer->setBackfaceVisibility(renderer()->style()->backfaceVisibility() == BackfaceVisibilityVisible);
+}
+
+void CompositedLayerMapping::computeGraphicsLayerParentLocation(const RenderLayer* compositingContainer, const IntRect& ancestorCompositingBounds, IntPoint& graphicsLayerParentLocation)
+{
     if (compositingContainer && compositingContainer->compositedLayerMapping()->hasClippingLayer()) {
         // If the compositing ancestor has a layer to clip children, we parent in that, and therefore
         // position relative to it.
@@ -670,189 +751,216 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
         IntPoint scrollOrigin(renderBox->borderLeft(), renderBox->borderTop());
         graphicsLayerParentLocation = scrollOrigin - scrollOffset;
     }
+}
 
-    if (compositingContainer && m_ancestorClippingLayer) {
-        // FIXME: this should use cached clip rects, but this sometimes give
-        // inaccurate results (and trips the ASSERTS in RenderLayerClipper).
-        ClipRectsContext clipRectsContext(compositingContainer, TemporaryClipRects, IgnoreOverlayScrollbarSize, IgnoreOverflowClip);
-        IntRect parentClipRect = pixelSnappedIntRect(m_owningLayer.clipper().backgroundClipRect(clipRectsContext).rect());
-        ASSERT(parentClipRect != PaintInfo::infiniteRect());
-        m_ancestorClippingLayer->setPosition(FloatPoint(parentClipRect.location() - graphicsLayerParentLocation));
-        m_ancestorClippingLayer->setSize(parentClipRect.size());
+void CompositedLayerMapping::updateAncestorClippingLayerGeometry(const RenderLayer* compositingContainer, const IntPoint& snappedOffsetFromCompositedAncestor, IntPoint& graphicsLayerParentLocation)
+{
+    if (!compositingContainer || !m_ancestorClippingLayer)
+        return;
 
-        // backgroundRect is relative to compositingContainer, so subtract deltaX/deltaY to get back to local coords.
-        m_ancestorClippingLayer->setOffsetFromRenderer(parentClipRect.location() - delta);
+    // FIXME: this should use cached clip rects, but this sometimes give
+    // inaccurate results (and trips the ASSERTS in RenderLayerClipper).
+    ClipRectsContext clipRectsContext(compositingContainer, TemporaryClipRects, IgnoreOverlayScrollbarSize, IgnoreOverflowClip);
+    IntRect parentClipRect = pixelSnappedIntRect(m_owningLayer.clipper().backgroundClipRect(clipRectsContext).rect());
+    ASSERT(parentClipRect != PaintInfo::infiniteRect());
+    m_ancestorClippingLayer->setPosition(FloatPoint(parentClipRect.location() - graphicsLayerParentLocation));
+    m_ancestorClippingLayer->setSize(parentClipRect.size());
 
-        // The primary layer is then parented in, and positioned relative to this clipping layer.
-        graphicsLayerParentLocation = parentClipRect.location();
+    // backgroundRect is relative to compositingContainer, so subtract snappedOffsetFromCompositedAncestor.X/snappedOffsetFromCompositedAncestor.Y to get back to local coords.
+    m_ancestorClippingLayer->setOffsetFromRenderer(parentClipRect.location() - snappedOffsetFromCompositedAncestor);
+
+    // The primary layer is then parented in, and positioned relative to this clipping layer.
+    graphicsLayerParentLocation = parentClipRect.location();
+}
+
+void CompositedLayerMapping::updateChildContainmentLayerGeometry(const IntRect& clippingBox, const IntRect& localCompositingBounds)
+{
+    if (!m_childContainmentLayer)
+        return;
+
+    m_childContainmentLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
+    m_childContainmentLayer->setSize(clippingBox.size());
+    m_childContainmentLayer->setOffsetFromRenderer(toIntSize(clippingBox.location()));
+    if (m_childClippingMaskLayer && !m_scrollingLayer && !renderer()->style()->clipPath()) {
+        m_childClippingMaskLayer->setPosition(m_childContainmentLayer->position());
+        m_childClippingMaskLayer->setSize(m_childContainmentLayer->size());
+        m_childClippingMaskLayer->setOffsetFromRenderer(m_childContainmentLayer->offsetFromRenderer());
     }
+}
 
-    FloatSize contentsSize = relativeCompositingBounds.size();
+void CompositedLayerMapping::updateChildTransformLayerGeometry()
+{
+    if (!m_childTransformLayer)
+        return;
+    const IntRect borderBox = toRenderBox(m_owningLayer.renderer())->pixelSnappedBorderBoxRect();
+    m_childTransformLayer->setSize(borderBox.size());
+    m_childTransformLayer->setPosition(FloatPoint(contentOffsetInCompositingLayer()));
+}
 
-    m_graphicsLayer->setPosition(FloatPoint(relativeCompositingBounds.location() - graphicsLayerParentLocation));
-    m_graphicsLayer->setOffsetFromRenderer(toIntSize(localCompositingBounds.location()));
+void CompositedLayerMapping::updateMaskLayerGeometry()
+{
+    if (!m_maskLayer)
+        return;
 
-    FloatSize oldSize = m_graphicsLayer->size();
-    if (oldSize != contentsSize)
-        m_graphicsLayer->setSize(contentsSize);
-
-    // If we have a layer that clips children, position it.
-    IntRect clippingBox;
-    if (GraphicsLayer* clipLayer = clippingLayer()) {
-        clippingBox = clipBox(toRenderBox(renderer()));
-        clipLayer->setPosition(FloatPoint(clippingBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
-        clipLayer->setSize(clippingBox.size());
-        clipLayer->setOffsetFromRenderer(toIntSize(clippingBox.location()));
-        if (m_childClippingMaskLayer && !m_scrollingLayer) {
-            m_childClippingMaskLayer->setPosition(clipLayer->position());
-            m_childClippingMaskLayer->setSize(clipLayer->size());
-            m_childClippingMaskLayer->setOffsetFromRenderer(clipLayer->offsetFromRenderer());
-        }
-    } else if (m_childTransformLayer) {
-        const IntRect borderBox = toRenderBox(m_owningLayer.renderer())->pixelSnappedBorderBoxRect();
-        m_childTransformLayer->setSize(borderBox.size());
-        m_childTransformLayer->setPosition(FloatPoint(contentOffsetInCompositingLayer()));
+    if (m_maskLayer->size() != m_graphicsLayer->size()) {
+        m_maskLayer->setSize(m_graphicsLayer->size());
+        m_maskLayer->setNeedsDisplay();
     }
+    m_maskLayer->setPosition(FloatPoint());
+    m_maskLayer->setOffsetFromRenderer(m_graphicsLayer->offsetFromRenderer());
+}
 
-    if (m_maskLayer) {
-        if (m_maskLayer->size() != m_graphicsLayer->size()) {
-            m_maskLayer->setSize(m_graphicsLayer->size());
-            m_maskLayer->setNeedsDisplay();
-        }
-        m_maskLayer->setPosition(FloatPoint());
-        m_maskLayer->setOffsetFromRenderer(m_graphicsLayer->offsetFromRenderer());
-    }
-
+void CompositedLayerMapping::updateTransformGeometry(const IntPoint& snappedOffsetFromCompositedAncestor, const IntRect& relativeCompositingBounds)
+{
     if (m_owningLayer.hasTransform()) {
         const LayoutRect borderBox = toRenderBox(renderer())->borderBoxRect();
 
         // Get layout bounds in the coords of compositingContainer to match relativeCompositingBounds.
         IntRect layerBounds = pixelSnappedIntRect(toLayoutPoint(m_owningLayer.subpixelAccumulation()), borderBox.size());
-        layerBounds.moveBy(delta);
+        layerBounds.moveBy(snappedOffsetFromCompositedAncestor);
 
         // Update properties that depend on layer dimensions
         FloatPoint3D transformOrigin = computeTransformOrigin(IntRect(IntPoint(), layerBounds.size()));
+
+        // |transformOrigin| is in the local space of this layer. layerBounds - relativeCompositingBounds converts to the space of the
+        // compositing bounds relative to the composited ancestor. This does not apply to the z direction, since the page is 2D.
+        FloatPoint3D compositedTransformOrigin(
+            layerBounds.x() - relativeCompositingBounds.x() + transformOrigin.x(),
+            layerBounds.y() - relativeCompositingBounds.y() + transformOrigin.y(),
+            transformOrigin.z());
+        m_graphicsLayer->setTransformOrigin(transformOrigin);
+
         // Compute the anchor point, which is in the center of the renderer box unless transform-origin is set.
+        // FIXME: get rid of anchor once transformOrigin is plumbed.
         FloatPoint3D anchor(
-            relativeCompositingBounds.width() ? (layerBounds.x() - relativeCompositingBounds.x() + transformOrigin.x()) / relativeCompositingBounds.width()  : 0.5f,
-            relativeCompositingBounds.height() ? (layerBounds.y() - relativeCompositingBounds.y() + transformOrigin.y()) / relativeCompositingBounds.height() : 0.5f,
+            relativeCompositingBounds.width() ? compositedTransformOrigin.x() / relativeCompositingBounds.width()  : 0.5f,
+            relativeCompositingBounds.height() ? compositedTransformOrigin.y() / relativeCompositingBounds.height() : 0.5f,
             transformOrigin.z());
         m_graphicsLayer->setAnchorPoint(anchor);
     } else {
         m_graphicsLayer->setAnchorPoint(FloatPoint3D(0.5f, 0.5f, 0));
     }
+}
+
+void CompositedLayerMapping::updateReflectionLayerGeometry()
+{
+    if (!m_owningLayer.reflectionInfo() || !m_owningLayer.reflectionInfo()->reflectionLayer()->hasCompositedLayerMapping())
+        return;
+
+    CompositedLayerMappingPtr reflectionCompositedLayerMapping = m_owningLayer.reflectionInfo()->reflectionLayer()->compositedLayerMapping();
+    reflectionCompositedLayerMapping->updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate, &m_owningLayer);
+}
+
+void CompositedLayerMapping::updateScrollingLayerGeometry(const IntRect& localCompositingBounds)
+{
+    if (!m_scrollingLayer)
+        return;
+
+    ASSERT(m_scrollingContentsLayer);
+    RenderBox* renderBox = toRenderBox(renderer());
+    IntRect clientBox = enclosingIntRect(renderBox->clientBoxRect());
+
+    IntSize adjustedScrollOffset = m_owningLayer.scrollableArea()->adjustedScrollOffset();
+    m_scrollingLayer->setPosition(FloatPoint(clientBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
+    m_scrollingLayer->setSize(clientBox.size());
+
+    IntSize oldScrollingLayerOffset = m_scrollingLayer->offsetFromRenderer();
+    m_scrollingLayer->setOffsetFromRenderer(-toIntSize(clientBox.location()));
+
+    if (m_childClippingMaskLayer && !renderer()->style()->clipPath()) {
+        m_childClippingMaskLayer->setPosition(m_scrollingLayer->position());
+        m_childClippingMaskLayer->setSize(m_scrollingLayer->size());
+        m_childClippingMaskLayer->setOffsetFromRenderer(toIntSize(clientBox.location()));
+    }
+
+    bool clientBoxOffsetChanged = oldScrollingLayerOffset != m_scrollingLayer->offsetFromRenderer();
+
+    IntSize scrollSize(renderBox->scrollWidth(), renderBox->scrollHeight());
+    if (scrollSize != m_scrollingContentsLayer->size() || clientBoxOffsetChanged)
+        m_scrollingContentsLayer->setNeedsDisplay();
+
+    IntSize scrollingContentsOffset = toIntSize(clientBox.location() - adjustedScrollOffset);
+    if (scrollingContentsOffset != m_scrollingContentsLayer->offsetFromRenderer() || scrollSize != m_scrollingContentsLayer->size()) {
+        bool coordinatorHandlesOffset = compositor()->scrollingLayerDidChange(&m_owningLayer);
+        m_scrollingContentsLayer->setPosition(coordinatorHandlesOffset ? FloatPoint() : FloatPoint(-adjustedScrollOffset));
+    }
+
+    m_scrollingContentsLayer->setSize(scrollSize);
+    // FIXME: The paint offset and the scroll offset should really be separate concepts.
+    m_scrollingContentsLayer->setOffsetFromRenderer(scrollingContentsOffset, GraphicsLayer::DontSetNeedsDisplay);
 
     if (m_foregroundLayer) {
-        FloatSize foregroundSize = contentsSize;
-        IntSize foregroundOffset = m_graphicsLayer->offsetFromRenderer();
-        if (hasClippingLayer()) {
-            // If we have a clipping layer (which clips descendants), then the foreground layer is a child of it,
-            // so that it gets correctly sorted with children. In that case, position relative to the clipping layer.
-            foregroundSize = FloatSize(clippingBox.size());
-            foregroundOffset = toIntSize(clippingBox.location());
-        }
+        if (m_foregroundLayer->size() != m_scrollingContentsLayer->size())
+            m_foregroundLayer->setSize(m_scrollingContentsLayer->size());
+        m_foregroundLayer->setNeedsDisplay();
+        m_foregroundLayer->setOffsetFromRenderer(m_scrollingContentsLayer->offsetFromRenderer());
+    }
+}
 
-        m_foregroundLayer->setPosition(FloatPoint());
-        if (foregroundSize != m_foregroundLayer->size()) {
-            m_foregroundLayer->setSize(foregroundSize);
-            m_foregroundLayer->setNeedsDisplay();
-        }
-        m_foregroundLayer->setOffsetFromRenderer(foregroundOffset);
+void CompositedLayerMapping::updateChildClippingMaskLayerGeometry()
+{
+    if (!m_childClippingMaskLayer || !renderer()->style()->clipPath())
+        return;
+    RenderBox* renderBox = toRenderBox(renderer());
+    IntRect clientBox = enclosingIntRect(renderBox->clientBoxRect());
+
+    m_childClippingMaskLayer->setPosition(m_graphicsLayer->position());
+    m_childClippingMaskLayer->setSize(m_graphicsLayer->size());
+    m_childClippingMaskLayer->setOffsetFromRenderer(toIntSize(clientBox.location()));
+
+    // NOTE: also some stuff happening in updateChildContainmentLayerGeometry().
+}
+
+void CompositedLayerMapping::updateForegroundLayerGeometry(const FloatSize& relativeCompositingBoundsSize, const IntRect& clippingBox)
+{
+    if (!m_foregroundLayer)
+        return;
+
+    FloatSize foregroundSize = relativeCompositingBoundsSize;
+    IntSize foregroundOffset = m_graphicsLayer->offsetFromRenderer();
+    m_foregroundLayer->setPosition(FloatPoint());
+
+    if (hasClippingLayer()) {
+        // If we have a clipping layer (which clips descendants), then the foreground layer is a child of it,
+        // so that it gets correctly sorted with children. In that case, position relative to the clipping layer.
+        foregroundSize = FloatSize(clippingBox.size());
+        foregroundOffset = toIntSize(clippingBox.location());
+    } else if (m_childTransformLayer) {
+        // Things are different if we have a child transform layer rather
+        // than a clipping layer. In this case, we want to actually change
+        // the position of the layer (to compensate for our ancestor
+        // compositing layer's position) rather than leave the position the
+        // same and use offset-from-renderer + size to describe a clipped
+        // "window" onto the clipped layer.
+
+        m_foregroundLayer->setPosition(-m_childTransformLayer->position());
     }
 
-    if (m_backgroundLayer) {
-        FloatSize backgroundSize = contentsSize;
-        if (backgroundLayerPaintsFixedRootBackground()) {
-            FrameView* frameView = toRenderView(renderer())->frameView();
-            backgroundSize = frameView->visibleContentRect().size();
-        }
-        m_backgroundLayer->setPosition(FloatPoint());
-        if (backgroundSize != m_backgroundLayer->size()) {
-            m_backgroundLayer->setSize(backgroundSize);
-            m_backgroundLayer->setNeedsDisplay();
-        }
-        m_backgroundLayer->setOffsetFromRenderer(m_graphicsLayer->offsetFromRenderer());
+    if (foregroundSize != m_foregroundLayer->size()) {
+        m_foregroundLayer->setSize(foregroundSize);
+        m_foregroundLayer->setNeedsDisplay();
     }
+    m_foregroundLayer->setOffsetFromRenderer(foregroundOffset);
 
-    if (m_owningLayer.reflectionInfo() && m_owningLayer.reflectionInfo()->reflectionLayer()->hasCompositedLayerMapping()) {
-        CompositedLayerMappingPtr reflectionCompositedLayerMapping = m_owningLayer.reflectionInfo()->reflectionLayer()->compositedLayerMapping();
-        reflectionCompositedLayerMapping->updateGraphicsLayerGeometry(GraphicsLayerUpdater::ForceUpdate, &m_owningLayer);
+    // NOTE: there is some more configuring going on in updateScrollingLayerGeometry().
+}
 
-        // The reflection layer has the bounds of m_owningLayer.reflectionLayer(),
-        // but the reflected layer is the bounds of this layer, so we need to position it appropriately.
-        FloatRect layerBounds = compositedBounds();
-        FloatRect reflectionLayerBounds = reflectionCompositedLayerMapping->compositedBounds();
-        reflectionCompositedLayerMapping->mainGraphicsLayer()->setReplicatedLayerPosition(FloatPoint(layerBounds.location() - reflectionLayerBounds.location()));
+void CompositedLayerMapping::updateBackgroundLayerGeometry(const FloatSize& relativeCompositingBoundsSize)
+{
+    if (!m_backgroundLayer)
+        return;
+
+    FloatSize backgroundSize = relativeCompositingBoundsSize;
+    if (backgroundLayerPaintsFixedRootBackground()) {
+        FrameView* frameView = toRenderView(renderer())->frameView();
+        backgroundSize = frameView->visibleContentRect().size();
     }
-
-    if (m_scrollingLayer) {
-        ASSERT(m_scrollingContentsLayer);
-        RenderBox* renderBox = toRenderBox(renderer());
-        IntRect clientBox = enclosingIntRect(renderBox->clientBoxRect());
-
-        IntSize adjustedScrollOffset = m_owningLayer.scrollableArea()->adjustedScrollOffset();
-        m_scrollingLayer->setPosition(FloatPoint(clientBox.location() - localCompositingBounds.location() + roundedIntSize(m_owningLayer.subpixelAccumulation())));
-        m_scrollingLayer->setSize(clientBox.size());
-
-        IntSize oldScrollingLayerOffset = m_scrollingLayer->offsetFromRenderer();
-        m_scrollingLayer->setOffsetFromRenderer(-toIntSize(clientBox.location()));
-
-        if (m_childClippingMaskLayer) {
-            m_childClippingMaskLayer->setPosition(m_scrollingLayer->position());
-            m_childClippingMaskLayer->setSize(m_scrollingLayer->size());
-            m_childClippingMaskLayer->setOffsetFromRenderer(toIntSize(clientBox.location()));
-        }
-
-        bool clientBoxOffsetChanged = oldScrollingLayerOffset != m_scrollingLayer->offsetFromRenderer();
-
-        IntSize scrollSize(renderBox->scrollWidth(), renderBox->scrollHeight());
-        if (scrollSize != m_scrollingContentsLayer->size() || clientBoxOffsetChanged)
-            m_scrollingContentsLayer->setNeedsDisplay();
-
-        IntSize scrollingContentsOffset = toIntSize(clientBox.location() - adjustedScrollOffset);
-        if (scrollingContentsOffset != m_scrollingContentsLayer->offsetFromRenderer() || scrollSize != m_scrollingContentsLayer->size()) {
-            bool coordinatorHandlesOffset = compositor()->scrollingLayerDidChange(&m_owningLayer);
-            m_scrollingContentsLayer->setPosition(coordinatorHandlesOffset ? FloatPoint() : FloatPoint(-adjustedScrollOffset));
-        }
-
-        m_scrollingContentsLayer->setSize(scrollSize);
-        // FIXME: The paint offset and the scroll offset should really be separate concepts.
-        m_scrollingContentsLayer->setOffsetFromRenderer(scrollingContentsOffset, GraphicsLayer::DontSetNeedsDisplay);
-
-        if (m_foregroundLayer) {
-            if (m_foregroundLayer->size() != m_scrollingContentsLayer->size())
-                m_foregroundLayer->setSize(m_scrollingContentsLayer->size());
-            m_foregroundLayer->setNeedsDisplay();
-            m_foregroundLayer->setOffsetFromRenderer(m_scrollingContentsLayer->offsetFromRenderer());
-        }
+    m_backgroundLayer->setPosition(FloatPoint());
+    if (backgroundSize != m_backgroundLayer->size()) {
+        m_backgroundLayer->setSize(backgroundSize);
+        m_backgroundLayer->setNeedsDisplay();
     }
-
-    {
-        IntPoint squashingDelta(delta);
-        squashingDelta.moveBy(-graphicsLayerParentLocation);
-        updateSquashingLayerGeometry(squashingDelta);
-    }
-
-    if (m_owningLayer.scrollableArea() && m_owningLayer.scrollableArea()->scrollsOverflow())
-        m_owningLayer.scrollableArea()->positionOverflowControls();
-
-    if (RuntimeEnabledFeatures::cssCompositingEnabled()) {
-        updateLayerBlendMode(style);
-        updateIsRootForIsolatedGroup();
-    }
-
-    updateContentsRect();
-    updateBackgroundColor();
-    updateDrawsContent();
-    updateContentsOpaque();
-    updateAfterWidgetResize();
-    updateRenderingContext();
-    updateShouldFlattenTransform();
-    updateChildrenTransform();
-    updateScrollParent(compositor()->acceleratedCompositingForOverflowScrollEnabled() ? m_owningLayer.scrollParent() : 0);
-    registerScrollingLayers();
-
-    updateCompositingReasons();
+    m_backgroundLayer->setOffsetFromRenderer(m_graphicsLayer->offsetFromRenderer());
 }
 
 void CompositedLayerMapping::registerScrollingLayers()
@@ -1450,7 +1558,7 @@ float CompositedLayerMapping::compositingOpacity(float rendererOpacity) const
     for (RenderLayer* curr = m_owningLayer.parent(); curr; curr = curr->parent()) {
         // We only care about parents that are stacking contexts.
         // Recall that opacity creates stacking context.
-        if (!curr->stackingNode()->isStackingContainer())
+        if (!curr->stackingNode()->isStackingContext())
             continue;
 
         // If we found a composited layer, regardless of whether it actually
@@ -1490,7 +1598,7 @@ bool CompositedLayerMapping::paintsChildren() const
     if (m_owningLayer.hasVisibleContent() && m_owningLayer.hasNonEmptyChildRenderers())
         return true;
 
-    if (hasVisibleNonCompositingDescendantLayers())
+    if (hasVisibleNonCompositingDescendant(&m_owningLayer))
         return true;
 
     return false;
@@ -1501,7 +1609,7 @@ static bool isCompositedPlugin(RenderObject* renderer)
     return renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->requiresAcceleratedCompositing();
 }
 
-static bool hasVisibleNonCompositingDescendant(RenderLayer* parent)
+bool CompositedLayerMapping::hasVisibleNonCompositingDescendant(RenderLayer* parent)
 {
     if (!parent->hasVisibleDescendant())
         return false;
@@ -1523,14 +1631,6 @@ static bool hasVisibleNonCompositingDescendant(RenderLayer* parent)
     }
 
     return false;
-}
-
-// FIXME: By name the implementation is correct. But the code that uses this function means something
-// very slightly different - the implementation needs to also include composited descendants that
-// don't paint into their own backing, and instead paint into this backing.
-bool CompositedLayerMapping::hasVisibleNonCompositingDescendantLayers() const
-{
-    return hasVisibleNonCompositingDescendant(&m_owningLayer);
 }
 
 bool CompositedLayerMapping::containsPaintedContent() const
@@ -1829,26 +1929,31 @@ void CompositedLayerMapping::setContentsNeedDisplayInRect(const IntRect& r)
     ApplyToGraphicsLayers(this, functor, ApplyToContentLayers);
 }
 
-const GraphicsLayerPaintInfo* CompositedLayerMapping::containingSquashedLayer(const RenderObject* renderObject) const
+const GraphicsLayerPaintInfo* CompositedLayerMapping::containingSquashedLayer(const RenderObject* renderObject, const Vector<GraphicsLayerPaintInfo>& layers)
 {
-    for (size_t i = 0; i < m_squashedLayers.size(); ++i) {
-        if (renderObject->isDescendantOf(m_squashedLayers[i].renderLayer->renderer())) {
-            return &m_squashedLayers[i];
+    for (size_t i = 0; i < layers.size(); ++i) {
+        if (renderObject->isDescendantOf(layers[i].renderLayer->renderer())) {
+            return &layers[i];
             break;
         }
     }
     return 0;
 }
 
-IntRect CompositedLayerMapping::localClipRectForSquashedLayer(const GraphicsLayerPaintInfo& paintInfo) const
+const GraphicsLayerPaintInfo* CompositedLayerMapping::containingSquashedLayer(const RenderObject* renderObject)
+{
+    return CompositedLayerMapping::containingSquashedLayer(renderObject, m_squashedLayers);
+}
+
+IntRect CompositedLayerMapping::localClipRectForSquashedLayer(const RenderLayer& referenceLayer, const GraphicsLayerPaintInfo& paintInfo, const Vector<GraphicsLayerPaintInfo>& layers)
 {
     const RenderObject* clippingContainer = paintInfo.renderLayer->renderer()->clippingContainer();
-    if (clippingContainer == m_owningLayer.renderer()->clippingContainer())
+    if (clippingContainer == referenceLayer.renderer()->clippingContainer())
         return PaintInfo::infiniteRect();
 
     ASSERT(clippingContainer);
 
-    const GraphicsLayerPaintInfo* ancestorPaintInfo = containingSquashedLayer(clippingContainer);
+    const GraphicsLayerPaintInfo* ancestorPaintInfo = containingSquashedLayer(clippingContainer, layers);
     // Must be there, otherwise CompositingLayerAssigner::canSquashIntoCurrentSquashingOwner would have disallowed squashing.
     ASSERT(ancestorPaintInfo);
 
@@ -2054,15 +2159,14 @@ IntRect CompositedLayerMapping::pixelSnappedCompositedBounds() const
     return pixelSnappedIntRect(bounds);
 }
 
-bool CompositedLayerMapping::updateSquashingLayerAssignment(RenderLayer* layer, LayoutSize offsetFromSquashingCLM, size_t nextSquashedLayerIndex)
+bool CompositedLayerMapping::updateSquashingLayerAssignment(RenderLayer* squashedLayer, const RenderLayer& owningLayer, size_t nextSquashedLayerIndex)
 {
     ASSERT(compositor()->layerSquashingEnabled());
 
     GraphicsLayerPaintInfo paintInfo;
-    paintInfo.renderLayer = layer;
+    paintInfo.renderLayer = squashedLayer;
     // NOTE: composited bounds are updated elsewhere
     // NOTE: offsetFromRenderer is updated elsewhere
-    paintInfo.offsetFromSquashingCLM = offsetFromSquashingCLM;
     paintInfo.paintingPhase = GraphicsLayerPaintAllWithOverflowClip;
     paintInfo.isBackgroundLayer = false;
 
@@ -2078,7 +2182,7 @@ bool CompositedLayerMapping::updateSquashingLayerAssignment(RenderLayer* layer, 
         m_squashedLayers.append(paintInfo);
         updatedAssignment = true;
     }
-    layer->setGroupedMapping(this);
+    squashedLayer->setGroupedMapping(this);
     return updatedAssignment;
 }
 

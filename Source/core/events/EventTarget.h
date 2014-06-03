@@ -35,40 +35,16 @@
 #include "core/events/EventListenerMap.h"
 #include "core/events/ThreadLocalEventNames.h"
 #include "platform/heap/Handle.h"
-#include "wtf/Forward.h"
 
 namespace WebCore {
 
-class ApplicationCache;
-class AudioContext;
 class DOMWindow;
-class DedicatedWorkerGlobalScope;
 class Event;
-class EventListener;
-class EventSource;
 class ExceptionState;
-class FileReader;
-class FileWriter;
-class IDBDatabase;
-class IDBRequest;
-class IDBTransaction;
-class MIDIAccess;
-class MIDIInput;
-class MIDIPort;
-class MediaController;
-class MediaStream;
 class MessagePort;
 class Node;
-class Notification;
-class SVGElementInstance;
-class ExecutionContext;
-class ScriptProcessorNode;
-class SharedWorker;
-class SharedWorkerGlobalScope;
 class TextTrack;
 class TextTrackCue;
-class WebSocket;
-class Worker;
 class XMLHttpRequest;
 class XMLHttpRequestUpload;
 
@@ -96,7 +72,7 @@ public:
     OwnPtr<FiringEventIteratorVector> firingEventIterators;
 };
 
-class EventTarget {
+class EventTarget : public WillBeGarbageCollectedMixin {
 public:
     void ref() { refEventTarget(); }
     void deref() { derefEventTarget(); }
@@ -133,6 +109,8 @@ public:
     Vector<AtomicString> eventTypes();
 
     bool fireEventListeners(Event*);
+
+    virtual void trace(Visitor*) { }
 
 protected:
     virtual ~EventTarget();
@@ -247,6 +225,6 @@ private: \
 // Use this macro if your EventTarget subclass is also a subclass of WTF::RefCounted.
 // A ref-counted class that uses a different method of refcounting should use DEFINE_EVENT_TARGET_REFCOUNTING directly.
 // Both of these macros are meant to be placed just before the "public:" section of the class declaration.
-#define REFCOUNTED_EVENT_TARGET(className) DEFINE_EVENT_TARGET_REFCOUNTING(RefCounted<className>)
+#define REFCOUNTED_EVENT_TARGET(className) DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<className>)
 
 #endif // EventTarget_h

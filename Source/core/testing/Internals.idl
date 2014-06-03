@@ -179,12 +179,6 @@
     [RaisesException] boolean scrollsWithRespectTo(Element element1, Element element2);
     [RaisesException] boolean isUnclippedDescendant(Element element);
 
-    // The values of these constants must be kept in sync with those in RenderLayer.
-    const unsigned short DO_NOT_FORCE_COMPOSITED_SCROLLING = 0;
-    const unsigned short COMPOSITED_SCROLLING_ALWAYS_ON = 1;
-    const unsigned short COMPOSITED_SCROLLING_ALWAYS_OFF = 2;
-    [RaisesException] void setNeedsCompositedScrolling(Element element, unsigned short value);
-
     [RaisesException] DOMString scrollingStateTreeAsText(Document document);
     [RaisesException] DOMString mainThreadScrollingReasons(Document document);
     [RaisesException] ClientRectList nonFastScrollableRects(Document document);
@@ -266,7 +260,6 @@
     boolean loseSharedGraphicsContext3D();
 
     [RaisesException] void forceCompositingUpdate(Document document);
-    [RaisesException] boolean isCompositorFramePending(Document document);
 
     void setZoomFactor(float factor);
 
@@ -280,4 +273,11 @@
     void setValueForUser(Element element, DOMString value);
 
     DOMString textSurroundingNode(Node node, long x, long y, unsigned long maxLength);
+
+    void setFocused(boolean focused);
+
+    // These functions are for testing NetInfo. You must call setNetworkStateNotifierTestOnly(true)
+    // before calling setNetworkConnectionInfo.
+    void setNetworkStateNotifierTestOnly(boolean testOnly);
+    [RaisesException] void setNetworkConnectionInfo(DOMString type);
 };

@@ -29,15 +29,15 @@
  */
 
 #include "config.h"
-#include "V8InjectedScriptHost.h"
+#include "bindings/core/v8/V8InjectedScriptHost.h"
 
-#include "V8Database.h"
-#include "V8EventTarget.h"
-#include "V8HTMLAllCollection.h"
-#include "V8HTMLCollection.h"
-#include "V8Node.h"
-#include "V8NodeList.h"
-#include "V8Storage.h"
+#include "bindings/core/v8/V8EventTarget.h"
+#include "bindings/core/v8/V8HTMLAllCollection.h"
+#include "bindings/core/v8/V8HTMLCollection.h"
+#include "bindings/core/v8/V8Node.h"
+#include "bindings/core/v8/V8NodeList.h"
+#include "bindings/core/v8/V8Storage.h"
+#include "bindings/modules/v8/V8Database.h"
 #include "bindings/v8/BindingSecurity.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptDebugServer.h"
@@ -312,9 +312,9 @@ void V8InjectedScriptHost::inspectMethodCustom(const v8::FunctionCallbackInfo<v8
         return;
 
     InjectedScriptHost* host = V8InjectedScriptHost::toNative(info.Holder());
-    ScriptValue object(info[0], info.GetIsolate());
-    ScriptValue hints(info[1], info.GetIsolate());
     ScriptState* scriptState = ScriptState::current(info.GetIsolate());
+    ScriptValue object(scriptState, info[0]);
+    ScriptValue hints(scriptState, info[1]);
     host->inspectImpl(object.toJSONValue(scriptState), hints.toJSONValue(scriptState));
 }
 
@@ -332,7 +332,7 @@ void V8InjectedScriptHost::evaluateMethodCustom(const v8::FunctionCallbackInfo<v
         return;
     }
 
-    ASSERT(!isolate->GetCurrentContext().IsEmpty());
+    ASSERT(isolate->InContext());
     v8::TryCatch tryCatch;
     v8::Handle<v8::Value> result = V8ScriptRunner::compileAndRunInternalScript(expression, info.GetIsolate());
     if (tryCatch.HasCaught()) {

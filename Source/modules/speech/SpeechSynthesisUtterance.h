@@ -28,7 +28,7 @@
 
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ContextLifecycleObserver.h"
-#include "core/events/EventTarget.h"
+#include "modules/EventTargetModules.h"
 #include "modules/speech/SpeechSynthesisVoice.h"
 #include "platform/heap/Handle.h"
 #include "platform/speech/PlatformSpeechSynthesisUtterance.h"
@@ -38,7 +38,8 @@
 namespace WebCore {
 
 class SpeechSynthesisUtterance FINAL : public RefCountedWillBeRefCountedGarbageCollected<SpeechSynthesisUtterance>, public PlatformSpeechSynthesisUtteranceClient, public ScriptWrappable, public ContextLifecycleObserver, public EventTargetWithInlineData {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<SpeechSynthesisUtterance>);
+    REFCOUNTED_EVENT_TARGET(SpeechSynthesisUtterance);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(SpeechSynthesisUtterance);
 public:
     static PassRefPtrWillBeRawPtr<SpeechSynthesisUtterance> create(ExecutionContext*, const String&);
 
@@ -77,7 +78,7 @@ public:
 
     PlatformSpeechSynthesisUtterance* platformUtterance() const { return m_platformUtterance.get(); }
 
-    void trace(Visitor*);
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     SpeechSynthesisUtterance(ExecutionContext*, const String&);

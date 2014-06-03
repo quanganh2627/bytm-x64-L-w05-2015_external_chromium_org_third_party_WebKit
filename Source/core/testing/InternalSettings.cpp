@@ -72,9 +72,8 @@ InternalSettings::Backup::Backup(Settings* settings)
     , m_langAttributeAwareFormControlUIEnabled(RuntimeEnabledFeatures::langAttributeAwareFormControlUIEnabled())
     , m_imagesEnabled(settings->imagesEnabled())
     , m_defaultVideoPosterURL(settings->defaultVideoPosterURL())
-    , m_originalCompositorDrivenAcceleratedScrollEnabled(settings->compositorDrivenAcceleratedScrollingEnabled())
     , m_originalLayerSquashingEnabled(settings->layerSquashingEnabled())
-    , m_originalPasswordGenerationDecorationEnabled(settings->passwordGenerationDecorationEnabled())
+    , m_originalPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled(RuntimeEnabledFeatures::pseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled())
 {
 }
 
@@ -94,10 +93,9 @@ void InternalSettings::Backup::restoreTo(Settings* settings)
     RuntimeEnabledFeatures::setLangAttributeAwareFormControlUIEnabled(m_langAttributeAwareFormControlUIEnabled);
     settings->setImagesEnabled(m_imagesEnabled);
     settings->setDefaultVideoPosterURL(m_defaultVideoPosterURL);
-    settings->setCompositorDrivenAcceleratedScrollingEnabled(m_originalCompositorDrivenAcceleratedScrollEnabled);
     settings->setLayerSquashingEnabled(m_originalLayerSquashingEnabled);
-    settings->setPasswordGenerationDecorationEnabled(m_originalPasswordGenerationDecorationEnabled);
     settings->genericFontFamilySettings().reset();
+    RuntimeEnabledFeatures::setPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled(m_originalPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled);
 }
 
 #if ENABLE(OILPAN)
@@ -188,6 +186,11 @@ void InternalSettings::setExperimentalContentSecurityPolicyFeaturesEnabled(bool 
     RuntimeEnabledFeatures::setExperimentalContentSecurityPolicyFeaturesEnabled(enabled);
 }
 
+void InternalSettings::setPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled(bool enabled)
+{
+    RuntimeEnabledFeatures::setPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled(enabled);
+}
+
 void InternalSettings::setOverlayScrollbarsEnabled(bool enabled)
 {
     RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(enabled);
@@ -197,14 +200,6 @@ void InternalSettings::setViewportEnabled(bool enabled, ExceptionState& exceptio
 {
     InternalSettingsGuardForSettings();
     settings()->setViewportEnabled(enabled);
-}
-
-// FIXME: This is a temporary flag and should be removed once accelerated
-// overflow scroll is ready (crbug.com/254111).
-void InternalSettings::setCompositorDrivenAcceleratedScrollingEnabled(bool enabled, ExceptionState& exceptionState)
-{
-    InternalSettingsGuardForSettings();
-    settings()->setCompositorDrivenAcceleratedScrollingEnabled(enabled);
 }
 
 // FIXME: This is a temporary flag and should be removed once squashing is
@@ -345,12 +340,6 @@ void InternalSettings::setDefaultVideoPosterURL(const String& url, ExceptionStat
 {
     InternalSettingsGuardForSettings();
     settings()->setDefaultVideoPosterURL(url);
-}
-
-void InternalSettings::setPasswordGenerationDecorationEnabled(bool enabled, ExceptionState& exceptionState)
-{
-    InternalSettingsGuardForSettings();
-    settings()->setPasswordGenerationDecorationEnabled(enabled);
 }
 
 void InternalSettings::trace(Visitor* visitor)

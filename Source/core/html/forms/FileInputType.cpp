@@ -158,7 +158,7 @@ void FileInputType::handleDOMActivateEvent(Event* event)
         settings.acceptFileExtensions = input.acceptFileExtensions();
         settings.selectedFiles = m_fileList->paths();
 #if ENABLE(MEDIA_CAPTURE)
-        settings.useMediaCapture = input.capture();
+        settings.useMediaCapture = input.isFileUpload() && input.fastHasAttribute(captureAttr);
 #endif
         chrome->runOpenPanel(input.document().frame(), newFileChooser(settings));
     }
@@ -257,7 +257,7 @@ bool FileInputType::isFileUpload() const
 void FileInputType::createShadowSubtree()
 {
     ASSERT(element().shadow());
-    RefPtr<HTMLInputElement> button = HTMLInputElement::create(element().document(), 0, false);
+    RefPtrWillBeRawPtr<HTMLInputElement> button = HTMLInputElement::create(element().document(), 0, false);
     button->setType(InputTypeNames::button);
     button->setAttribute(valueAttr, AtomicString(locale().queryString(element().multiple() ? WebLocalizedString::FileButtonChooseMultipleFilesLabel : WebLocalizedString::FileButtonChooseFileLabel)));
     button->setShadowPseudoId(AtomicString("-webkit-file-upload-button", AtomicString::ConstructFromLiteral));
@@ -283,7 +283,7 @@ void FileInputType::setFiles(PassRefPtrWillBeRawPtr<FileList> files)
     if (!files)
         return;
 
-    RefPtr<HTMLInputElement> input(element());
+    RefPtrWillBeRawPtr<HTMLInputElement> input(element());
 
     bool pathsChanged = false;
     if (files->length() != m_fileList->length()) {

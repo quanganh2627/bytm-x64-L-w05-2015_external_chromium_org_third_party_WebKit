@@ -39,8 +39,6 @@
 #include "platform/heap/Handle.h"
 #include "platform/weborigin/KURLHash.h"
 #include "wtf/Forward.h"
-#include "wtf/ListHashSet.h"
-#include "wtf/text/AtomicString.h"
 
 // This needs to be here because Document.h also depends on it.
 #define DUMP_NODE_STATISTICS 0
@@ -115,6 +113,7 @@ class Node : public TreeSharedWillBeRefCountedGarbageCollected<Node>, public Eve
     friend class TreeScopeAdopter;
 
     DEFINE_EVENT_TARGET_REFCOUNTING(TreeSharedWillBeRefCountedGarbageCollected<Node>);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(Node);
 public:
     enum NodeType {
         ELEMENT_NODE = 1,
@@ -170,9 +169,10 @@ public:
     ContainerNode* parentNode() const;
     Element* parentElement() const;
     ContainerNode* parentElementOrShadowRoot() const;
+    ContainerNode* parentElementOrDocumentFragment() const;
     Node* previousSibling() const { return m_previous; }
     Node* nextSibling() const { return m_next; }
-    PassRefPtr<NodeList> childNodes();
+    PassRefPtrWillBeRawPtr<NodeList> childNodes();
     Node* firstChild() const;
     Node* lastChild() const;
 
@@ -193,7 +193,7 @@ public:
     void appendChild(PassRefPtr<Node> newChild, ExceptionState& = ASSERT_NO_EXCEPTION);
 
     bool hasChildren() const { return firstChild(); }
-    virtual PassRefPtr<Node> cloneNode(bool deep = false) = 0;
+    virtual PassRefPtrWillBeRawPtr<Node> cloneNode(bool deep = false) = 0;
     virtual const AtomicString& localName() const;
     virtual const AtomicString& namespaceURI() const;
     void normalize();
@@ -508,7 +508,6 @@ public:
         else
             m_data.m_renderer = renderer;
     }
-    bool hasRenderer() const { return renderer(); }
 
     // Use these two methods with caution.
     RenderBox* renderBox() const;
@@ -666,14 +665,14 @@ public:
     void updateAncestorConnectedSubframeCountForRemoval() const;
     void updateAncestorConnectedSubframeCountForInsertion() const;
 
-    PassRefPtr<NodeList> getDestinationInsertionPoints();
+    PassRefPtrWillBeRawPtr<NodeList> getDestinationInsertionPoints();
 
     void setAlreadySpellChecked(bool flag) { setFlag(flag, AlreadySpellCheckedFlag); }
     bool isAlreadySpellChecked() { return getFlag(AlreadySpellCheckedFlag); }
 
     bool isFinishedParsingChildren() const { return getFlag(IsFinishedParsingChildrenFlag); }
 
-    virtual void trace(Visitor*);
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     enum NodeFlags {
@@ -814,6 +813,8 @@ private:
         return NOPSEUDO;
     }
 
+    unsigned styledSubtreeSize() const;
+
 #if !ENABLE(OILPAN)
     void removedLastRef();
 #endif
@@ -921,6 +922,12 @@ inline bool operator!=(const Node& a, const PassRefPtr<Node>& b) { return !(a ==
 #define DEFINE_NODE_TYPE_CASTS_WITH_FUNCTION(thisType) \
     template<typename T> inline thisType* to##thisType(const RefPtr<T>& node) { return to##thisType(node.get()); } \
     DEFINE_TYPE_CASTS(thisType, Node, node, is##thisType(*node), is##thisType(node))
+
+#define DEFINE_NODE_FACTORY(T) \
+    inline static PassRefPtrWillBeRawPtr<T> create(Document& document) \
+    { \
+        return adoptRefWillBeRefCountedGarbageCollected(new T(document)); \
+    }
 
 } // namespace WebCore
 

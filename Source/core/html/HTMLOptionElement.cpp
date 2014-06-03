@@ -63,10 +63,7 @@ PassRefPtrWillBeRawPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstruc
     bool defaultSelected, bool selected, ExceptionState& exceptionState)
 {
     RefPtrWillBeRawPtr<HTMLOptionElement> element = adoptRefWillBeRefCountedGarbageCollected(new HTMLOptionElement(document));
-
-    RefPtr<Text> text = Text::create(document, data.isNull() ? "" : data);
-
-    element->appendChild(text.release(), exceptionState);
+    element->appendChild(Text::create(document, data.isNull() ? "" : data), exceptionState);
     if (exceptionState.hadException())
         return nullptr;
 
@@ -186,7 +183,7 @@ void HTMLOptionElement::parseAttribute(const QualifiedName& name, const AtomicSt
         if (oldDisabled != m_disabled) {
             didAffectSelector(AffectedSelectorDisabled | AffectedSelectorEnabled);
             if (renderer() && renderer()->style()->hasAppearance())
-                RenderTheme::theme().stateChanged(renderer(), EnabledState);
+                RenderTheme::theme().stateChanged(renderer(), EnabledControlState);
         }
     } else if (name == selectedAttr) {
         if (bool willBeSelected = !value.isNull())

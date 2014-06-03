@@ -36,10 +36,6 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     {% elif not attribute.is_static %}
     {{cpp_class}}* impl = {{v8_class}}::toNative(holder);
     {% endif %}
-    {% if attribute.is_partial_interface_member and not attribute.is_static %}
-    {# instance members (non-static members) in partial interface take |impl| #}
-    ASSERT(impl);
-    {% endif %}
     {% if interface_name == 'Window' and attribute.idl_type == 'EventHandler' %}
     if (!impl->document())
         return;
@@ -49,7 +45,7 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
     {% endif %}
     {% if attribute.is_call_with_script_state %}
-    ScriptState* state = ScriptState::current(info.GetIsolate());
+    ScriptState* scriptState = ScriptState::current(info.GetIsolate());
     {% endif %}
     {% if attribute.is_check_security_for_node or
           attribute.is_getter_raises_exception %}
@@ -95,7 +91,7 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     }
     {% endif %}
     {% if attribute.cached_attribute_validation_method %}
-    V8HiddenValue::setHiddenValue(info.GetIsolate(), holder, propertyName, {{attribute.cpp_value}}.v8Value());
+    V8HiddenValue::setHiddenValue(info.GetIsolate(), holder, propertyName, {{attribute.cpp_value_to_v8_value}});
     {% endif %}
     {# v8SetReturnValue #}
     {% if attribute.is_keep_alive_for_gc %}
@@ -242,10 +238,6 @@ v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info
         return;
     {% elif not attribute.is_static %}
     {{cpp_class}}* impl = {{v8_class}}::toNative(holder);
-    {% endif %}
-    {% if attribute.is_partial_interface_member and not attribute.is_static %}
-    {# instance members (non-static members) in partial interface take |impl| #}
-    ASSERT(impl);
     {% endif %}
     {% if attribute.idl_type == 'EventHandler' and interface_name == 'Window' %}
     if (!impl->document())

@@ -31,6 +31,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/CDATASection.cpp \
 	third_party/WebKit/Source/core/dom/CSSSelectorWatch.cpp \
 	third_party/WebKit/Source/core/dom/CharacterData.cpp \
+	third_party/WebKit/Source/core/dom/ChildFrameDisconnector.cpp \
 	third_party/WebKit/Source/core/dom/ChildListMutationScope.cpp \
 	third_party/WebKit/Source/core/dom/ChildNodeList.cpp \
 	third_party/WebKit/Source/core/dom/ClassCollection.cpp \
@@ -80,6 +81,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/dom/IconURL.cpp \
 	third_party/WebKit/Source/core/dom/IdTargetObserver.cpp \
 	third_party/WebKit/Source/core/dom/IdTargetObserverRegistry.cpp \
+	third_party/WebKit/Source/core/dom/IncrementLoadEventDelayCount.cpp \
 	third_party/WebKit/Source/core/dom/LiveNodeList.cpp \
 	third_party/WebKit/Source/core/dom/LiveNodeListBase.cpp \
 	third_party/WebKit/Source/core/dom/MainThreadTaskRunner.cpp \
@@ -221,6 +223,7 @@ MY_CFLAGS_Debug := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-EL \
 	-mhard-float \
 	-ffunction-sections \
@@ -253,12 +256,17 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -276,10 +284,12 @@ MY_DEFS_Debug := \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
+	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
+	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -315,7 +325,8 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
-	$(gyp_shared_intermediate_dir)/blink/bindings \
+	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
+	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
@@ -373,6 +384,7 @@ MY_CFLAGS_Release := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-EL \
 	-mhard-float \
 	-ffunction-sections \
@@ -405,12 +417,17 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -428,10 +445,12 @@ MY_DEFS_Release := \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
+	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
+	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -468,7 +487,8 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
-	$(gyp_shared_intermediate_dir)/blink/bindings \
+	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
+	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \

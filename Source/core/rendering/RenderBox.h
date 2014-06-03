@@ -265,12 +265,14 @@ public:
     // scrollLeft/Top return the current scroll position.  These methods are virtual so that objects like
     // textareas can scroll shadow content (but pretend that they are the objects that are
     // scrolling).
-    virtual int scrollLeft() const;
-    virtual int scrollTop() const;
-    virtual int scrollWidth() const;
-    virtual int scrollHeight() const;
-    virtual void setScrollLeft(int);
-    virtual void setScrollTop(int);
+    virtual LayoutUnit scrollLeft() const;
+    virtual LayoutUnit scrollTop() const;
+    virtual LayoutUnit scrollWidth() const;
+    virtual LayoutUnit scrollHeight() const;
+    int pixelSnappedScrollWidth() const;
+    int pixelSnappedScrollHeight() const;
+    virtual void setScrollLeft(LayoutUnit);
+    virtual void setScrollTop(LayoutUnit);
 
     void scrollToOffset(const IntSize&);
     void scrollByRecursively(const IntSize& delta, ScrollOffsetClamping = ScrollOffsetUnclamped);
@@ -361,7 +363,7 @@ public:
     void clearContainingBlockOverrideSize();
     void clearOverrideContainingBlockContentLogicalHeight();
 
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const OVERRIDE;
+    virtual LayoutSize offsetFromContainer(const RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const OVERRIDE;
 
     LayoutUnit adjustBorderBoxLogicalWidthForBoxSizing(LayoutUnit width) const;
     LayoutUnit adjustBorderBoxLogicalHeightForBoxSizing(LayoutUnit height) const;
@@ -482,8 +484,8 @@ public:
     bool hasAutoHorizontalScrollbar() const { return hasOverflowClip() && (style()->overflowX() == OAUTO || style()->overflowX() == OOVERLAY); }
     bool scrollsOverflow() const { return scrollsOverflowX() || scrollsOverflowY(); }
 
-    bool hasScrollableOverflowX() const { return scrollsOverflowX() && scrollWidth() != clientWidth(); }
-    bool hasScrollableOverflowY() const { return scrollsOverflowY() && scrollHeight() != clientHeight(); }
+    bool hasScrollableOverflowX() const { return scrollsOverflowX() && pixelSnappedScrollWidth() != pixelSnappedClientWidth(); }
+    bool hasScrollableOverflowY() const { return scrollsOverflowY() && pixelSnappedScrollHeight() != pixelSnappedClientHeight(); }
     virtual bool scrollsOverflowX() const { return hasOverflowClip() && (style()->overflowX() == OSCROLL || hasAutoHorizontalScrollbar()); }
     virtual bool scrollsOverflowY() const { return hasOverflowClip() && (style()->overflowY() == OSCROLL || hasAutoVerticalScrollbar()); }
     bool usesCompositedScrolling() const;
@@ -617,7 +619,7 @@ public:
             removeFloatingOrPositionedChildFromBlockLists();
     }
 
-    virtual void repaintTreeAfterLayout() OVERRIDE;
+    virtual void repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer) OVERRIDE;
 
 protected:
     virtual void willBeDestroyed() OVERRIDE;
@@ -662,8 +664,6 @@ protected:
 
     void updateIntrinsicContentLogicalHeight(LayoutUnit intrinsicContentLogicalHeight) const { m_intrinsicContentLogicalHeight = intrinsicContentLogicalHeight; }
 
-    bool createsBlockFormattingContext() const;
-
 private:
     void updateShapeOutsideInfoAfterStyleChange(const RenderStyle&, const RenderStyle* oldStyle);
     void updateGridPositionAfterStyleChange(const RenderStyle*);
@@ -678,8 +678,6 @@ private:
 
     LayoutUnit containingBlockLogicalWidthForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode = true) const;
     LayoutUnit containingBlockLogicalHeightForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode = true) const;
-
-    LayoutUnit viewLogicalHeightForPercentages() const;
 
     void computePositionedLogicalHeight(LogicalExtentComputedValues&) const;
     void computePositionedLogicalWidthUsing(Length logicalWidth, const RenderBoxModelObject* containerBlock, TextDirection containerDirection,
@@ -757,12 +755,12 @@ inline RenderBox* RenderBox::parentBox() const
 
 inline RenderBox* RenderBox::firstChildBox() const
 {
-    return toRenderBox(firstChild());
+    return toRenderBox(slowFirstChild());
 }
 
 inline RenderBox* RenderBox::lastChildBox() const
 {
-    return toRenderBox(lastChild());
+    return toRenderBox(slowLastChild());
 }
 
 inline void RenderBox::setInlineBoxWrapper(InlineBox* boxWrapper)

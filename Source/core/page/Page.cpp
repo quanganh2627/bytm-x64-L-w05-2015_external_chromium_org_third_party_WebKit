@@ -229,7 +229,7 @@ void Page::scheduleForcedStyleRecalcForAllPages()
 void Page::setNeedsRecalcStyleInAllFrames()
 {
     for (LocalFrame* frame = mainFrame(); frame; frame = frame->tree().traverseNext())
-        frame->document()->styleResolverChanged(RecalcStyleDeferred);
+        frame->document()->styleResolverChanged();
 }
 
 void Page::setNeedsLayoutInAllFrames()
@@ -323,12 +323,14 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin)
     if (scale != viewport.scale()) {
         viewport.setScale(scale);
 
-        if (view)
+        if (view && !settings().pinchVirtualViewportEnabled())
             view->setVisibleContentScaleFactor(scale);
 
         mainFrame()->deviceOrPageScaleFactorChanged();
         m_chrome->client().deviceOrPageScaleFactorChanged();
 
+        // FIXME: In virtual-viewport pinch mode, scale doesn't change the fixed-pos viewport;
+        // remove once it's the only pinch mode in town.
         if (view)
             view->viewportConstrainedVisibleContentSizeChanged(true, true);
 
@@ -541,6 +543,7 @@ PassOwnPtr<LifecycleNotifier<Page> > Page::createLifecycleNotifier()
 
 void Page::trace(Visitor* visitor)
 {
+    visitor->trace(m_dragController);
     visitor->trace(m_multisamplingChangedObservers);
     visitor->trace(m_frameHost);
     WillBeHeapSupplementable<Page>::trace(visitor);

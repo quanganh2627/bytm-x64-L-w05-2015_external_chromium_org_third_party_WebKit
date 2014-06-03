@@ -6,7 +6,10 @@
 #define WebRemoteFrameImpl_h
 
 #include "public/web/WebRemoteFrame.h"
+#include "web/RemoteFrameClient.h"
 #include "wtf/RefCounted.h"
+
+namespace WebCore { class RemoteFrame; }
 
 namespace blink {
 
@@ -118,6 +121,7 @@ public:
     virtual bool setEditableSelectionOffsets(int start, int end) OVERRIDE;
     virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) OVERRIDE;
     virtual void extendSelectionAndDelete(int before, int after) OVERRIDE;
+    virtual void addStyleSheetByURL(const WebString& url) OVERRIDE;
     virtual void setCaretVisible(bool) OVERRIDE;
     virtual int printBegin(const WebPrintParams&, const WebNode& constrainToNode) OVERRIDE;
     virtual float printPage(int pageToPrint, WebCanvas*) OVERRIDE;
@@ -165,7 +169,16 @@ public:
 
     virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const OVERRIDE;
     virtual WebString layerTreeAsText(bool showDebugInfo = false) const OVERRIDE;
+
+    WebCore::RemoteFrame* frame() const { return m_frame.get(); }
+
+private:
+    RemoteFrameClient m_frameClient;
+    RefPtr<WebCore::RemoteFrame> m_frame;
 };
+
+DEFINE_TYPE_CASTS(WebRemoteFrameImpl, WebFrame, frame, frame->isWebRemoteFrame(), frame.isWebRemoteFrame());
+
 
 } // namespace blink
 

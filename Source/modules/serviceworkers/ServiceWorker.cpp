@@ -31,12 +31,11 @@
 #include "config.h"
 #include "ServiceWorker.h"
 
-#include "EventTargetNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptPromiseResolverWithContext.h"
 #include "bindings/v8/ScriptState.h"
 #include "core/dom/MessagePort.h"
-#include "core/events/Event.h"
+#include "modules/EventTargetModules.h"
 #include "platform/NotImplemented.h"
 #include "public/platform/WebMessagePortChannel.h"
 #include "public/platform/WebServiceWorkerState.h"
@@ -93,6 +92,16 @@ void ServiceWorker::dispatchStateChangeEvent()
 {
     ASSERT(isReady());
     this->dispatchEvent(Event::create(EventTypeNames::statechange));
+}
+
+String ServiceWorker::scope() const
+{
+    return m_outerWorker->scope().string();
+}
+
+String ServiceWorker::url() const
+{
+    return m_outerWorker->url().string();
 }
 
 const AtomicString& ServiceWorker::state() const

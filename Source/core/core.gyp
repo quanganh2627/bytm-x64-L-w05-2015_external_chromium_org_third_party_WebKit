@@ -33,7 +33,7 @@
     '../build/win/precompile.gypi',
     '../build/features.gypi',
     '../build/scripts/scripts.gypi',
-    '../bindings/bindings.gypi',
+    '../bindings/core/core.gypi',  # core can depend on bindings/core, but not on bindings
     'core.gypi',
   ],
 
@@ -44,7 +44,10 @@
       '../..',
       '..',
       '<(SHARED_INTERMEDIATE_DIR)/blink',
-      '<(bindings_output_dir)',
+      # FIXME: Remove these once the bindings script generates qualified
+      # includes correctly: http://crbug.com/377364
+      '<(bindings_core_v8_output_dir)',
+      '<(bindings_modules_v8_output_dir)',
     ],
 
     'conditions': [
@@ -120,7 +123,6 @@
             '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorConsoleInstrumentationInl.h',
             '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorInstrumentationInl.h',
             '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorOverridesInl.h',
-            '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorPromiseInstrumentationInl.h',
             '<(SHARED_INTERMEDIATE_DIR)/blink/InstrumentingAgentsInl.h',
             '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorInstrumentationImpl.cpp',
           ],
@@ -215,7 +217,9 @@
         'injected_canvas_script_source',
         'injected_script_source',
         'debugger_script_source',
-        '../bindings/generated_bindings.gyp:generated_bindings',
+        '../bindings/core/v8/generated.gyp:bindings_core_generated',
+        # FIXME: don't depend on bindings_modules http://crbug.com/358074
+        '../bindings/modules/v8/generated.gyp:bindings_modules_generated',
         '../platform/platform_generated.gyp:make_platform_generated',
         '../wtf/wtf.gyp:wtf',
         '<(DEPTH)/gin/gin.gyp:gin',
@@ -232,20 +236,20 @@
         '<(DEPTH)/v8/tools/gyp/v8.gyp:v8',
       ],
       'include_dirs': [
-        '<(SHARED_INTERMEDIATE_DIR)/blink',
-        '<(bindings_output_dir)',
         '<@(webcore_include_dirs)',
 
         # FIXME: Remove these once the bindings script generates qualified
         # includes for these correctly. (Sequences don't work yet.)
-        '<(bindings_v8_dir)/custom',
+        # http://crbug.com/377364
+        '<(bindings_v8_custom_dir)',
         'html',
         'html/shadow',
         'inspector',
         'svg',
       ],
       'sources': [
-        '<@(bindings_files)',
+        # FIXME: should be bindings_core_v8_files http://crbug.com/358074
+        '<@(bindings_v8_files)',
         # These files include all the .cpp files generated from the .idl files
         # in webcore_files.
         '<@(bindings_core_generated_aggregate_files)',
@@ -314,7 +318,6 @@
         '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorConsoleInstrumentationInl.h',
         '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorInstrumentationInl.h',
         '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorOverridesInl.h',
-        '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorPromiseInstrumentationInl.h',
         '<(SHARED_INTERMEDIATE_DIR)/blink/InstrumentingAgentsInl.h',
         '<(SHARED_INTERMEDIATE_DIR)/blink/InspectorInstrumentationImpl.cpp',
 
@@ -361,8 +364,10 @@
         'inspector_overlay_page',
         'inspector_protocol_sources',
         'inspector_instrumentation_sources',
-        '../bindings/generated_bindings.gyp:generated_bindings',
         'core_generated.gyp:make_core_generated',
+        '../bindings/core/v8/generated.gyp:bindings_core_generated',
+        # FIXME: don't depend on bindings_modules http://crbug.com/358074
+        '../bindings/modules/v8/generated.gyp:bindings_modules_generated',
         '../wtf/wtf.gyp:wtf',
         '../config.gyp:config',
         '../platform/blink_platform.gyp:blink_platform',
@@ -799,26 +804,26 @@
       ],
       'sources': [
         '<@(webcore_testing_files)',
-        '<(bindings_output_dir)/V8GCObservation.cpp',
-        '<(bindings_output_dir)/V8GCObservation.h',
-        '<(bindings_output_dir)/V8MallocStatistics.cpp',
-        '<(bindings_output_dir)/V8MallocStatistics.h',
-        '<(bindings_output_dir)/V8TypeConversions.cpp',
-        '<(bindings_output_dir)/V8TypeConversions.h',
-        '<(bindings_output_dir)/V8Internals.cpp',
-        '<(bindings_output_dir)/V8Internals.h',
-        '<(bindings_output_dir)/V8InternalProfilers.cpp',
-        '<(bindings_output_dir)/V8InternalProfilers.h',
-        '<(bindings_output_dir)/V8InternalSettings.cpp',
-        '<(bindings_output_dir)/V8InternalSettings.h',
-        '<(bindings_output_dir)/V8InternalSettingsGenerated.cpp',
-        '<(bindings_output_dir)/V8InternalSettingsGenerated.h',
-        '<(bindings_output_dir)/V8InternalRuntimeFlags.cpp',
-        '<(bindings_output_dir)/V8InternalRuntimeFlags.h',
-        '<(bindings_output_dir)/V8LayerRect.cpp',
-        '<(bindings_output_dir)/V8LayerRect.h',
-        '<(bindings_output_dir)/V8LayerRectList.cpp',
-        '<(bindings_output_dir)/V8LayerRectList.h',
+        '<(bindings_core_v8_output_dir)/V8GCObservation.cpp',
+        '<(bindings_core_v8_output_dir)/V8GCObservation.h',
+        '<(bindings_core_v8_output_dir)/V8MallocStatistics.cpp',
+        '<(bindings_core_v8_output_dir)/V8MallocStatistics.h',
+        '<(bindings_core_v8_output_dir)/V8TypeConversions.cpp',
+        '<(bindings_core_v8_output_dir)/V8TypeConversions.h',
+        '<(bindings_core_v8_output_dir)/V8Internals.cpp',
+        '<(bindings_core_v8_output_dir)/V8Internals.h',
+        '<(bindings_core_v8_output_dir)/V8InternalProfilers.cpp',
+        '<(bindings_core_v8_output_dir)/V8InternalProfilers.h',
+        '<(bindings_core_v8_output_dir)/V8InternalSettings.cpp',
+        '<(bindings_core_v8_output_dir)/V8InternalSettings.h',
+        '<(bindings_core_v8_output_dir)/V8InternalSettingsGenerated.cpp',
+        '<(bindings_core_v8_output_dir)/V8InternalSettingsGenerated.h',
+        '<(bindings_core_v8_output_dir)/V8InternalRuntimeFlags.cpp',
+        '<(bindings_core_v8_output_dir)/V8InternalRuntimeFlags.h',
+        '<(bindings_core_v8_output_dir)/V8LayerRect.cpp',
+        '<(bindings_core_v8_output_dir)/V8LayerRect.h',
+        '<(bindings_core_v8_output_dir)/V8LayerRectList.cpp',
+        '<(bindings_core_v8_output_dir)/V8LayerRectList.h',
       ],
       'sources/': [
         ['exclude', 'testing/js'],

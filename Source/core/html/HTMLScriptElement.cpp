@@ -90,12 +90,6 @@ void HTMLScriptElement::didNotifySubtreeInsertionsToDocument()
     m_loader->didNotifySubtreeInsertionsToDocument();
 }
 
-void HTMLScriptElement::didMoveToNewDocument(Document& oldDocument)
-{
-    HTMLElement::didMoveToNewDocument(oldDocument);
-    m_loader->cancel(&oldDocument);
-}
-
 void HTMLScriptElement::setText(const String &value)
 {
     RefPtr<Node> protectFromMutationEvents(this);
@@ -176,9 +170,9 @@ void HTMLScriptElement::dispatchLoadEvent()
     dispatchEvent(Event::create(EventTypeNames::load));
 }
 
-PassRefPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren()
+PassRefPtrWillBeRawPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren()
 {
-    return adoptRef(new HTMLScriptElement(document(), false, m_loader->alreadyStarted()));
+    return adoptRefWillBeRefCountedGarbageCollected(new HTMLScriptElement(document(), false, m_loader->alreadyStarted()));
 }
 
 }

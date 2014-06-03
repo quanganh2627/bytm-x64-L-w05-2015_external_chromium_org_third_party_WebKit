@@ -48,9 +48,9 @@ inline ProcessingInstruction::ProcessingInstruction(Document& document, const St
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<ProcessingInstruction> ProcessingInstruction::create(Document& document, const String& target, const String& data)
+PassRefPtrWillBeRawPtr<ProcessingInstruction> ProcessingInstruction::create(Document& document, const String& target, const String& data)
 {
-    return adoptRef(new ProcessingInstruction(document, target, data));
+    return adoptRefWillBeRefCountedGarbageCollected(new ProcessingInstruction(document, target, data));
 }
 
 ProcessingInstruction::~ProcessingInstruction()
@@ -74,7 +74,7 @@ Node::NodeType ProcessingInstruction::nodeType() const
     return PROCESSING_INSTRUCTION_NODE;
 }
 
-PassRefPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
+PassRefPtrWillBeRawPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
 {
     // FIXME: Is it a problem that this does not copy m_localHref?
     // What about other data members?

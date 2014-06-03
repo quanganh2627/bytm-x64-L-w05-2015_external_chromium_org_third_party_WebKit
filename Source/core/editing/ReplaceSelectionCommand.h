@@ -47,13 +47,13 @@ public:
 
     typedef unsigned CommandOptions;
 
-    static PassRefPtr<ReplaceSelectionCommand> create(Document& document, PassRefPtr<DocumentFragment> fragment, CommandOptions options, EditAction action = EditActionPaste)
+    static PassRefPtr<ReplaceSelectionCommand> create(Document& document, PassRefPtrWillBeRawPtr<DocumentFragment> fragment, CommandOptions options, EditAction action = EditActionPaste)
     {
         return adoptRef(new ReplaceSelectionCommand(document, fragment, options, action));
     }
 
 private:
-    ReplaceSelectionCommand(Document&, PassRefPtr<DocumentFragment>, CommandOptions, EditAction);
+    ReplaceSelectionCommand(Document&, PassRefPtrWillBeRawPtr<DocumentFragment>, CommandOptions, EditAction);
 
     virtual void doApply() OVERRIDE;
     virtual EditAction editingAction() const OVERRIDE;
@@ -74,7 +74,7 @@ private:
         RefPtr<Node> m_lastNodeInserted;
     };
 
-    Node* insertAsListItems(PassRefPtr<HTMLElement> listElement, Node* insertionNode, const Position&, InsertedNodes&);
+    Node* insertAsListItems(PassRefPtrWillBeRawPtr<HTMLElement> listElement, Node* insertionNode, const Position&, InsertedNodes&);
 
     void updateNodesInserted(Node*);
     bool shouldRemoveEndBR(Node*, const VisiblePosition&);
@@ -108,7 +108,7 @@ private:
     bool m_selectReplacement;
     bool m_smartReplace;
     bool m_matchStyle;
-    RefPtr<DocumentFragment> m_documentFragment;
+    RefPtrWillBePersistent<DocumentFragment> m_documentFragment;
     bool m_preventNesting;
     bool m_movingParagraph;
     EditAction m_editAction;

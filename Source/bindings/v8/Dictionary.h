@@ -47,6 +47,8 @@ class ArrayValue;
 class DOMError;
 class DOMWindow;
 class Gamepad;
+class MediaStream;
+class HeaderMap;
 class IDBKeyRange;
 class MIDIPort;
 class MediaKeyError;
@@ -101,8 +103,8 @@ public:
     bool get(const String&, Vector<String>&) const;
     bool get(const String&, ArrayValue&) const;
     bool get(const String&, RefPtrWillBeMember<DOMError>&) const;
-    bool get(const String&, OwnPtr<VoidCallback>&) const;
     bool get(const String&, v8::Local<v8::Value>&) const;
+    bool get(const String&, RefPtr<HeaderMap>&) const;
 
     class ConversionContext {
     public:

@@ -234,7 +234,7 @@ bool V8WindowShell::initialize()
         SecurityOrigin* origin = m_world->isolatedWorldSecurityOrigin();
         setSecurityToken(origin);
         if (origin && InspectorInstrumentation::hasFrontends()) {
-            InspectorInstrumentation::didCreateIsolatedContext(m_frame, ScriptState::current(m_isolate), origin);
+            InspectorInstrumentation::didCreateIsolatedContext(m_frame, m_scriptState.get(), origin);
         }
     }
     m_frame->loader().client()->didCreateScriptContext(context, m_world->extensionGroup(), m_world->worldId());
@@ -418,7 +418,7 @@ static v8::Handle<v8::Value> getNamedProperty(HTMLDocument* htmlDocument, const 
     if (!htmlDocument->hasNamedItem(key) && !htmlDocument->hasExtraNamedItem(key))
         return v8Undefined();
 
-    RefPtr<HTMLCollection> items = htmlDocument->documentNamedItems(key);
+    RefPtrWillBeRawPtr<HTMLCollection> items = htmlDocument->documentNamedItems(key);
     if (items->isEmpty())
         return v8Undefined();
 

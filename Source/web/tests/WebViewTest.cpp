@@ -41,6 +41,8 @@
 #include "core/html/HTMLTextAreaElement.h"
 #include "core/loader/FrameLoadRequest.h"
 #include "core/page/Chrome.h"
+#include "core/rendering/RenderLayer.h"
+#include "core/rendering/RenderView.h"
 #include "platform/KeyboardCodes.h"
 #include "platform/graphics/Color.h"
 #include "public/platform/Platform.h"
@@ -223,14 +225,10 @@ TEST_F(WebViewTest, SetBaseBackgroundColor)
     EXPECT_EQ(kBlue, webView->backgroundColor());
 
     WebURL baseURL = URLTestHelpers::toKURL("http://example.com/");
-    webView->mainFrame()->loadHTMLString(
-        "<html><head><style>body {background-color:#227788}</style></head></html>", baseURL);
-    Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
+    FrameTestHelpers::loadHTMLString(webView->mainFrame(), "<html><head><style>body {background-color:#227788}</style></head></html>", baseURL);
     EXPECT_EQ(kDarkCyan, webView->backgroundColor());
 
-    webView->mainFrame()->loadHTMLString(
-        "<html><head><style>body {background-color:rgba(255,0,0,0.5)}</style></head></html>", baseURL);
-    Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
+    FrameTestHelpers::loadHTMLString(webView->mainFrame(), "<html><head><style>body {background-color:rgba(255,0,0,0.5)}</style></head></html>", baseURL);
     // Expected: red (50% alpha) blended atop base of kBlue.
     EXPECT_EQ(0xFF7F0080, webView->backgroundColor());
 
@@ -247,6 +245,8 @@ TEST_F(WebViewTest, SetBaseBackgroundColorBeforeMainFrame)
     // webView does not have a frame yet, but we should still be able to set the background color.
     webView->setBaseBackgroundColor(kBlue);
     EXPECT_EQ(kBlue, webView->backgroundColor());
+    webView->setMainFrame(WebLocalFrameImpl::create(0));
+    webView->close();
 }
 
 TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent)
@@ -256,8 +256,9 @@ TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent)
     const int kWidth = 100;
     const int kHeight = 100;
 
-    // Set WebView background to green with alpha.
     WebView* webView = m_webViewHelper.initialize();
+
+    // Set WebView background to green with alpha.
     webView->setBaseBackgroundColor(kAlphaGreen);
     webView->settings()->setShouldClearDocumentBackground(false);
     webView->resize(WebSize(kWidth, kHeight));
@@ -268,15 +269,20 @@ TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent)
     ASSERT_TRUE(bitmap.allocN32Pixels(kWidth, kHeight));
     SkCanvas canvas(bitmap);
     canvas.clear(kAlphaRed);
-    webView->paint(&canvas, WebRect(0, 0, kWidth, kHeight));
+
+    WebCore::GraphicsContext context(&canvas);
+
+    // Paint the root of the main frame in the way that CompositedLayerMapping would.
+    WebCore::FrameView* view = m_webViewHelper.webViewImpl()->mainFrameImpl()->frameView();
+    WebCore::RenderLayer* rootLayer = view->renderView()->layer();
+    WebCore::IntRect paintRect(0, 0, kWidth, kHeight);
+    WebCore::LayerPaintingInfo paintingInfo(rootLayer, paintRect, WebCore::PaintBehaviorNormal, WebCore::LayoutSize());
+    rootLayer->paintLayerContents(&context, paintingInfo, WebCore::PaintLayerPaintingCompositingAllPhases);
 
     // The result should be a blend of red and green.
     SkColor color = bitmap.getColor(kWidth / 2, kHeight / 2);
     EXPECT_TRUE(WebCore::redChannel(color));
-    // FIXME: This should be EXPECT_TRUE. This looks to only work
-    // if compositing is disabled, which is no longer a shipping configuration.
-    // crbug.com/365810
-    EXPECT_FALSE(WebCore::greenChannel(color));
+    EXPECT_TRUE(WebCore::greenChannel(color));
 }
 
 TEST_F(WebViewTest, FocusIsInactive)
@@ -743,6 +749,7 @@ TEST_F(WebViewTest, IsSelectionAnchorFirst)
     WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "input_field_populated.html");
     WebFrame* frame = webView->mainFrame();
 
+    webView->setPageScaleFactorLimits(1, 1);
     webView->setInitialFocus(false);
     frame->setEditableSelectionOffsets(4, 10);
     EXPECT_TRUE(webView->isSelectionAnchorFirst());
@@ -833,6 +840,53 @@ TEST_F(WebViewTest, EnterFullscreenResetScrollAndScaleState)
     m_webViewHelper.reset(); // Explicitly reset to break dependency on locally scoped client.
 }
 
+class PrintWebViewClient : public FrameTestHelpers::TestWebViewClient {
+public:
+    PrintWebViewClient()
+        : m_printCalled(false)
+    {
+    }
+
+    // WebViewClient methods
+    virtual void printPage(WebLocalFrame*) OVERRIDE
+    {
+        m_printCalled = true;
+    }
+
+    bool printCalled() const { return m_printCalled; }
+
+private:
+    bool m_printCalled;
+};
+
+
+TEST_F(WebViewTest, PrintWithXHRInFlight)
+{
+    PrintWebViewClient client;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("print_with_xhr_inflight.html"));
+    WebViewImpl* webViewImpl = m_webViewHelper.initializeAndLoad(m_baseURL + "print_with_xhr_inflight.html", true, 0, &client);
+
+    ASSERT_EQ(WebCore::FrameStateComplete, webViewImpl->page()->mainFrame()->loader().state());
+    EXPECT_TRUE(client.printCalled());
+    m_webViewHelper.reset();
+}
+
+class DropTask : public WebThread::Task {
+public:
+    explicit DropTask(WebView* webView) : m_webView(webView)
+    {
+    }
+
+    virtual void run() OVERRIDE
+    {
+        const WebPoint clientPoint(0, 0);
+        const WebPoint screenPoint(0, 0);
+        m_webView->dragTargetDrop(clientPoint, screenPoint, 0);
+    }
+
+private:
+    WebView* const m_webView;
+};
 static void DragAndDropURL(WebViewImpl* webView, const std::string& url)
 {
     blink::WebDragData dragData;
@@ -847,9 +901,8 @@ static void DragAndDropURL(WebViewImpl* webView, const std::string& url)
     const WebPoint clientPoint(0, 0);
     const WebPoint screenPoint(0, 0);
     webView->dragTargetDragEnter(dragData, clientPoint, screenPoint, blink::WebDragOperationCopy, 0);
-    webView->dragTargetDrop(clientPoint, screenPoint, 0);
-    FrameTestHelpers::runPendingTasks();
-    Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
+    Platform::current()->currentThread()->postTask(new DropTask(webView));
+    FrameTestHelpers::pumpPendingRequestsDoNotUse(webView->mainFrame());
 }
 
 TEST_F(WebViewTest, DragDropURL)
@@ -1097,9 +1150,7 @@ TEST_F(WebViewTest, ShowPressOnTransformedLink)
     webViewImpl->resize(WebSize(pageWidth, pageHeight));
 
     WebURL baseURL = URLTestHelpers::toKURL("http://example.com/");
-    webViewImpl->mainFrame()->loadHTMLString(
-        "<a href='http://www.test.com' style='position: absolute; left: 20px; top: 20px; width: 200px; -webkit-transform:translateZ(0);'>A link to highlight</a>", baseURL);
-    Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
+    FrameTestHelpers::loadHTMLString(webViewImpl->mainFrame(), "<a href='http://www.test.com' style='position: absolute; left: 20px; top: 20px; width: 200px; -webkit-transform:translateZ(0);'>A link to highlight</a>", baseURL);
 
     WebGestureEvent event;
     event.type = WebInputEvent::GestureShowPress;
@@ -1439,6 +1490,7 @@ TEST_F(WebViewTest, SmartClipData)
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("Ahem.ttf"));
     URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("smartclip.html"));
     WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "smartclip.html");
+    webView->setPageScaleFactorLimits(1, 1);
     webView->resize(WebSize(500, 500));
     webView->layout();
     WebRect cropRect(300, 125, 100, 50);

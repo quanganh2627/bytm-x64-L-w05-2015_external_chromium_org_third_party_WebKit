@@ -56,6 +56,14 @@ WebInspector.TimelineFrameModel._mainFrameMarkers = [
 
 WebInspector.TimelineFrameModel.prototype = {
     /**
+     * @return {!WebInspector.Target}
+     */
+    target: function()
+    {
+        return this._model.target();
+    },
+
+    /**
      * @return {!Array.<!WebInspector.TimelineFrame>}
      */
     frames: function()
@@ -134,13 +142,12 @@ WebInspector.TimelineFrameModel.prototype = {
     },
 
     /**
-     * @param {!WebInspector.TracingModel} tracingModel
+     * @param {!Array.<!WebInspector.TracingModel.Event>} events
+     * @param {string} sessionId
      */
-    addTraceEvents: function(tracingModel)
+    addTraceEvents: function(events, sessionId)
     {
-        // FIXME: we also need to process main thread events, so we can assign time spent by categories
-        // to frames. However, this requires that we can map trace event names to Timeline categories.
-        var events = tracingModel.frameLifecycleEvents();
+        this._sessionId = sessionId;
         for (var i = 0; i < events.length; ++i)
             this._addTraceEvent(events[i]);
     },
@@ -150,9 +157,22 @@ WebInspector.TimelineFrameModel.prototype = {
      */
     _addTraceEvent: function(event)
     {
-        var timestamp = event.startTime / 1000;
-        var eventNames = WebInspector.TracingModel.TraceEventName;
+        var eventNames = WebInspector.TimelineTraceEventBindings.RecordType;
 
+        if (event.name === eventNames.SetLayerTreeId) {
+            if (this._sessionId === event.args["sessionId"])
+                this._layerTreeId = event.args["layerTreeId"];
+            return;
+        }
+        if (event.phase === WebInspector.TracingModel.Phase.SnapshotObject && event.name === eventNames.LayerTreeHostImplSnapshot && parseInt(event.id, 0) === this._layerTreeId) {
+            this.handleLayerTreeSnapshot(new WebInspector.DeferredTracingLayerTree(this.target(), event.args["snapshot"]["active_tree"]["root_layer"]));
+            return;
+        }
+
+        if (event.args["layerTreeId"] !== this._layerTreeId)
+            return;
+
+        var timestamp = event.startTime / 1000;
         if (event.name === eventNames.BeginFrame)
             this.handleBeginFrame(timestamp);
         else if (event.name === eventNames.DrawFrame)
@@ -163,6 +183,9 @@ WebInspector.TimelineFrameModel.prototype = {
             this.handleRequestMainThreadFrame();
         else if (event.name === eventNames.CompositeLayers)
             this.handleCompositeLayers();
+
+        // FIXME: we also need to process main thread events, so we can assign time spent by categories
+        // to frames. However, this requires that we can map trace event names to Timeline categories.
     },
 
     /**
@@ -217,6 +240,14 @@ WebInspector.TimelineFrameModel.prototype = {
     },
 
     /**
+     * @param {!WebInspector.DeferredLayerTree} layerTree
+     */
+    handleLayerTreeSnapshot: function(layerTree)
+    {
+        this._lastLayerTree = layerTree;
+    },
+
+    /**
      * @param {!WebInspector.TimelineModel.Record} record
      */
     _addBackgroundRecord: function(record)
@@ -242,8 +273,8 @@ WebInspector.TimelineFrameModel.prototype = {
     _addMainThreadRecord: function(programRecord, record)
     {
         var recordTypes = WebInspector.TimelineModel.RecordType;
-        if (record.type() === recordTypes.UpdateLayerTree)
-            this._lastLayerTree = record.data()["layerTree"] || null;
+        if (record.type() === recordTypes.UpdateLayerTree && record.data()["layerTree"])
+            this.handleLayerTreeSnapshot(new WebInspector.DeferredAgentLayerTree(this.target(), record.data()["layerTree"]));
         if (!this._hasThreadedCompositing) {
             if (record.type() === recordTypes.BeginFrame)
                 this._startMainThreadFrame(record.startTime());
@@ -386,7 +417,7 @@ WebInspector.TimelineFrame = function(startTime, startTimeOffset)
     this.duration = 0;
     this.timeByCategory = {};
     this.cpuTime = 0;
-    /** @type {?Array.<!LayerTreeAgent.Layer>} */
+    /** @type {?WebInspector.DeferredLayerTree} */
     this.layerTree = null;
 }
 
@@ -401,7 +432,7 @@ WebInspector.TimelineFrame.prototype = {
     },
 
     /**
-     * @param {?Array.<!LayerTreeAgent.Layer>} layerTree
+     * @param {?WebInspector.DeferredLayerTree} layerTree
      */
     _setLayerTree: function(layerTree)
     {

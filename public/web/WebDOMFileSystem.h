@@ -42,6 +42,8 @@
 #endif
 
 namespace v8 {
+class Isolate;
+class Object;
 class Value;
 template <class T> class Handle;
 }
@@ -72,6 +74,8 @@ public:
     }
 
     BLINK_EXPORT static WebDOMFileSystem fromV8Value(v8::Handle<v8::Value>);
+    // Create file system URL from the given entry.
+    BLINK_EXPORT static WebURL createFileSystemURL(v8::Handle<v8::Value> entry);
 
     // FIXME: Deprecate the last argument when all filesystems become
     // serializable.
@@ -93,6 +97,11 @@ public:
     BLINK_EXPORT v8::Handle<v8::Value> createV8Entry(
         const WebString& path,
         EntryType);
+    BLINK_EXPORT v8::Handle<v8::Value> toV8Value(v8::Handle<v8::Object> creationContext, v8::Isolate*);
+    BLINK_EXPORT v8::Handle<v8::Value> createV8Entry(
+        const WebString& path,
+        EntryType,
+        v8::Handle<v8::Object> creationContext, v8::Isolate*);
 
     bool isNull() const { return m_private.isNull(); }
 

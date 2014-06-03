@@ -6,6 +6,8 @@
 #include "core/html/HTMLPictureElement.h"
 
 #include "HTMLNames.h"
+#include "core/dom/ElementTraversal.h"
+#include "core/html/HTMLImageElement.h"
 
 namespace WebCore {
 
@@ -17,9 +19,11 @@ HTMLPictureElement::HTMLPictureElement(Document& document)
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<HTMLPictureElement> HTMLPictureElement::create(Document& document)
+void HTMLPictureElement::sourceOrMediaChanged()
 {
-    return adoptRef(new HTMLPictureElement(document));
+    for (HTMLImageElement* imageElement = Traversal<HTMLImageElement>::firstChild(*this); imageElement; imageElement = Traversal<HTMLImageElement>::nextSibling(*imageElement)) {
+        imageElement->selectSourceURL(HTMLImageElement::UpdateNormal);
+    }
 }
 
 } // namespace

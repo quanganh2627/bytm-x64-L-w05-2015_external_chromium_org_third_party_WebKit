@@ -95,10 +95,10 @@ void SVGDocumentExtensions::serviceOnAnimationFrame(Document& document, double m
 
 void SVGDocumentExtensions::serviceAnimations(double monotonicAnimationStartTime)
 {
-    Vector<RefPtr<SVGSVGElement> > timeContainers;
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> > timeContainers;
     timeContainers.appendRange(m_timeContainers.begin(), m_timeContainers.end());
-    Vector<RefPtr<SVGSVGElement> >::iterator end = timeContainers.end();
-    for (Vector<RefPtr<SVGSVGElement> >::iterator itr = timeContainers.begin(); itr != end; ++itr)
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator end = timeContainers.end();
+    for (WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator itr = timeContainers.begin(); itr != end; ++itr)
         (*itr)->timeContainer()->serviceAnimations(monotonicAnimationStartTime);
 }
 
@@ -108,28 +108,31 @@ void SVGDocumentExtensions::startAnimations()
     // starting animations for a document will do this "latching"
     // FIXME: We hold a ref pointers to prevent a shadow tree from getting removed out from underneath us.
     // In the future we should refactor the use-element to avoid this. See https://webkit.org/b/53704
-    Vector<RefPtr<SVGSVGElement> > timeContainers;
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> > timeContainers;
     timeContainers.appendRange(m_timeContainers.begin(), m_timeContainers.end());
-    Vector<RefPtr<SVGSVGElement> >::iterator end = timeContainers.end();
-    for (Vector<RefPtr<SVGSVGElement> >::iterator itr = timeContainers.begin(); itr != end; ++itr)
-        (*itr)->timeContainer()->begin();
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator end = timeContainers.end();
+    for (WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator itr = timeContainers.begin(); itr != end; ++itr) {
+        SMILTimeContainer* timeContainer = (*itr)->timeContainer();
+        if (!timeContainer->isStarted())
+            timeContainer->begin();
+    }
 }
 
 void SVGDocumentExtensions::pauseAnimations()
 {
-    HashSet<SVGSVGElement*>::iterator end = m_timeContainers.end();
-    for (HashSet<SVGSVGElement*>::iterator itr = m_timeContainers.begin(); itr != end; ++itr)
+    WillBeHeapHashSet<RawPtrWillBeMember<SVGSVGElement> >::iterator end = m_timeContainers.end();
+    for (WillBeHeapHashSet<RawPtrWillBeMember<SVGSVGElement> >::iterator itr = m_timeContainers.begin(); itr != end; ++itr)
         (*itr)->pauseAnimations();
 }
 
 void SVGDocumentExtensions::dispatchSVGLoadEventToOutermostSVGElements()
 {
-    Vector<RefPtr<SVGSVGElement> > timeContainers;
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> > timeContainers;
     timeContainers.appendRange(m_timeContainers.begin(), m_timeContainers.end());
 
-    Vector<RefPtr<SVGSVGElement> >::iterator end = timeContainers.end();
-    for (Vector<RefPtr<SVGSVGElement> >::iterator it = timeContainers.begin(); it != end; ++it) {
-        SVGSVGElement* outerSVG = (*it).get();
+    WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator end = timeContainers.end();
+    for (WillBeHeapVector<RefPtrWillBeMember<SVGSVGElement> >::iterator it = timeContainers.begin(); it != end; ++it) {
+        SVGSVGElement* outerSVG = it->get();
         if (!outerSVG->isOutermostSVGSVGElement())
             continue;
 
@@ -425,7 +428,7 @@ void SVGDocumentExtensions::unregisterSVGFontFaceElement(SVGFontFaceElement* ele
     m_svgFontFaceElements.remove(element);
 }
 
-void SVGDocumentExtensions::registerPendingSVGFontFaceElementsForRemoval(PassRefPtr<SVGFontFaceElement> font)
+void SVGDocumentExtensions::registerPendingSVGFontFaceElementsForRemoval(PassRefPtrWillBeRawPtr<SVGFontFaceElement> font)
 {
     m_pendingSVGFontFaceElementsForRemoval.add(font);
 }
@@ -473,6 +476,13 @@ SVGSVGElement* SVGDocumentExtensions::rootElement() const
 {
     ASSERT(m_document);
     return rootElement(*m_document);
+}
+
+void SVGDocumentExtensions::trace(Visitor* visitor)
+{
+    visitor->trace(m_timeContainers);
+    visitor->trace(m_svgFontFaceElements);
+    visitor->trace(m_pendingSVGFontFaceElementsForRemoval);
 }
 
 }

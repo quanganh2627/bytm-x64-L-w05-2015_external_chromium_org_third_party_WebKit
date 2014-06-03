@@ -196,6 +196,11 @@ InspectorFrontendHostAPI.prototype.getSelectionForegroundColor = function() {}
 /** @return {boolean} */
 InspectorFrontendHost.isUnderTest = function() {}
 /**
+ * Requests inspected page to be placed atop of the inspector frontend with specified bounds.
+ * @param {{x: number, y: number, width: number, height: number}} bounds
+ */
+InspectorFrontendHostAPI.prototype.setInspectedPageBounds = function(bounds) {}
+/**
  * Requests inspected page to be placed atop of the inspector frontend
  * with passed insets from the frontend sides, respecting minimum size passed.
  * @param {{top: number, left: number, right: number, bottom: number}} insets
@@ -234,10 +239,10 @@ InspectorFrontendHostAPI.prototype.recordPanelShown = function(panelCode) {}
 InspectorFrontendHostAPI.prototype.sendMessageToBackend = function(message) {}
 InspectorFrontendHostAPI.prototype.sendMessageToEmbedder = function(message) {}
 InspectorFrontendHostAPI.prototype.setInjectedScriptForOrigin = function(origin, script) {}
-InspectorFrontendHostAPI.prototype.setIsDocked = function(isDocked) {}
+InspectorFrontendHostAPI.prototype.setIsDocked = function(isDocked, callback) {}
 InspectorFrontendHostAPI.prototype.setZoomFactor = function(zoom) {}
-InspectorFrontendHostAPI.prototype.startRemoteDevicesListener = function() {}
-InspectorFrontendHostAPI.prototype.stopRemoteDevicesListener = function() {}
+InspectorFrontendHostAPI.prototype.subscribe = function(eventType) {}
+InspectorFrontendHostAPI.prototype.unsubscribe = function(eventType) {}
 InspectorFrontendHostAPI.prototype.zoomFactor = function() {}
 InspectorFrontendHostAPI.prototype.zoomIn = function() {}
 InspectorFrontendHostAPI.prototype.zoomOut = function() {}
@@ -250,7 +255,8 @@ InspectorFrontendHost.embedderMessageAck = function(id, error) {}
 var FormatterWorker = {}
 var WebInspector = {}
 
-WebInspector.devicesModel = {};
+WebInspector.panels = {};
+WebInspector.inspectorFrontendEventSink = {};
 
 WebInspector.reload = function() { }
 

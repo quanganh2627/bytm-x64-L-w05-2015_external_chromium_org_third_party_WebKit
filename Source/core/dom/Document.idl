@@ -63,7 +63,9 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
 
     // DOM Level 2 Events (DocumentEvents interface)
 
-    [RaisesException] Event createEvent(DOMString eventType);
+    // Customize createEvent so it can call createEventModules in modules.
+    // FIXME: Use method registration approach instead. http://crbug.com/358074
+    [Custom, RaisesException] Event createEvent(DOMString eventType);
 
     // DOM Level 2 Traversal and Range (DocumentRange interface)
 
@@ -135,7 +137,7 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
 
     // IE extensions
     [MeasureAs=DocumentCharset, TreatReturnedNullStringAs=Undefined, TreatNullAs=NullString] attribute DOMString charset;
-    [MeasureAs=DocumentCharset, TreatReturnedNullStringAs=Undefined] readonly attribute DOMString defaultCharset;
+    [MeasureAs=DocumentDefaultCharset, TreatReturnedNullStringAs=Undefined] readonly attribute DOMString defaultCharset;
     [TreatReturnedNullStringAs=Undefined] readonly attribute DOMString readyState;
 
     Element            elementFromPoint([Default=Undefined] optional long x,
@@ -162,8 +164,10 @@ typedef (CanvasRenderingContext2D or WebGLRenderingContext) RenderingContext;
 
     readonly attribute DOMString compatMode;
 
-    [MeasureAs=PrefixedDocumentExitPointerLock] void webkitExitPointerLock();
-    [MeasureAs=PrefixedDocumentPointerLockElement] readonly attribute Element webkitPointerLockElement;
+    [MeasureAs=DocumentExitPointerLock] void exitPointerLock();
+    [MeasureAs=DocumentPointerLockElement] readonly attribute Element pointerLockElement;
+    [MeasureAs=PrefixedDocumentExitPointerLock, ImplementedAs=exitPointerLock] void webkitExitPointerLock();
+    [MeasureAs=PrefixedDocumentPointerLockElement, ImplementedAs=pointerLockElement] readonly attribute Element webkitPointerLockElement;
 
     // Event handler attributes
     attribute EventHandler onbeforecopy;

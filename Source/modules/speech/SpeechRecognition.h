@@ -28,7 +28,7 @@
 
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ActiveDOMObject.h"
-#include "core/events/EventTarget.h"
+#include "modules/EventTargetModules.h"
 #include "modules/speech/SpeechGrammarList.h"
 #include "modules/speech/SpeechRecognitionResult.h"
 #include "platform/heap/Handle.h"
@@ -45,7 +45,8 @@ class SpeechRecognitionController;
 class SpeechRecognitionError;
 
 class SpeechRecognition FINAL : public RefCountedWillBeRefCountedGarbageCollected<SpeechRecognition>, public ScriptWrappable, public ActiveDOMObject, public EventTargetWithInlineData {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<SpeechRecognition>);
+    REFCOUNTED_EVENT_TARGET(SpeechRecognition);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(SpeechRecognition);
 public:
     static PassRefPtrWillBeRawPtr<SpeechRecognition> create(ExecutionContext*);
     virtual ~SpeechRecognition();
@@ -100,7 +101,7 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(start);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(end);
 
-    void trace(Visitor*);
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     friend class RefCounted<SpeechRecognition>;

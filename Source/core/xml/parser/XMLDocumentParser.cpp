@@ -324,7 +324,7 @@ void XMLDocumentParser::clearCurrentNodeStack()
 {
     if (m_currentNode && m_currentNode != document())
         m_currentNode->deref();
-    m_currentNode = 0;
+    m_currentNode = nullptr;
     m_leafTextNode = nullptr;
 
     if (m_currentNodeStack.size()) { // Aborted parsing.
@@ -357,7 +357,7 @@ void XMLDocumentParser::append(PassRefPtr<StringImpl> inputSource)
 
     // JavaScript can detach the parser. Make sure this is not released
     // before the end of this method.
-    RefPtr<XMLDocumentParser> protect(this);
+    RefPtrWillBeRawPtr<XMLDocumentParser> protect(this);
 
     doWrite(source.toString());
 }
@@ -419,7 +419,7 @@ void XMLDocumentParser::end()
         insertErrorMessageBlock();
     else {
         exitText();
-        document()->styleResolverChanged(RecalcStyleImmediately);
+        document()->styleResolverChanged();
     }
 
     if (isParsing())
@@ -457,14 +457,14 @@ void XMLDocumentParser::notifyFinished(Resource* unusedResource)
     m_pendingScript->removeClient(this);
     m_pendingScript = 0;
 
-    RefPtr<Element> e = m_scriptElement;
+    RefPtrWillBeRawPtr<Element> e = m_scriptElement;
     m_scriptElement = nullptr;
 
     ScriptLoader* scriptLoader = toScriptLoaderIfPossible(e.get());
     ASSERT(scriptLoader);
 
     // JavaScript can detach this parser, make sure it's kept alive even if detached.
-    RefPtr<XMLDocumentParser> protect(this);
+    RefPtrWillBeRawPtr<XMLDocumentParser> protect(this);
 
     if (errorOccurred)
         scriptLoader->dispatchErrorEvent();
@@ -505,7 +505,7 @@ bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragm
         return true;
     }
 
-    RefPtr<XMLDocumentParser> parser = XMLDocumentParser::create(fragment, contextElement, parserContentPolicy);
+    RefPtrWillBeRawPtr<XMLDocumentParser> parser = XMLDocumentParser::create(fragment, contextElement, parserContentPolicy);
     bool wellFormed = parser->appendFragmentSource(chunk);
     // Do not call finish().  Current finish() and doEnd() implementations touch the main Document/loader
     // and can cause crashes in the fragment case.
@@ -739,11 +739,11 @@ bool XMLDocumentParser::supportsXMLVersion(const String& version)
     return version == "1.0";
 }
 
-XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
+XMLDocumentParser::XMLDocumentParser(Document& document, FrameView* frameView)
     : ScriptableDocumentParser(document)
-    , m_view(frameView)
+    , m_hasView(frameView)
     , m_context(nullptr)
-    , m_currentNode(document)
+    , m_currentNode(&document)
     , m_isCurrentlyParsing8BitChunk(false)
     , m_sawError(false)
     , m_sawCSS(false)
@@ -753,19 +753,19 @@ XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
     , m_parserPaused(false)
     , m_requestingScript(false)
     , m_finishCalled(false)
-    , m_xmlErrors(document)
+    , m_xmlErrors(&document)
     , m_pendingScript(0)
     , m_scriptStartPosition(TextPosition::belowRangePosition())
     , m_parsingFragment(false)
 {
     // This is XML being used as a document resource.
-    if (frameView && document->isXMLDocument())
-        UseCounter::count(*document, UseCounter::XMLDocument);
+    if (frameView && document.isXMLDocument())
+        UseCounter::count(document, UseCounter::XMLDocument);
 }
 
 XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parentElement, ParserContentPolicy parserContentPolicy)
-    : ScriptableDocumentParser(&fragment->document(), parserContentPolicy)
-    , m_view(0)
+    : ScriptableDocumentParser(fragment->document(), parserContentPolicy)
+    , m_hasView(false)
     , m_context(nullptr)
     , m_currentNode(fragment)
     , m_isCurrentlyParsing8BitChunk(false)
@@ -826,13 +826,27 @@ XMLParserContext::~XMLParserContext()
 
 XMLDocumentParser::~XMLDocumentParser()
 {
+#if !ENABLE(OILPAN)
     // The XMLDocumentParser will always be detached before being destroyed.
     ASSERT(m_currentNodeStack.isEmpty());
     ASSERT(!m_currentNode);
+#endif
 
     // FIXME: m_pendingScript handling should be moved into XMLDocumentParser.cpp!
     if (m_pendingScript)
         m_pendingScript->removeClient(this);
+}
+
+void XMLDocumentParser::trace(Visitor* visitor)
+{
+    visitor->trace(m_currentNode);
+#if ENABLE(OILPAN)
+    visitor->trace(m_currentNodeStack);
+#endif
+    visitor->trace(m_leafTextNode);
+    visitor->trace(m_xmlErrors);
+    visitor->trace(m_scriptElement);
+    ScriptableDocumentParser::trace(visitor);
 }
 
 void XMLDocumentParser::doWrite(const String& parseString)
@@ -848,7 +862,7 @@ void XMLDocumentParser::doWrite(const String& parseString)
     if (parseString.length()) {
         // JavaScript may cause the parser to detach during parseChunk
         // keep this alive until this function is done.
-        RefPtr<XMLDocumentParser> protect(this);
+        RefPtrWillBeRawPtr<XMLDocumentParser> protect(this);
 
         XMLDocumentParserScope scope(document()->fetcher());
         TemporaryChange<bool> encodingScope(m_isCurrentlyParsing8BitChunk, parseString.is8Bit());
@@ -944,7 +958,7 @@ void XMLDocumentParser::startElementNs(const AtomicString& localName, const Atom
     m_sawFirstElement = true;
 
     QualifiedName qName(prefix, localName, adjustedURI);
-    RefPtr<Element> newElement = m_currentNode->document().createElement(qName, true);
+    RefPtrWillBeRawPtr<Element> newElement = m_currentNode->document().createElement(qName, true);
     if (!newElement) {
         stopParsing();
         return;
@@ -998,11 +1012,11 @@ void XMLDocumentParser::endElementNs()
 
     // JavaScript can detach the parser.  Make sure this is not released
     // before the end of this method.
-    RefPtr<XMLDocumentParser> protect(this);
+    RefPtrWillBeRawPtr<XMLDocumentParser> protect(this);
 
     exitText();
 
-    RefPtr<ContainerNode> n = m_currentNode;
+    RefPtrWillBeRawPtr<ContainerNode> n = m_currentNode;
     if (m_currentNode->isElementNode())
         toElement(n.get())->finishParsingChildren();
 
@@ -1012,7 +1026,7 @@ void XMLDocumentParser::endElementNs()
         return;
     }
 
-    if (!n->isElementNode() || !m_view) {
+    if (!n->isElementNode() || !m_hasView) {
         popCurrentNode();
         return;
     }
@@ -1036,15 +1050,14 @@ void XMLDocumentParser::endElementNs()
     ASSERT(!m_pendingScript);
     m_requestingScript = true;
 
-    ScriptPrep prep = scriptLoader->prepareScript(m_scriptStartPosition, ScriptLoader::AllowLegacyTypeInTypeAttribute);
-    if (prep.succeeded()) {
+    if (scriptLoader->prepareScript(m_scriptStartPosition, ScriptLoader::AllowLegacyTypeInTypeAttribute)) {
         // FIXME: Script execution should be shared between
         // the libxml2 and Qt XMLDocumentParser implementations.
 
         if (scriptLoader->readyToBeParserExecuted()) {
             scriptLoader->executeScript(ScriptSourceCode(scriptLoader->scriptContent(), document()->url(), m_scriptStartPosition));
         } else if (scriptLoader->willBeParserExecuted()) {
-            m_pendingScript = prep.resource();
+            m_pendingScript = scriptLoader->resource();
             m_scriptElement = element;
             m_pendingScript->addClient(this);
 
@@ -1108,7 +1121,7 @@ void XMLDocumentParser::processingInstruction(const String& target, const String
 
     // ### handle exceptions
     TrackExceptionState exceptionState;
-    RefPtr<ProcessingInstruction> pi = m_currentNode->document().createProcessingInstruction(target, data, exceptionState);
+    RefPtrWillBeRawPtr<ProcessingInstruction> pi = m_currentNode->document().createProcessingInstruction(target, data, exceptionState);
     if (exceptionState.hadException())
         return;
 
@@ -1147,8 +1160,7 @@ void XMLDocumentParser::cdataBlock(const String& text)
 
     exitText();
 
-    RefPtr<CDATASection> newNode = CDATASection::create(m_currentNode->document(), text);
-    m_currentNode->parserAppendChild(newNode.get());
+    m_currentNode->parserAppendChild(CDATASection::create(m_currentNode->document(), text));
 }
 
 void XMLDocumentParser::comment(const String& text)
@@ -1163,8 +1175,7 @@ void XMLDocumentParser::comment(const String& text)
 
     exitText();
 
-    RefPtr<Comment> newNode = Comment::create(m_currentNode->document(), text);
-    m_currentNode->parserAppendChild(newNode.get());
+    m_currentNode->parserAppendChild(Comment::create(m_currentNode->document(), text));
 }
 
 enum StandaloneInfo {
@@ -1446,7 +1457,7 @@ void XMLDocumentParser::doEnd()
         document()->setTransformSource(adoptPtr(new TransformSource(doc)));
 
         document()->setParsing(false); // Make the document think it's done, so it will apply XSL stylesheets.
-        document()->styleResolverChanged(RecalcStyleImmediately);
+        document()->styleResolverChanged();
 
         // styleResolverChanged() call can detach the parser and null out its document.
         // In that case, we just bail out.

@@ -62,7 +62,7 @@
 
 namespace WebCore {
 
-inline SVGSVGElement::SVGSVGElement(Document& doc)
+SVGSVGElement::SVGSVGElement(Document& doc)
     : SVGGraphicsElement(SVGNames::svgTag, doc)
     , SVGFitToViewBox(this)
     , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
@@ -86,17 +86,12 @@ inline SVGSVGElement::SVGSVGElement(Document& doc)
     UseCounter::count(doc, UseCounter::SVGSVGElement);
 }
 
-PassRefPtr<SVGSVGElement> SVGSVGElement::create(Document& document)
-{
-    return adoptRef(new SVGSVGElement(document));
-}
-
 SVGSVGElement::~SVGSVGElement()
 {
+#if !ENABLE(OILPAN)
     if (m_viewSpec)
         m_viewSpec->detachContextElement();
 
-#if !ENABLE(OILPAN)
     // There are cases where removedFromDocument() is not called.
     // see ContainerNode::removeAllChildren, called by its destructor.
     // With Oilpan, either removedFrom is called or the document
@@ -212,7 +207,7 @@ void SVGSVGElement::setCurrentTranslate(const FloatPoint& point)
 void SVGSVGElement::updateCurrentTranslate()
 {
     if (RenderObject* object = renderer())
-        object->setNeedsLayout();
+        object->setNeedsLayoutAndFullRepaint();
 }
 
 void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -379,7 +374,7 @@ bool SVGSVGElement::checkIntersectionOrEnclosure(const SVGElement& element, cons
     return result;
 }
 
-PassRefPtr<NodeList> SVGSVGElement::collectIntersectionOrEnclosureList(const FloatRect& rect,
+PassRefPtrWillBeRawPtr<NodeList> SVGSVGElement::collectIntersectionOrEnclosureList(const FloatRect& rect,
     SVGElement* referenceElement, CheckIntersectionOrEnclosure mode) const
 {
     Vector<RefPtr<Node> > nodes;
@@ -404,14 +399,14 @@ PassRefPtr<NodeList> SVGSVGElement::collectIntersectionOrEnclosureList(const Flo
     return StaticNodeList::adopt(nodes);
 }
 
-PassRefPtr<NodeList> SVGSVGElement::getIntersectionList(PassRefPtr<SVGRectTearOff> rect, SVGElement* referenceElement) const
+PassRefPtrWillBeRawPtr<NodeList> SVGSVGElement::getIntersectionList(PassRefPtr<SVGRectTearOff> rect, SVGElement* referenceElement) const
 {
     document().updateLayoutIgnorePendingStylesheets();
 
     return collectIntersectionOrEnclosureList(rect->target()->value(), referenceElement, CheckIntersection);
 }
 
-PassRefPtr<NodeList> SVGSVGElement::getEnclosureList(PassRefPtr<SVGRectTearOff> rect, SVGElement* referenceElement) const
+PassRefPtrWillBeRawPtr<NodeList> SVGSVGElement::getEnclosureList(PassRefPtr<SVGRectTearOff> rect, SVGElement* referenceElement) const
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -782,6 +777,13 @@ void SVGSVGElement::finishParsingChildren()
     // finishParsingChildren() is called when the close tag is reached for an element (e.g. </svg>)
     // we send SVGLoad events here if we can, otherwise they'll be sent when any required loads finish
     sendSVGLoadEventIfPossible();
+}
+
+void SVGSVGElement::trace(Visitor* visitor)
+{
+    visitor->trace(m_timeContainer);
+    visitor->trace(m_viewSpec);
+    SVGGraphicsElement::trace(visitor);
 }
 
 }

@@ -338,12 +338,17 @@
                 "parameters": [
                     { "name": "width", "type": "integer", "description": "Overriding width value in pixels (minimum 0, maximum 10000000). 0 disables the override." },
                     { "name": "height", "type": "integer", "description": "Overriding height value in pixels (minimum 0, maximum 10000000). 0 disables the override." },
-                    { "name": "deviceScaleFactor", "type": "number", "description": "Overriding device scale factor value (must be positive)." },
+                    { "name": "deviceScaleFactor", "type": "number", "description": "Overriding device scale factor value. 0 disables the override." },
                     { "name": "emulateViewport", "type": "boolean", "description": "Whether viewport meta tag should be respected." },
                     { "name": "fitWindow", "type": "boolean", "description": "Whether a view that exceeds the available browser window area should be scaled down to fit." },
                     { "name": "textAutosizing", "type": "boolean", "optional": true, "description": "Whether to override the text autosizing feature." },
                     { "name": "fontScaleFactor", "type": "number", "optional": true, "description": "Overriding system font scale factor (must be positive)." }
                 ],
+                "hidden": true
+            },
+            {
+                "name": "clearDeviceMetricsOverride",
+                "description": "Clears the overriden device metrics.",
                 "hidden": true
             },
             {
@@ -656,7 +661,7 @@
                 "type": "object",
                 "description": "Mirror object referencing original JavaScript object.",
                 "properties": [
-                    { "name": "type", "type": "string", "enum": ["object", "function", "undefined", "string", "number", "boolean"], "description": "Object type." },
+                    { "name": "type", "type": "string", "enum": ["object", "function", "undefined", "string", "number", "boolean", "symbol"], "description": "Object type." },
                     { "name": "subtype", "type": "string", "optional": true, "enum": ["array", "null", "node", "regexp", "date"], "description": "Object subtype hint. Specified for <code>object</code> type values only." },
                     { "name": "className", "type": "string", "optional": true, "description": "Object class (constructor) name. Specified for <code>object</code> type values only." },
                     { "name": "value", "type": "any", "optional": true, "description": "Remote object value in case of primitive values or JSON values (if it was requested), or description string if the value can not be JSON-stringified (like NaN, Infinity, -Infinity, -0)." },
@@ -817,6 +822,13 @@
                 "name": "disable",
                 "hidden": true,
                 "description": "Disables reporting of execution contexts creation."
+            },
+            {
+                "name": "isRunRequired",
+                "returns": [
+                    { "name": "result", "type": "boolean", "description": "True if the Runtime is in paused on start state." }
+                ],
+                "hidden": true
             }
         ],
         "events": [

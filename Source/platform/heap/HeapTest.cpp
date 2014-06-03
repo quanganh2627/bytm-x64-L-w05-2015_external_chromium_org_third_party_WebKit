@@ -3122,7 +3122,7 @@ TEST(HeapTest, RefCountedGarbageCollected)
             // them is kept alive by a persistent handle.
             Heap::collectGarbage(ThreadState::NoHeapPointersOnStack);
             EXPECT_EQ(1, RefCountedAndGarbageCollected::s_destructorCalls);
-            refPtr3 = persistent;
+            refPtr3 = persistent.get();
         }
         // The persistent handle is gone but the ref count has been
         // increased to 1.
@@ -3961,6 +3961,21 @@ volatile bool GCParkingThreadTester::s_sleeperDone = false;
 TEST(HeapTest, GCParkingTimeout)
 {
     GCParkingThreadTester::test();
+}
+
+TEST(HeapTest, NeedsAdjustAndMark)
+{
+    // class Mixin : public GarbageCollectedMixin {};
+    EXPECT_TRUE(NeedsAdjustAndMark<Mixin>::value);
+    EXPECT_TRUE(NeedsAdjustAndMark<const Mixin>::value);
+
+    // class SimpleObject : public GarbageCollected<SimpleObject> {};
+    EXPECT_FALSE(NeedsAdjustAndMark<SimpleObject>::value);
+    EXPECT_FALSE(NeedsAdjustAndMark<const SimpleObject>::value);
+
+    // class UseMixin : public SimpleObject, public Mixin {};
+    EXPECT_FALSE(NeedsAdjustAndMark<UseMixin>::value);
+    EXPECT_FALSE(NeedsAdjustAndMark<const UseMixin>::value);
 }
 
 } // WebCore namespace

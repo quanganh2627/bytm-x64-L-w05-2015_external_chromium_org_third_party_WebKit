@@ -80,17 +80,11 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
         }
     };
 
-    template <bool needsInitialization, bool canInitializeWithMemset, typename T>
+    template <bool canInitializeWithMemset, typename T>
     struct VectorInitializer;
 
-    template<bool ignore, typename T>
-    struct VectorInitializer<false, ignore, T>
-    {
-        static void initialize(T*, T*) {}
-    };
-
     template<typename T>
-    struct VectorInitializer<true, false, T>
+    struct VectorInitializer<false, T>
     {
         static void initialize(T* begin, T* end)
         {
@@ -100,7 +94,7 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
     };
 
     template<typename T>
-    struct VectorInitializer<true, true, T>
+    struct VectorInitializer<true, T>
     {
         static void initialize(T* begin, T* end)
         {
@@ -250,7 +244,7 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
 
         static void initialize(T* begin, T* end)
         {
-            VectorInitializer<VectorTraits<T>::needsInitialization, VectorTraits<T>::canInitializeWithMemset, T>::initialize(begin, end);
+            VectorInitializer<VectorTraits<T>::canInitializeWithMemset, T>::initialize(begin, end);
         }
 
         static void move(const T* src, const T* srcEnd, T* dst)
@@ -565,6 +559,7 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
             // that the class does not expect matching constructor and
             // destructor calls as long as the memory is zeroed.
             COMPILE_ASSERT(!Allocator::isGarbageCollected || !VectorTraits<T>::needsDestruction || VectorTraits<T>::canInitializeWithMemset, ClassHasProblemsWithFinalizersCalledOnClearedMemory);
+            COMPILE_ASSERT(!WTF::IsPolymorphic<T>::value || !VectorTraits<T>::canInitializeWithMemset, CantInitializeWithMemsetIfThereIsAVtable);
             m_size = 0;
         }
 

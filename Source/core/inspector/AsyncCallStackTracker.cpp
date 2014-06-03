@@ -35,7 +35,6 @@
 #include "core/dom/ContextLifecycleObserver.h"
 #include "core/dom/ExecutionContext.h"
 #include "core/events/EventTarget.h"
-#include "core/events/RegisteredEventListener.h"
 #include "core/xml/XMLHttpRequest.h"
 #include "core/xml/XMLHttpRequestUpload.h"
 #include "wtf/text/AtomicStringHash.h"
@@ -48,8 +47,6 @@ static const char setIntervalName[] = "setInterval";
 static const char requestAnimationFrameName[] = "requestAnimationFrame";
 static const char xhrSendName[] = "XMLHttpRequest.send";
 static const char enqueueMutationRecordName[] = "Mutation";
-static const char promiseResolved[] = "Promise.resolve";
-static const char promiseRejected[] = "Promise.reject";
 
 }
 
@@ -58,10 +55,6 @@ namespace WebCore {
 class AsyncCallStackTracker::ExecutionContextData FINAL : public ContextLifecycleObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    typedef std::pair<RegisteredEventListener, RefPtr<AsyncCallChain> > EventListenerAsyncCallChain;
-    typedef Vector<EventListenerAsyncCallChain, 1> EventListenerAsyncCallChainVector;
-    typedef HashMap<AtomicString, EventListenerAsyncCallChainVector> EventListenerAsyncCallChainVectorHashMap;
-
     ExecutionContextData(AsyncCallStackTracker* tracker, ExecutionContext* executionContext)
         : ContextLifecycleObserver(executionContext)
         , m_tracker(tracker)
@@ -77,63 +70,13 @@ public:
         delete self;
     }
 
-    void addEventListenerData(EventTarget* eventTarget, const AtomicString& eventType, const EventListenerAsyncCallChain& item)
-    {
-        HashMap<EventTarget*, EventListenerAsyncCallChainVectorHashMap>::iterator it = m_eventTargetCallChains.find(eventTarget);
-        EventListenerAsyncCallChainVectorHashMap* mapPtr;
-        if (it == m_eventTargetCallChains.end())
-            mapPtr = &m_eventTargetCallChains.set(eventTarget, EventListenerAsyncCallChainVectorHashMap()).storedValue->value;
-        else
-            mapPtr = &it->value;
-        EventListenerAsyncCallChainVectorHashMap& map = *mapPtr;
-        EventListenerAsyncCallChainVectorHashMap::iterator it2 = map.find(eventType);
-        if (it2 == map.end())
-            map.set(eventType, EventListenerAsyncCallChainVector()).storedValue->value.append(item);
-        else
-            it2->value.append(item);
-    }
-
-    void removeEventListenerData(EventTarget* eventTarget, const AtomicString& eventType, const RegisteredEventListener& item)
-    {
-        findEventListenerData(eventTarget, eventType, item, true);
-    }
-
-    PassRefPtr<AsyncCallChain> findEventListenerData(EventTarget* eventTarget, const AtomicString& eventType, const RegisteredEventListener& item, bool remove = false)
-    {
-        HashMap<EventTarget*, EventListenerAsyncCallChainVectorHashMap>::iterator it = m_eventTargetCallChains.find(eventTarget);
-        if (it == m_eventTargetCallChains.end())
-            return nullptr;
-        EventListenerAsyncCallChainVectorHashMap& map = it->value;
-        EventListenerAsyncCallChainVectorHashMap::iterator it2 = map.find(eventType);
-        if (it2 == map.end())
-            return nullptr;
-        RefPtr<AsyncCallChain> result;
-        EventListenerAsyncCallChainVector& vector = it2->value;
-        for (size_t i = 0; i < vector.size(); ++i) {
-            if (vector[i].first == item) {
-                result = vector[i].second;
-                if (remove) {
-                    vector.remove(i);
-                    if (vector.isEmpty())
-                        map.remove(it2);
-                    if (map.isEmpty())
-                        m_eventTargetCallChains.remove(it);
-                }
-                break;
-            }
-        }
-        return result.release();
-    }
-
 public:
     AsyncCallStackTracker* m_tracker;
     HashSet<int> m_intervalTimerIds;
     HashMap<int, RefPtr<AsyncCallChain> > m_timerCallChains;
     HashMap<int, RefPtr<AsyncCallChain> > m_animationFrameCallChains;
-    HashMap<EventTarget*, EventListenerAsyncCallChainVectorHashMap> m_eventTargetCallChains;
     HashMap<EventTarget*, RefPtr<AsyncCallChain> > m_xhrCallChains;
     HashMap<MutationObserver*, RefPtr<AsyncCallChain> > m_mutationObserverCallChains;
-    HashMap<ExecutionContextTask*, RefPtr<AsyncCallChain> > m_promiseTaskCallChains;
 };
 
 static XMLHttpRequest* toXmlHttpRequest(EventTarget* eventTarget)
@@ -253,56 +196,12 @@ void AsyncCallStackTracker::willFireAnimationFrame(ExecutionContext* context, in
         setCurrentAsyncCallChain(nullptr);
 }
 
-void AsyncCallStackTracker::didAddEventListener(EventTarget* eventTarget, const AtomicString& eventType, EventListener* listener, bool useCapture, const ScriptValue& callFrames)
-{
-    ASSERT(eventTarget->executionContext());
-    ASSERT(isEnabled());
-    if (!validateCallFrames(callFrames) || toXmlHttpRequest(eventTarget))
-        return;
-
-    StringBuilder description;
-    description.append(eventTarget->interfaceName());
-    if (!description.isEmpty())
-        description.append(".");
-    if (listener->isAttribute()) {
-        description.append("on");
-        description.append(eventType);
-    } else {
-        description.append("addEventListener(\"");
-        description.append(eventType);
-        description.append("\")");
-    }
-
-    ExecutionContextData* data = createContextDataIfNeeded(eventTarget->executionContext());
-    data->addEventListenerData(eventTarget, eventType, std::make_pair(RegisteredEventListener(listener, useCapture), createAsyncCallChain(description.toString(), callFrames)));
-}
-
-void AsyncCallStackTracker::didRemoveEventListener(EventTarget* eventTarget, const AtomicString& eventType, EventListener* listener, bool useCapture)
-{
-    ASSERT(eventTarget->executionContext());
-    ASSERT(isEnabled());
-    if (ExecutionContextData* data = m_executionContextDataMap.get(eventTarget->executionContext()))
-        data->removeEventListenerData(eventTarget, eventType, RegisteredEventListener(listener, useCapture));
-}
-
-void AsyncCallStackTracker::didRemoveAllEventListeners(EventTarget* eventTarget)
-{
-    ASSERT(eventTarget->executionContext());
-    ASSERT(isEnabled());
-    if (ExecutionContextData* data = m_executionContextDataMap.get(eventTarget->executionContext()))
-        data->m_eventTargetCallChains.remove(eventTarget);
-}
-
 void AsyncCallStackTracker::willHandleEvent(EventTarget* eventTarget, const AtomicString& eventType, EventListener* listener, bool useCapture)
 {
     ASSERT(eventTarget->executionContext());
     ASSERT(isEnabled());
-    if (XMLHttpRequest* xhr = toXmlHttpRequest(eventTarget)) {
+    if (XMLHttpRequest* xhr = toXmlHttpRequest(eventTarget))
         willHandleXHREvent(xhr, eventTarget, eventType);
-        return;
-    }
-    if (ExecutionContextData* data = m_executionContextDataMap.get(eventTarget->executionContext()))
-        setCurrentAsyncCallChain(data->findEventListenerData(eventTarget, eventType, RegisteredEventListener(listener, useCapture)));
     else
         setCurrentAsyncCallChain(nullptr);
 }
@@ -365,30 +264,6 @@ void AsyncCallStackTracker::willDeliverMutationRecords(ExecutionContext* context
     ASSERT(isEnabled());
     if (ExecutionContextData* data = m_executionContextDataMap.get(context))
         setCurrentAsyncCallChain(data->m_mutationObserverCallChains.take(observer));
-    else
-        setCurrentAsyncCallChain(nullptr);
-}
-
-void AsyncCallStackTracker::didPostPromiseTask(ExecutionContext* context, ExecutionContextTask* task, bool isResolved, const ScriptValue& callFrames)
-{
-    ASSERT(context);
-    ASSERT(isEnabled());
-    if (validateCallFrames(callFrames)) {
-        ExecutionContextData* data = createContextDataIfNeeded(context);
-        data->m_promiseTaskCallChains.set(task, createAsyncCallChain(isResolved ? promiseResolved : promiseRejected, callFrames));
-    } else if (m_currentAsyncCallChain) {
-        // Propagate async call stack to the re-posted task to update a derived Promise.
-        ExecutionContextData* data = createContextDataIfNeeded(context);
-        data->m_promiseTaskCallChains.set(task, m_currentAsyncCallChain);
-    }
-}
-
-void AsyncCallStackTracker::willPerformPromiseTask(ExecutionContext* context, ExecutionContextTask* task)
-{
-    ASSERT(context);
-    ASSERT(isEnabled());
-    if (ExecutionContextData* data = m_executionContextDataMap.get(context))
-        setCurrentAsyncCallChain(data->m_promiseTaskCallChains.take(task));
     else
         setCurrentAsyncCallChain(nullptr);
 }

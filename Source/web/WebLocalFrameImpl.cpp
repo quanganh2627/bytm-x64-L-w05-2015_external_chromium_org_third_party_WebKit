@@ -333,7 +333,7 @@ public:
 
     void spoolAllPagesWithBoundaries(GraphicsContext& graphicsContext, const FloatSize& pageSizeInPixels)
     {
-        if (!frame()->document() || !frame()->view() || !frame()->document()->renderer())
+        if (!frame()->document() || !frame()->view() || !frame()->document()->renderView())
             return;
 
         frame()->document()->updateLayout();
@@ -1146,7 +1146,7 @@ void WebLocalFrameImpl::replaceMisspelledRange(const WebString& text)
     RefPtrWillBeRawPtr<Range> caretRange = frame()->selection().toNormalizedRange();
     if (!caretRange)
         return;
-    Vector<DocumentMarker*> markers = frame()->document()->markers().markersInRange(caretRange.get(), DocumentMarker::MisspellingMarkers());
+    WillBeHeapVector<DocumentMarker*> markers = frame()->document()->markers().markersInRange(caretRange.get(), DocumentMarker::MisspellingMarkers());
     if (markers.size() < 1 || markers[0]->startOffset() >= markers[0]->endOffset())
         return;
     RefPtrWillBeRawPtr<Range> markerRange = Range::create(caretRange->ownerDocument(), caretRange->startContainer(), markers[0]->startOffset(), caretRange->endContainer(), markers[0]->endOffset());
@@ -1282,6 +1282,17 @@ void WebLocalFrameImpl::extendSelectionAndDelete(int before, int after)
         return;
     }
     frame()->inputMethodController().extendSelectionAndDelete(before, after);
+}
+
+void WebLocalFrameImpl::addStyleSheetByURL(const WebString& url)
+{
+    RefPtr<Element> styleElement = frame()->document()->createElement(HTMLNames::linkTag, false);
+
+    styleElement->setAttribute(HTMLNames::typeAttr, "text/css");
+    styleElement->setAttribute(HTMLNames::relAttr, "stylesheet");
+    styleElement->setAttribute(HTMLNames::hrefAttr, url);
+
+    frame()->document()->head()->appendChild(styleElement.release(), IGNORE_EXCEPTION);
 }
 
 void WebLocalFrameImpl::setCaretVisible(bool visible)
@@ -1833,7 +1844,7 @@ void WebLocalFrameImpl::loadJavaScriptURL(const KURL& url)
     if (!frame()->document() || !frame()->page())
         return;
 
-    RefPtr<Document> ownerDocument(frame()->document());
+    RefPtrWillBeRawPtr<Document> ownerDocument(frame()->document());
 
     // Protect privileged pages against bookmarklets and other javascript manipulations.
     if (SchemeRegistry::shouldTreatURLSchemeAsNotAllowingJavascriptURLs(frame()->document()->url().protocol()))

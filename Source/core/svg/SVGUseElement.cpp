@@ -45,14 +45,13 @@
 
 namespace WebCore {
 
-inline SVGUseElement::SVGUseElement(Document& document, bool wasInsertedByParser)
+inline SVGUseElement::SVGUseElement(Document& document)
     : SVGGraphicsElement(SVGNames::useTag, document)
     , SVGURIReference(this)
     , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
     , m_y(SVGAnimatedLength::create(this, SVGNames::yAttr, SVGLength::create(LengthModeHeight), AllowNegativeLengths))
     , m_width(SVGAnimatedLength::create(this, SVGNames::widthAttr, SVGLength::create(LengthModeWidth), ForbidNegativeLengths))
     , m_height(SVGAnimatedLength::create(this, SVGNames::heightAttr, SVGLength::create(LengthModeHeight), ForbidNegativeLengths))
-    , m_wasInsertedByParser(wasInsertedByParser)
     , m_haveFiredLoadEvent(false)
     , m_needsShadowTreeRecreation(false)
     , m_svgLoadEventTimer(this, &SVGElement::svgLoadEventTimerFired)
@@ -66,10 +65,10 @@ inline SVGUseElement::SVGUseElement(Document& document, bool wasInsertedByParser
     addToPropertyMap(m_height);
 }
 
-PassRefPtr<SVGUseElement> SVGUseElement::create(Document& document, bool wasInsertedByParser)
+PassRefPtrWillBeRawPtr<SVGUseElement> SVGUseElement::create(Document& document)
 {
     // Always build a user agent #shadow-root for SVGUseElement.
-    RefPtr<SVGUseElement> use = adoptRef(new SVGUseElement(document, wasInsertedByParser));
+    RefPtrWillBeRawPtr<SVGUseElement> use = adoptRefWillBeRefCountedGarbageCollected(new SVGUseElement(document));
     use->ensureUserAgentShadowRoot();
     return use.release();
 }
@@ -152,13 +151,9 @@ Node::InsertionNotificationRequest SVGUseElement::insertedInto(ContainerNode* ro
         return InsertionDone;
     ASSERT(!m_targetElementInstance || !isWellFormedDocument(&document()));
     ASSERT(!hasPendingResources() || !isWellFormedDocument(&document()));
-    if (!m_wasInsertedByParser) {
-        buildPendingResource();
-
-        if (!isStructurallyExternal()) {
-            sendSVGLoadEventIfPossibleAsynchronously();
-        }
-    }
+    invalidateShadowTree();
+    if (!isStructurallyExternal())
+        sendSVGLoadEventIfPossibleAsynchronously();
     return InsertionDone;
 }
 
@@ -248,8 +243,7 @@ void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
             setDocumentResource(0);
         }
 
-        if (!m_wasInsertedByParser)
-            buildPendingResource();
+        invalidateShadowTree();
 
         return;
     }
@@ -545,7 +539,7 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
             continue;
 
         // Create SVGElementInstance object, for both container/non-container nodes.
-        RefPtr<SVGElementInstance> instance = SVGElementInstance::create(this, 0, element);
+        RefPtrWillBeRawPtr<SVGElementInstance> instance = SVGElementInstance::create(this, 0, element);
         SVGElementInstance* instancePtr = instance.get();
         targetInstance->appendChild(instance.release());
 
@@ -558,7 +552,7 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
     if (!targetIsUseElement || !newTarget)
         return;
 
-    RefPtr<SVGElementInstance> newInstance = SVGElementInstance::create(this, toSVGUseElement(target), newTarget);
+    RefPtrWillBeRawPtr<SVGElementInstance> newInstance = SVGElementInstance::create(this, toSVGUseElement(target), newTarget);
     SVGElementInstance* newInstancePtr = newInstance.get();
     targetInstance->appendChild(newInstance.release());
     buildInstanceTree(newTarget, newInstancePtr, foundProblem, foundUse);
@@ -614,7 +608,7 @@ void SVGUseElement::buildShadowTree(SVGElement* target, SVGElementInstance* targ
     if (isDisallowedElement(target))
         return;
 
-    RefPtr<Element> newChild = targetInstance->correspondingElement()->cloneElementWithChildren();
+    RefPtrWillBeRawPtr<Element> newChild = targetInstance->correspondingElement()->cloneElementWithChildren();
 
     // We don't walk the target tree element-by-element, and clone each element,
     // but instead use cloneElementWithChildren(). This is an optimization for the common
@@ -649,7 +643,7 @@ void SVGUseElement::expandUseElementsInShadowTree(Node* element)
 
         // Don't ASSERT(target) here, it may be "pending", too.
         // Setup sub-shadow tree root node
-        RefPtr<SVGGElement> cloneParent = SVGGElement::create(referencedScope()->document());
+        RefPtrWillBeRawPtr<SVGGElement> cloneParent = SVGGElement::create(referencedScope()->document());
         use->cloneChildNodes(cloneParent.get());
 
         // Spec: In the generated content, the 'use' will be replaced by 'g', where all attributes from the
@@ -657,7 +651,7 @@ void SVGUseElement::expandUseElementsInShadowTree(Node* element)
         transferUseAttributesToReplacedElement(use, cloneParent.get());
 
         if (target && !isDisallowedElement(target)) {
-            RefPtr<Element> newChild = target->cloneElementWithChildren();
+            RefPtrWillBeRawPtr<Element> newChild = target->cloneElementWithChildren();
             ASSERT(newChild->isSVGElement());
             transferUseWidthAndHeightIfNeeded(*use, toSVGElement(newChild.get()), *target);
             cloneParent->appendChild(newChild.release());
@@ -699,7 +693,7 @@ void SVGUseElement::expandSymbolElementsInShadowTree(Node* element)
         // the generated 'svg'. If attributes width and/or height are not specified, the generated
         // 'svg' element will use values of 100% for these attributes.
         ASSERT(referencedScope());
-        RefPtr<SVGSVGElement> svgElement = SVGSVGElement::create(referencedScope()->document());
+        RefPtrWillBeRawPtr<SVGSVGElement> svgElement = SVGSVGElement::create(referencedScope()->document());
 
         // Transfer all data (attributes, etc.) from <symbol> to the new <svg> element.
         svgElement->cloneDataFromElement(*toElement(element));
@@ -857,7 +851,7 @@ bool SVGUseElement::selfHasRelativeLengths() const
     if (!m_targetElementInstance)
         return false;
 
-    SVGElement* element = m_targetElementInstance->correspondingElement();
+    SVGElement* element = m_targetElementInstance->shadowTreeElement();
     if (!element)
         return false;
 
@@ -873,14 +867,13 @@ void SVGUseElement::notifyFinished(Resource* resource)
     if (resource->errorOccurred())
         dispatchEvent(Event::create(EventTypeNames::error));
     else if (!resource->wasCanceled()) {
-        if (m_wasInsertedByParser && m_haveFiredLoadEvent)
+        if (m_haveFiredLoadEvent)
             return;
         if (!isStructurallyExternal())
             return;
-
         ASSERT(!m_haveFiredLoadEvent);
         m_haveFiredLoadEvent = true;
-        sendSVGLoadEventIfPossible();
+        sendSVGLoadEventIfPossibleAsynchronously();
     }
 }
 
@@ -902,15 +895,6 @@ bool SVGUseElement::instanceTreeIsLoading(SVGElementInstance* targetElementInsta
             instanceTreeIsLoading(instance);
     }
     return false;
-}
-
-void SVGUseElement::finishParsingChildren()
-{
-    SVGGraphicsElement::finishParsingChildren();
-    if (m_wasInsertedByParser) {
-        buildPendingResource();
-        m_wasInsertedByParser = false;
-    }
 }
 
 void SVGUseElement::setDocumentResource(ResourcePtr<DocumentResource> resource)

@@ -65,7 +65,6 @@ public:
     void navigateTo(const std::string& url)
     {
         FrameTestHelpers::loadFrame(webViewImpl()->mainFrame(), url);
-        Platform::current()->unitTestSupport()->serveAsynchronousMockedRequests();
     }
 
     void forceFullCompositingUpdate()
@@ -249,6 +248,17 @@ TEST_F(ScrollingCoordinatorChromiumTest, scrollEventHandler)
 
     WebLayer* rootScrollLayer = getRootScrollLayer();
     ASSERT_TRUE(rootScrollLayer->haveScrollEventHandlers());
+}
+
+TEST_F(ScrollingCoordinatorChromiumTest, updateEventHandlersDuringTeardown)
+{
+    registerMockedHttpURLLoad("scroll-event-handler-window.html");
+    navigateTo(m_baseURL + "scroll-event-handler-window.html");
+    forceFullCompositingUpdate();
+
+    // Simulate detaching the document from its DOM window. This should not
+    // cause a crash when the WebViewImpl is closed by the test runner.
+    frame()->document()->prepareForDestruction();
 }
 
 TEST_F(ScrollingCoordinatorChromiumTest, clippedBodyTest)

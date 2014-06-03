@@ -19,8 +19,9 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_inspector_overlay_page_gyp,,,$(GYP_VAR_PREFIX))/inspector_overlay_page.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_inspector_protocol_sources_gyp,,,$(GYP_VAR_PREFIX))/inspector_protocol_sources.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_inspector_instrumentation_sources_gyp,,,$(GYP_VAR_PREFIX))/inspector_instrumentation_sources.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_generated_bindings_gyp,,,$(GYP_VAR_PREFIX))/generated_bindings.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_make_core_generated_gyp,,,$(GYP_VAR_PREFIX))/make_core_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_v8_bindings_core_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_core_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_v8_bindings_modules_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_modules_generated.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_wtf_wtf_gyp,,,$(GYP_VAR_PREFIX))/third_party_WebKit_Source_wtf_wtf_gyp.a \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_WebKit_Source_platform_blink_platform_gyp,,,$(GYP_VAR_PREFIX))/third_party_WebKit_Source_platform_blink_platform_gyp.a \

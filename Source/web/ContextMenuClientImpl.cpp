@@ -39,7 +39,9 @@
 #include "core/dom/DocumentMarkerController.h"
 #include "core/editing/Editor.h"
 #include "core/editing/SpellChecker.h"
+#include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
+#include "core/frame/PinchViewport.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLFormElement.h"
 #include "core/html/HTMLInputElement.h"
@@ -159,7 +161,7 @@ static String selectMisspellingAsync(LocalFrame* selectedFrame, DocumentMarker& 
 
     // Caret and range selections always return valid normalized ranges.
     RefPtrWillBeRawPtr<Range> selectionRange = selection.toNormalizedRange();
-    Vector<DocumentMarker*> markers = selectedFrame->document()->markers().markersInRange(selectionRange.get(), DocumentMarker::MisspellingMarkers());
+    WillBeHeapVector<DocumentMarker*> markers = selectedFrame->document()->markers().markersInRange(selectionRange.get(), DocumentMarker::MisspellingMarkers());
     if (markers.size() != 1)
         return String();
     marker = *markers[0];
@@ -190,6 +192,11 @@ void ContextMenuClientImpl::showContextMenu(const WebCore::ContextMenu* defaultM
 
     WebContextMenuData data;
     IntPoint mousePoint = selectedFrame->view()->contentsToWindow(r.roundedPointInInnerNodeFrame());
+
+    // FIXME(bokan): crbug.com/371902 - We shouldn't be making these scale
+    // related coordinate transformatios in an ad hoc way.
+    PinchViewport& pinchViewport = selectedFrame->host()->pinchViewport();
+    mousePoint -= flooredIntSize(pinchViewport.visibleRect().location());
     mousePoint.scale(m_webView->pageScaleFactor(), m_webView->pageScaleFactor());
     data.mousePosition = mousePoint;
 

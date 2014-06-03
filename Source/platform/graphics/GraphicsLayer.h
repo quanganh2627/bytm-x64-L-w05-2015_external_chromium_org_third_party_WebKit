@@ -97,6 +97,7 @@ public:
 
     void setCompositingReasons(CompositingReasons);
     CompositingReasons compositingReasons() const { return m_debugInfo.compositingReasons(); }
+    void setOwnerNodeId(int);
 
     GraphicsLayer* parent() const { return m_parent; };
     void setParent(GraphicsLayer*); // Internal use only.
@@ -133,9 +134,6 @@ public:
     // The layer being replicated.
     GraphicsLayer* replicatedLayer() const { return m_replicatedLayer; }
 
-    const FloatPoint& replicatedLayerPosition() const { return m_replicatedLayerPosition; }
-    void setReplicatedLayerPosition(const FloatPoint& p) { m_replicatedLayerPosition = p; }
-
     enum ShouldSetNeedsDisplay {
         DontSetNeedsDisplay,
         SetNeedsDisplay
@@ -151,8 +149,12 @@ public:
 
     // Anchor point: (0, 0) is top left, (1, 1) is bottom right. The anchor point
     // affects the origin of the transforms.
+    // DEPRECATED, to be removed soon.
     const FloatPoint3D& anchorPoint() const { return m_anchorPoint; }
     void setAnchorPoint(const FloatPoint3D&);
+
+    const FloatPoint3D& transformOrigin() const { return m_transformOrigin; }
+    void setTransformOrigin(const FloatPoint3D&);
 
     // The size of the layer.
     const FloatSize& size() const { return m_size; }
@@ -343,6 +345,7 @@ private:
     FloatPoint m_boundsOrigin;
 
     TransformationMatrix m_transform;
+    FloatPoint3D m_transformOrigin;
 
     Color m_backgroundColor;
     float m_opacity;

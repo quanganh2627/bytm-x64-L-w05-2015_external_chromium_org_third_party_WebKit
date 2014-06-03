@@ -24,7 +24,6 @@
 #define RenderSVGRoot_h
 
 #include "core/rendering/RenderReplaced.h"
-#include "core/rendering/svg/SVGRenderSupport.h"
 #include "platform/geometry/FloatRect.h"
 
 namespace WebCore {
@@ -45,6 +44,10 @@ public:
     RenderObject* firstChild() const { ASSERT(children() == virtualChildren()); return children()->firstChild(); }
     RenderObject* lastChild() const { ASSERT(children() == virtualChildren()); return children()->lastChild(); }
 
+    // If you have a RenderSVGRoot, use firstChild or lastChild instead.
+    void slowFirstChild() const WTF_DELETED_FUNCTION;
+    void slowLastChild() const WTF_DELETED_FUNCTION;
+
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
@@ -59,7 +62,7 @@ public:
         // and we need that layout to know of the new size otherwise
         // the rendering may be incorrectly using the old size.
         if (m_containerSize != containerSize)
-            setNeedsLayout();
+            setNeedsLayoutAndFullRepaint();
         m_containerSize = containerSize;
     }
 

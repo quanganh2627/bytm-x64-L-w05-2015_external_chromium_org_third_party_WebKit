@@ -242,7 +242,7 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
     }
     RenderObject* innerTextRenderer = innerTextElement()->renderer();
     if (innerTextRenderer && diff.needsFullLayout())
-        innerTextRenderer->setNeedsLayout();
+        innerTextRenderer->setNeedsLayoutAndFullRepaint();
     if (HTMLElement* placeholder = inputElement()->placeholderElement())
         placeholder->setInlineStyleProperty(CSSPropertyTextOverflow, textShouldBeTruncated() ? CSSValueEllipsis : CSSValueClip);
     setHasOverflowClip(false);
@@ -339,11 +339,6 @@ LayoutUnit RenderTextControlSingleLine::computeControlLogicalHeight(LayoutUnit l
     return lineHeight + nonContentHeight;
 }
 
-void RenderTextControlSingleLine::updateFromElement()
-{
-    RenderTextControl::updateFromElement();
-}
-
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const RenderStyle* startStyle) const
 {
     RefPtr<RenderStyle> textBlockStyle = RenderStyle::create();
@@ -385,41 +380,41 @@ void RenderTextControlSingleLine::autoscroll(const IntPoint& position)
     renderer->autoscroll(position);
 }
 
-int RenderTextControlSingleLine::scrollWidth() const
+LayoutUnit RenderTextControlSingleLine::scrollWidth() const
 {
     if (innerTextElement())
         return innerTextElement()->scrollWidth();
     return RenderBlockFlow::scrollWidth();
 }
 
-int RenderTextControlSingleLine::scrollHeight() const
+LayoutUnit RenderTextControlSingleLine::scrollHeight() const
 {
     if (innerTextElement())
         return innerTextElement()->scrollHeight();
     return RenderBlockFlow::scrollHeight();
 }
 
-int RenderTextControlSingleLine::scrollLeft() const
+LayoutUnit RenderTextControlSingleLine::scrollLeft() const
 {
     if (innerTextElement())
         return innerTextElement()->scrollLeft();
     return RenderBlockFlow::scrollLeft();
 }
 
-int RenderTextControlSingleLine::scrollTop() const
+LayoutUnit RenderTextControlSingleLine::scrollTop() const
 {
     if (innerTextElement())
         return innerTextElement()->scrollTop();
     return RenderBlockFlow::scrollTop();
 }
 
-void RenderTextControlSingleLine::setScrollLeft(int newLeft)
+void RenderTextControlSingleLine::setScrollLeft(LayoutUnit newLeft)
 {
     if (innerTextElement())
         innerTextElement()->setScrollLeft(newLeft);
 }
 
-void RenderTextControlSingleLine::setScrollTop(int newTop)
+void RenderTextControlSingleLine::setScrollTop(LayoutUnit newTop)
 {
     if (innerTextElement())
         innerTextElement()->setScrollTop(newTop);

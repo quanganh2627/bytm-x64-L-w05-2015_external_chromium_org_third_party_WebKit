@@ -39,9 +39,9 @@
 
 namespace WebCore {
 
-PassOwnPtr<CustomElementMicrotaskImportStep> CustomElementMicrotaskImportStep::create(HTMLImportChild* import)
+PassOwnPtrWillBeRawPtr<CustomElementMicrotaskImportStep> CustomElementMicrotaskImportStep::create(HTMLImportChild* import)
 {
-    return adoptPtr(new CustomElementMicrotaskImportStep(import));
+    return adoptPtrWillBeNoop(new CustomElementMicrotaskImportStep(import));
 }
 
 CustomElementMicrotaskImportStep::CustomElementMicrotaskImportStep(HTMLImportChild* import)
@@ -53,6 +53,12 @@ CustomElementMicrotaskImportStep::CustomElementMicrotaskImportStep(HTMLImportChi
 
 CustomElementMicrotaskImportStep::~CustomElementMicrotaskImportStep()
 {
+}
+
+void CustomElementMicrotaskImportStep::parentWasChanged()
+{
+    m_queue = CustomElementMicrotaskQueue::create();
+    m_import.clear();
 }
 
 bool CustomElementMicrotaskImportStep::shouldWaitForImport() const
@@ -83,6 +89,17 @@ CustomElementMicrotaskStep::Result CustomElementMicrotaskImportStep::process()
     if (!shouldStopProcessing())
         result = Result(result & ~ShouldStop);
     return result;
+}
+
+bool CustomElementMicrotaskImportStep::needsProcessOrStop() const
+{
+    return shouldStopProcessing() || m_queue->needsProcessOrStop();
+}
+
+void CustomElementMicrotaskImportStep::trace(Visitor* visitor)
+{
+    visitor->trace(m_queue);
+    CustomElementMicrotaskStep::trace(visitor);
 }
 
 #if !defined(NDEBUG)

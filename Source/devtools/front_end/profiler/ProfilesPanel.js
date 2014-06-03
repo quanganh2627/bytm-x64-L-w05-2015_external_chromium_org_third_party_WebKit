@@ -583,7 +583,7 @@ WebInspector.ProfilesPanel.prototype = {
             var types = WebInspector.ProfileTypeRegistry.instance.profileTypes();
             for (var i = 0; i < types.length; i++) {
                 var extension = types[i].fileExtension();
-                if (!extension)
+                if (!extension || extensions.indexOf(extension) !== -1)
                     continue;
                 extensions.push(extension);
             }
@@ -1329,7 +1329,7 @@ WebInspector.ProfilesSidebarTreeElement.prototype = {
 }
 
 
-importScript("../components/CPUProfileModel.js");
+importScript("../sdk/CPUProfileModel.js");
 importScript("CPUProfileDataGrid.js");
 importScript("CPUProfileBottomUpDataGrid.js");
 importScript("CPUProfileTopDownDataGrid.js");

@@ -20,7 +20,8 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_canvas_script_source_gyp,,,$(GYP_VAR_PREFIX))/injected_canvas_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_script_source_gyp,,,$(GYP_VAR_PREFIX))/injected_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_debugger_script_source_gyp,,,$(GYP_VAR_PREFIX))/debugger_script_source.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_generated_bindings_gyp,,,$(GYP_VAR_PREFIX))/generated_bindings.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_v8_bindings_core_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_core_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_v8_bindings_modules_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_modules_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_platform_make_platform_generated_gyp,,,$(GYP_VAR_PREFIX))/make_platform_generated.stamp \
 	$(call intermediates-dir-for,GYP,skia_skia_gyp,,,$(GYP_VAR_PREFIX))/skia.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a \
@@ -33,43 +34,43 @@ GYP_GENERATED_OUTPUTS :=
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
 
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings01.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings01.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings02.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings02.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings02.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings03.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings03.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings03.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings04.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings04.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings04.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings05.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings05.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings05.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings06.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings06.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings06.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings07.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings07.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings07.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings08.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings08.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings08.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings09.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings09.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings09.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings10.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings10.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings10.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings11.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings11.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings11.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings12.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings12.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings12.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings13.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings13.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings13.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings14.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings14.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings14.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings15.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings15.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings15.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings16.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings16.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings16.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings17.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings17.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings17.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings18.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings18.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings18.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8GeneratedCoreBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/V8GeneratedCoreBindings19.cpp
+$(gyp_intermediate_dir)/V8GeneratedCoreBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings19.cpp
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/CSSPropertyNames.cpp: $(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp
 	mkdir -p $(@D); cp $< $@
@@ -201,77 +202,10 @@ LOCAL_GENERATED_SOURCES := \
 	$(gyp_intermediate_dir)/StyleBuilderFunctions.cpp
 
 GYP_COPIED_SOURCE_ORIGIN_DIRS := \
-	$(gyp_shared_intermediate_dir)/blink/bindings \
+	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink
 
 LOCAL_SRC_FILES := \
-	third_party/WebKit/Source/bindings/v8/ActiveDOMCallback.cpp \
-	third_party/WebKit/Source/bindings/v8/ArrayValue.cpp \
-	third_party/WebKit/Source/bindings/v8/BindingSecurity.cpp \
-	third_party/WebKit/Source/bindings/v8/CustomElementBinding.cpp \
-	third_party/WebKit/Source/bindings/v8/CustomElementConstructorBuilder.cpp \
-	third_party/WebKit/Source/bindings/v8/CustomElementWrapper.cpp \
-	third_party/WebKit/Source/bindings/v8/DOMDataStore.cpp \
-	third_party/WebKit/Source/bindings/v8/DOMWrapperWorld.cpp \
-	third_party/WebKit/Source/bindings/v8/Dictionary.cpp \
-	third_party/WebKit/Source/bindings/v8/ExceptionMessages.cpp \
-	third_party/WebKit/Source/bindings/v8/ExceptionState.cpp \
-	third_party/WebKit/Source/bindings/v8/ExceptionStatePlaceholder.cpp \
-	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
-	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
-	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
-	third_party/WebKit/Source/bindings/v8/RetainedDOMInfo.cpp \
-	third_party/WebKit/Source/bindings/v8/ScheduledAction.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptCallStackFactory.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptController.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptDebugServer.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptEventListener.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptFunction.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptFunctionCall.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptGCEvent.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptHeapSnapshot.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptObject.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptPreprocessor.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptProfiler.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptPromise.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolver.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolverWithContext.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptRegexp.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptState.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptString.cpp \
-	third_party/WebKit/Source/bindings/v8/ScriptValue.cpp \
-	third_party/WebKit/Source/bindings/v8/SerializedScriptValue.cpp \
-	third_party/WebKit/Source/bindings/v8/V8AbstractEventListener.cpp \
-	third_party/WebKit/Source/bindings/v8/V8Binding.cpp \
-	third_party/WebKit/Source/bindings/v8/V8Callback.cpp \
-	third_party/WebKit/Source/bindings/v8/V8CustomElementLifecycleCallbacks.cpp \
-	third_party/WebKit/Source/bindings/v8/V8DOMActivityLogger.cpp \
-	third_party/WebKit/Source/bindings/v8/V8DOMConfiguration.cpp \
-	third_party/WebKit/Source/bindings/v8/V8DOMWrapper.cpp \
-	third_party/WebKit/Source/bindings/v8/V8ErrorHandler.cpp \
-	third_party/WebKit/Source/bindings/v8/V8EventListener.cpp \
-	third_party/WebKit/Source/bindings/v8/V8EventListenerList.cpp \
-	third_party/WebKit/Source/bindings/v8/V8GCController.cpp \
-	third_party/WebKit/Source/bindings/v8/V8GCForContextDispose.cpp \
-	third_party/WebKit/Source/bindings/v8/V8HiddenValue.cpp \
-	third_party/WebKit/Source/bindings/v8/V8Initializer.cpp \
-	third_party/WebKit/Source/bindings/v8/V8LazyEventListener.cpp \
-	third_party/WebKit/Source/bindings/v8/V8MutationCallback.cpp \
-	third_party/WebKit/Source/bindings/v8/V8NPObject.cpp \
-	third_party/WebKit/Source/bindings/v8/V8NPUtils.cpp \
-	third_party/WebKit/Source/bindings/v8/V8NodeFilterCondition.cpp \
-	third_party/WebKit/Source/bindings/v8/V8ObjectConstructor.cpp \
-	third_party/WebKit/Source/bindings/v8/V8PerContextData.cpp \
-	third_party/WebKit/Source/bindings/v8/V8PerIsolateData.cpp \
-	third_party/WebKit/Source/bindings/v8/V8RecursionScope.cpp \
-	third_party/WebKit/Source/bindings/v8/V8ScriptRunner.cpp \
-	third_party/WebKit/Source/bindings/v8/V8StringResource.cpp \
-	third_party/WebKit/Source/bindings/v8/V8ThrowException.cpp \
-	third_party/WebKit/Source/bindings/v8/V8ValueCache.cpp \
-	third_party/WebKit/Source/bindings/v8/V8WindowShell.cpp \
-	third_party/WebKit/Source/bindings/v8/V8WorkerGlobalScopeEventListener.cpp \
-	third_party/WebKit/Source/bindings/v8/WorkerScriptController.cpp \
-	third_party/WebKit/Source/bindings/v8/WorkerScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8ArrayBufferCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8ArrayBufferViewCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8AudioNodeCustom.cpp \
@@ -321,7 +255,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8NodeCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8PerformanceEntryCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8PopStateEventCustom.cpp \
-	third_party/WebKit/Source/bindings/v8/custom/V8PromiseCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8SQLTransactionSyncCustom.cpp \
@@ -329,6 +262,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8SVGPathSegCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8ServiceWorkerCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8StyleSheetCustom.cpp \
+	third_party/WebKit/Source/bindings/v8/custom/V8SubtleCryptoCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TextCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TextTrackCueCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8TrackEventCustom.cpp \
@@ -339,6 +273,72 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8WorkerGlobalScopeCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
 	third_party/WebKit/Source/bindings/v8/custom/V8XSLTProcessorCustom.cpp \
+	third_party/WebKit/Source/bindings/v8/ActiveDOMCallback.cpp \
+	third_party/WebKit/Source/bindings/v8/ArrayValue.cpp \
+	third_party/WebKit/Source/bindings/v8/BindingSecurity.cpp \
+	third_party/WebKit/Source/bindings/v8/CustomElementBinding.cpp \
+	third_party/WebKit/Source/bindings/v8/CustomElementConstructorBuilder.cpp \
+	third_party/WebKit/Source/bindings/v8/CustomElementWrapper.cpp \
+	third_party/WebKit/Source/bindings/v8/DOMDataStore.cpp \
+	third_party/WebKit/Source/bindings/v8/DOMWrapperWorld.cpp \
+	third_party/WebKit/Source/bindings/v8/Dictionary.cpp \
+	third_party/WebKit/Source/bindings/v8/ExceptionMessages.cpp \
+	third_party/WebKit/Source/bindings/v8/ExceptionState.cpp \
+	third_party/WebKit/Source/bindings/v8/ExceptionStatePlaceholder.cpp \
+	third_party/WebKit/Source/bindings/v8/IDBBindingUtilities.cpp \
+	third_party/WebKit/Source/bindings/v8/NPV8Object.cpp \
+	third_party/WebKit/Source/bindings/v8/PageScriptDebugServer.cpp \
+	third_party/WebKit/Source/bindings/v8/RetainedDOMInfo.cpp \
+	third_party/WebKit/Source/bindings/v8/ScheduledAction.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptCallStackFactory.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptController.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptDebugServer.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptEventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptFunction.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptFunctionCall.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptGCEvent.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptHeapSnapshot.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptPreprocessor.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptProfiler.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptPromise.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolver.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptPromiseResolverWithContext.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptRegexp.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptState.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptString.cpp \
+	third_party/WebKit/Source/bindings/v8/ScriptValue.cpp \
+	third_party/WebKit/Source/bindings/v8/SerializedScriptValue.cpp \
+	third_party/WebKit/Source/bindings/v8/V8AbstractEventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/V8Binding.cpp \
+	third_party/WebKit/Source/bindings/v8/V8Callback.cpp \
+	third_party/WebKit/Source/bindings/v8/V8CustomElementLifecycleCallbacks.cpp \
+	third_party/WebKit/Source/bindings/v8/V8DOMActivityLogger.cpp \
+	third_party/WebKit/Source/bindings/v8/V8DOMConfiguration.cpp \
+	third_party/WebKit/Source/bindings/v8/V8DOMWrapper.cpp \
+	third_party/WebKit/Source/bindings/v8/V8ErrorHandler.cpp \
+	third_party/WebKit/Source/bindings/v8/V8EventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/V8EventListenerList.cpp \
+	third_party/WebKit/Source/bindings/v8/V8GCController.cpp \
+	third_party/WebKit/Source/bindings/v8/V8GCForContextDispose.cpp \
+	third_party/WebKit/Source/bindings/v8/V8HiddenValue.cpp \
+	third_party/WebKit/Source/bindings/v8/V8Initializer.cpp \
+	third_party/WebKit/Source/bindings/v8/V8LazyEventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/V8MutationCallback.cpp \
+	third_party/WebKit/Source/bindings/v8/V8NPObject.cpp \
+	third_party/WebKit/Source/bindings/v8/V8NPUtils.cpp \
+	third_party/WebKit/Source/bindings/v8/V8NodeFilterCondition.cpp \
+	third_party/WebKit/Source/bindings/v8/V8ObjectConstructor.cpp \
+	third_party/WebKit/Source/bindings/v8/V8PerContextData.cpp \
+	third_party/WebKit/Source/bindings/v8/V8PerIsolateData.cpp \
+	third_party/WebKit/Source/bindings/v8/V8RecursionScope.cpp \
+	third_party/WebKit/Source/bindings/v8/V8ScriptRunner.cpp \
+	third_party/WebKit/Source/bindings/v8/V8StringResource.cpp \
+	third_party/WebKit/Source/bindings/v8/V8ThrowException.cpp \
+	third_party/WebKit/Source/bindings/v8/V8ValueCache.cpp \
+	third_party/WebKit/Source/bindings/v8/V8WindowShell.cpp \
+	third_party/WebKit/Source/bindings/v8/V8WorkerGlobalScopeEventListener.cpp \
+	third_party/WebKit/Source/bindings/v8/WorkerScriptController.cpp \
+	third_party/WebKit/Source/bindings/v8/WorkerScriptDebugServer.cpp \
 	third_party/WebKit/Source/bindings/v8/npruntime.cpp
 
 
@@ -355,7 +355,14 @@ MY_CFLAGS_Debug := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-fno-tree-sra \
+	-fno-partial-inlining \
+	-fno-early-inlining \
+	-fno-tree-copy-prop \
+	-fno-tree-loop-optimize \
+	-fno-move-loop-invariants \
+	-fno-caller-saves \
 	-Wno-psabi \
 	-ffunction-sections \
 	-funwind-tables \
@@ -387,12 +394,17 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -412,10 +424,12 @@ MY_DEFS_Debug := \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
+	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
+	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -444,10 +458,11 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(gyp_shared_intermediate_dir)/blink \
-	$(gyp_shared_intermediate_dir)/blink/bindings \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
+	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
+	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/WebKit/Source/bindings/v8/custom \
 	$(LOCAL_PATH)/third_party/WebKit/Source/core/html \
@@ -515,7 +530,14 @@ MY_CFLAGS_Release := \
 	-fvisibility=hidden \
 	-pipe \
 	-fPIC \
+	-Wno-unused-local-typedefs \
 	-fno-tree-sra \
+	-fno-partial-inlining \
+	-fno-early-inlining \
+	-fno-tree-copy-prop \
+	-fno-tree-loop-optimize \
+	-fno-move-loop-invariants \
+	-fno-caller-saves \
 	-Wno-psabi \
 	-ffunction-sections \
 	-funwind-tables \
@@ -547,12 +569,17 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
+	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DDATA_REDUCTION_FALLBACK_HOST="http://compress.googlezip.net:80/"' \
+	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
+	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
+	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -572,10 +599,12 @@ MY_DEFS_Release := \
 	'-DSK_ATTR_DEPRECATED=SK_NOTHING_ARG1' \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
-	'-DSK_SUPPORT_LEGACY_PUBLICEFFECTCONSTRUCTORS=1' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
+	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_SUPPORT_LEGACY_BLURMASKFILTER_STYLE' \
+	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
+	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -605,10 +634,11 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(gyp_shared_intermediate_dir)/blink \
-	$(gyp_shared_intermediate_dir)/blink/bindings \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
+	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
+	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/WebKit/Source/bindings/v8/custom \
 	$(LOCAL_PATH)/third_party/WebKit/Source/core/html \

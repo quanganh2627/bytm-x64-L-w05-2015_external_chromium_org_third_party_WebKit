@@ -53,16 +53,17 @@ void CompositingLayerAssigner::assign(RenderLayer* updateRoot, bool& layersChang
         squashingState.mostRecentMapping->finishAccumulatingSquashingLayers(squashingState.nextSquashedLayerIndex);
 }
 
-void CompositingLayerAssigner::SquashingState::updateSquashingStateForNewMapping(CompositedLayerMappingPtr newCompositedLayerMapping, bool hasNewCompositedLayerMapping, LayoutPoint newOffsetFromTransformedAncestorForSquashingCLM)
+void CompositingLayerAssigner::SquashingState::updateSquashingStateForNewMapping(CompositedLayerMappingPtr newCompositedLayerMapping, bool hasNewCompositedLayerMapping)
 {
     // The most recent backing is done accumulating any more squashing layers.
     if (hasMostRecentMapping)
         mostRecentMapping->finishAccumulatingSquashingLayers(nextSquashedLayerIndex);
 
     nextSquashedLayerIndex = 0;
+    boundingRect = IntRect();
     mostRecentMapping = newCompositedLayerMapping;
     hasMostRecentMapping = hasNewCompositedLayerMapping;
-    offsetFromTransformedAncestorForSquashingCLM = newOffsetFromTransformedAncestorForSquashingCLM;
+    haveAssignedBackingsToEntireSquashingLayerSubtree = false;
 }
 
 bool CompositingLayerAssigner::squashingWouldExceedSparsityTolerance(const RenderLayer* candidate, const CompositingLayerAssigner::SquashingState& squashingState)
@@ -89,7 +90,7 @@ bool CompositingLayerAssigner::needsOwnBacking(const RenderLayer* layer) const
 CompositingStateTransitionType CompositingLayerAssigner::computeCompositedLayerUpdate(RenderLayer* layer)
 {
     CompositingStateTransitionType update = NoCompositingStateChange;
-    if (!layer->subtreeIsInvisible() && needsOwnBacking(layer)) {
+    if (needsOwnBacking(layer)) {
         if (!layer->hasCompositedLayerMapping()) {
             update = AllocateOwnCompositedLayerMapping;
         }
@@ -112,6 +113,9 @@ CompositingStateTransitionType CompositingLayerAssigner::computeCompositedLayerU
 
 bool CompositingLayerAssigner::canSquashIntoCurrentSquashingOwner(const RenderLayer* layer, const CompositingLayerAssigner::SquashingState& squashingState)
 {
+    if (!squashingState.haveAssignedBackingsToEntireSquashingLayerSubtree)
+        return false;
+
     // FIXME: this special case for video exists only to deal with corner cases
     // where a RenderVideo does not report that it needs to be directly composited.
     // Video does not currently support sharing a backing, but this could be
@@ -134,9 +138,6 @@ bool CompositingLayerAssigner::canSquashIntoCurrentSquashingOwner(const RenderLa
         if (!squashingLayer.compositedLayerMapping()->containingSquashedLayer(layer->renderer()->clippingContainer()))
             return false;
     }
-
-    if (layer->compositingContainer() == &squashingLayer)
-        return false;
 
     // Composited descendants need to be clipped by a child contianment graphics layer, which would not be available if the layer is
     if (m_compositor->clipsCompositingDescendants(layer))
@@ -171,15 +172,8 @@ bool CompositingLayerAssigner::updateSquashingAssignment(RenderLayer* layer, Squ
         ASSERT(!layer->hasCompositedLayerMapping());
         ASSERT(squashingState.hasMostRecentMapping);
 
-        LayoutPoint offsetFromTransformedAncestorForSquashedLayer = layer->computeOffsetFromTransformedAncestor();
-
-        // Compute the offset of this layer from the squashing owner. This computation is correct only because layers are allowed to squash only if they
-        // share a transformed ancestor (see canSquashIntoCurrentSquashingOwner).
-        LayoutSize offsetFromSquashingCLM(offsetFromTransformedAncestorForSquashedLayer.x() - squashingState.offsetFromTransformedAncestorForSquashingCLM.x(),
-            offsetFromTransformedAncestorForSquashedLayer.y() - squashingState.offsetFromTransformedAncestorForSquashingCLM.y());
-
         bool changedSquashingLayer =
-            squashingState.mostRecentMapping->updateSquashingLayerAssignment(layer, offsetFromSquashingCLM, squashingState.nextSquashedLayerIndex);
+            squashingState.mostRecentMapping->updateSquashingLayerAssignment(layer, squashingState.mostRecentMapping->owningLayer(), squashingState.nextSquashedLayerIndex);
         if (!changedSquashingLayer)
             return true;
 
@@ -262,7 +256,7 @@ void CompositingLayerAssigner::assignLayersToBackingsInternal(RenderLayer* layer
         }
     }
 
-    if (layer->stackingNode()->isStackingContainer()) {
+    if (layer->stackingNode()->isStackingContext()) {
         RenderLayerStackingNodeIterator iterator(*layer->stackingNode(), NegativeZOrderChildren);
         while (RenderLayerStackingNode* curNode = iterator.next())
             assignLayersToBackingsInternal(curNode->layer(), squashingState, layersChanged);
@@ -272,14 +266,16 @@ void CompositingLayerAssigner::assignLayersToBackingsInternal(RenderLayer* layer
         // At this point, if the layer is to be "separately" composited, then its backing becomes the most recent in paint-order.
         if (layer->compositingState() == PaintsIntoOwnBacking || layer->compositingState() == HasOwnBackingButPaintsIntoAncestor) {
             ASSERT(!requiresSquashing(layer->compositingReasons()));
-            LayoutPoint offsetFromTransformedAncestorForSquashingCLM = layer->computeOffsetFromTransformedAncestor();
-            squashingState.updateSquashingStateForNewMapping(layer->compositedLayerMapping(), layer->hasCompositedLayerMapping(), offsetFromTransformedAncestorForSquashingCLM);
+            squashingState.updateSquashingStateForNewMapping(layer->compositedLayerMapping(), layer->hasCompositedLayerMapping());
         }
     }
 
     RenderLayerStackingNodeIterator iterator(*layer->stackingNode(), NormalFlowChildren | PositiveZOrderChildren);
     while (RenderLayerStackingNode* curNode = iterator.next())
         assignLayersToBackingsInternal(curNode->layer(), squashingState, layersChanged);
+
+    if (squashingState.hasMostRecentMapping && &squashingState.mostRecentMapping->owningLayer() == layer)
+        squashingState.haveAssignedBackingsToEntireSquashingLayerSubtree = true;
 }
 
 }

@@ -404,7 +404,7 @@ void CompositeEditCommand::updatePositionForNodeRemovalPreservingChildren(Positi
         position.moveToOffset(offset);
 }
 
-HTMLElement* CompositeEditCommand::replaceElementWithSpanPreservingChildrenAndAttributes(PassRefPtr<HTMLElement> node)
+HTMLElement* CompositeEditCommand::replaceElementWithSpanPreservingChildrenAndAttributes(PassRefPtrWillBeRawPtr<HTMLElement> node)
 {
     // It would also be possible to implement all of ReplaceNodeWithSpanCommand
     // as a series of existing smaller edit commands.  Someone who wanted to
@@ -424,7 +424,7 @@ void CompositeEditCommand::prune(PassRefPtr<Node> node, Node* excludeNode)
         removeNode(highestNodeToRemove.release());
 }
 
-void CompositeEditCommand::splitTextNode(PassRefPtr<Text> node, unsigned offset)
+void CompositeEditCommand::splitTextNode(PassRefPtrWillBeRawPtr<Text> node, unsigned offset)
 {
     applyCommandToComposite(SplitTextNodeCommand::create(node, offset));
 }
@@ -451,25 +451,25 @@ void CompositeEditCommand::wrapContentsInDummySpan(PassRefPtr<Element> element)
     applyCommandToComposite(WrapContentsInDummySpanCommand::create(element));
 }
 
-void CompositeEditCommand::splitTextNodeContainingElement(PassRefPtr<Text> text, unsigned offset)
+void CompositeEditCommand::splitTextNodeContainingElement(PassRefPtrWillBeRawPtr<Text> text, unsigned offset)
 {
     applyCommandToComposite(SplitTextNodeContainingElementCommand::create(text, offset));
 }
 
-void CompositeEditCommand::insertTextIntoNode(PassRefPtr<Text> node, unsigned offset, const String& text)
+void CompositeEditCommand::insertTextIntoNode(PassRefPtrWillBeRawPtr<Text> node, unsigned offset, const String& text)
 {
     if (!text.isEmpty())
         applyCommandToComposite(InsertIntoTextNodeCommand::create(node, offset, text));
 }
 
-void CompositeEditCommand::deleteTextFromNode(PassRefPtr<Text> node, unsigned offset, unsigned count)
+void CompositeEditCommand::deleteTextFromNode(PassRefPtrWillBeRawPtr<Text> node, unsigned offset, unsigned count)
 {
     applyCommandToComposite(DeleteFromTextNodeCommand::create(node, offset, count));
 }
 
-void CompositeEditCommand::replaceTextInNode(PassRefPtr<Text> prpNode, unsigned offset, unsigned count, const String& replacementText)
+void CompositeEditCommand::replaceTextInNode(PassRefPtrWillBeRawPtr<Text> prpNode, unsigned offset, unsigned count, const String& replacementText)
 {
-    RefPtr<Text> node(prpNode);
+    RefPtrWillBeRawPtr<Text> node(prpNode);
     applyCommandToComposite(DeleteFromTextNodeCommand::create(node, offset, count));
     if (!replacementText.isEmpty())
         applyCommandToComposite(InsertIntoTextNodeCommand::create(node, offset, replacementText));
@@ -482,13 +482,13 @@ Position CompositeEditCommand::replaceSelectedTextInNode(const String& text)
     if (start.containerNode() != end.containerNode() || !start.containerNode()->isTextNode() || isTabSpanTextNode(start.containerNode()))
         return Position();
 
-    RefPtr<Text> textNode = start.containerText();
+    RefPtrWillBeRawPtr<Text> textNode = start.containerText();
     replaceTextInNode(textNode, start.offsetInContainerNode(), end.offsetInContainerNode() - start.offsetInContainerNode(), text);
 
     return Position(textNode.release(), start.offsetInContainerNode() + text.length());
 }
 
-static void copyMarkers(const Vector<DocumentMarker*>& markerPointers, Vector<DocumentMarker>& markers)
+static void copyMarkers(const WillBeHeapVector<DocumentMarker*>& markerPointers, Vector<DocumentMarker>& markers)
 {
     size_t arraySize = markerPointers.size();
     markers.reserveCapacity(arraySize);
@@ -496,9 +496,9 @@ static void copyMarkers(const Vector<DocumentMarker*>& markerPointers, Vector<Do
         markers.append(*markerPointers[i]);
 }
 
-void CompositeEditCommand::replaceTextInNodePreservingMarkers(PassRefPtr<Text> prpNode, unsigned offset, unsigned count, const String& replacementText)
+void CompositeEditCommand::replaceTextInNodePreservingMarkers(PassRefPtrWillBeRawPtr<Text> prpNode, unsigned offset, unsigned count, const String& replacementText)
 {
-    RefPtr<Text> node(prpNode);
+    RefPtrWillBeRawPtr<Text> node(prpNode);
     DocumentMarkerController& markerController = document().markers();
     Vector<DocumentMarker> markers;
     copyMarkers(markerController.markersInRange(Range::create(document(), node.get(), offset, node.get(), offset + count).get(), DocumentMarker::AllMarkers()), markers);
@@ -623,9 +623,9 @@ void CompositeEditCommand::rebalanceWhitespaceAt(const Position& position)
     rebalanceWhitespaceOnTextSubstring(toText(node), position.offsetInContainerNode(), position.offsetInContainerNode());
 }
 
-void CompositeEditCommand::rebalanceWhitespaceOnTextSubstring(PassRefPtr<Text> prpTextNode, int startOffset, int endOffset)
+void CompositeEditCommand::rebalanceWhitespaceOnTextSubstring(PassRefPtrWillBeRawPtr<Text> prpTextNode, int startOffset, int endOffset)
 {
-    RefPtr<Text> textNode = prpTextNode;
+    RefPtrWillBeRawPtr<Text> textNode = prpTextNode;
 
     String text = textNode->data();
     ASSERT(!text.isEmpty());
@@ -702,7 +702,7 @@ void CompositeEditCommand::rebalanceWhitespace()
         rebalanceWhitespaceAt(selection.end());
 }
 
-void CompositeEditCommand::deleteInsignificantText(PassRefPtr<Text> textNode, unsigned start, unsigned end)
+void CompositeEditCommand::deleteInsignificantText(PassRefPtrWillBeRawPtr<Text> textNode, unsigned start, unsigned end)
 {
     if (!textNode || start >= end)
         return;
@@ -790,7 +790,7 @@ void CompositeEditCommand::deleteInsignificantText(const Position& start, const 
     if (comparePositions(start, end) >= 0)
         return;
 
-    Vector<RefPtr<Text> > nodes;
+    WillBeHeapVector<RefPtrWillBeMember<Text> > nodes;
     for (Node* node = start.deprecatedNode(); node; node = NodeTraversal::next(*node)) {
         if (node->isTextNode())
             nodes.append(toText(node));
@@ -932,6 +932,9 @@ PassRefPtr<Node> CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessar
             return nullptr;
         }
     }
+
+    if (visibleParagraphEnd.isNull())
+        return nullptr;
 
     RefPtr<Node> newBlock = insertNewDefaultParagraphElementAt(upstreamStart);
 
@@ -1104,6 +1107,8 @@ void CompositeEditCommand::moveParagraphWithClones(const VisiblePosition& startO
     // When we paste a fragment, spaces after the end and before the start are treated as though they were rendered.
     Position start = startOfParagraphToMove.deepEquivalent().downstream();
     Position end = startOfParagraphToMove == endOfParagraphToMove ? start : endOfParagraphToMove.deepEquivalent().upstream();
+    if (comparePositions(start, end) > 0)
+        end = start;
 
     cloneParagraphUnderNewElement(start, end, outerNode, blockElement);
 
@@ -1189,7 +1194,7 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
 
     // FIXME: This is an inefficient way to preserve style on nodes in the paragraph to move. It
     // shouldn't matter though, since moved paragraphs will usually be quite small.
-    RefPtr<DocumentFragment> fragment = startOfParagraphToMove != endOfParagraphToMove ?
+    RefPtrWillBeRawPtr<DocumentFragment> fragment = startOfParagraphToMove != endOfParagraphToMove ?
         createFragmentFromMarkup(document(), createMarkup(range.get(), 0, DoNotAnnotateForInterchange, true, DoNotResolveURLs, constrainingAncestor), "") : nullptr;
 
     // A non-empty paragraph's style is moved when we copy and move it.  We don't move
@@ -1451,12 +1456,14 @@ PassRefPtr<Node> CompositeEditCommand::splitTreeToNode(Node* start, Node* end, b
     ASSERT(end);
     ASSERT(start != end);
 
-    RefPtr<Node> node;
     if (shouldSplitAncestor && end->parentNode())
         end = end->parentNode();
+    if (!start->isDescendantOf(end))
+        return end;
 
     RefPtr<Node> endNode = end;
-    for (node = start; node && node->parentNode() != endNode; node = node->parentNode()) {
+    RefPtr<Node> node;
+    for (node = start; node->parentNode() != endNode; node = node->parentNode()) {
         if (!node->parentNode()->isElementNode())
             break;
         // Do not split a node when doing so introduces an empty node.
@@ -1469,10 +1476,9 @@ PassRefPtr<Node> CompositeEditCommand::splitTreeToNode(Node* start, Node* end, b
     return node.release();
 }
 
-PassRefPtr<Element> createBlockPlaceholderElement(Document& document)
+PassRefPtrWillBeRawPtr<Element> createBlockPlaceholderElement(Document& document)
 {
-    RefPtr<Element> breakNode = document.createElement(brTag, false);
-    return breakNode.release();
+    return document.createElement(brTag, false);
 }
 
 } // namespace WebCore

@@ -34,12 +34,11 @@
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ActiveDOMObject.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/events/EventTarget.h"
 #include "core/fileapi/FileError.h"
+#include "modules/EventTargetModules.h"
 #include "modules/filesystem/FileWriterBase.h"
 #include "platform/heap/Handle.h"
 #include "public/platform/WebFileWriterClient.h"
-#include "wtf/PassRefPtr.h"
 #include "wtf/RefPtr.h"
 
 namespace WebCore {
@@ -49,7 +48,8 @@ class ExceptionState;
 class ExecutionContext;
 
 class FileWriter FINAL : public FileWriterBase, public ScriptWrappable, public ActiveDOMObject, public EventTargetWithInlineData, public blink::WebFileWriterClient {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<FileWriterBase>);
+    REFCOUNTED_EVENT_TARGET(FileWriterBase);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(FileWriter);
 public:
     static PassRefPtrWillBeRawPtr<FileWriter> create(ExecutionContext*);
 

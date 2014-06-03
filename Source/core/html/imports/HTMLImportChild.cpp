@@ -41,21 +41,13 @@
 
 namespace WebCore {
 
-HTMLImportChild::HTMLImportChild(Document& master, const KURL& url, SyncMode sync)
+HTMLImportChild::HTMLImportChild(const KURL& url, SyncMode sync)
     : HTMLImport(sync)
-#if ENABLE(OILPAN)
-    , m_master(&master)
-#else
-    , m_master(master)
-#endif
     , m_url(url)
     , m_weakFactory(this)
     , m_loader(0)
     , m_client(0)
 {
-#if !ENABLE(OILPAN)
-    m_master.guardRef();
-#endif
 }
 
 HTMLImportChild::~HTMLImportChild()
@@ -65,28 +57,28 @@ HTMLImportChild::~HTMLImportChild()
 
     if (m_client)
         m_client->importChildWasDestroyed(this);
-
-#if !ENABLE(OILPAN)
-    m_master.guardDeref();
-#endif
 }
 
 void HTMLImportChild::wasAlreadyLoaded()
 {
     ASSERT(!m_loader);
     ASSERT(m_client);
-    ensureLoader();
+    shareLoader();
     stateWillChange();
 }
 
 void HTMLImportChild::startLoading(const ResourcePtr<RawResource>& resource)
 {
-    ASSERT(!this->resource());
     ASSERT(!m_loader);
 
-    setResource(resource);
+    if (m_loader)
+        return;
 
-    ensureLoader();
+    m_loader = toHTMLImportsController(root())->createLoader();
+    m_loader->addImport(this);
+    m_loader->startLoading(resource);
+
+    createCustomElementMicrotaskStepIfNeeded();
 }
 
 void HTMLImportChild::didFinish()
@@ -97,7 +89,6 @@ void HTMLImportChild::didFinish()
 
 void HTMLImportChild::didFinishLoading()
 {
-    clearResource();
     stateWillChange();
     if (m_customElementMicrotaskStep)
         CustomElementMicrotaskDispatcher::instance().importDidFinish(m_customElementMicrotaskStep.get());
@@ -112,6 +103,11 @@ void HTMLImportChild::didFinishUpgradingCustomElements()
 bool HTMLImportChild::isLoaded() const
 {
     return m_loader && m_loader->isDone();
+}
+
+bool HTMLImportChild::isFirst() const
+{
+    return m_loader && m_loader->isFirstImport(this);
 }
 
 Document* HTMLImportChild::importedDocument() const
@@ -145,46 +141,47 @@ void HTMLImportChild::stateDidChange()
 {
     HTMLImport::stateDidChange();
 
-    ensureLoader();
     if (state().isReady())
         didFinish();
 }
 
-void HTMLImportChild::ensureLoader()
+void HTMLImportChild::createCustomElementMicrotaskStepIfNeeded()
 {
-    if (m_loader)
-        return;
+    // HTMLImportChild::normalize(), which is called from HTMLImportLoader::addImport(),
+    // can move import children to new parents. So their microtask steps should be updated as well,
+    // to let the steps be in the new parent queues.This method handles such migration.
+    // For implementation simplicity, outdated step objects that are owned by moved children
+    // aren't removed from the (now wrong) queues. Instead, each step invalidates its content so that
+    // it is removed from the wrong queue during the next traversal. See parentWasChanged() for the detail.
 
-    if (HTMLImportChild* found = toHTMLImportsController(root())->findLinkFor(m_url, this))
-        shareLoader(found);
-    else
-        createLoader();
+    if (m_customElementMicrotaskStep) {
+        m_customElementMicrotaskStep->parentWasChanged();
+        m_customElementMicrotaskStep.clear();
+    }
 
     if (!isDone() && !formsCycle()) {
-        ASSERT(!m_customElementMicrotaskStep);
         m_customElementMicrotaskStep = CustomElement::didCreateImport(this)->weakPtr();
     }
+
+    for (HTMLImport* child = firstChild(); child; child = child->next())
+        toHTMLImportChild(child)->createCustomElementMicrotaskStepIfNeeded();
 }
 
-void HTMLImportChild::createLoader()
+void HTMLImportChild::shareLoader()
 {
     ASSERT(!m_loader);
-    m_loader = toHTMLImportsController(root())->createLoader();
-    m_loader->addImport(this);
-    m_loader->startLoading(resource());
-}
 
-void HTMLImportChild::shareLoader(HTMLImportChild* loader)
-{
-    ASSERT(!m_loader);
-    m_loader = loader->m_loader;
-    m_loader->addImport(this);
-    stateWillChange();
+    if (HTMLImportChild* childToShareWith = toHTMLImportsController(root())->findLinkFor(m_url, this)) {
+        m_loader = childToShareWith->m_loader;
+        m_loader->addImport(this);
+    }
+
+    createCustomElementMicrotaskStepIfNeeded();
 }
 
 bool HTMLImportChild::isDone() const
 {
-    return m_loader && m_loader->isDone() && !m_customElementMicrotaskStep;
+    return m_loader && m_loader->isDone() && !m_loader->microtaskQueue()->needsProcessOrStop() && !m_customElementMicrotaskStep;
 }
 
 bool HTMLImportChild::loaderHasError() const
@@ -214,12 +211,29 @@ HTMLLinkElement* HTMLImportChild::link() const
     return m_client->link();
 }
 
+// Ensuring following invariants against the import tree:
+// - HTMLImportChild::firstImport() is the "first import" of the DFS order of the import tree.
+// - The "first import" manages all the children that is loaded by the document.
+void HTMLImportChild::normalize()
+{
+    if (!loader()->isFirstImport(this) && this->precedes(loader()->firstImport())) {
+        HTMLImportChild* oldFirst = loader()->firstImport();
+        loader()->moveToFirst(this);
+        takeChildrenFrom(oldFirst);
+    }
+
+    for (HTMLImport* child = firstChild(); child; child = child->next())
+        toHTMLImportChild(child)->normalize();
+}
+
 #if !defined(NDEBUG)
 void HTMLImportChild::showThis()
 {
+    bool isFirst = loader() ? loader()->isFirstImport(this) : false;
     HTMLImport::showThis();
-    fprintf(stderr, " loader=%p step=%p sync=%s url=%s",
+    fprintf(stderr, " loader=%p first=%d, step=%p sync=%s url=%s",
         m_loader,
+        isFirst,
         m_customElementMicrotaskStep.get(),
         isSync() ? "Y" : "N",
         url().string().utf8().data());

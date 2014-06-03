@@ -32,6 +32,7 @@
 #include "core/rendering/RenderPart.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/svg/RenderSVGResourceContainer.h"
+#include "core/rendering/svg/SVGRenderSupport.h"
 #include "core/rendering/svg/SVGRenderingContext.h"
 #include "core/rendering/svg/SVGResources.h"
 #include "core/rendering/svg/SVGResourcesCache.h"
@@ -228,6 +229,10 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
     if (paintInfo.context->paintingDisabled())
         return;
 
+    // SVG outlines are painted during PaintPhaseForeground.
+    if (paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline)
+        return;
+
     // An empty viewBox also disables rendering.
     // (http://www.w3.org/TR/SVG/coords.html#ViewBoxAttribute)
     SVGSVGElement* svg = toSVGSVGElement(node());
@@ -332,9 +337,10 @@ void RenderSVGRoot::buildLocalToBorderBoxTransform()
     FloatPoint translate = svg->currentTranslate();
     LayoutSize borderAndPadding(borderLeft() + paddingLeft(), borderTop() + paddingTop());
     m_localToBorderBoxTransform = svg->viewBoxToViewTransform(contentWidth() / scale, contentHeight() / scale);
-    if (borderAndPadding.isEmpty() && scale == 1 && translate == FloatPoint::zero())
+    AffineTransform viewToBorderBoxTransform(scale, 0, 0, scale, borderAndPadding.width() + translate.x(), borderAndPadding.height() + translate.y());
+    if (viewToBorderBoxTransform.isIdentity())
         return;
-    m_localToBorderBoxTransform = AffineTransform(scale, 0, 0, scale, borderAndPadding.width() + translate.x(), borderAndPadding.height() + translate.y()) * m_localToBorderBoxTransform;
+    m_localToBorderBoxTransform = viewToBorderBoxTransform * m_localToBorderBoxTransform;
 }
 
 const AffineTransform& RenderSVGRoot::localToParentTransform() const

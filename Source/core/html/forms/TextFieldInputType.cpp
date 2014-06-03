@@ -150,7 +150,7 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
 {
     // Grab this input element to keep reference even if JS event handler
     // changes input type.
-    RefPtr<HTMLInputElement> input(element());
+    RefPtrWillBeRawPtr<HTMLInputElement> input(element());
 
     // We don't ask InputType::setValue to dispatch events because
     // TextFieldInputType dispatches events different way from InputType.
@@ -232,9 +232,10 @@ void TextFieldInputType::forwardEvent(Event* event)
             if (RenderBox* innerTextRenderer = element().innerTextElement()->renderBox()) {
                 // FIXME: This class has no need to know about RenderLayer!
                 if (RenderLayer* innerLayer = innerTextRenderer->layer()) {
-                    RenderLayerScrollableArea* innerScrollableArea = innerLayer->scrollableArea();
-                    IntSize scrollOffset(!renderTextControl->style()->isLeftToRightDirection() ? innerScrollableArea->scrollWidth() : 0, 0);
-                    innerScrollableArea->scrollToOffset(scrollOffset, ScrollOffsetClamped);
+                    if (RenderLayerScrollableArea* innerScrollableArea = innerLayer->scrollableArea()) {
+                        IntSize scrollOffset(!renderTextControl->style()->isLeftToRightDirection() ? innerScrollableArea->scrollWidth().toInt() : 0, 0);
+                        innerScrollableArea->scrollToOffset(scrollOffset, ScrollOffsetClamped);
+                    }
                 }
             }
 
@@ -538,7 +539,7 @@ void TextFieldInputType::updateView()
 
 void TextFieldInputType::focusAndSelectSpinButtonOwner()
 {
-    RefPtr<HTMLInputElement> input(element());
+    RefPtrWillBeRawPtr<HTMLInputElement> input(element());
     input->focus();
     input->select();
 }

@@ -510,8 +510,11 @@ int UseCounter::mapCSSPropertyIdToCSSSampleIdForHistogram(int id)
     case CSSPropertyGridTemplate: return 452;
     case CSSPropertyGrid: return 453;
 
-    // Add new features above this line (don't change the assigned numbers of the existing
-    // items) and update maximumCSSSampleId() with the new maximum value.
+    // 1. Add new features above this line (don't change the assigned numbers of the existing
+    // items).
+    // 2. Update maximumCSSSampleId() with the new maximum value.
+    // 3. Run the update_use_counter_css.py script in
+    // chromium/src/tools/metrics/histograms to update the UMA histogram names.
 
     // Internal properties should not be counted.
     case CSSPropertyInternalMarqueeDirection:
@@ -641,10 +644,6 @@ String UseCounter::deprecationMessage(Feature feature)
     case PrefixedStorageInfo:
         return "'window.webkitStorageInfo' is deprecated. Please use 'navigator.webkitTemporaryStorage' or 'navigator.webkitPersistentStorage' instead.";
 
-    // HTML Media Capture
-    case CaptureAttributeAsEnum:
-        return "Using the 'capture' attribute as an enum is deprecated. Please use it as a boolean and specify the media types that should be accepted in the 'accept' attribute.";
-
     // Keyboard Event (DOM Level 3)
     case KeyboardEventKeyLocation:
         return "'KeyboardEvent.keyLocation' is deprecated. Please use 'KeyboardEvent.location' instead.";
@@ -694,9 +693,6 @@ String UseCounter::deprecationMessage(Feature feature)
     case PrefixedCancelRequestAnimationFrame:
         return "'webkitCancelRequestAnimationFrame' is vendor-specific. Please use the standard 'cancelAnimationFrame' instead.";
 
-    case HTMLHtmlElementManifest:
-        return "'HTMLHtmlElement.manifest' is deprecated. The manifest attribute only has an effect during the early stages of document load.";
-
     case DocumentCreateAttributeNS:
         return "'Document.createAttributeNS' is deprecated and has been removed from DOM4 (http://w3.org/tr/dom).";
 
@@ -727,6 +723,12 @@ String UseCounter::deprecationMessage(Feature feature)
     case DocumentImportNodeOptionalArgument:
         return "The behavior of importNode() with no boolean argument is about to change from doing a deep clone to doing a shallow clone.  "
             "Make sure to pass an explicit boolean argument to keep your current behavior.";
+
+    case OverflowChangedEvent:
+        return "The 'overflowchanged' event is deprecated and may be removed. Please do not use it.";
+
+    case HTMLHeadElementProfile:
+        return "'HTMLHeadElement.profile' is deprecated. The reflected attribute has no effect.";
 
     // Features that aren't deprecated don't have a deprecation message.
     default:

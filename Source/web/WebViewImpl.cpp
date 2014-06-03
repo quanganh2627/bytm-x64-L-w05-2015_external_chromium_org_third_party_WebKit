@@ -344,16 +344,10 @@ void WebViewImpl::setSpellCheckClient(WebSpellCheckClient* spellCheckClient)
     m_spellCheckClient = spellCheckClient;
 }
 
-void WebViewImpl::setPasswordGeneratorClient(WebPasswordGeneratorClient* client)
-{
-    m_passwordGeneratorClient = client;
-}
-
 WebViewImpl::WebViewImpl(WebViewClient* client)
     : m_client(client)
     , m_autofillClient(0)
     , m_spellCheckClient(0)
-    , m_passwordGeneratorClient(0)
     , m_chromeClientImpl(this)
     , m_contextMenuClientImpl(this)
     , m_dragClientImpl(this)
@@ -367,7 +361,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_zoomLevel(0)
     , m_minimumZoomLevel(zoomFactorToZoomLevel(minTextSizeMultiplier))
     , m_maximumZoomLevel(zoomFactorToZoomLevel(maxTextSizeMultiplier))
-    , m_savedPageScaleFactor(0)
     , m_doubleTapZoomPageScaleFactor(0)
     , m_doubleTapZoomPending(false)
     , m_enableFakePageScaleAnimationForTesting(false)
@@ -424,8 +417,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     provideNavigatorContentUtilsTo(*m_page, NavigatorContentUtilsClientImpl::create(this));
 
     provideContextFeaturesTo(*m_page, ContextFeaturesClientImpl::create());
-    if (RuntimeEnabledFeatures::deviceOrientationEnabled())
-        DeviceOrientationInspectorAgent::provideTo(*m_page);
+    DeviceOrientationInspectorAgent::provideTo(*m_page);
     provideGeolocationTo(*m_page, m_geolocationClientProxy.get());
     m_geolocationClientProxy->setController(GeolocationController::from(m_page.get()));
 
@@ -705,7 +697,7 @@ bool WebViewImpl::handleGestureEvent(const WebGestureEvent& event)
             scaledEvent.data.tap.height = event.data.tap.height / pageScaleFactor();
             IntRect boundingBox(scaledEvent.x - scaledEvent.data.tap.width / 2, scaledEvent.y - scaledEvent.data.tap.height / 2, scaledEvent.data.tap.width, scaledEvent.data.tap.height);
             Vector<IntRect> goodTargets;
-            Vector<Node*> highlightNodes;
+            WillBeHeapVector<RawPtrWillBeMember<Node> > highlightNodes;
             findGoodTouchTargets(boundingBox, mainFrameImpl()->frame(), goodTargets, highlightNodes);
             // FIXME: replace touch adjustment code when numberOfGoodTargets == 1?
             // Single candidate case is currently handled by: https://bugs.webkit.org/show_bug.cgi?id=85101
@@ -905,6 +897,10 @@ void WebViewImpl::getSelectionRootBounds(WebRect& bounds) const
     boundingBox = root->document().frame()->view()->contentsToWindow(boundingBox);
     boundingBox.scale(pageScaleFactor());
     bounds = boundingBox;
+}
+
+void WebViewImpl::acceptLanguagesChanged()
+{
 }
 
 bool WebViewImpl::handleKeyEvent(const WebKeyboardEvent& event)
@@ -1206,13 +1202,13 @@ void WebViewImpl::enableTapHighlightAtPoint(const PlatformGestureEvent& tapEvent
 {
     Node* touchNode = bestTapNode(tapEvent);
 
-    Vector<Node*> highlightNodes;
+    WillBeHeapVector<RawPtrWillBeMember<Node> > highlightNodes;
     highlightNodes.append(touchNode);
 
     enableTapHighlights(highlightNodes);
 }
 
-void WebViewImpl::enableTapHighlights(Vector<Node*>& highlightNodes)
+void WebViewImpl::enableTapHighlights(WillBeHeapVector<RawPtrWillBeMember<Node> >& highlightNodes)
 {
     if (highlightNodes.isEmpty())
         return;
@@ -1747,63 +1743,18 @@ void WebViewImpl::enterForceCompositingMode(bool enter)
     }
 }
 
-void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect)
+void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
 {
-    ASSERT(m_layerTreeView);
+    // This should only be used when compositing is not being used for this
+    // WebView, and it is painting into the recording of its parent.
+    ASSERT(!isAcceleratedCompositingActive());
 
-    SkBitmap target;
-    target.setConfig(SkImageInfo::MakeN32Premul(rect.width(), rect.height()), rect.width() * 4);
-    if (!target.allocPixels())
-        return;
-    m_layerTreeView->compositeAndReadback(target.getPixels(), rect);
-#if (!SK_R32_SHIFT && SK_B32_SHIFT == 16)
-    // The compositor readback always gives back pixels in BGRA order, but for
-    // example Android's Skia uses RGBA ordering so the red and blue channels
-    // need to be swapped.
-    uint8_t* pixels = reinterpret_cast<uint8_t*>(target.getPixels());
-    for (size_t i = 0; i < target.getSize(); i += 4)
-        std::swap(pixels[i], pixels[i + 2]);
-#endif
-    canvas->writePixels(target, rect.x(), rect.y());
-}
-
-void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect, PaintOptions option)
-{
-#if !OS(ANDROID)
-    // ReadbackFromCompositorIfAvailable is the only option available on non-Android.
-    // Ideally, Android would always use ReadbackFromCompositorIfAvailable as well.
-    ASSERT(option == ReadbackFromCompositorIfAvailable);
-#endif
-
-    if (option == ReadbackFromCompositorIfAvailable && isAcceleratedCompositingActive()) {
-        // If a canvas was passed in, we use it to grab a copy of the
-        // freshly-rendered pixels.
-        if (canvas) {
-            // Clip rect to the confines of the rootLayerTexture.
-            IntRect resizeRect(rect);
-            resizeRect.intersect(IntRect(IntPoint(0, 0), m_layerTreeView->deviceViewportSize()));
-            doPixelReadbackToCanvas(canvas, resizeRect);
-        }
-    } else {
-        FrameView* view = page()->mainFrame()->view();
-        PaintBehavior oldPaintBehavior = view->paintBehavior();
-        if (isAcceleratedCompositingActive()) {
-            ASSERT(option == ForceSoftwareRenderingAndIgnoreGPUResidentContent);
-            view->setPaintBehavior(oldPaintBehavior | PaintBehaviorFlattenCompositingLayers);
-        }
-
-        double paintStart = currentTime();
-        PageWidgetDelegate::paint(m_page.get(), pageOverlays(), canvas, rect, isTransparent() ? PageWidgetDelegate::Translucent : PageWidgetDelegate::Opaque);
-        double paintEnd = currentTime();
-        double pixelsPerSec = (rect.width * rect.height) / (paintEnd - paintStart);
-        blink::Platform::current()->histogramCustomCounts("Renderer4.SoftwarePaintDurationMS", (paintEnd - paintStart) * 1000, 0, 120, 30);
-        blink::Platform::current()->histogramCustomCounts("Renderer4.SoftwarePaintMegapixPerSecond", pixelsPerSec / 1000000, 10, 210, 30);
-
-        if (isAcceleratedCompositingActive()) {
-            ASSERT(option == ForceSoftwareRenderingAndIgnoreGPUResidentContent);
-            view->setPaintBehavior(oldPaintBehavior);
-        }
-    }
+    double paintStart = currentTime();
+    PageWidgetDelegate::paint(m_page.get(), pageOverlays(), canvas, rect, isTransparent() ? PageWidgetDelegate::Translucent : PageWidgetDelegate::Opaque);
+    double paintEnd = currentTime();
+    double pixelsPerSec = (rect.width * rect.height) / (paintEnd - paintStart);
+    blink::Platform::current()->histogramCustomCounts("Renderer4.SoftwarePaintDurationMS", (paintEnd - paintStart) * 1000, 0, 120, 30);
+    blink::Platform::current()->histogramCustomCounts("Renderer4.SoftwarePaintMegapixPerSecond", pixelsPerSec / 1000000, 10, 210, 30);
 }
 
 #if OS(ANDROID)
@@ -1873,6 +1824,17 @@ const WebInputEvent* WebViewImpl::m_currentInputEvent = 0;
 bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
 {
     UserGestureNotifier notifier(m_autofillClient, &m_userGestureObserved);
+    // On the first input event since page load, |notifier| instructs the
+    // autofill client to unblock values of password input fields of any forms
+    // on the page. There is a single input event, GestureTap, which can both
+    // be the first event after page load, and cause a form submission. In that
+    // case, the form submission happens before the autofill client is told
+    // to unblock the password values, and so the password values are not
+    // submitted. To avoid that, GestureTap is handled explicitly:
+    if (inputEvent.type == WebInputEvent::GestureTap && m_autofillClient) {
+        m_userGestureObserved = true;
+        m_autofillClient->firstUserGestureObserved();
+    }
 
     TRACE_EVENT0("input", "WebViewImpl::handleInputEvent");
     // If we've started a drag and drop operation, ignore input events until
@@ -1897,7 +1859,7 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
     if (m_mouseCaptureNode && WebInputEvent::isMouseEventType(inputEvent.type)) {
         TRACE_EVENT1("input", "captured mouse event", "type", inputEvent.type);
         // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
-        RefPtr<Node> node = m_mouseCaptureNode;
+        RefPtrWillBeRawPtr<Node> node = m_mouseCaptureNode;
 
         // Not all platforms call mouseCaptureLost() directly.
         if (inputEvent.type == WebInputEvent::MouseUp)
@@ -2264,6 +2226,9 @@ bool WebViewImpl::selectionBounds(WebRect& anchor, WebRect& focus) const
     IntRect scaledFocus(frame->view()->contentsToWindow(focus));
 
     if (pinchVirtualViewportEnabled()) {
+        // FIXME(http://crbug.com/371902) - We shouldn't have to do this
+        // manually, the contentsToWindow methods above should be fixed to do
+        // this.
         IntPoint pinchViewportOffset =
             roundedIntPoint(page()->frameHost().pinchViewport().visibleRect().location());
         scaledAnchor.moveBy(-pinchViewportOffset);
@@ -2544,11 +2509,11 @@ void WebViewImpl::clearFocusedElement()
 
     LocalFrame* localFrame = toLocalFrame(frame.get());
 
-    RefPtr<Document> document = localFrame->document();
+    RefPtrWillBeRawPtr<Document> document = localFrame->document();
     if (!document)
         return;
 
-    RefPtr<Element> oldFocusedElement = document->focusedElement();
+    RefPtrWillBeRawPtr<Element> oldFocusedElement = document->focusedElement();
 
     // Clear the focused node.
     document->setFocusedElement(nullptr);
@@ -2562,12 +2527,6 @@ void WebViewImpl::clearFocusedElement()
     // keystrokes get eaten as a result.
     if (oldFocusedElement->isContentEditable() || oldFocusedElement->isTextFormControl())
         localFrame->selection().clear();
-}
-
-void WebViewImpl::scrollFocusedNodeIntoView()
-{
-    if (Element* element = focusedElement())
-        element->scrollIntoViewIfNeeded(true);
 }
 
 void WebViewImpl::scrollFocusedNodeIntoRect(const WebRect& rect)
@@ -2909,7 +2868,7 @@ void WebViewImpl::refreshPageScaleFactorAfterLayout()
     updatePageDefinedViewportConstraints(mainFrameImpl()->frame()->document()->viewportDescription());
     m_pageScaleConstraintsSet.computeFinalConstraints();
 
-    if (settings()->shrinksViewportContentToFit() && settings()->viewportEnabled() && !m_fixedLayoutSizeLock) {
+    if (settings()->shrinksViewportContentToFit() && !m_fixedLayoutSizeLock) {
         int verticalScrollbarWidth = 0;
         if (view->verticalScrollbar() && !view->verticalScrollbar()->isOverlayScrollbar())
             verticalScrollbarWidth = view->verticalScrollbar()->width();
@@ -3048,30 +3007,13 @@ float WebViewImpl::maximumPageScaleFactor() const
     return m_pageScaleConstraintsSet.finalConstraints().maximumScale;
 }
 
-void WebViewImpl::saveScrollAndScaleState()
-{
-    m_savedPageScaleFactor = pageScaleFactor();
-    m_savedScrollOffset = mainFrame()->scrollOffset();
-}
-
-void WebViewImpl::restoreScrollAndScaleState()
-{
-    if (!m_savedPageScaleFactor)
-        return;
-
-    startPageScaleAnimation(IntPoint(m_savedScrollOffset), false, m_savedPageScaleFactor, scrollAndScaleAnimationDurationInSeconds);
-    resetSavedScrollAndScaleState();
-}
-
-void WebViewImpl::resetSavedScrollAndScaleState()
-{
-    m_savedPageScaleFactor = 0;
-    m_savedScrollOffset = IntSize();
-}
-
 void WebViewImpl::resetScrollAndScaleState()
 {
-    setPageScaleFactor(1, IntPoint());
+    // TODO: This is done by the pinchViewport().reset() call below and can be removed when
+    // the new pinch path is the only one.
+    setPageScaleFactor(1);
+    updateMainFrameScrollPosition(IntPoint(), true);
+    page()->frameHost().pinchViewport().reset();
 
     // Clear out the values for the current history item. This will prevent the history item from clobbering the
     // value determined during page scale initialization, which may be less than 1.
@@ -3081,7 +3023,6 @@ void WebViewImpl::resetScrollAndScaleState()
     // Clobber saved scales and scroll offsets.
     if (FrameView* view = page()->mainFrame()->document()->view())
         view->cacheCurrentScrollPosition();
-    resetSavedScrollAndScaleState();
 }
 
 void WebViewImpl::setFixedLayoutSize(const WebSize& layoutSize)
@@ -3109,12 +3050,11 @@ void WebViewImpl::performMediaPlayerAction(const WebMediaPlayerAction& action,
                                            const WebPoint& location)
 {
     HitTestResult result = hitTestResultForWindowPos(location);
-    RefPtr<Node> node = result.innerNonSharedNode();
+    RefPtrWillBeRawPtr<Node> node = result.innerNonSharedNode();
     if (!isHTMLVideoElement(*node) && !isHTMLAudioElement(*node))
         return;
 
-    RefPtr<HTMLMediaElement> mediaElement =
-        static_pointer_cast<HTMLMediaElement>(node);
+    RefPtrWillBeRawPtr<HTMLMediaElement> mediaElement = static_pointer_cast<HTMLMediaElement>(node);
     switch (action.type) {
     case WebMediaPlayerAction::Play:
         if (action.enable)
@@ -3140,7 +3080,7 @@ void WebViewImpl::performPluginAction(const WebPluginAction& action,
                                       const WebPoint& location)
 {
     HitTestResult result = hitTestResultForWindowPos(location);
-    RefPtr<Node> node = result.innerNonSharedNode();
+    RefPtrWillBeRawPtr<Node> node = result.innerNonSharedNode();
     if (!isHTMLObjectElement(*node) && !isHTMLEmbedElement(*node))
         return;
 
@@ -3311,7 +3251,7 @@ void WebViewImpl::spellingMarkers(WebVector<uint32_t>* markers)
 {
     Vector<uint32_t> result;
     for (LocalFrame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        const Vector<DocumentMarker*>& documentMarkers = frame->document()->markers().markers();
+        const WillBeHeapVector<DocumentMarker*>& documentMarkers = frame->document()->markers().markers();
         for (size_t i = 0; i < documentMarkers.size(); ++i)
             result.append(documentMarkers[i]->hash());
     }
@@ -3389,7 +3329,7 @@ void WebViewImpl::inspectElementAt(const WebPoint& point)
     if (point.x == -1 || point.y == -1) {
         m_page->inspectorController().inspect(0);
     } else {
-        HitTestRequest::HitTestRequestType hitType = HitTestRequest::Move | HitTestRequest::ReadOnly | HitTestRequest::AllowChildFrameContent | HitTestRequest::IgnorePointerEventsNone;
+        HitTestRequest::HitTestRequestType hitType = HitTestRequest::Move | HitTestRequest::ReadOnly | HitTestRequest::AllowChildFrameContent;
         HitTestRequest request(hitType);
 
         FrameView* frameView = m_page->mainFrame()->view();
@@ -3462,7 +3402,7 @@ WebAXObject WebViewImpl::accessibilityObject()
 
     Document* document = mainFrameImpl()->frame()->document();
     return WebAXObject(
-        document->axObjectCache()->getOrCreate(document->renderer()));
+        document->axObjectCache()->getOrCreate(document->renderView()));
 }
 
 void WebViewImpl::performCustomContextMenuAction(unsigned action)
@@ -3596,7 +3536,6 @@ void WebViewImpl::didCommitLoad(bool isNewNavigation, bool isNavigationWithinPag
     // Make sure link highlight from previous page is cleared.
     m_linkHighlights.clear();
     endActiveFlingAnimation();
-    resetSavedScrollAndScaleState();
     m_userGestureObserved = false;
 }
 
@@ -3873,6 +3812,9 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
     blink::Platform::current()->histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
 
     if (m_isAcceleratedCompositingActive == active)
+        return;
+
+    if (!m_client)
         return;
 
     if (!active) {

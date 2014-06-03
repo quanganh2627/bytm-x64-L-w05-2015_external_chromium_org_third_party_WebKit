@@ -55,7 +55,7 @@ class CSSStyleSheet;
 class CSSValue;
 class ContainerNode;
 class Document;
-class DocumentTimeline;
+class AnimationTimeline;
 class Element;
 class ElementRuleCollector;
 class KeyframeList;
@@ -119,7 +119,8 @@ public:
         RuleMatchingBehavior = MatchAllRules);
 
     PassRefPtr<RenderStyle> styleForKeyframe(Element*, const RenderStyle&, RenderStyle* parentStyle, const StyleKeyframe*, const AtomicString& animationName);
-    static PassRefPtrWillBeRawPtr<AnimatableValue> createAnimatableValueSnapshot(Element&, CSSPropertyID, CSSValue*);
+    static PassRefPtrWillBeRawPtr<AnimatableValue> createAnimatableValueSnapshot(Element&, CSSPropertyID, CSSValue&);
+    static PassRefPtrWillBeRawPtr<AnimatableValue> createAnimatableValueSnapshot(Element&, CSSPropertyID, CSSValue&, RenderStyle&);
 
     PassRefPtr<RenderStyle> pseudoStyleForElement(Element*, const PseudoStyleRequest&, RenderStyle* parentStyle);
 
@@ -227,7 +228,7 @@ public:
     void increaseStyleSharingDepth() { ++m_styleSharingDepth; }
     void decreaseStyleSharingDepth() { --m_styleSharingDepth; }
 
-    PassRefPtr<PseudoElement> createPseudoElementIfNeeded(Element& parent, PseudoId);
+    PassRefPtrWillBeRawPtr<PseudoElement> createPseudoElementIfNeeded(Element& parent, PseudoId);
 
     virtual void trace(Visitor*) OVERRIDE;
 

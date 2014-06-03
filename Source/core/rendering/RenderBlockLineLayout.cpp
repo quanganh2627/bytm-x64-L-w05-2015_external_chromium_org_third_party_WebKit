@@ -64,7 +64,7 @@ static RenderObject* firstRenderObjectForDirectionalityDetermination(RenderObjec
     }
 
     if (!current)
-        current = root->firstChild();
+        current = root->slowFirstChild();
 
     while (current) {
         next = 0;
@@ -72,7 +72,7 @@ static RenderObject* firstRenderObjectForDirectionalityDetermination(RenderObjec
             break;
 
         if (!isIteratorTarget(current) && !isIsolated(current->style()->unicodeBidi()))
-            next = current->firstChild();
+            next = current->slowFirstChild();
 
         if (!next) {
             while (current && current != root) {
@@ -516,8 +516,8 @@ static inline void computeExpansionForJustifiedText(BidiRun* firstRun, BidiRun* 
 
             ASSERT(opportunitiesInRun <= expansionOpportunityCount);
 
-            // Only justify text if whitespace is collapsed.
-            if (r->m_object->style()->collapseWhiteSpace()) {
+            // Don't justify for white-space: pre.
+            if (r->m_object->style()->whiteSpace() != PRE) {
                 InlineTextBox* textBox = toInlineTextBox(r->m_box);
                 int expansion = (availableLogicalWidth - totalLogicalWidth) * opportunitiesInRun / expansionOpportunityCount;
                 textBox->setExpansion(expansion);
@@ -578,6 +578,8 @@ void RenderBlockFlow::updateLogicalWidthForAlignment(const ETextAlign& textAlign
             updateLogicalWidthForLeftAlignedBlock(style()->isLeftToRightDirection(), trailingSpaceRun, logicalLeft, totalLogicalWidth, availableLogicalWidth);
         break;
     }
+    if (style()->shouldPlaceBlockDirectionScrollbarOnLogicalLeft())
+        logicalLeft += verticalScrollbarWidth();
 }
 
 static void updateLogicalInlinePositions(RenderBlockFlow* block, float& lineLogicalLeft, float& lineLogicalRight, float& availableLogicalWidth, bool firstLine, IndentTextOrNot shouldIndentText, LayoutUnit boxLogicalHeight)
@@ -599,7 +601,7 @@ void RenderBlockFlow::computeInlineDirectionPositionsForLine(RootInlineBox* line
     // box is only affected if it is the first child of its parent element."
     // CSS3 "text-indent", "each-line" affects the first line of the block container as well as each line after a forced line break,
     // but does not affect lines after a soft wrap break.
-    bool isFirstLine = lineInfo.isFirstLine() && !(isAnonymousBlock() && parent()->firstChild() != this);
+    bool isFirstLine = lineInfo.isFirstLine() && !(isAnonymousBlock() && parent()->slowFirstChild() != this);
     bool isAfterHardLineBreak = lineBox->prevRootBox() && lineBox->prevRootBox()->endsWithBreak();
     IndentTextOrNot shouldIndentText = requiresIndent(isFirstLine, isAfterHardLineBreak, style());
     float lineLogicalLeft;
@@ -882,7 +884,7 @@ void RenderBlockFlow::layoutRunsAndFloats(LineLayoutState& layoutState)
     }
 
     if (containsFloats())
-        layoutState.setLastFloat(m_floatingObjects->set().last());
+        layoutState.setLastFloat(m_floatingObjects->set().last().get());
 
     // We also find the first clean line and extract these lines.  We will add them back
     // if we determine that we're able to synchronize after handling all our dirty lines.
@@ -968,7 +970,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
 
         const InlineIterator previousEndofLine = endOfLine;
         bool isNewUBAParagraph = layoutState.lineInfo().previousLineBrokeCleanly();
-        FloatingObject* lastFloatFromPreviousLine = (containsFloats()) ? m_floatingObjects->set().last() : 0;
+        FloatingObject* lastFloatFromPreviousLine = (containsFloats()) ? m_floatingObjects->set().last().get() : 0;
 
         WordMeasurements wordMeasurements;
         endOfLine = lineBreaker.nextLineBreak(resolver, layoutState.lineInfo(), renderTextInfo, lastFloatFromPreviousLine, consecutiveHyphenatedLines, wordMeasurements);
@@ -1064,7 +1066,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
                 it = lastFloatIterator;
             }
             for (; it != end; ++it) {
-                FloatingObject* f = *it;
+                FloatingObject* f = it->get();
                 appendFloatingObjectToLastLine(f);
                 ASSERT(f->renderer() == layoutState.floats()[layoutState.floatIndex()].object);
                 // If a float's geometry has changed, give up on syncing with clean lines.
@@ -1072,7 +1074,7 @@ void RenderBlockFlow::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, I
                     checkForEndLineMatch = false;
                 layoutState.setFloatIndex(layoutState.floatIndex() + 1);
             }
-            layoutState.setLastFloat(!floatingObjectSet.isEmpty() ? floatingObjectSet.last() : 0);
+            layoutState.setLastFloat(!floatingObjectSet.isEmpty() ? floatingObjectSet.last().get() : 0);
         }
 
         lineMidpointState.reset();
@@ -1208,8 +1210,8 @@ void RenderBlockFlow::linkToEndLineIfNeeded(LineLayoutState& layoutState)
             it = lastFloatIterator;
         }
         for (; it != end; ++it)
-            appendFloatingObjectToLastLine(*it);
-        layoutState.setLastFloat(!floatingObjectSet.isEmpty() ? floatingObjectSet.last() : 0);
+            appendFloatingObjectToLastLine(it->get());
+        layoutState.setLastFloat(!floatingObjectSet.isEmpty() ? floatingObjectSet.last().get() : 0);
     }
 }
 
@@ -1261,7 +1263,7 @@ RenderObject* InlineMinMaxIterator::next()
     endOfInline = false;
     while (current || current == parent) {
         if (!oldEndOfInline && (current == parent || (!current->isFloating() && !current->isReplaced() && !current->isOutOfFlowPositioned())))
-            result = current->firstChild();
+            result = current->slowFirstChild();
 
         if (!result) {
             // We hit the end of our inline. (It was empty, e.g., <span></span>.)
@@ -1831,7 +1833,7 @@ RootInlineBox* RenderBlockFlow::determineStartPosition(LineLayoutState& layoutSt
     if (layoutState.isFullLayout()) {
         // If we encountered a new float and have inline children, mark ourself to force us to repaint.
         if (layoutState.hasInlineChild() && !selfNeedsLayout()) {
-            setNeedsLayout(MarkOnlyThis);
+            setNeedsLayoutAndFullRepaint(MarkOnlyThis);
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                 setShouldDoFullRepaintAfterLayout(true);
         }
@@ -1982,7 +1984,7 @@ bool RenderBlockFlow::checkPaginationAndFloatsAtEndLine(LineLayoutState& layoutS
     const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
     FloatingObjectSetIterator end = floatingObjectSet.end();
     for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
-        FloatingObject* floatingObject = *it;
+        FloatingObject* floatingObject = it->get();
         if (logicalBottomForFloat(floatingObject) >= logicalTop && logicalBottomForFloat(floatingObject) < logicalBottom)
             return false;
     }
@@ -2155,7 +2157,7 @@ bool RenderBlockFlow::positionNewFloatOnLine(FloatingObject* newFloat, FloatingO
     FloatingObjectSetIterator begin = floatingObjectSet.begin();
     while (it != begin) {
         --it;
-        FloatingObject* floatingObject = *it;
+        FloatingObject* floatingObject = it->get();
         if (floatingObject == lastFloatFromPreviousLine)
             break;
         if (logicalTopForFloat(floatingObject) == logicalHeight() + lineInfo.floatPaginationStrut()) {

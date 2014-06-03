@@ -45,6 +45,10 @@
 extern "C" void* __libc_stack_end;  // NOLINT
 #endif
 
+#if defined(MEMORY_SANITIZER)
+#include <sanitizer/msan_interface.h>
+#endif
+
 namespace WebCore {
 
 static void* getStackStart()
@@ -462,8 +466,14 @@ void ThreadState::visitStack(Visitor* visitor)
     current = reinterpret_cast<Address*>(reinterpret_cast<intptr_t>(current) & ~(sizeof(Address) - 1));
 
     for (; current < start; ++current) {
-        Heap::checkAndMarkPointer(visitor, *current);
-        visitAsanFakeStackForPointer(visitor, *current);
+        Address ptr = *current;
+#if defined(MEMORY_SANITIZER)
+        // ptr may be uninitialized by design. Mark it as initialized to keep
+        // MSan from complaining.
+        __msan_unpoison(&ptr, sizeof(ptr));
+#endif
+        Heap::checkAndMarkPointer(visitor, ptr);
+        visitAsanFakeStackForPointer(visitor, ptr);
     }
 
     for (Vector<Address>::iterator it = m_safePointStackCopy.begin(); it != m_safePointStackCopy.end(); ++it) {
@@ -540,10 +550,10 @@ Mutex& ThreadState::globalRootsMutex()
 }
 
 // Trigger garbage collection on a 50% increase in size, but not for
-// less than 2 pages.
+// less than 512kbytes.
 static bool increasedEnoughToGC(size_t newSize, size_t oldSize)
 {
-    if (newSize < 2 * blinkPagePayloadSize())
+    if (newSize < 1 << 19)
         return false;
     return newSize > oldSize + (oldSize >> 1);
 }
@@ -560,10 +570,10 @@ bool ThreadState::shouldGC()
 }
 
 // Trigger conservative garbage collection on a 100% increase in size,
-// but not for less than 2 pages.
+// but not for less than 4Mbytes.
 static bool increasedEnoughToForceConservativeGC(size_t newSize, size_t oldSize)
 {
-    if (newSize < 2 * blinkPagePayloadSize())
+    if (newSize < 1 << 22)
         return false;
     return newSize > 2 * oldSize;
 }
@@ -804,27 +814,28 @@ void ThreadState::copyStackUntilSafePointScope()
 
 void ThreadState::performPendingSweep()
 {
+    if (!sweepRequested())
+        return;
+
     TRACE_EVENT0("Blink", "ThreadState::performPendingSweep");
     const char* samplingState = TRACE_EVENT_GET_SAMPLING_STATE();
     if (isMainThread())
         TRACE_EVENT_SET_SAMPLING_STATE("Blink", "BlinkGCSweeping");
 
-    if (sweepRequested()) {
-        m_sweepInProgress = true;
-        // Disallow allocation during weak processing.
-        enterNoAllocationScope();
-        // Perform thread-specific weak processing.
-        while (popAndInvokeWeakPointerCallback(Heap::s_markingVisitor)) { }
-        leaveNoAllocationScope();
-        // Perform sweeping and finalization.
-        m_stats.clear(); // Sweeping will recalculate the stats
-        for (int i = 0; i < NumberOfHeaps; i++)
-            m_heaps[i]->sweep();
-        getStats(m_statsAfterLastGC);
-        m_sweepInProgress = false;
-        clearGCRequested();
-        clearSweepRequested();
-    }
+    m_sweepInProgress = true;
+    // Disallow allocation during weak processing.
+    enterNoAllocationScope();
+    // Perform thread-specific weak processing.
+    while (popAndInvokeWeakPointerCallback(Heap::s_markingVisitor)) { }
+    leaveNoAllocationScope();
+    // Perform sweeping and finalization.
+    m_stats.clear(); // Sweeping will recalculate the stats
+    for (int i = 0; i < NumberOfHeaps; i++)
+        m_heaps[i]->sweep();
+    getStats(m_statsAfterLastGC);
+    m_sweepInProgress = false;
+    clearGCRequested();
+    clearSweepRequested();
 
     if (isMainThread())
         TRACE_EVENT_SET_NONCONST_SAMPLING_STATE(samplingState);

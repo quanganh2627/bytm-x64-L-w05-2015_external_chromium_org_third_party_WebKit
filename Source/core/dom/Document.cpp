@@ -42,10 +42,8 @@
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptController.h"
 #include "core/accessibility/AXObjectCache.h"
-#include "core/animation/AnimationClock.h"
+#include "core/animation/AnimationTimeline.h"
 #include "core/animation/DocumentAnimations.h"
-#include "core/animation/DocumentTimeline.h"
-#include "core/animation/css/TransitionTimeline.h"
 #include "core/css/CSSFontSelector.h"
 #include "core/css/CSSStyleDeclaration.h"
 #include "core/css/CSSStyleSheet.h"
@@ -365,7 +363,7 @@ private:
     virtual void performTask(ExecutionContext* context) OVERRIDE
     {
         Document* document = toDocument(context);
-        if (RefPtr<Element> element = document->autofocusElement()) {
+        if (RefPtrWillBeRawPtr<Element> element = document->autofocusElement()) {
             document->setAutofocusElement(0);
             element->focus();
         }
@@ -411,7 +409,6 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     : ContainerNode(0, CreateDocument)
     , TreeScope(*this)
     , m_hasNodesWithPlaceholderStyle(false)
-    , m_needsNotifyRemoveAllPendingStylesheet(false)
     , m_evaluateMediaQueriesOnStyleRecalc(false)
     , m_pendingSheetLayout(NoLayoutWithPendingSheets)
     , m_frame(initializer.frame())
@@ -424,6 +421,7 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_paginatedForScreen(false)
     , m_compatibilityMode(NoQuirksMode)
     , m_compatibilityModeLocked(false)
+    , m_executeScriptsWaitingForResourcesTimer(this, &Document::executeScriptsWaitingForResourcesTimerFired)
     , m_hasAutofocused(false)
     , m_clearFocusedElementTimer(this, &Document::clearFocusedElementTimerFired)
     , m_domTreeVersion(++s_globalTreeVersion)
@@ -439,7 +437,7 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_containsPlugins(false)
     , m_ignoreDestructiveWriteCount(0)
     , m_titleSetExplicitly(false)
-    , m_markers(adoptPtr(new DocumentMarkerController))
+    , m_markers(adoptPtrWillBeNoop(new DocumentMarkerController))
     , m_updateFocusAppearanceTimer(this, &Document::updateFocusAppearanceTimerFired)
     , m_cssTarget(0)
     , m_loadEventProgress(LoadEventNotRun)
@@ -457,6 +455,7 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     , m_sawElementsInKnownNamespaces(false)
     , m_isSrcdocDocument(false)
     , m_isMobileDocument(false)
+    , m_isTransitionDocument(false)
     , m_renderView(0)
     , m_weakFactory(this)
     , m_contextDocument(initializer.contextDocument())
@@ -476,9 +475,7 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
 #ifndef NDEBUG
     , m_didDispatchViewportPropertiesChanged(false)
 #endif
-    , m_animationClock(AnimationClock::create())
-    , m_timeline(DocumentTimeline::create(this))
-    , m_transitionTimeline(TransitionTimeline::create(this))
+    , m_timeline(AnimationTimeline::create(this))
     , m_templateDocumentHost(nullptr)
     , m_didAssociateFormControlsTimer(this, &Document::didAssociateFormControlsTimerFired)
     , m_hasViewportUnits(false)
@@ -509,8 +506,10 @@ Document::Document(const DocumentInit& initializer, DocumentClassFlags documentC
     initSecurityContext(initializer);
     initDNSPrefetch();
 
-    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(m_nodeListCounts); i++)
+#if !ENABLE(OILPAN)
+    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(m_nodeListCounts); ++i)
         m_nodeListCounts[i] = 0;
+#endif
 
     InspectorCounters::incrementCounter(InspectorCounters::DocumentCounter);
 
@@ -547,7 +546,6 @@ Document::~Document()
     // that is OK?
 #if !ENABLE(OILPAN)
     removeAllEventListenersRecursively();
-#endif
 
     // Currently we believe that Document can never outlive the parser.
     // Although the Document may be replaced synchronously, DocumentParsers
@@ -557,6 +555,7 @@ Document::~Document()
     // if the DocumentParser outlives the Document it won't cause badness.
     ASSERT(!m_parser || m_parser->refCount() == 1);
     detachParser();
+#endif
 
     if (this == topDocument())
         clearAXObjectCache();
@@ -571,10 +570,9 @@ Document::~Document()
         m_importsController = 0;
     }
 
-    m_timeline->detachFromDocument();
-    m_transitionTimeline->detachFromDocument();
-
 #if !ENABLE(OILPAN)
+    m_timeline->detachFromDocument();
+
     // We need to destroy CSSFontSelector before destroying m_fetcher.
     if (m_styleEngine)
         m_styleEngine->detachFromDocument();
@@ -587,19 +585,17 @@ Document::~Document()
     if (m_fetcher->document() == this)
         m_fetcher->setDocument(nullptr);
     m_fetcher.clear();
-#endif
 
     // We must call clearRareData() here since a Document class inherits TreeScope
     // as well as Node. See a comment on TreeScope.h for the reason.
-#if !ENABLE(OILPAN)
     if (hasRareData())
         clearRareData();
-#endif
 
-    ASSERT(!m_listsInvalidatedAtDocument.size());
+    ASSERT(m_listsInvalidatedAtDocument.isEmpty());
 
-    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(m_nodeListCounts); i++)
+    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(m_nodeListCounts); ++i)
         ASSERT(!m_nodeListCounts[i]);
+#endif
 
     setClient(0);
 
@@ -624,9 +620,9 @@ void Document::dispose()
     m_associatedFormControls.clear();
 
     detachParser();
-#endif
 
     m_registrationContext.clear();
+#endif
 
     if (m_importsController) {
         m_importsController->wasDetachedFrom(*this);
@@ -697,7 +693,7 @@ String Document::compatMode() const
     return inQuirksMode() ? "BackCompat" : "CSS1Compat";
 }
 
-void Document::setDoctype(PassRefPtr<DocumentType> docType)
+void Document::setDoctype(PassRefPtrWillBeRawPtr<DocumentType> docType)
 {
     // This should never be called more than once.
     ASSERT(!m_docType || !docType);
@@ -718,7 +714,7 @@ DOMImplementation& Document::implementation()
     return *m_implementation;
 }
 
-bool Document::hasManifest() const
+bool Document::hasAppCacheManifest() const
 {
     return isHTMLHtmlElement(documentElement()) && documentElement()->hasAttribute(manifestAttr);
 }
@@ -737,7 +733,7 @@ void Document::childrenChanged(bool changedByParser, Node* beforeChange, Node* a
     m_documentElement = ElementTraversal::firstWithin(*this);
 }
 
-PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Element> Document::createElement(const AtomicString& name, ExceptionState& exceptionState)
 {
     if (!isValidName(name)) {
         exceptionState.throwDOMException(InvalidCharacterError, "The tag name provided ('" + name + "') is not a valid name.");
@@ -750,14 +746,14 @@ PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionS
     return Element::create(QualifiedName(nullAtom, name, nullAtom), this);
 }
 
-PassRefPtr<Element> Document::createElement(const AtomicString& localName, const AtomicString& typeExtension, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Element> Document::createElement(const AtomicString& localName, const AtomicString& typeExtension, ExceptionState& exceptionState)
 {
     if (!isValidName(localName)) {
         exceptionState.throwDOMException(InvalidCharacterError, "The tag name provided ('" + localName + "') is not a valid name.");
         return nullptr;
     }
 
-    RefPtr<Element> element;
+    RefPtrWillBeRawPtr<Element> element;
 
     if (CustomElement::isValidName(localName) && registrationContext()) {
         element = registrationContext()->createCustomTagElement(*this, QualifiedName(nullAtom, localName, xhtmlNamespaceURI));
@@ -770,7 +766,7 @@ PassRefPtr<Element> Document::createElement(const AtomicString& localName, const
     if (!typeExtension.isEmpty())
         CustomElementRegistrationContext::setIsAttributeAndTypeExtension(element.get(), typeExtension);
 
-    return element;
+    return element.release();
 }
 
 static inline QualifiedName createQualifiedName(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState)
@@ -788,7 +784,7 @@ static inline QualifiedName createQualifiedName(const AtomicString& namespaceURI
     return qName;
 }
 
-PassRefPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState)
 {
     QualifiedName qName(createQualifiedName(namespaceURI, qualifiedName, exceptionState));
     if (qName == nullQName())
@@ -797,13 +793,13 @@ PassRefPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, 
     return createElement(qName, false);
 }
 
-PassRefPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& typeExtension, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& typeExtension, ExceptionState& exceptionState)
 {
     QualifiedName qName(createQualifiedName(namespaceURI, qualifiedName, exceptionState));
     if (qName == nullQName())
         return nullptr;
 
-    RefPtr<Element> element;
+    RefPtrWillBeRawPtr<Element> element;
     if (CustomElement::isValidName(qName.localName()) && registrationContext())
         element = registrationContext()->createCustomTagElement(*this, qName);
     else
@@ -812,7 +808,7 @@ PassRefPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, 
     if (!typeExtension.isEmpty())
         CustomElementRegistrationContext::setIsAttributeAndTypeExtension(element.get(), typeExtension);
 
-    return element;
+    return element.release();
 }
 
 ScriptValue Document::registerElement(WebCore::ScriptState* scriptState, const AtomicString& name, ExceptionState& exceptionState)
@@ -869,22 +865,22 @@ LocalFrame* Document::executingFrame()
     return window->frame();
 }
 
-PassRefPtr<DocumentFragment> Document::createDocumentFragment()
+PassRefPtrWillBeRawPtr<DocumentFragment> Document::createDocumentFragment()
 {
     return DocumentFragment::create(*this);
 }
 
-PassRefPtr<Text> Document::createTextNode(const String& data)
+PassRefPtrWillBeRawPtr<Text> Document::createTextNode(const String& data)
 {
     return Text::create(*this, data);
 }
 
-PassRefPtr<Comment> Document::createComment(const String& data)
+PassRefPtrWillBeRawPtr<Comment> Document::createComment(const String& data)
 {
     return Comment::create(*this, data);
 }
 
-PassRefPtr<CDATASection> Document::createCDATASection(const String& data, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<CDATASection> Document::createCDATASection(const String& data, ExceptionState& exceptionState)
 {
     if (isHTMLDocument()) {
         exceptionState.throwDOMException(NotSupportedError, "This operation is not supported for HTML documents.");
@@ -897,7 +893,7 @@ PassRefPtr<CDATASection> Document::createCDATASection(const String& data, Except
     return CDATASection::create(*this, data);
 }
 
-PassRefPtr<ProcessingInstruction> Document::createProcessingInstruction(const String& target, const String& data, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<ProcessingInstruction> Document::createProcessingInstruction(const String& target, const String& data, ExceptionState& exceptionState)
 {
     if (!isValidName(target)) {
         exceptionState.throwDOMException(InvalidCharacterError, "The target provided ('" + target + "') is not a valid name.");
@@ -910,7 +906,7 @@ PassRefPtr<ProcessingInstruction> Document::createProcessingInstruction(const St
     return ProcessingInstruction::create(*this, target, data);
 }
 
-PassRefPtr<Text> Document::createEditingTextNode(const String& text)
+PassRefPtrWillBeRawPtr<Text> Document::createEditingTextNode(const String& text)
 {
     return Text::createEditingText(*this, text);
 }
@@ -929,13 +925,13 @@ bool Document::importContainerNodeChildren(ContainerNode* oldContainerNode, Pass
     return true;
 }
 
-PassRefPtr<Node> Document::importNode(Node* importedNode, ExceptionState& ec)
+PassRefPtrWillBeRawPtr<Node> Document::importNode(Node* importedNode, ExceptionState& ec)
 {
     UseCounter::countDeprecation(this, UseCounter::DocumentImportNodeOptionalArgument);
     return importNode(importedNode, true, ec);
 }
 
-PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionState& exceptionState)
 {
     if (!importedNode) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -963,7 +959,7 @@ PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionSt
             exceptionState.throwDOMException(NamespaceError, "The imported node has an invalid namespace.");
             return nullptr;
         }
-        RefPtr<Element> newElement = createElement(oldElement->tagQName(), false);
+        RefPtrWillBeRawPtr<Element> newElement = createElement(oldElement->tagQName(), false);
 
         newElement->cloneDataFromElement(*oldElement);
 
@@ -987,7 +983,7 @@ PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionSt
             return nullptr;
         }
         DocumentFragment* oldFragment = toDocumentFragment(importedNode);
-        RefPtr<DocumentFragment> newFragment = createDocumentFragment();
+        RefPtrWillBeRawPtr<DocumentFragment> newFragment = createDocumentFragment();
         if (deep && !importContainerNodeChildren(oldFragment, newFragment, exceptionState))
             return nullptr;
 
@@ -1002,7 +998,7 @@ PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionSt
     return nullptr;
 }
 
-PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Node> Document::adoptNode(PassRefPtrWillBeRawPtr<Node> source, ExceptionState& exceptionState)
 {
     if (!source) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -1072,9 +1068,9 @@ bool Document::hasValidNamespaceForAttributes(const QualifiedName& qName)
 }
 
 // FIXME: This should really be in a possible ElementFactory class
-PassRefPtr<Element> Document::createElement(const QualifiedName& qName, bool createdByParser)
+PassRefPtrWillBeRawPtr<Element> Document::createElement(const QualifiedName& qName, bool createdByParser)
 {
-    RefPtr<Element> e;
+    RefPtrWillBeRawPtr<Element> e = nullptr;
 
     // FIXME: Use registered namespaces and look up in a hash to find the right factory.
     if (qName.namespaceURI() == xhtmlNamespaceURI)
@@ -1128,7 +1124,6 @@ void Document::setReadyState(ReadyState readyState)
     case Loading:
         if (!m_documentTiming.domLoading) {
             m_documentTiming.domLoading = monotonicallyIncreasingTime();
-            m_timeline->setZeroTime(m_documentTiming.domLoading);
         }
         break;
     case Interactive:
@@ -1167,6 +1162,7 @@ String Document::defaultCharset() const
 
 void Document::setCharset(const String& charset)
 {
+    UseCounter::count(*this, UseCounter::DocumentSetCharset);
     if (DocumentLoader* documentLoader = loader())
         documentLoader->setUserChosenEncoding(charset);
     WTF::TextEncoding encoding(charset);
@@ -1537,17 +1533,17 @@ PassRefPtrWillBeRawPtr<Range> Document::createRange()
     return Range::create(*this);
 }
 
-PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<NodeIterator> Document::createNodeIterator(Node* root, ExceptionState& exceptionState)
 {
     // FIXME: Probably this should be handled within the bindings layer and TypeError should be thrown.
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
         return nullptr;
     }
-    return NodeIterator::create(root, NodeFilter::SHOW_ALL, PassRefPtr<NodeFilter>());
+    return NodeIterator::create(root, NodeFilter::SHOW_ALL, nullptr);
 }
 
-PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatToShow, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatToShow, ExceptionState& exceptionState)
 {
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -1555,10 +1551,10 @@ PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatT
     }
     // FIXME: It might be a good idea to emit a warning if |whatToShow| contains a bit that is not defined in
     // NodeFilter.
-    return NodeIterator::create(root, whatToShow, PassRefPtr<NodeFilter>());
+    return NodeIterator::create(root, whatToShow, nullptr);
 }
 
-PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatToShow, PassRefPtr<NodeFilter> filter, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatToShow, PassRefPtrWillBeRawPtr<NodeFilter> filter, ExceptionState& exceptionState)
 {
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -1568,25 +1564,25 @@ PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatT
     return NodeIterator::create(root, whatToShow, filter);
 }
 
-PassRefPtr<TreeWalker> Document::createTreeWalker(Node* root, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<TreeWalker> Document::createTreeWalker(Node* root, ExceptionState& exceptionState)
 {
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
         return nullptr;
     }
-    return TreeWalker::create(root, NodeFilter::SHOW_ALL, PassRefPtr<NodeFilter>());
+    return TreeWalker::create(root, NodeFilter::SHOW_ALL, nullptr);
 }
 
-PassRefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToShow, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToShow, ExceptionState& exceptionState)
 {
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
         return nullptr;
     }
-    return TreeWalker::create(root, whatToShow, PassRefPtr<NodeFilter>());
+    return TreeWalker::create(root, whatToShow, nullptr);
 }
 
-PassRefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToShow, PassRefPtr<NodeFilter> filter, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToShow, PassRefPtrWillBeRawPtr<NodeFilter> filter, ExceptionState& exceptionState)
 {
     if (!root) {
         exceptionState.throwDOMException(NotSupportedError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
@@ -1831,13 +1827,14 @@ void Document::updateRenderTree(StyleRecalcChange change)
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRecalculateStyle(this);
 
     DocumentAnimations::updateOutdatedAnimationPlayersIfNeeded(*this);
-    updateDistributionIfNeeded();
-    updateUseShadowTreesIfNeeded();
-    updateStyleInvalidationIfNeeded();
 
     // FIXME: This executes media query listeners which runs script, instead the script
     // should run at raf timing in ScriptedAnimationController just like resize events.
     evaluateMediaQueryListIfNeeded();
+
+    updateUseShadowTreesIfNeeded();
+    updateDistributionIfNeeded();
+    updateStyleInvalidationIfNeeded();
 
     // FIXME: We should update style on our ancestor chain before proceeding
     // however doing so currently causes several tests to crash, as LocalFrame::setDocument calls Document::attach
@@ -1866,7 +1863,6 @@ void Document::updateRenderTree(StyleRecalcChange change)
 #endif
 
     ASSERT(!m_timeline->hasOutdatedAnimationPlayer());
-    ASSERT(!m_transitionTimeline->hasOutdatedAnimationPlayer());
 
     TRACE_EVENT_END1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "RecalculateStyles", "elementCount", m_styleRecalcElementCounter);
     // FIXME(361045): remove InspectorInstrumentation calls once DevTools Timeline migrates to tracing.
@@ -2015,7 +2011,7 @@ void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks
         HTMLElement* bodyElement = body();
         if (bodyElement && !bodyElement->renderer() && m_pendingSheetLayout == NoLayoutWithPendingSheets) {
             m_pendingSheetLayout = DidLayoutWithPendingSheets;
-            styleResolverChanged(RecalcStyleImmediately);
+            styleResolverChanged();
         } else if (m_hasNodesWithPlaceholderStyle) {
             // If new nodes have been added or style recalc has been done with style sheets still
             // pending, some nodes may not have had their real style calculated yet. Normally this
@@ -2255,6 +2251,16 @@ void Document::detach(const AttachContext& context)
     // really shouldn't clear anything at this point. It should just
     // die with the document when the document is no longer reachable.
     dispose();
+
+    // This mirrors the clearing of the document object's touch
+    // handlers that happens when the DOMWindow is destructed in a
+    // non-Oilpan setting (DOMWindow::removeAllEventListeners()),
+    // except that it is now done during detach instead.
+    didClearTouchEventHandlers(this);
+
+    // Done with the window, explicitly clear to hasten its
+    // destruction.
+    clearDOMWindow();
 #endif
 }
 
@@ -2322,14 +2328,14 @@ AXObjectCache* Document::axObjectCache() const
     return topDocument.m_axObjectCache.get();
 }
 
-PassRefPtr<DocumentParser> Document::createParser()
+PassRefPtrWillBeRawPtr<DocumentParser> Document::createParser()
 {
     if (isHTMLDocument()) {
         bool reportErrors = InspectorInstrumentation::collectingHTMLParseErrors(page());
-        return HTMLDocumentParser::create(toHTMLDocument(this), reportErrors);
+        return HTMLDocumentParser::create(toHTMLDocument(*this), reportErrors);
     }
     // FIXME: this should probably pass the frame instead
-    return XMLDocumentParser::create(this, view());
+    return XMLDocumentParser::create(*this, view());
 }
 
 bool Document::isFrameSet() const
@@ -2405,7 +2411,7 @@ void Document::cancelParsing()
     explicitClose();
 }
 
-PassRefPtr<DocumentParser> Document::implicitOpen()
+PassRefPtrWillBeRawPtr<DocumentParser> Document::implicitOpen()
 {
     cancelParsing();
 
@@ -2462,7 +2468,7 @@ void Document::setBody(PassRefPtr<HTMLElement> prpNewBody, ExceptionState& excep
         documentElement()->appendChild(newBody.release(), exceptionState);
 }
 
-HTMLHeadElement* Document::head()
+HTMLHeadElement* Document::head() const
 {
     Node* de = documentElement();
     if (!de)
@@ -2511,7 +2517,7 @@ void Document::close(ExceptionState& exceptionState)
 
 void Document::explicitClose()
 {
-    if (RefPtr<DocumentParser> parser = m_parser)
+    if (RefPtrWillBeRawPtr<DocumentParser> parser = m_parser)
         parser->finish();
 
     if (!m_frame) {
@@ -3005,8 +3011,6 @@ void Document::didLoadAllImports()
 
 void Document::didRemoveAllPendingStylesheet()
 {
-    m_needsNotifyRemoveAllPendingStylesheet = false;
-
     styleResolverMayHaveChanged();
 
     // Only imports on master documents can trigger rendering.
@@ -3019,21 +3023,19 @@ void Document::didRemoveAllPendingStylesheet()
 
 void Document::didLoadAllScriptBlockingResources()
 {
-    executeScriptsWaitingForResourcesIfNeeded();
+    m_executeScriptsWaitingForResourcesTimer.startOneShot(0, FROM_HERE);
 
     if (m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_url);
 }
 
-
-void Document::executeScriptsWaitingForResourcesIfNeeded()
+void Document::executeScriptsWaitingForResourcesTimerFired(Timer<Document>*)
 {
     if (!isRenderingReady())
         return;
     if (ScriptableDocumentParser* parser = scriptableDocumentParser())
         parser->executeScriptsWaitingForResources();
 }
-
 
 CSSStyleSheet& Document::elementSheet()
 {
@@ -3088,7 +3090,7 @@ void Document::processHttpEquivDefaultStyle(const AtomicString& content)
     // -dwh
     m_styleEngine->setSelectedStylesheetSetName(content);
     m_styleEngine->setPreferredStylesheetSetName(content);
-    styleResolverChanged(RecalcStyleDeferred);
+    styleResolverChanged();
 }
 
 void Document::processHttpEquivRefresh(const AtomicString& content)
@@ -3367,16 +3369,16 @@ bool Document::canReplaceChild(const Node& newChild, const Node& oldChild) const
     return true;
 }
 
-PassRefPtr<Node> Document::cloneNode(bool deep)
+PassRefPtrWillBeRawPtr<Node> Document::cloneNode(bool deep)
 {
-    RefPtr<Document> clone = cloneDocumentWithoutChildren();
+    RefPtrWillBeRawPtr<Document> clone = cloneDocumentWithoutChildren();
     clone->cloneDataFromDocument(*this);
     if (deep)
         cloneChildNodes(clone.get());
     return clone.release();
 }
 
-PassRefPtr<Document> Document::cloneDocumentWithoutChildren()
+PassRefPtrWillBeRawPtr<Document> Document::cloneDocumentWithoutChildren()
 {
     DocumentInit init(url());
     if (isXMLDocument()) {
@@ -3416,7 +3418,7 @@ String Document::selectedStylesheetSet() const
 void Document::setSelectedStylesheetSet(const String& aString)
 {
     m_styleEngine->setSelectedStylesheetSetName(aString);
-    styleResolverChanged(RecalcStyleDeferred);
+    styleResolverChanged();
 }
 
 void Document::evaluateMediaQueryListIfNeeded()
@@ -3441,14 +3443,14 @@ void Document::notifyResizeForViewportUnits()
     setNeedsStyleRecalcForViewportUnits();
 }
 
-void Document::styleResolverChanged(RecalcStyleTime updateTime, StyleResolverUpdateMode updateMode)
+void Document::styleResolverChanged(StyleResolverUpdateMode updateMode)
 {
     // styleResolverChanged() can be invoked during Document destruction.
     // We just skip that case.
     if (!m_styleEngine)
         return;
 
-    StyleResolverChange change = m_styleEngine->resolverChanged(updateTime, updateMode);
+    StyleResolverChange change = m_styleEngine->resolverChanged(updateMode);
     if (change.needsRepaint()) {
         // We need to manually repaint because we avoid doing all repaints in layout or style
         // recalc while sheets are still loading to avoid FOUC.
@@ -3461,14 +3463,11 @@ void Document::styleResolverChanged(RecalcStyleTime updateTime, StyleResolverUpd
 
     m_evaluateMediaQueriesOnStyleRecalc = true;
     setNeedsStyleRecalc(SubtreeStyleChange);
-
-    if (updateTime == RecalcStyleImmediately)
-        updateRenderTreeIfNeeded();
 }
 
 void Document::styleResolverMayHaveChanged()
 {
-    styleResolverChanged(RecalcStyleDeferred, hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
+    styleResolverChanged(hasNodesWithPlaceholderStyle() ? FullStyleUpdate : AnalyzedStyleUpdate);
 }
 
 void Document::setHoverNode(PassRefPtr<Node> newHoverNode)
@@ -3476,7 +3475,7 @@ void Document::setHoverNode(PassRefPtr<Node> newHoverNode)
     m_hoverNode = newHoverNode;
 }
 
-void Document::setActiveHoverElement(PassRefPtr<Element> newActiveElement)
+void Document::setActiveHoverElement(PassRefPtrWillBeRawPtr<Element> newActiveElement)
 {
     if (!newActiveElement) {
         m_activeHoverElement.clear();
@@ -3547,11 +3546,11 @@ void Document::setAnnotatedRegions(const Vector<AnnotatedRegionValue>& regions)
     setAnnotatedRegionsDirty(false);
 }
 
-bool Document::setFocusedElement(PassRefPtr<Element> prpNewFocusedElement, FocusType type)
+bool Document::setFocusedElement(PassRefPtrWillBeRawPtr<Element> prpNewFocusedElement, FocusType type)
 {
     m_clearFocusedElementTimer.stop();
 
-    RefPtr<Element> newFocusedElement = prpNewFocusedElement;
+    RefPtrWillBeRawPtr<Element> newFocusedElement = prpNewFocusedElement;
 
     // Make sure newFocusedNode is actually in this document
     if (newFocusedElement && (newFocusedElement->document() != this))
@@ -3697,20 +3696,49 @@ void Document::setCSSTarget(Element* n)
         n->didAffectSelector(AffectedSelectorTarget);
 }
 
-void Document::registerNodeList(LiveNodeListBase* list)
+void Document::registerNodeList(const LiveNodeListBase* list)
 {
+#if ENABLE(OILPAN)
+    m_nodeLists[list->invalidationType()].add(list);
+#else
     m_nodeListCounts[list->invalidationType()]++;
+#endif
     if (list->isRootedAtDocument())
         m_listsInvalidatedAtDocument.add(list);
 }
 
-void Document::unregisterNodeList(LiveNodeListBase* list)
+void Document::unregisterNodeList(const LiveNodeListBase* list)
 {
+#if ENABLE(OILPAN)
+    ASSERT(m_nodeLists[list->invalidationType()].contains(list));
+    m_nodeLists[list->invalidationType()].remove(list);
+#else
     m_nodeListCounts[list->invalidationType()]--;
+#endif
     if (list->isRootedAtDocument()) {
         ASSERT(m_listsInvalidatedAtDocument.contains(list));
         m_listsInvalidatedAtDocument.remove(list);
     }
+}
+
+void Document::registerNodeListWithIdNameCache(const LiveNodeListBase* list)
+{
+#if ENABLE(OILPAN)
+    m_nodeLists[InvalidateOnIdNameAttrChange].add(list);
+#else
+    m_nodeListCounts[InvalidateOnIdNameAttrChange]++;
+#endif
+}
+
+void Document::unregisterNodeListWithIdNameCache(const LiveNodeListBase* list)
+{
+#if ENABLE(OILPAN)
+    ASSERT(m_nodeLists[InvalidateOnIdNameAttrChange].contains(list));
+    m_nodeLists[InvalidateOnIdNameAttrChange].remove(list);
+#else
+    ASSERT(m_nodeListCounts[InvalidateOnIdNameAttrChange] > 0);
+    m_nodeListCounts[InvalidateOnIdNameAttrChange]--;
+#endif
 }
 
 void Document::attachNodeIterator(NodeIterator* ni)
@@ -3727,9 +3755,9 @@ void Document::detachNodeIterator(NodeIterator* ni)
 
 void Document::moveNodeIteratorsToNewDocument(Node& node, Document& newDocument)
 {
-    HashSet<NodeIterator*> nodeIteratorsList = m_nodeIterators;
-    HashSet<NodeIterator*>::const_iterator nodeIteratorsEnd = nodeIteratorsList.end();
-    for (HashSet<NodeIterator*>::const_iterator it = nodeIteratorsList.begin(); it != nodeIteratorsEnd; ++it) {
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> > nodeIteratorsList = m_nodeIterators;
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator nodeIteratorsEnd = nodeIteratorsList.end();
+    for (WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator it = nodeIteratorsList.begin(); it != nodeIteratorsEnd; ++it) {
         if ((*it)->root() == node) {
             detachNodeIterator(*it);
             newDocument.attachNodeIterator(*it);
@@ -3755,8 +3783,8 @@ void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
             (*it)->nodeChildrenWillBeRemoved(container);
     }
 
-    HashSet<NodeIterator*>::const_iterator nodeIteratorsEnd = m_nodeIterators.end();
-    for (HashSet<NodeIterator*>::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it) {
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator nodeIteratorsEnd = m_nodeIterators.end();
+    for (WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it) {
         for (Node* n = container.firstChild(); n; n = n->nextSibling())
             (*it)->nodeWillBeRemoved(*n);
     }
@@ -3772,8 +3800,8 @@ void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 
 void Document::nodeWillBeRemoved(Node& n)
 {
-    HashSet<NodeIterator*>::const_iterator nodeIteratorsEnd = m_nodeIterators.end();
-    for (HashSet<NodeIterator*>::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it)
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator nodeIteratorsEnd = m_nodeIterators.end();
+    for (WillBeHeapHashSet<RawPtrWillBeWeakMember<NodeIterator> >::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it)
         (*it)->nodeWillBeRemoved(n);
 
     if (!m_ranges.isEmpty()) {
@@ -3923,7 +3951,7 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         UseCounter::count(*this, UseCounter::DOMCharacterDataModifiedEvent);
         addMutationEventListenerTypeIfEnabled(DOMCHARACTERDATAMODIFIED_LISTENER);
     } else if (eventType == EventTypeNames::overflowchanged) {
-        UseCounter::count(*this, UseCounter::OverflowChangedEvent);
+        UseCounter::countDeprecation(*this, UseCounter::OverflowChangedEvent);
         addListenerType(OVERFLOWCHANGED_LISTENER);
     } else if (eventType == EventTypeNames::webkitAnimationStart || (RuntimeEnabledFeatures::cssAnimationUnprefixedEnabled() && eventType == EventTypeNames::animationstart)) {
         addListenerType(ANIMATIONSTART_LISTENER);
@@ -4376,7 +4404,7 @@ KURL Document::openSearchDescriptionURL()
     return KURL();
 }
 
-void Document::pushCurrentScript(PassRefPtr<HTMLScriptElement> newCurrentScript)
+void Document::pushCurrentScript(PassRefPtrWillBeRawPtr<HTMLScriptElement> newCurrentScript)
 {
     ASSERT(newCurrentScript);
     m_currentScriptStack.append(newCurrentScript);
@@ -4478,12 +4506,12 @@ WeakPtr<Document> Document::contextDocument()
     return WeakPtr<Document>(nullptr);
 }
 
-PassRefPtr<Attr> Document::createAttribute(const AtomicString& name, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Attr> Document::createAttribute(const AtomicString& name, ExceptionState& exceptionState)
 {
     return createAttributeNS(nullAtom, name, exceptionState, true);
 }
 
-PassRefPtr<Attr> Document::createAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState, bool shouldIgnoreNamespaceChecks)
+PassRefPtrWillBeRawPtr<Attr> Document::createAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState, bool shouldIgnoreNamespaceChecks)
 {
     AtomicString prefix, localName;
     if (!parseQualifiedName(qualifiedName, prefix, localName, exceptionState))
@@ -4507,7 +4535,7 @@ const SVGDocumentExtensions* Document::svgExtensions()
 SVGDocumentExtensions& Document::accessSVGExtensions()
 {
     if (!m_svgExtensions)
-        m_svgExtensions = adoptPtr(new SVGDocumentExtensions(this));
+        m_svgExtensions = adoptPtrWillBeNoop(new SVGDocumentExtensions(this));
     return *m_svgExtensions;
 }
 
@@ -4516,63 +4544,63 @@ bool Document::hasSVGRootNode() const
     return isSVGSVGElement(documentElement());
 }
 
-PassRefPtr<HTMLCollection> Document::ensureCachedCollection(CollectionType type)
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::ensureCachedCollection(CollectionType type)
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLCollection>(*this, type);
 }
 
-PassRefPtr<HTMLCollection> Document::images()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::images()
 {
     return ensureCachedCollection(DocImages);
 }
 
-PassRefPtr<HTMLCollection> Document::applets()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::applets()
 {
     return ensureCachedCollection(DocApplets);
 }
 
-PassRefPtr<HTMLCollection> Document::embeds()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::embeds()
 {
     return ensureCachedCollection(DocEmbeds);
 }
 
-PassRefPtr<HTMLCollection> Document::scripts()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::scripts()
 {
     return ensureCachedCollection(DocScripts);
 }
 
-PassRefPtr<HTMLCollection> Document::links()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::links()
 {
     return ensureCachedCollection(DocLinks);
 }
 
-PassRefPtr<HTMLCollection> Document::forms()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::forms()
 {
     return ensureCachedCollection(DocForms);
 }
 
-PassRefPtr<HTMLCollection> Document::anchors()
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::anchors()
 {
     return ensureCachedCollection(DocAnchors);
 }
 
-PassRefPtr<HTMLAllCollection> Document::allForBinding()
+PassRefPtrWillBeRawPtr<HTMLAllCollection> Document::allForBinding()
 {
     UseCounter::count(*this, UseCounter::DocumentAll);
     return all();
 }
 
-PassRefPtr<HTMLAllCollection> Document::all()
+PassRefPtrWillBeRawPtr<HTMLAllCollection> Document::all()
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLAllCollection>(*this, DocAll);
 }
 
-PassRefPtr<HTMLCollection> Document::windowNamedItems(const AtomicString& name)
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::windowNamedItems(const AtomicString& name)
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLNameCollection>(*this, WindowNamedItems, name);
 }
 
-PassRefPtr<HTMLCollection> Document::documentNamedItems(const AtomicString& name)
+PassRefPtrWillBeRawPtr<HTMLCollection> Document::documentNamedItems(const AtomicString& name)
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLNameCollection>(*this, DocumentNamedItems, name);
 }
@@ -4690,6 +4718,22 @@ Vector<IconURL> Document::iconURLs(int iconTypesMask)
     for (int i = secondaryIcons.size() - 1; i >= 0; --i)
         iconURLs.append(secondaryIcons[i]);
     return iconURLs;
+}
+
+HTMLLinkElement* Document::linkManifest() const
+{
+    HTMLHeadElement* head = this->head();
+    if (!head)
+        return 0;
+
+    // The first link element with a manifest rel must be used. Others are ignored.
+    for (HTMLLinkElement* linkElement = Traversal<HTMLLinkElement>::firstChild(*head); linkElement; linkElement = Traversal<HTMLLinkElement>::nextSibling(*linkElement)) {
+        if (!linkElement->relAttribute().isManifest())
+            continue;
+        return linkElement;
+    }
+
+    return 0;
 }
 
 void Document::setUseSecureKeyboardEntryWhenActive(bool usesSecureKeyboard)
@@ -5062,7 +5106,7 @@ HTMLDialogElement* Document::activeModalDialog() const
     return toHTMLDialogElement(m_topLayerElements.last().get());
 }
 
-void Document::webkitExitPointerLock()
+void Document::exitPointerLock()
 {
     if (!page())
         return;
@@ -5073,7 +5117,7 @@ void Document::webkitExitPointerLock()
     page()->pointerLockController().requestPointerUnlock();
 }
 
-Element* Document::webkitPointerLockElement() const
+Element* Document::pointerLockElement() const
 {
     if (!page() || page()->pointerLockController().lockPending())
         return 0;
@@ -5542,7 +5586,7 @@ void Document::didAssociateFormControlsTimerFired(Timer<Document>* timer)
     if (!frame() || !frame()->page())
         return;
 
-    Vector<RefPtr<Element> > associatedFormControls;
+    WillBeHeapVector<RefPtrWillBeMember<Element> > associatedFormControls;
     copyToVector(m_associatedFormControls, associatedFormControls);
 
     frame()->page()->chrome().client().didAssociateFormControls(associatedFormControls);
@@ -5564,24 +5608,24 @@ DocumentLifecycleNotifier& Document::lifecycleNotifier()
     return static_cast<DocumentLifecycleNotifier&>(LifecycleContext<Document>::lifecycleNotifier());
 }
 
-void Document::removedStyleSheet(StyleSheet* sheet, RecalcStyleTime when, StyleResolverUpdateMode updateMode)
+void Document::removedStyleSheet(StyleSheet* sheet, StyleResolverUpdateMode updateMode)
 {
     // If we're in document teardown, then we don't need this notification of our sheet's removal.
     // styleResolverChanged() is needed even when the document is inactive so that
     // imported docuements (which is inactive) notifies the change to the master document.
     if (isActive())
         styleEngine()->modifiedStyleSheet(sheet);
-    styleResolverChanged(when, updateMode);
+    styleResolverChanged(updateMode);
 }
 
-void Document::modifiedStyleSheet(StyleSheet* sheet, RecalcStyleTime when, StyleResolverUpdateMode updateMode)
+void Document::modifiedStyleSheet(StyleSheet* sheet, StyleResolverUpdateMode updateMode)
 {
     // If we're in document teardown, then we don't need this notification of our sheet's removal.
     // styleResolverChanged() is needed even when the document is inactive so that
     // imported docuements (which is inactive) notifies the change to the master document.
     if (isActive())
         styleEngine()->modifiedStyleSheet(sheet);
-    styleResolverChanged(when, updateMode);
+    styleResolverChanged(updateMode);
 }
 
 TextAutosizer* Document::textAutosizer()
@@ -5634,6 +5678,21 @@ bool Document::hasFocus() const
     return false;
 }
 
+#if ENABLE(OILPAN)
+template<unsigned type>
+bool shouldInvalidateNodeListCachesForAttr(const HeapHashSet<WeakMember<const LiveNodeListBase> > nodeLists[], const QualifiedName& attrName)
+{
+    if (!nodeLists[type].isEmpty() && LiveNodeListBase::shouldInvalidateTypeOnAttributeChange(static_cast<NodeListInvalidationType>(type), attrName))
+        return true;
+    return shouldInvalidateNodeListCachesForAttr<type + 1>(nodeLists, attrName);
+}
+
+template<>
+bool shouldInvalidateNodeListCachesForAttr<numNodeListInvalidationTypes>(const HeapHashSet<WeakMember<const LiveNodeListBase> >[], const QualifiedName&)
+{
+    return false;
+}
+#else
 template<unsigned type>
 bool shouldInvalidateNodeListCachesForAttr(const unsigned nodeListCounts[], const QualifiedName& attrName)
 {
@@ -5647,14 +5706,24 @@ bool shouldInvalidateNodeListCachesForAttr<numNodeListInvalidationTypes>(const u
 {
     return false;
 }
+#endif
 
 bool Document::shouldInvalidateNodeListCaches(const QualifiedName* attrName) const
 {
-    if (attrName)
+    if (attrName) {
+#if ENABLE(OILPAN)
+        return shouldInvalidateNodeListCachesForAttr<DoNotInvalidateOnAttributeChanges + 1>(m_nodeLists, *attrName);
+#else
         return shouldInvalidateNodeListCachesForAttr<DoNotInvalidateOnAttributeChanges + 1>(m_nodeListCounts, *attrName);
+#endif
+    }
 
-    for (int type = 0; type < numNodeListInvalidationTypes; type++) {
+    for (int type = 0; type < numNodeListInvalidationTypes; ++type) {
+#if ENABLE(OILPAN)
+        if (!m_nodeLists[type].isEmpty())
+#else
         if (m_nodeListCounts[type])
+#endif
             return true;
     }
 
@@ -5663,8 +5732,8 @@ bool Document::shouldInvalidateNodeListCaches(const QualifiedName* attrName) con
 
 void Document::invalidateNodeListCaches(const QualifiedName* attrName)
 {
-    HashSet<LiveNodeListBase*>::iterator end = m_listsInvalidatedAtDocument.end();
-    for (HashSet<LiveNodeListBase*>::iterator it = m_listsInvalidatedAtDocument.begin(); it != end; ++it)
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<const LiveNodeListBase> >::const_iterator end = m_listsInvalidatedAtDocument.end();
+    for (WillBeHeapHashSet<RawPtrWillBeWeakMember<const LiveNodeListBase> >::const_iterator it = m_listsInvalidatedAtDocument.begin(); it != end; ++it)
         (*it)->invalidateCacheForAttribute(attrName);
 }
 
@@ -5672,9 +5741,6 @@ void Document::clearWeakMembers(Visitor* visitor)
 {
     if (m_axObjectCache)
         m_axObjectCache->clearWeakMembers(visitor);
-
-    if (m_markers)
-        m_markers->clearWeakMembers(visitor);
 
     // FIXME: Oilpan: Use a weak counted set instead.
     if (m_touchEventTargets) {
@@ -5698,22 +5764,35 @@ void Document::trace(Visitor* visitor)
     visitor->trace(m_activeHoverElement);
     visitor->trace(m_documentElement);
     visitor->trace(m_titleElement);
+    visitor->trace(m_markers);
     visitor->trace(m_currentScriptStack);
     visitor->trace(m_transformSourceDocument);
+    visitor->trace(m_listsInvalidatedAtDocument);
+#if ENABLE(OILPAN)
+    for (int i = 0; i < numNodeListInvalidationTypes; ++i)
+        visitor->trace(m_nodeLists[i]);
+#endif
     visitor->trace(m_cssCanvasElements);
     visitor->trace(m_topLayerElements);
     visitor->trace(m_elemSheet);
+    visitor->trace(m_nodeIterators);
     visitor->trace(m_styleEngine);
     visitor->trace(m_formController);
+    visitor->trace(m_domWindow);
     visitor->trace(m_fetcher);
+    visitor->trace(m_parser);
     visitor->trace(m_contextFeatures);
     visitor->trace(m_styleSheetList);
     visitor->trace(m_mediaQueryMatcher);
+    visitor->trace(m_registrationContext);
     visitor->trace(m_associatedFormControls);
     visitor->trace(m_templateDocument);
     visitor->trace(m_templateDocumentHost);
     visitor->trace(m_visibilityObservers);
     visitor->trace(m_userActionElements);
+    visitor->trace(m_svgExtensions);
+    visitor->trace(m_timeline);
+    visitor->trace(m_compositorPendingAnimations);
     visitor->registerWeakMembers<Document, &Document::clearWeakMembers>(this);
     DocumentSupplementable::trace(visitor);
     TreeScope::trace(visitor);

@@ -32,9 +32,9 @@
 #define MediaSourceBase_h
 
 #include "core/dom/ActiveDOMObject.h"
-#include "core/events/EventTarget.h"
 #include "core/html/HTMLMediaSource.h"
 #include "core/html/URLRegistry.h"
+#include "modules/EventTargetModules.h"
 #include "public/platform/WebMediaSource.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/RefCounted.h"
@@ -49,8 +49,9 @@ namespace WebCore {
 class ExceptionState;
 class GenericEventQueue;
 
-class MediaSourceBase : public RefCountedGarbageCollected<MediaSourceBase>, public HTMLMediaSource, public ActiveDOMObject, public EventTargetWithInlineData {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedGarbageCollected<MediaSourceBase>);
+class MediaSourceBase : public RefCountedWillBeRefCountedGarbageCollected<MediaSourceBase>, public HTMLMediaSource, public ActiveDOMObject, public EventTargetWithInlineData {
+    REFCOUNTED_EVENT_TARGET(MediaSourceBase);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(MediaSourceBase);
 public:
     static const AtomicString& openKeyword();
     static const AtomicString& closedKeyword();
@@ -88,8 +89,6 @@ public:
 
     // URLRegistrable interface
     virtual URLRegistry& registry() const OVERRIDE FINAL;
-
-    virtual void trace(Visitor*) { }
 
 protected:
     explicit MediaSourceBase(ExecutionContext*);

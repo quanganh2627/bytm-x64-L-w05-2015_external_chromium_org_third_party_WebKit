@@ -108,7 +108,7 @@ ShadowRoot* ShadowRoot::olderShadowRootForBindings() const
     return older;
 }
 
-PassRefPtr<Node> ShadowRoot::cloneNode(bool, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Node> ShadowRoot::cloneNode(bool, ExceptionState& exceptionState)
 {
     exceptionState.throwDOMException(DataCloneError, "ShadowRoot nodes are not clonable.");
     return nullptr;
@@ -126,7 +126,7 @@ void ShadowRoot::setInnerHTML(const String& markup, ExceptionState& exceptionSta
         return;
     }
 
-    if (RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(markup, host(), AllowScriptingContent, "innerHTML", exceptionState))
+    if (RefPtrWillBeRawPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(markup, host(), AllowScriptingContent, "innerHTML", exceptionState))
         replaceChildrenWithFragment(this, fragment.release(), exceptionState);
 }
 
@@ -263,7 +263,7 @@ HTMLShadowElement* ShadowRoot::shadowInsertionPointOfYoungerShadowRoot() const
     return m_shadowRootRareData ? m_shadowRootRareData->shadowInsertionPointOfYoungerShadowRoot() : 0;
 }
 
-void ShadowRoot::setShadowInsertionPointOfYoungerShadowRoot(PassRefPtr<HTMLShadowElement> shadowInsertionPoint)
+void ShadowRoot::setShadowInsertionPointOfYoungerShadowRoot(PassRefPtrWillBeRawPtr<HTMLShadowElement> shadowInsertionPoint)
 {
     if (!m_shadowRootRareData && !shadowInsertionPoint)
         return;
@@ -306,10 +306,9 @@ void ShadowRoot::invalidateDescendantInsertionPoints()
     m_shadowRootRareData->clearDescendantInsertionPoints();
 }
 
-const Vector<RefPtr<InsertionPoint> >& ShadowRoot::descendantInsertionPoints()
+const WillBeHeapVector<RefPtrWillBeMember<InsertionPoint> >& ShadowRoot::descendantInsertionPoints()
 {
-    DEFINE_STATIC_LOCAL(const Vector<RefPtr<InsertionPoint> >, emptyList, ());
-
+    DEFINE_STATIC_LOCAL(WillBePersistentHeapVector<RefPtrWillBeMember<InsertionPoint> >, emptyList, ());
     if (m_shadowRootRareData && m_descendantInsertionPointsIsValid)
         return m_shadowRootRareData->descendantInsertionPoints();
 
@@ -318,7 +317,7 @@ const Vector<RefPtr<InsertionPoint> >& ShadowRoot::descendantInsertionPoints()
     if (!containsInsertionPoints())
         return emptyList;
 
-    Vector<RefPtr<InsertionPoint> > insertionPoints;
+    WillBeHeapVector<RefPtrWillBeMember<InsertionPoint> > insertionPoints;
     for (Element* element = ElementTraversal::firstWithin(*this); element; element = ElementTraversal::next(*element, this)) {
         if (element->isInsertionPoint())
             insertionPoints.append(toInsertionPoint(element));

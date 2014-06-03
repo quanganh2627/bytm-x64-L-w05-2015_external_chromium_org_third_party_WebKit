@@ -33,6 +33,7 @@
 #include "core/rendering/PointerEventsHitRules.h"
 #include "core/rendering/RenderImageResource.h"
 #include "core/rendering/svg/RenderSVGResource.h"
+#include "core/rendering/svg/SVGRenderSupport.h"
 #include "core/rendering/svg/SVGRenderingContext.h"
 #include "core/rendering/svg/SVGResources.h"
 #include "core/rendering/svg/SVGResourcesCache.h"
@@ -124,7 +125,10 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
 {
     ANNOTATE_GRAPHICS_CONTEXT(paintInfo, this);
 
-    if (paintInfo.context->paintingDisabled() || style()->visibility() == HIDDEN || !m_imageResource->hasImage())
+    if (paintInfo.context->paintingDisabled()
+        || paintInfo.phase != PaintPhaseForeground
+        || style()->visibility() == HIDDEN
+        || !m_imageResource->hasImage())
         return;
 
     FloatRect boundingBox = repaintRectInLocalCoordinates();
@@ -132,29 +136,27 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
         return;
 
     PaintInfo childPaintInfo(paintInfo);
-    bool drawsOutline = style()->outlineWidth() && (childPaintInfo.phase == PaintPhaseOutline || childPaintInfo.phase == PaintPhaseSelfOutline);
-    if (drawsOutline || childPaintInfo.phase == PaintPhaseForeground) {
-        GraphicsContextStateSaver stateSaver(*childPaintInfo.context, false);
-        if (!m_localTransform.isIdentity()) {
-            stateSaver.save();
-            childPaintInfo.applyTransform(m_localTransform, false);
-        }
-        if (childPaintInfo.phase == PaintPhaseForeground && !m_objectBoundingBox.isEmpty()) {
-            // SVGRenderingContext may taint the state - make sure we're always saving.
-            SVGRenderingContext renderingContext(this, childPaintInfo, stateSaver.saved() ?
-                SVGRenderingContext::DontSaveGraphicsContext : SVGRenderingContext::SaveGraphicsContext);
+    GraphicsContextStateSaver stateSaver(*childPaintInfo.context, false);
 
-            if (renderingContext.isRenderingPrepared()) {
-                if (style()->svgStyle()->bufferedRendering() == BR_STATIC && renderingContext.bufferForeground(m_bufferedForeground))
-                    return;
-
-                paintForeground(childPaintInfo);
-            }
-        }
-
-        if (drawsOutline)
-            paintOutline(childPaintInfo, IntRect(boundingBox));
+    if (!m_localTransform.isIdentity()) {
+        stateSaver.save();
+        childPaintInfo.applyTransform(m_localTransform, false);
     }
+    if (!m_objectBoundingBox.isEmpty()) {
+        // SVGRenderingContext may taint the state - make sure we're always saving.
+        SVGRenderingContext renderingContext(this, childPaintInfo, stateSaver.saved() ?
+            SVGRenderingContext::DontSaveGraphicsContext : SVGRenderingContext::SaveGraphicsContext);
+
+        if (renderingContext.isRenderingPrepared()) {
+            if (style()->svgStyle()->bufferedRendering() == BR_STATIC && renderingContext.bufferForeground(m_bufferedForeground))
+                return;
+
+            paintForeground(childPaintInfo);
+        }
+    }
+
+    if (style()->outlineWidth())
+        paintOutline(childPaintInfo, IntRect(boundingBox));
 }
 
 void RenderSVGImage::paintForeground(PaintInfo& paintInfo)

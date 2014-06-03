@@ -37,7 +37,6 @@
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/events/Event.h"
 #include "core/events/MessageEvent.h"
 #include "core/fileapi/Blob.h"
 #include "core/frame/ConsoleTypes.h"
@@ -277,19 +276,6 @@ PassRefPtrWillBeRawPtr<WebSocket> WebSocket::create(ExecutionContext* context, c
     Vector<String> protocols;
     protocols.append(protocol);
     return create(context, url, protocols, exceptionState);
-}
-
-void WebSocket::connect(const String& url, ExceptionState& exceptionState)
-{
-    Vector<String> protocols;
-    connect(url, protocols, exceptionState);
-}
-
-void WebSocket::connect(const String& url, const String& protocol, ExceptionState& exceptionState)
-{
-    Vector<String> protocols;
-    protocols.append(protocol);
-    connect(url, protocols, exceptionState);
 }
 
 void WebSocket::connect(const String& url, const Vector<String>& protocols, ExceptionState& exceptionState)
@@ -700,6 +686,7 @@ void WebSocket::trace(Visitor* visitor)
 {
     visitor->trace(m_channel);
     visitor->trace(m_eventQueue);
+    EventTargetWithInlineData::trace(visitor);
 }
 
 } // namespace WebCore

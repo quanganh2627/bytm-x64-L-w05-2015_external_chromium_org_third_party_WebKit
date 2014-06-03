@@ -88,7 +88,6 @@ namespace WebCore {
         Editor& editor() const;
         EventHandler& eventHandler() const;
         FrameLoader& loader() const;
-        FrameTree& tree() const;
         NavigationScheduler& navigationScheduler() const;
         FrameSelection& selection() const;
         InputMethodController& inputMethodController() const;
@@ -154,7 +153,8 @@ namespace WebCore {
     private:
         LocalFrame(FrameLoaderClient*, FrameHost*, HTMLFrameOwnerElement*);
 
-        mutable FrameTree m_treeNode;
+        String localLayerTreeAsText(unsigned flags) const;
+
         mutable FrameLoader m_loader;
         mutable NavigationScheduler m_navigationScheduler;
 
@@ -232,11 +232,6 @@ namespace WebCore {
     inline void LocalFrame::setInViewSourceMode(bool mode)
     {
         m_inViewSourceMode = mode;
-    }
-
-    inline FrameTree& LocalFrame::tree() const
-    {
-        return m_treeNode;
     }
 
     inline EventHandler& LocalFrame::eventHandler() const

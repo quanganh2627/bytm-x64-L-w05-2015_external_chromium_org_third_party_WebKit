@@ -113,8 +113,6 @@ public:
     bool isTimeField() const;
     bool isWeekField() const;
 
-    HTMLElement* passwordGeneratorButtonElement() const;
-
     bool checked() const { return m_isChecked; }
     void setChecked(bool, TextFieldEventBehavior = DispatchNoEvent);
 
@@ -239,10 +237,6 @@ public:
     void selectColorInColorChooser(const Color&);
 
     String defaultToolTip() const;
-
-#if ENABLE(MEDIA_CAPTURE)
-    bool capture() const;
-#endif
 
     static const int maximumLength;
 

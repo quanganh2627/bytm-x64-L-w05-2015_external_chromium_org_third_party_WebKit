@@ -5,6 +5,7 @@
 #include "config.h"
 #include "web/WebRemoteFrameImpl.h"
 
+#include "core/frame/RemoteFrame.h"
 #include "public/platform/WebFloatRect.h"
 #include "public/platform/WebRect.h"
 #include "public/web/WebDocument.h"
@@ -20,6 +21,7 @@ WebRemoteFrame* WebRemoteFrame::create(WebFrameClient*)
 }
 
 WebRemoteFrameImpl::WebRemoteFrameImpl()
+    : m_frameClient(this)
 {
 }
 
@@ -526,6 +528,11 @@ bool WebRemoteFrameImpl::setCompositionFromExistingText(int compositionStart, in
 }
 
 void WebRemoteFrameImpl::extendSelectionAndDelete(int before, int after)
+{
+    ASSERT_NOT_REACHED();
+}
+
+void WebRemoteFrameImpl::addStyleSheetByURL(const WebString& url)
 {
     ASSERT_NOT_REACHED();
 }

@@ -8,10 +8,10 @@
 #include "bindings/v8/Dictionary.h"
 #include "core/animation/AnimationClock.h"
 #include "core/animation/AnimationHelpers.h"
+#include "core/animation/AnimationNodeTiming.h"
 #include "core/animation/AnimationTestHelper.h"
-#include "core/animation/DocumentTimeline.h"
+#include "core/animation/AnimationTimeline.h"
 #include "core/animation/KeyframeEffectModel.h"
-#include "core/animation/TimedItemTiming.h"
 #include "core/animation/Timing.h"
 
 #include <gtest/gtest.h>
@@ -25,12 +25,11 @@ protected:
         , element(document->createElement("foo", ASSERT_NO_EXCEPTION))
     {
         document->animationClock().resetTimeForTesting();
-        document->timeline().setZeroTime(0);
         EXPECT_EQ(0, document->timeline().currentTime());
     }
 
     RefPtr<Document> document;
-    RefPtr<Element> element;
+    RefPtrWillBePersistent<Element> element;
     TrackExceptionState exceptionState;
 };
 
@@ -38,16 +37,16 @@ class AnimationAnimationV8Test : public AnimationAnimationTest {
 protected:
     AnimationAnimationV8Test()
         : m_isolate(v8::Isolate::GetCurrent())
-        , m_scope(V8ExecutionScope::create(m_isolate))
+        , m_scope(V8TestingScope::create(m_isolate))
     {
     }
 
     template<typename T>
-    static PassRefPtr<Animation> createAnimation(Element* element, Vector<Dictionary> keyframeDictionaryVector, T timingInput, ExceptionState& exceptionState)
+    static PassRefPtrWillBeRawPtr<Animation> createAnimation(Element* element, Vector<Dictionary> keyframeDictionaryVector, T timingInput, ExceptionState& exceptionState)
     {
         return Animation::create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState, true), timingInput);
     }
-    static PassRefPtr<Animation> createAnimation(Element* element, Vector<Dictionary> keyframeDictionaryVector, ExceptionState& exceptionState)
+    static PassRefPtrWillBeRawPtr<Animation> createAnimation(Element* element, Vector<Dictionary> keyframeDictionaryVector, ExceptionState& exceptionState)
     {
         return Animation::create(element, EffectInput::convert(element, keyframeDictionaryVector, exceptionState, true));
     }
@@ -55,7 +54,7 @@ protected:
     v8::Isolate* m_isolate;
 
 private:
-    OwnPtr<V8ExecutionScope> m_scope;
+    OwnPtr<V8TestingScope> m_scope;
 };
 
 TEST_F(AnimationAnimationV8Test, CanCreateAnAnimation)
@@ -82,7 +81,7 @@ TEST_F(AnimationAnimationV8Test, CanCreateAnAnimation)
     ASSERT_TRUE(jsKeyframes[1].get("width", value2));
     ASSERT_EQ("0px", value2);
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
 
     Element* target = animation->target();
     EXPECT_EQ(*element.get(), *target);
@@ -109,7 +108,7 @@ TEST_F(AnimationAnimationV8Test, CanSetDuration)
     Vector<Dictionary, 0> jsKeyframes;
     double duration = 2000;
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, duration, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, duration, exceptionState);
 
     EXPECT_EQ(duration / 1000, animation->specifiedTiming().iterationDuration);
 }
@@ -117,14 +116,14 @@ TEST_F(AnimationAnimationV8Test, CanSetDuration)
 TEST_F(AnimationAnimationV8Test, CanOmitSpecifiedDuration)
 {
     Vector<Dictionary, 0> jsKeyframes;
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, exceptionState);
     EXPECT_TRUE(std::isnan(animation->specifiedTiming().iterationDuration));
 }
 
 TEST_F(AnimationAnimationV8Test, NegativeDurationIsAuto)
 {
     Vector<Dictionary, 0> jsKeyframes;
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, -2, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, -2, exceptionState);
     EXPECT_TRUE(std::isnan(animation->specifiedTiming().iterationDuration));
 }
 
@@ -145,7 +144,7 @@ TEST_F(AnimationAnimationV8Test, MismatchedKeyframePropertyRaisesException)
     jsKeyframes.append(Dictionary(keyframe1, m_isolate));
     jsKeyframes.append(Dictionary(keyframe2, m_isolate));
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
+    createAnimation(element.get(), jsKeyframes, 0, exceptionState);
 
     EXPECT_TRUE(exceptionState.hadException());
     EXPECT_EQ(NotSupportedError, exceptionState.code());
@@ -165,7 +164,7 @@ TEST_F(AnimationAnimationV8Test, MissingOffsetZeroRaisesException)
     jsKeyframes.append(Dictionary(keyframe1, m_isolate));
     jsKeyframes.append(Dictionary(keyframe2, m_isolate));
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
+    createAnimation(element.get(), jsKeyframes, 0, exceptionState);
 
     EXPECT_TRUE(exceptionState.hadException());
     EXPECT_EQ(NotSupportedError, exceptionState.code());
@@ -185,7 +184,7 @@ TEST_F(AnimationAnimationV8Test, MissingOffsetOneRaisesException)
     jsKeyframes.append(Dictionary(keyframe1, m_isolate));
     jsKeyframes.append(Dictionary(keyframe2, m_isolate));
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
+    createAnimation(element.get(), jsKeyframes, 0, exceptionState);
 
     EXPECT_TRUE(exceptionState.hadException());
     EXPECT_EQ(NotSupportedError, exceptionState.code());
@@ -205,7 +204,7 @@ TEST_F(AnimationAnimationV8Test, MissingOffsetZeroAndOneRaisesException)
     jsKeyframes.append(Dictionary(keyframe1, m_isolate));
     jsKeyframes.append(Dictionary(keyframe2, m_isolate));
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, 0, exceptionState);
+    createAnimation(element.get(), jsKeyframes, 0, exceptionState);
 
     EXPECT_TRUE(exceptionState.hadException());
     EXPECT_EQ(NotSupportedError, exceptionState.code());
@@ -226,9 +225,9 @@ TEST_F(AnimationAnimationV8Test, SpecifiedGetters)
     setV8ObjectPropertyAsString(timingInput, "easing", "step-start");
     Dictionary timingInputDictionary = Dictionary(v8::Handle<v8::Value>::Cast(timingInput), m_isolate);
 
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->timing();
+    RefPtrWillBeRawPtr<AnimationNodeTiming> specified = animation->timing();
     EXPECT_EQ(2, specified->delay());
     EXPECT_EQ(0.5, specified->endDelay());
     EXPECT_EQ("backwards", specified->fill());
@@ -247,9 +246,9 @@ TEST_F(AnimationAnimationV8Test, SpecifiedDurationGetter)
     setV8ObjectPropertyAsNumber(timingInputWithDuration, "duration", 2.5);
     Dictionary timingInputDictionaryWithDuration = Dictionary(v8::Handle<v8::Value>::Cast(timingInputWithDuration), m_isolate);
 
-    RefPtr<Animation> animationWithDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryWithDuration, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animationWithDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryWithDuration, exceptionState);
 
-    RefPtr<TimedItemTiming> specifiedWithDuration = animationWithDuration->timing();
+    RefPtrWillBeRawPtr<AnimationNodeTiming> specifiedWithDuration = animationWithDuration->timing();
     bool isNumber = false;
     double numberDuration = std::numeric_limits<double>::quiet_NaN();
     bool isString = false;
@@ -264,9 +263,9 @@ TEST_F(AnimationAnimationV8Test, SpecifiedDurationGetter)
     v8::Handle<v8::Object> timingInputNoDuration = v8::Object::New(m_isolate);
     Dictionary timingInputDictionaryNoDuration = Dictionary(v8::Handle<v8::Value>::Cast(timingInputNoDuration), m_isolate);
 
-    RefPtr<Animation> animationNoDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryNoDuration, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animationNoDuration = createAnimation(element.get(), jsKeyframes, timingInputDictionaryNoDuration, exceptionState);
 
-    RefPtr<TimedItemTiming> specifiedNoDuration = animationNoDuration->timing();
+    RefPtrWillBeRawPtr<AnimationNodeTiming> specifiedNoDuration = animationNoDuration->timing();
     isNumber = false;
     numberDuration = std::numeric_limits<double>::quiet_NaN();
     isString = false;
@@ -283,9 +282,9 @@ TEST_F(AnimationAnimationV8Test, SpecifiedSetters)
     Vector<Dictionary, 0> jsKeyframes;
     v8::Handle<v8::Object> timingInput = v8::Object::New(m_isolate);
     Dictionary timingInputDictionary = Dictionary(v8::Handle<v8::Value>::Cast(timingInput), m_isolate);
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->timing();
+    RefPtrWillBeRawPtr<AnimationNodeTiming> specified = animation->timing();
 
     EXPECT_EQ(0, specified->delay());
     specified->setDelay(2);
@@ -325,9 +324,9 @@ TEST_F(AnimationAnimationV8Test, SetSpecifiedDuration)
     Vector<Dictionary, 0> jsKeyframes;
     v8::Handle<v8::Object> timingInput = v8::Object::New(m_isolate);
     Dictionary timingInputDictionary = Dictionary(v8::Handle<v8::Value>::Cast(timingInput), m_isolate);
-    RefPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
+    RefPtrWillBeRawPtr<Animation> animation = createAnimation(element.get(), jsKeyframes, timingInputDictionary, exceptionState);
 
-    RefPtr<TimedItemTiming> specified = animation->timing();
+    RefPtrWillBeRawPtr<AnimationNodeTiming> specified = animation->timing();
 
     bool isNumber = false;
     double numberDuration = std::numeric_limits<double>::quiet_NaN();
@@ -358,8 +357,8 @@ TEST_F(AnimationAnimationTest, TimeToEffectChange)
     timing.startDelay = 100;
     timing.endDelay = 100;
     timing.fillMode = Timing::FillModeNone;
-    RefPtr<Animation> animation = Animation::create(0, nullptr, timing);
-    RefPtr<AnimationPlayer> player = document->timeline().play(animation.get());
+    RefPtrWillBeRawPtr<Animation> animation = Animation::create(0, nullptr, timing);
+    RefPtrWillBeRawPtr<AnimationPlayer> player = document->timeline().play(animation.get());
     double inf = std::numeric_limits<double>::infinity();
 
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
@@ -391,8 +390,8 @@ TEST_F(AnimationAnimationTest, TimeToEffectChangeWithPlaybackRate)
     timing.endDelay = 100;
     timing.playbackRate = 2;
     timing.fillMode = Timing::FillModeNone;
-    RefPtr<Animation> animation = Animation::create(0, nullptr, timing);
-    RefPtr<AnimationPlayer> player = document->timeline().play(animation.get());
+    RefPtrWillBeRawPtr<Animation> animation = Animation::create(0, nullptr, timing);
+    RefPtrWillBeRawPtr<AnimationPlayer> player = document->timeline().play(animation.get());
     double inf = std::numeric_limits<double>::infinity();
 
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
@@ -424,8 +423,8 @@ TEST_F(AnimationAnimationTest, TimeToEffectChangeWithNegativePlaybackRate)
     timing.endDelay = 100;
     timing.playbackRate = -2;
     timing.fillMode = Timing::FillModeNone;
-    RefPtr<Animation> animation = Animation::create(0, nullptr, timing);
-    RefPtr<AnimationPlayer> player = document->timeline().play(animation.get());
+    RefPtrWillBeRawPtr<Animation> animation = Animation::create(0, nullptr, timing);
+    RefPtrWillBeRawPtr<AnimationPlayer> player = document->timeline().play(animation.get());
     double inf = std::numeric_limits<double>::infinity();
 
     EXPECT_EQ(100, animation->timeToForwardsEffectChange());
@@ -454,13 +453,14 @@ TEST_F(AnimationAnimationTest, ElementDestructorClearsAnimationTarget)
     // and Animation are moved to Oilpan. See crbug.com/362404 for context.
     Timing timing;
     timing.iterationDuration = 5;
-    RefPtr<Animation> animation = Animation::create(element.get(), nullptr, timing);
+    RefPtrWillBeRawPtr<Animation> animation = Animation::create(element.get(), nullptr, timing);
     EXPECT_EQ(element.get(), animation->target());
-    RefPtr<AnimationPlayer> player = document->timeline().play(animation.get());
+    document->timeline().play(animation.get());
     document.clear();
     element.clear();
-    Heap::collectAllGarbage();
+#if !ENABLE(OILPAN)
     EXPECT_EQ(0, animation->target());
+#endif
 }
 
 } // namespace WebCore

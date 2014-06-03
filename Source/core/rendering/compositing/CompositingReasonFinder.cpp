@@ -68,14 +68,6 @@ bool CompositingReasonFinder::hasOverflowScrollTrigger() const
     return m_compositingTriggers & OverflowScrollTrigger;
 }
 
-// FIXME: This is a temporary trigger for enabling the old, opt-in path for
-// accelerated overflow scroll. It should be removed once the "universal"
-// path is ready (crbug.com/254111).
-bool CompositingReasonFinder::hasLegacyOverflowScrollTrigger() const
-{
-    return m_compositingTriggers & LegacyOverflowScrollTrigger;
-}
-
 bool CompositingReasonFinder::isMainFrame() const
 {
     // FIXME: LocalFrame::isMainFrame() is probably better.
@@ -229,6 +221,11 @@ bool CompositingReasonFinder::requiresCompositingForPositionFixed(RenderObject* 
     RenderObject* container = renderer->container();
     // If the renderer is not hooked up yet then we have to wait until it is.
     if (!container) {
+        ASSERT(m_renderView.document().lifecycle().state() < DocumentLifecycle::InCompositingUpdate);
+        // FIXME: Remove this and ASSERT(container) once we get rid of the incremental
+        // allocateOrClearCompositedLayerMapping compositing update. This happens when
+        // adding the renderer to the tree because we setStyle before addChild in
+        // createRendererForElementIfNeeded.
         *needToRecomputeCompositingRequirements = true;
         return false;
     }
@@ -268,6 +265,7 @@ bool CompositingReasonFinder::requiresCompositingForPositionFixed(RenderObject* 
     }
 
     // Subsequent tests depend on layout. If we can't tell now, just keep things the way they are until layout is done.
+    // FIXME: Get rid of this codepath once we get rid of the incremental compositing update in RenderLayer::styleChanged.
     if (m_renderView.document().lifecycle().state() < DocumentLifecycle::LayoutClean) {
         *needToRecomputeCompositingRequirements = true;
         return layer->hasCompositedLayerMapping();
@@ -282,13 +280,12 @@ bool CompositingReasonFinder::requiresCompositingForPositionFixed(RenderObject* 
 
     // Fixed position elements that are invisible in the current view don't get their own layer.
     if (FrameView* frameView = m_renderView.frameView()) {
+        ASSERT(m_renderView.document().lifecycle().state() == DocumentLifecycle::InCompositingUpdate);
         LayoutRect viewBounds = frameView->viewportConstrainedVisibleContentRect();
         LayoutRect layerBounds = layer->boundingBoxForCompositing(layer->compositor()->rootRenderLayer(), RenderLayer::ApplyBoundsChickenEggHacks);
         if (!viewBounds.intersects(enclosingIntRect(layerBounds))) {
-            if (viewportConstrainedNotCompositedReason) {
+            if (viewportConstrainedNotCompositedReason)
                 *viewportConstrainedNotCompositedReason = RenderLayer::NotCompositedForBoundsOutOfView;
-                *needToRecomputeCompositingRequirements = true;
-            }
             return false;
         }
     }

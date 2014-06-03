@@ -169,7 +169,7 @@ void RenderListBox::updateFromElement()
 
         setHasVerticalScrollbar(true);
 
-        setNeedsLayoutAndPrefWidthsRecalc();
+        setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
     }
 }
 
@@ -207,10 +207,10 @@ void RenderListBox::layout()
     }
 }
 
-void RenderListBox::repaintTreeAfterLayout()
+void RenderListBox::repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer)
 {
     repaintScrollbarIfNeeded();
-    RenderBox::repaintTreeAfterLayout();
+    RenderBox::repaintTreeAfterLayout(repaintContainer);
 }
 
 void RenderListBox::scrollToRevealSelection()
@@ -697,32 +697,32 @@ int RenderListBox::verticalScrollbarWidth() const
 
 // FIXME: We ignore padding in the vertical direction as far as these values are concerned, since that's
 // how the control currently paints.
-int RenderListBox::scrollWidth() const
+LayoutUnit RenderListBox::scrollWidth() const
 {
     // There is no horizontal scrolling allowed.
-    return pixelSnappedClientWidth();
+    return clientWidth();
 }
 
-int RenderListBox::scrollHeight() const
+LayoutUnit RenderListBox::scrollHeight() const
 {
-    return max(pixelSnappedClientHeight(), roundToInt(listHeight()));
+    return max(clientHeight(), listHeight());
 }
 
-int RenderListBox::scrollLeft() const
+LayoutUnit RenderListBox::scrollLeft() const
 {
     return 0;
 }
 
-void RenderListBox::setScrollLeft(int)
+void RenderListBox::setScrollLeft(LayoutUnit)
 {
 }
 
-int RenderListBox::scrollTop() const
+LayoutUnit RenderListBox::scrollTop() const
 {
     return m_indexOffset * itemHeight();
 }
 
-void RenderListBox::setScrollTop(int newTop)
+void RenderListBox::setScrollTop(LayoutUnit newTop)
 {
     // Determine an index and scroll to it.
     int index = newTop / itemHeight();

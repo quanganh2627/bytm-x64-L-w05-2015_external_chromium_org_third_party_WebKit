@@ -178,6 +178,8 @@ public:
 
     void invalidateInstances();
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 protected:
     SVGElement(const QualifiedName&, Document&, ConstructionType = CreateSVGElement);
 
@@ -199,12 +201,14 @@ protected:
 
     virtual bool selfHasRelativeLengths() const { return false; }
 
-    SVGElementRareData* svgRareData() const;
     SVGElementRareData* ensureSVGRareData();
 
-    bool hasSVGRareData() const { return m_hasSVGRareData; }
-    void setHasSVGRareData() { m_hasSVGRareData = true; }
-    void clearHasSVGRareData() { m_hasSVGRareData = false; }
+    inline bool hasSVGRareData() const { return m_SVGRareData; }
+    inline SVGElementRareData* svgRareData() const
+    {
+        ASSERT(m_SVGRareData);
+        return m_SVGRareData.get();
+    }
 
     // SVGFitToViewBox::parseAttribute uses reportAttributeParsingError.
     friend class SVGFitToViewBox;
@@ -224,7 +228,7 @@ private:
 
     bool supportsSpatialNavigationFocus() const;
 
-    HashSet<SVGElement*> m_elementsWithRelativeLengths;
+    WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> > m_elementsWithRelativeLengths;
 
     typedef HashMap<QualifiedName, RefPtr<SVGAnimatedPropertyBase> > AttributeToPropertyMap;
     AttributeToPropertyMap m_newAttributeToPropertyMap;
@@ -233,8 +237,8 @@ private:
     bool m_inRelativeLengthClientsInvalidation;
 #endif
     unsigned m_isContextElement : 1;
-    unsigned m_hasSVGRareData : 1;
 
+    OwnPtrWillBeMember<SVGElementRareData> m_SVGRareData;
     RefPtr<SVGAnimatedString> m_className;
 };
 

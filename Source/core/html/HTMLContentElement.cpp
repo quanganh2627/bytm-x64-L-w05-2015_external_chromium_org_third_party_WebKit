@@ -83,6 +83,11 @@ void HTMLContentElement::parseAttribute(const QualifiedName& name, const AtomicS
     }
 }
 
+static inline bool includesDisallowedPseudoClass(const CSSSelector& selector)
+{
+    return selector.m_match == CSSSelector::PseudoClass && selector.m_pseudoType != CSSSelector::PseudoNot;
+}
+
 bool HTMLContentElement::validateSelect() const
 {
     ASSERT(!m_shouldParseSelect);
@@ -93,22 +98,22 @@ bool HTMLContentElement::validateSelect() const
     if (!m_selectorList.isValid())
         return false;
 
-    bool disallowPseudoClasses = !RuntimeEnabledFeatures::pseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled() && containingShadowRoot() && containingShadowRoot()->type() == ShadowRoot::AuthorShadowRoot;
+    bool allowAnyPseudoClasses = RuntimeEnabledFeatures::pseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled() || (containingShadowRoot() && containingShadowRoot()->type() == ShadowRoot::UserAgentShadowRoot);
 
     for (const CSSSelector* selector = m_selectorList.first(); selector; selector = m_selectorList.next(*selector)) {
         if (!selector->isCompound())
             return false;
-        if (!disallowPseudoClasses)
+        if (allowAnyPseudoClasses)
             continue;
         for (const CSSSelector* subSelector = selector; subSelector; subSelector = subSelector->tagHistory()) {
-            if (subSelector->m_match == CSSSelector::PseudoClass)
+            if (includesDisallowedPseudoClass(*subSelector))
                 return false;
         }
     }
     return true;
 }
 
-static inline bool checkOneSelector(const CSSSelector& selector, const Vector<Node*, 32>& siblings, int nth)
+static inline bool checkOneSelector(const CSSSelector& selector, const WillBeHeapVector<RawPtrWillBeMember<Node>, 32>& siblings, int nth)
 {
     Element* element = toElement(siblings[nth]);
     SelectorChecker selectorChecker(element->document(), SelectorChecker::CollectingCSSRules);
@@ -117,7 +122,7 @@ static inline bool checkOneSelector(const CSSSelector& selector, const Vector<No
     return selectorChecker.match(context, strategy) == SelectorChecker::SelectorMatches;
 }
 
-bool HTMLContentElement::matchSelector(const Vector<Node*, 32>& siblings, int nth) const
+bool HTMLContentElement::matchSelector(const WillBeHeapVector<RawPtrWillBeMember<Node>, 32>& siblings, int nth) const
 {
     for (const CSSSelector* selector = selectorList().first(); selector; selector = CSSSelectorList::next(*selector)) {
         if (checkOneSelector(*selector, siblings, nth))

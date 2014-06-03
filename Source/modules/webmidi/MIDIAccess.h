@@ -35,7 +35,7 @@
 #include "bindings/v8/ScriptPromiseResolverWithContext.h"
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ActiveDOMObject.h"
-#include "core/events/EventTarget.h"
+#include "modules/EventTargetModules.h"
 #include "modules/webmidi/MIDIAccessor.h"
 #include "modules/webmidi/MIDIAccessorClient.h"
 #include "modules/webmidi/MIDIInput.h"
@@ -52,11 +52,12 @@ namespace WebCore {
 class ExecutionContext;
 
 class MIDIAccess FINAL : public RefCountedWillBeRefCountedGarbageCollected<MIDIAccess>, public ScriptWrappable, public ActiveDOMObject, public EventTargetWithInlineData, public MIDIAccessorClient {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<MIDIAccess>);
+    REFCOUNTED_EVENT_TARGET(MIDIAccess);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(MIDIAccess);
 public:
     virtual ~MIDIAccess();
     // Returns a promise object that will be resolved with this MIDIAccess.
-    static ScriptPromise request(const MIDIOptions&, ExecutionContext*);
+    static ScriptPromise request(const MIDIOptions&, ScriptState*);
 
     MIDIInputVector inputs() const { return m_inputs; }
     MIDIOutputVector outputs() const { return m_outputs; }
@@ -84,7 +85,7 @@ public:
     // |timeStampInMilliseconds| is in the same time coordinate system as performance.now().
     void sendMIDIData(unsigned portIndex, const unsigned char* data, size_t length, double timeStampInMilliseconds);
 
-    void trace(Visitor*);
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     class PostAction;
@@ -95,7 +96,7 @@ private:
     };
 
     MIDIAccess(const MIDIOptions&, ExecutionContext*);
-    ScriptPromise startRequest();
+    ScriptPromise startRequest(ScriptState*);
 
     void permissionDenied();
 

@@ -1017,7 +1017,7 @@ void XMLHttpRequest::dispatchThrottledProgressEvent(const AtomicString& type, lo
 
 void XMLHttpRequest::dispatchThrottledProgressEventSnapshot(const AtomicString& type)
 {
-    return dispatchThrottledProgressEvent(type, m_receivedLength, m_response.expectedContentLength());
+    dispatchThrottledProgressEvent(type, m_receivedLength, m_response.expectedContentLength());
 }
 
 void XMLHttpRequest::handleNetworkError()
@@ -1421,7 +1421,10 @@ void XMLHttpRequest::trace(Visitor* visitor)
 {
     visitor->trace(m_responseBlob);
     visitor->trace(m_responseStream);
+    visitor->trace(m_responseDocument);
     visitor->trace(m_progressEventThrottle);
+    visitor->trace(m_upload);
+    XMLHttpRequestEventTarget::trace(visitor);
 }
 
 } // namespace WebCore

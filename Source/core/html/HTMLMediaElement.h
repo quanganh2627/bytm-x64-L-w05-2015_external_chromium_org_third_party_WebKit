@@ -103,7 +103,7 @@ public:
     bool isActive() const { return m_active; }
 
     // error state
-    PassRefPtr<MediaError> error() const;
+    PassRefPtrWillBeRawPtr<MediaError> error() const;
 
     // network state
     void setSrc(const AtomicString&);
@@ -274,6 +274,10 @@ public:
     // and m_mediaController multipliers into account.
     double playerVolume() const;
 
+#if ENABLE(OILPAN)
+    bool isFinalizing() const { return m_isFinalizing; }
+#endif
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&);
     virtual ~HTMLMediaElement();
@@ -301,7 +305,6 @@ private:
     virtual bool alwaysCreateUserAgentShadowRoot() const OVERRIDE FINAL { return true; }
     virtual bool areAuthorShadowsAllowed() const OVERRIDE FINAL { return false; }
 
-    virtual bool hasCustomFocusLogic() const OVERRIDE FINAL;
     virtual bool supportsFocus() const OVERRIDE FINAL;
     virtual bool isMouseFocusable() const OVERRIDE FINAL;
     virtual bool rendererIsNeeded(const RenderStyle&) OVERRIDE;
@@ -314,6 +317,7 @@ private:
     virtual void didBecomeFullscreenElement() OVERRIDE FINAL;
     virtual void willStopBeingFullscreenElement() OVERRIDE FINAL;
     virtual bool isInteractiveContent() const OVERRIDE FINAL;
+    virtual void defaultEventHandler(Event*) OVERRIDE FINAL;
 
     // ActiveDOMObject functions.
     virtual void stop() OVERRIDE FINAL;
@@ -355,6 +359,7 @@ private:
     void loadInternal();
     void selectMediaResource();
     void loadResource(const KURL&, ContentType&, const String& keySystem);
+    void startPlayerLoad();
     void setPlayerPreload();
     void startDelayedLoad();
     blink::WebMediaPlayer::LoadType loadType() const;
@@ -365,7 +370,7 @@ private:
     void clearMediaPlayerAndAudioSourceProviderClient();
     bool havePotentialSourceChild();
     void noneSupported();
-    void mediaEngineError(PassRefPtr<MediaError> err);
+    void mediaEngineError(PassRefPtrWillBeRawPtr<MediaError>);
     void cancelPendingEventsAndCallbacks();
     void waitForSourceChange();
     void prepareToPlay();
@@ -432,7 +437,7 @@ private:
     ReadyState m_readyStateMaximum;
     KURL m_currentSrc;
 
-    RefPtr<MediaError> m_error;
+    RefPtrWillBeMember<MediaError> m_error;
 
     double m_volume;
     double m_lastSeekTime;
@@ -501,6 +506,9 @@ private:
     bool m_tracksAreReady : 1;
     bool m_haveVisibleTextTrack : 1;
     bool m_processingPreferenceChange : 1;
+#if ENABLE(OILPAN)
+    bool m_isFinalizing : 1;
+#endif
     double m_lastTextTrackUpdateTime;
 
     RefPtrWillBeMember<TextTrackList> m_textTracks;

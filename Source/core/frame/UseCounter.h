@@ -97,7 +97,6 @@ public:
         MinAttribute = 43,
         PatternAttribute = 44,
         PlaceholderAttribute = 45,
-        PrecisionAttribute = 46,
         PrefixedDirectoryAttribute = 47,
         RequiredAttribute = 49,
         ResultsAttribute = 50,
@@ -127,7 +126,6 @@ public:
         DocumentAll = 83,
         FormElement = 84,
         DemotedFormElement = 85,
-        CaptureAttributeAsEnum = 86,
         SVGAnimationElement = 90,
         KeyboardEventKeyLocation = 91,
         LineClamp = 96,
@@ -136,7 +134,6 @@ public:
         TextReplaceWholeText = 100,
         ConsoleMarkTimeline = 102,
         CSSPseudoElementUserAgentCustomPseudo = 103,
-        DocumentTypeInternalSubset = 105, // Removed from DOM4.
         ElementGetAttributeNode = 107, // Removed from DOM4.
         ElementSetAttributeNode = 108, // Removed from DOM4.
         ElementRemoveAttributeNode = 109, // Removed from DOM4.
@@ -222,7 +219,6 @@ public:
         HTMLHeadElementProfile = 207,
         OverflowChangedEvent = 208,
         SVGPointMatrixTransform = 209,
-        HTMLHtmlElementManifest = 210,
         DOMFocusInOutEvent = 211,
         FileGetLastModifiedDate = 212,
         HTMLElementInnerText = 213,
@@ -236,7 +232,6 @@ public:
         // The above items are available in M33 branch.
 
         InitMessageEvent = 222,
-        PrefixedInitMessageEvent = 223,
         ElementSetPrefix = 224, // Element.prefix is readonly in DOM4.
         CSSStyleDeclarationGetPropertyCSSValue = 225,
         PrefixedMediaCancelKeyRequest = 229,
@@ -251,7 +246,6 @@ public:
         ContentSecurityPolicyReportOnlyInMeta = 241,
         ResetReferrerPolicy = 243,
         CaseInsensitiveAttrSelectorMatch = 244, // Case-insensitivity dropped from specification.
-        CaptureAttributeAsBoolean = 245,
         FormNameAccessForImageElement = 246,
         FormNameAccessForPastNamesMap = 247,
         FormAssociationByParser = 248,
@@ -313,8 +307,8 @@ public:
         NamedNodeMapGetNamedItemNS = 310,
         NamedNodeMapSetNamedItemNS = 311,
         NamedNodeMapRemoveNamedItemNS = 312,
-        OpenWebDatabaseInWorker = 313,
-        OpenWebDatabaseSyncInWorker = 314,
+        OpenWebDatabaseInWorker = 313, // This doesn't work because of crbug.com/376039.
+        OpenWebDatabaseSyncInWorker = 314, // This doesn't work because of crbug.com/376039.
         PrefixedAllowFullscreenAttribute = 315,
         XHRProgressEventPosition = 316,
         XHRProgressEventTotalSize = 317,
@@ -419,6 +413,24 @@ public:
         VTTCueRenderPositionNot50 = 414,
         VTTCueRenderSizeNot100 = 415,
         VTTCueRenderAlignNotMiddle = 416,
+        // The above items are available in M36 branch.
+
+        ElementRequestPointerLock = 417,
+        VTTCueRenderRtl = 418,
+        PostMessageFromSecureToInsecure = 419,
+        PostMessageFromInsecureToSecure = 420,
+        DocumentExitPointerLock = 421,
+        DocumentPointerLockElement = 422,
+        MixedContentFont = 423,
+        PrefixedCursorZoomIn = 424,
+        PrefixedCursorZoomOut = 425,
+        CSSCharsetRuleEncoding = 426,
+        DocumentSetCharset = 427,
+        DocumentDefaultCharset = 428,
+        TextEncoderConstructor = 429,
+        TextEncoderEncode = 430,
+        TextDecoderConstructor = 431,
+        TextDecoderDecode= 432,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         // Also, run update_use_counter_feature_enum.py in chromium/src/tools/metrics/histograms/
@@ -428,6 +440,7 @@ public:
 
     // "count" sets the bit for this feature to 1. Repeated calls are ignored.
     static void count(const Document&, Feature);
+    // This doesn't count for non-Document ExecutionContext.
     static void count(const ExecutionContext*, Feature);
     void count(CSSParserContext, CSSPropertyID);
     void count(Feature);

@@ -102,7 +102,7 @@ public:
     virtual void animate(double) OVERRIDE;
     virtual void layout() OVERRIDE;
     virtual void enterForceCompositingMode(bool enable) OVERRIDE;
-    virtual void paint(WebCanvas*, const WebRect&, PaintOptions = ReadbackFromCompositorIfAvailable) OVERRIDE;
+    virtual void paint(WebCanvas*, const WebRect&) OVERRIDE;
 #if OS(ANDROID)
     virtual void paintCompositedDeprecated(WebCanvas*, const WebRect&) OVERRIDE;
 #endif
@@ -147,7 +147,6 @@ public:
     virtual void setDevToolsAgentClient(WebDevToolsAgentClient*) OVERRIDE;
     virtual void setPrerendererClient(WebPrerendererClient*) OVERRIDE;
     virtual void setSpellCheckClient(WebSpellCheckClient*) OVERRIDE;
-    virtual void setPasswordGeneratorClient(WebPasswordGeneratorClient*) OVERRIDE;
     virtual WebSettings* settings() OVERRIDE;
     virtual WebString pageEncoding() const OVERRIDE;
     virtual void setPageEncoding(const WebString&) OVERRIDE;
@@ -170,7 +169,6 @@ public:
     virtual void setFocusedFrame(WebFrame*) OVERRIDE;
     virtual void setInitialFocus(bool reverse) OVERRIDE;
     virtual void clearFocusedElement() OVERRIDE;
-    virtual void scrollFocusedNodeIntoView() OVERRIDE;
     virtual void scrollFocusedNodeIntoRect(const WebRect&) OVERRIDE;
     virtual void zoomToFindInPageRect(const WebRect&) OVERRIDE;
     virtual void advanceFocus(bool reverse) OVERRIDE;
@@ -189,8 +187,6 @@ public:
     virtual WebFloatPoint pinchViewportOffset() const OVERRIDE;
     virtual float minimumPageScaleFactor() const OVERRIDE;
     virtual float maximumPageScaleFactor() const OVERRIDE;
-    virtual void saveScrollAndScaleState() OVERRIDE;
-    virtual void restoreScrollAndScaleState() OVERRIDE;
     virtual void resetScrollAndScaleState() OVERRIDE;
     virtual void setIgnoreViewportTagScaleLimits(bool) OVERRIDE;
     virtual WebSize contentsPreferredMinimumSize() OVERRIDE;
@@ -263,6 +259,7 @@ public:
     virtual void setContinuousPaintingEnabled(bool) OVERRIDE;
     virtual void setShowScrollBottleneckRects(bool) OVERRIDE;
     virtual void getSelectionRootBounds(WebRect& bounds) const OVERRIDE;
+    virtual void acceptLanguagesChanged() OVERRIDE;
 
     // WebViewImpl
 
@@ -305,11 +302,6 @@ public:
     WebSpellCheckClient* spellCheckClient()
     {
         return m_spellCheckClient;
-    }
-
-    WebPasswordGeneratorClient* passwordGeneratorClient() const
-    {
-        return m_passwordGeneratorClient;
     }
 
     // Returns the page object associated with this view. This may be null when
@@ -442,7 +434,7 @@ public:
     void computeScaleAndScrollForBlockRect(const WebPoint& hitPoint, const WebRect& blockRect, float padding, float defaultScaleWhenAlreadyLegible, float& scale, WebPoint& scroll);
     WebCore::Node* bestTapNode(const WebCore::PlatformGestureEvent& tapEvent);
     void enableTapHighlightAtPoint(const WebCore::PlatformGestureEvent& tapEvent);
-    void enableTapHighlights(Vector<WebCore::Node*>&);
+    void enableTapHighlights(WillBeHeapVector<RawPtrWillBeMember<WebCore::Node> >&);
     void computeScaleAndScrollForFocusedNode(WebCore::Node* focusedNode, float& scale, WebCore::IntPoint& scroll, bool& needAnimation);
 
     void animateDoubleTapZoom(const WebCore::IntPoint&);
@@ -551,7 +543,6 @@ private:
 
     void setIsAcceleratedCompositingActive(bool);
     void doComposite();
-    void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
     void reallocateRenderer();
     void updateLayerTreeViewport();
     void updateLayerTreeBackgroundColor();
@@ -579,7 +570,6 @@ private:
     WebViewClient* m_client; // Can be 0 (e.g. unittests, shared workers, etc.)
     WebAutofillClient* m_autofillClient;
     WebSpellCheckClient* m_spellCheckClient;
-    WebPasswordGeneratorClient* m_passwordGeneratorClient;
 
     ChromeClientImpl m_chromeClientImpl;
     ContextMenuClientImpl m_contextMenuClientImpl;
@@ -627,10 +617,6 @@ private:
     double m_maximumZoomLevel;
 
     PageScaleConstraintsSet m_pageScaleConstraintsSet;
-
-    // Saved page scale state.
-    float m_savedPageScaleFactor; // 0 means that no page scale factor is saved.
-    WebCore::IntSize m_savedScrollOffset;
 
     // The scale moved to by the latest double tap zoom, if any.
     float m_doubleTapZoomPageScaleFactor;
@@ -692,7 +678,7 @@ private:
     OwnPtr<SettingsMap> m_inspectorSettingsMap;
 
     // If set, the (plugin) node which has mouse capture.
-    RefPtr<WebCore::Node> m_mouseCaptureNode;
+    RefPtrWillBePersistent<WebCore::Node> m_mouseCaptureNode;
     RefPtr<WebCore::UserGestureToken> m_mouseCaptureGestureToken;
 
     WebCore::IntRect m_rootLayerScrollDamage;

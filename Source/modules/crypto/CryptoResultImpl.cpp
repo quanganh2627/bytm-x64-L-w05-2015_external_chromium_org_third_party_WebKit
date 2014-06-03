@@ -86,21 +86,19 @@ ExceptionCode toExceptionCode(blink::WebCryptoErrorType errorType)
 //
 // This is achieved by making CryptoResultImpl hold a WeakPtr to the PromiseState.
 // The PromiseState deletes itself after being notified of completion.
-// Additionally the PromiseState deletes itself when the ExecutionContext is
+// Additionally the PromiseState is deleted when the ExecutionContext is
 // destroyed (necessary to avoid leaks when dealing with WebWorker threads,
 // which may die before the operation is completed).
-class CryptoResultImpl::PromiseState FINAL : public ContextLifecycleObserver {
+class CryptoResultImpl::PromiseState FINAL {
 public:
-    static WeakPtr<PromiseState> create(ExecutionContext* context)
+    static WeakPtr<PromiseState> create(ScriptState* scriptState)
     {
-        PromiseState* promiseState = new PromiseState(context);
+        PromiseState* promiseState = new PromiseState(scriptState);
         return promiseState->m_weakFactory.createWeakPtr();
     }
 
-    // Override from ContextLifecycleObserver
-    virtual void contextDestroyed() OVERRIDE
+    void contextDestroyed()
     {
-        ContextLifecycleObserver::contextDestroyed();
         delete this;
     }
 
@@ -140,24 +138,50 @@ public:
     }
 
 private:
-    explicit PromiseState(ExecutionContext* context)
-        : ContextLifecycleObserver(context)
-        , m_weakFactory(this)
-        , m_promiseResolver(ScriptPromiseResolverWithContext::create(ScriptState::current(toIsolate(context))))
+    // This subclass of ScriptPromiseResolverWithContext is to be notified
+    // when the context was destroyed.
+    class PromiseResolver FINAL : public ScriptPromiseResolverWithContext {
+    public:
+        static PassRefPtr<PromiseResolver> create(ScriptState* scriptState, PromiseState* promiseState)
+        {
+            RefPtr<PromiseResolver> resolver = adoptRef(new PromiseResolver(scriptState, promiseState));
+            resolver->suspendIfNeeded();
+            return resolver.release();
+        }
+
+        virtual void contextDestroyed() OVERRIDE
+        {
+            ScriptPromiseResolverWithContext::contextDestroyed();
+            m_promiseState->contextDestroyed();
+        }
+
+    private:
+        explicit PromiseResolver(ScriptState* scriptState, PromiseState* promiseState)
+            : ScriptPromiseResolverWithContext(scriptState)
+            , m_promiseState(promiseState)
+        {
+        }
+
+        PromiseState* m_promiseState;
+    };
+
+    explicit PromiseState(ScriptState* scriptState)
+        : m_weakFactory(this)
+        , m_promiseResolver(PromiseResolver::create(scriptState, this))
     {
     }
 
     WeakPtrFactory<PromiseState> m_weakFactory;
-    RefPtr<ScriptPromiseResolverWithContext> m_promiseResolver;
+    RefPtr<PromiseResolver> m_promiseResolver;
 };
 
 CryptoResultImpl::~CryptoResultImpl()
 {
 }
 
-PassRefPtr<CryptoResultImpl> CryptoResultImpl::create()
+PassRefPtr<CryptoResultImpl> CryptoResultImpl::create(ScriptState* scriptState)
 {
-    return adoptRef(new CryptoResultImpl(callingExecutionContext(v8::Isolate::GetCurrent())));
+    return adoptRef(new CryptoResultImpl(scriptState));
 }
 
 void CryptoResultImpl::completeWithError(blink::WebCryptoErrorType errorType, const blink::WebString& errorDetails)
@@ -190,8 +214,8 @@ void CryptoResultImpl::completeWithKeyPair(const blink::WebCryptoKey& publicKey,
         m_promiseState->completeWithKeyPair(publicKey, privateKey);
 }
 
-CryptoResultImpl::CryptoResultImpl(ExecutionContext* context)
-    : m_promiseState(PromiseState::create(context))
+CryptoResultImpl::CryptoResultImpl(ScriptState* scriptState)
+    : m_promiseState(PromiseState::create(scriptState))
 {
 }
 

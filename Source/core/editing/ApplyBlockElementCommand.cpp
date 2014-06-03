@@ -73,17 +73,21 @@ void ApplyBlockElementCommand::doApply()
     // FIXME: We paint the gap before some paragraphs that are indented with left
     // margin/padding, but not others.  We should make the gap painting more consistent and
     // then use a left margin/padding rule here.
-    if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd))
-        setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().isDirectional()));
+    if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd)) {
+        VisibleSelection newSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().isDirectional());
+        if (newSelection.isNone())
+            return;
+        setEndingSelection(newSelection);
+    }
 
     VisibleSelection selection = selectionForParagraphIteration(endingSelection());
     VisiblePosition startOfSelection = selection.visibleStart();
     VisiblePosition endOfSelection = selection.visibleEnd();
     ASSERT(!startOfSelection.isNull());
     ASSERT(!endOfSelection.isNull());
-    RefPtr<ContainerNode> startScope;
+    RefPtrWillBeRawPtr<ContainerNode> startScope = nullptr;
     int startIndex = indexForVisiblePosition(startOfSelection, startScope);
-    RefPtr<ContainerNode> endScope;
+    RefPtrWillBeRawPtr<ContainerNode> endScope = nullptr;
     int endIndex = indexForVisiblePosition(endOfSelection, endScope);
 
     formatSelection(startOfSelection, endOfSelection);
@@ -223,7 +227,7 @@ void ApplyBlockElementCommand::rangeForParagraphSplittingTextNodesIfNeeded(const
 
         // If end is in the middle of a text node, split.
         if (!endStyle->collapseWhiteSpace() && end.offsetInContainerNode() && end.offsetInContainerNode() < end.containerNode()->maxCharacterOffset()) {
-            RefPtr<Text> endContainer = end.containerText();
+            RefPtrWillBeRawPtr<Text> endContainer = end.containerText();
             splitTextNode(endContainer, end.offsetInContainerNode());
             if (isStartAndEndOnSameNode)
                 start = firstPositionInOrBeforeNode(endContainer->previousSibling());
@@ -246,7 +250,7 @@ VisiblePosition ApplyBlockElementCommand::endOfNextParagrahSplittingTextNodesIfN
     if (!style)
         return endOfNextParagraph;
 
-    RefPtr<Text> text = position.containerText();
+    RefPtrWillBeRawPtr<Text> text = position.containerText();
     if (!style->preserveNewline() || !position.offsetInContainerNode() || !isNewLineAtPosition(firstPositionInNode(text.get())))
         return endOfNextParagraph;
 

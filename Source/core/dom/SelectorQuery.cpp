@@ -134,14 +134,14 @@ bool SelectorDataList::matches(Element& targetElement) const
     return false;
 }
 
-PassRefPtr<NodeList> SelectorDataList::queryAll(ContainerNode& rootNode) const
+PassRefPtrWillBeRawPtr<NodeList> SelectorDataList::queryAll(ContainerNode& rootNode) const
 {
     Vector<RefPtr<Node> > result;
     execute<AllElementsSelectorQueryTrait>(rootNode, result);
     return StaticNodeList::adopt(result);
 }
 
-PassRefPtr<Element> SelectorDataList::queryFirst(ContainerNode& rootNode) const
+PassRefPtrWillBeRawPtr<Element> SelectorDataList::queryFirst(ContainerNode& rootNode) const
 {
     Element* matchedElement = 0;
     execute<SingleElementSelectorQueryTrait>(rootNode, matchedElement);
@@ -475,12 +475,12 @@ bool SelectorQuery::matches(Element& element) const
     return m_selectors.matches(element);
 }
 
-PassRefPtr<NodeList> SelectorQuery::queryAll(ContainerNode& rootNode) const
+PassRefPtrWillBeRawPtr<NodeList> SelectorQuery::queryAll(ContainerNode& rootNode) const
 {
     return m_selectors.queryAll(rootNode);
 }
 
-PassRefPtr<Element> SelectorQuery::queryFirst(ContainerNode& rootNode) const
+PassRefPtrWillBeRawPtr<Element> SelectorQuery::queryFirst(ContainerNode& rootNode) const
 {
     return m_selectors.queryFirst(rootNode);
 }

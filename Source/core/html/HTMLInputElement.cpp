@@ -189,11 +189,6 @@ Vector<FileChooserFileInfo> HTMLInputElement::filesFromFileInputFormControlState
     return FileInputType::filesFromFormControlState(state);
 }
 
-HTMLElement* HTMLInputElement::passwordGeneratorButtonElement() const
-{
-    return toHTMLElement(userAgentShadowRoot()->getElementById(ShadowElementNames::passwordGenerator()));
-}
-
 bool HTMLInputElement::shouldAutocomplete() const
 {
     if (m_autocomplete != Uninitialized)
@@ -664,7 +659,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         int valueAsInteger = value.toInt();
         m_size = valueAsInteger > 0 ? valueAsInteger : defaultSize;
         if (m_size != oldSize && renderer())
-            renderer()->setNeedsLayoutAndPrefWidthsRecalc();
+            renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
     } else if (name == altAttr)
         m_inputTypeView->altAttributeChanged();
     else if (name == srcAttr)
@@ -705,9 +700,6 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
     } else if (name == patternAttr) {
         setNeedsValidityCheck();
         UseCounter::count(document(), UseCounter::PatternAttribute);
-    } else if (name == precisionAttr) {
-        setNeedsValidityCheck();
-        UseCounter::count(document(), UseCounter::PrecisionAttribute);
     } else if (name == disabledAttr) {
         HTMLTextFormControlElement::parseAttribute(name, value);
         m_inputTypeView->disabledAttributeChanged();
@@ -845,7 +837,7 @@ void HTMLInputElement::setChecked(bool nowChecked, TextFieldEventBehavior eventB
     if (RadioButtonGroupScope* scope = radioButtonGroupScope())
         scope->updateCheckedState(this);
     if (renderer() && renderer()->style()->hasAppearance())
-        RenderTheme::theme().stateChanged(renderer(), CheckedState);
+        RenderTheme::theme().stateChanged(renderer(), CheckedControlState);
 
     setNeedsValidityCheck();
 
@@ -882,7 +874,7 @@ void HTMLInputElement::setIndeterminate(bool newValue)
     didAffectSelector(AffectedSelectorIndeterminate);
 
     if (renderer() && renderer()->style()->hasAppearance())
-        RenderTheme::theme().stateChanged(renderer(), CheckedState);
+        RenderTheme::theme().stateChanged(renderer(), CheckedControlState);
 }
 
 int HTMLInputElement::size() const
@@ -1501,7 +1493,7 @@ bool HTMLInputElement::hasValidDataListOptions() const
     HTMLDataListElement* dataList = this->dataList();
     if (!dataList)
         return false;
-    RefPtr<HTMLCollection> options = dataList->options();
+    RefPtrWillBeRawPtr<HTMLCollection> options = dataList->options();
     for (unsigned i = 0; HTMLOptionElement* option = toHTMLOptionElement(options->item(i)); ++i) {
         if (isValidValue(option->value()))
             return true;
@@ -1687,25 +1679,6 @@ bool HTMLInputElement::shouldAppearIndeterminate() const
     return m_inputType->supportsIndeterminateAppearance() && indeterminate();
 }
 
-#if ENABLE(MEDIA_CAPTURE)
-bool HTMLInputElement::capture() const
-{
-    if (!isFileUpload() || !fastHasAttribute(captureAttr))
-        return false;
-
-    // As per crbug.com/240252, emit a deprecation warning when the "capture"
-    // attribute is used as an enum. The spec has been updated and "capture" is
-    // supposed to be used as a boolean.
-    bool hasDeprecatedUsage = !fastGetAttribute(captureAttr).isEmpty();
-    if (hasDeprecatedUsage)
-        UseCounter::countDeprecation(document(), UseCounter::CaptureAttributeAsEnum);
-    else
-        UseCounter::count(document(), UseCounter::CaptureAttributeAsBoolean);
-
-    return true;
-}
-#endif
-
 bool HTMLInputElement::isInRequiredRadioButtonGroup()
 {
     ASSERT(isRadioButton());
@@ -1836,7 +1809,7 @@ bool HTMLInputElement::setupDateTimeChooserParameters(DateTimeChooserParameters&
     parameters.doubleValue = m_inputType->valueAsDouble();
     parameters.isAnchorElementRTL = computedStyle()->direction() == RTL;
     if (HTMLDataListElement* dataList = this->dataList()) {
-        RefPtr<HTMLCollection> options = dataList->options();
+        RefPtrWillBeRawPtr<HTMLCollection> options = dataList->options();
         for (unsigned i = 0; HTMLOptionElement* option = toHTMLOptionElement(options->item(i)); ++i) {
             if (!isValidValue(option->value()))
                 continue;

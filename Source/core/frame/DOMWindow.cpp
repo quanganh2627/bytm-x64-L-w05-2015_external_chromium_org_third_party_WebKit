@@ -77,6 +77,7 @@
 #include "core/loader/FrameLoadRequest.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/FrameLoaderClient.h"
+#include "core/loader/MixedContentChecker.h"
 #include "core/loader/SinkDocument.h"
 #include "core/loader/appcache/ApplicationCache.h"
 #include "core/page/BackForwardClient.h"
@@ -347,7 +348,7 @@ void DOMWindow::clearDocument()
         m_document->detach();
     }
 
-    // FIXME: This should be part of ActiveDOM Object shutdown
+    // FIXME: This should be part of ActiveDOMObject shutdown
     clearEventQueue();
 
     m_document->clearDOMWindow();
@@ -362,9 +363,9 @@ void DOMWindow::clearEventQueue()
     m_eventQueue.clear();
 }
 
-PassRefPtr<Document> DOMWindow::createDocument(const String& mimeType, const DocumentInit& init, bool forceXHTML)
+PassRefPtrWillBeRawPtr<Document> DOMWindow::createDocument(const String& mimeType, const DocumentInit& init, bool forceXHTML)
 {
-    RefPtr<Document> document;
+    RefPtrWillBeRawPtr<Document> document = nullptr;
     if (forceXHTML) {
         // This is a hack for XSLTProcessor. See XSLTProcessor::createDocumentFromSource().
         document = Document::create(init);
@@ -377,7 +378,7 @@ PassRefPtr<Document> DOMWindow::createDocument(const String& mimeType, const Doc
     return document.release();
 }
 
-PassRefPtr<Document> DOMWindow::installNewDocument(const String& mimeType, const DocumentInit& init, bool forceXHTML)
+PassRefPtrWillBeRawPtr<Document> DOMWindow::installNewDocument(const String& mimeType, const DocumentInit& init, bool forceXHTML)
 {
     ASSERT(init.frame() == m_frame);
 
@@ -387,8 +388,10 @@ PassRefPtr<Document> DOMWindow::installNewDocument(const String& mimeType, const
     m_eventQueue = DOMWindowEventQueue::create(m_document.get());
     m_document->attach();
 
-    if (!m_frame)
-        return m_document;
+    if (!m_frame) {
+        // FIXME: Oilpan: Remove .get() when m_document becomes Member<>.
+        return m_document.get();
+    }
 
     m_frame->script().updateDocument();
     m_document->updateViewportDescription();
@@ -409,7 +412,8 @@ PassRefPtr<Document> DOMWindow::installNewDocument(const String& mimeType, const
             m_frame->host()->chrome().client().needTouchEvents(true);
     }
 
-    return m_document;
+    // FIXME: Oilpan: Remove .get() when m_document becomes Member<>.
+    return m_document.get();
 }
 
 EventQueue* DOMWindow::eventQueue() const
@@ -485,15 +489,20 @@ DOMWindow::~DOMWindow()
     ASSERT(m_hasBeenReset);
     reset();
 
-    removeAllEventListeners();
-
 #if ENABLE(OILPAN)
-    ASSERT(m_document->isDisposed());
-#else
-    ASSERT(m_document->isStopped());
-#endif
+    // Oilpan: the frame host and document objects are
+    // also garbage collected; cannot notify these
+    // when removing event listeners.
+    removeAllEventListenersInternal(DoNotBroadcastListenerRemoval);
 
+    // Cleared when detaching document.
+    ASSERT(!m_eventQueue);
+#else
+    removeAllEventListenersInternal(DoBroadcastListenerRemoval);
+
+    ASSERT(m_document->isStopped());
     clearDocument();
+#endif
 }
 
 const AtomicString& DOMWindow::interfaceName() const
@@ -834,6 +843,11 @@ void DOMWindow::postMessage(PassRefPtr<SerializedScriptValue> message, const Mes
         return;
     String sourceOrigin = sourceDocument->securityOrigin()->toString();
 
+    if (MixedContentChecker::isMixedContent(sourceDocument->securityOrigin(), document()->url()))
+        UseCounter::count(document(), UseCounter::PostMessageFromSecureToInsecure);
+    else if (MixedContentChecker::isMixedContent(document()->securityOrigin(), sourceDocument->url()))
+        UseCounter::count(document(), UseCounter::PostMessageFromInsecureToSecure);
+
     // Capture stack trace only when inspector front-end is loaded as it may be time consuming.
     RefPtr<ScriptCallStack> stackTrace;
     if (InspectorInstrumentation::consoleAgentEnabled(sourceDocument))
@@ -969,7 +983,7 @@ void DOMWindow::print()
     if (!host)
         return;
 
-    if (m_frame->loader().provisionalDocumentLoader() || m_frame->loader().documentLoader()->isLoading()) {
+    if (m_frame->loader().state() != FrameStateComplete) {
         m_shouldPrintWhenFinishedLoading = true;
         return;
     }
@@ -1260,10 +1274,6 @@ DOMWindow* DOMWindow::parent() const
 DOMWindow* DOMWindow::top() const
 {
     if (!m_frame)
-        return 0;
-
-    Page* page = m_frame->page();
-    if (!page)
         return 0;
 
     return m_frame->tree().top()->domWindow();
@@ -1608,20 +1618,27 @@ bool DOMWindow::dispatchEvent(PassRefPtrWillBeRawPtr<Event> prpEvent, PassRefPtr
     return result;
 }
 
-void DOMWindow::removeAllEventListeners()
+void DOMWindow::removeAllEventListenersInternal(BroadcastListenerRemoval mode)
 {
     EventTarget::removeAllEventListeners();
 
     lifecycleNotifier().notifyRemoveAllEventListeners(this);
 
-    if (m_frame && m_frame->host())
-        m_frame->host()->eventHandlerRegistry().didRemoveAllEventHandlers(*this);
+    if (mode == DoBroadcastListenerRemoval) {
+        if (m_frame && m_frame->host())
+            m_frame->host()->eventHandlerRegistry().didRemoveAllEventHandlers(*this);
 
-    if (Document* document = this->document())
-        document->didClearTouchEventHandlers(document);
+        if (Document* document = this->document())
+            document->didClearTouchEventHandlers(document);
+    }
 
     removeAllUnloadEventListeners(this);
     removeAllBeforeUnloadEventListeners(this);
+}
+
+void DOMWindow::removeAllEventListeners()
+{
+    removeAllEventListenersInternal(DoBroadcastListenerRemoval);
 }
 
 void DOMWindow::finishedLoading()
@@ -1870,6 +1887,7 @@ PassOwnPtr<LifecycleNotifier<DOMWindow> > DOMWindow::createLifecycleNotifier()
 
 void DOMWindow::trace(Visitor* visitor)
 {
+    visitor->trace(m_document);
     visitor->trace(m_screen);
     visitor->trace(m_history);
     visitor->trace(m_locationbar);
@@ -1888,6 +1906,7 @@ void DOMWindow::trace(Visitor* visitor)
     visitor->trace(m_performance);
     visitor->trace(m_css);
     WillBeHeapSupplementable<DOMWindow>::trace(visitor);
+    EventTargetWithInlineData::trace(visitor);
 }
 
 } // namespace WebCore

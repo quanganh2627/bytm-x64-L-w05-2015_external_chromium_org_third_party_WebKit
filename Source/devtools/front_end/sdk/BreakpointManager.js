@@ -31,25 +31,26 @@
 /**
  * @constructor
  * @extends {WebInspector.Object}
+ * @implements {WebInspector.TargetManager.Observer}
  * @param {!WebInspector.Setting} breakpointStorage
- * @param {!WebInspector.DebuggerModel} debuggerModel
  * @param {!WebInspector.Workspace} workspace
+ * @param {!WebInspector.TargetManager} targetManager
  */
-WebInspector.BreakpointManager = function(breakpointStorage, debuggerModel, workspace)
+WebInspector.BreakpointManager = function(breakpointStorage, workspace, targetManager)
 {
     this._storage = new WebInspector.BreakpointManager.Storage(this, breakpointStorage);
-    this._debuggerModel = debuggerModel;
     this._workspace = workspace;
+    this._targetManager = targetManager;
 
     this._breakpointForDebuggerId = {};
     this._breakpointsForUISourceCode = new Map();
     this._breakpointsForPrimaryUISourceCode = new Map();
     this._sourceFilesWithRestoredBreakpoints = {};
 
-    this._debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.BreakpointResolved, this._breakpointResolved, this);
     this._workspace.addEventListener(WebInspector.Workspace.Events.ProjectWillReset, this._projectWillReset, this);
     this._workspace.addEventListener(WebInspector.Workspace.Events.UISourceCodeAdded, this._uiSourceCodeAdded, this);
     this._workspace.addEventListener(WebInspector.Workspace.Events.UISourceCodeRemoved, this._uiSourceCodeRemoved, this);
+    this._targetManager.observeTargets(this);
 }
 
 WebInspector.BreakpointManager.Events = {
@@ -79,6 +80,22 @@ WebInspector.BreakpointManager._breakpointStorageId = function(sourceFileId, lin
 
 WebInspector.BreakpointManager.prototype = {
     /**
+     * @param {!WebInspector.Target} target
+     */
+    targetAdded: function(target)
+    {
+        target.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.BreakpointResolved, this._breakpointResolved, this);
+    },
+
+    /**
+     * @param {!WebInspector.Target} target
+     */
+    targetRemoved: function(target)
+    {
+        target.debuggerModel.removeEventListener(WebInspector.DebuggerModel.Events.BreakpointResolved, this._breakpointResolved, this);
+    },
+
+    /**
      * @param {string} sourceFileId
      */
     _provisionalBreakpointsForSourceFileId: function(sourceFileId)
@@ -92,10 +109,13 @@ WebInspector.BreakpointManager.prototype = {
         return result;
     },
 
-    removeProvisionalBreakpointsForTest: function()
+    /**
+     * @param {!WebInspector.Target} target
+     */
+    removeProvisionalBreakpointsForTest: function(target)
     {
         for (var debuggerId in this._breakpointForDebuggerId)
-            this._debuggerModel.removeBreakpoint(debuggerId);
+            target.debuggerModel.removeBreakpoint(debuggerId);
     },
 
     /**
@@ -185,7 +205,9 @@ WebInspector.BreakpointManager.prototype = {
      */
     setBreakpoint: function(uiSourceCode, lineNumber, columnNumber, condition, enabled)
     {
-        this._debuggerModel.setBreakpointsActive(true);
+        var targets = this._targetManager.targets();
+        for (var i = 0; i < targets.length; ++i)
+            targets[i].debuggerModel.setBreakpointsActive(true);
         return this._innerSetBreakpoint(uiSourceCode, lineNumber, columnNumber, condition, enabled);
     },
 
@@ -435,6 +457,9 @@ WebInspector.BreakpointManager.Breakpoint = function(breakpointManager, projectI
     /** @type {!Object.<string, !WebInspector.UILocation>} */
     this._uiLocations = {};
 
+    /** @type {!Object.<string, number>} */
+    this._numberOfDebuggerLocationForUILocation = new Map();
+
     // Force breakpoint update.
     /** @type {string} */ this._condition;
     /** @type {boolean} */ this._enabled;
@@ -484,10 +509,20 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
 
     /**
      * @param {!WebInspector.DebuggerModel.Location} location
+     * @return {boolean}
      */
     _addResolvedLocation: function(location)
     {
+        var script = location.script();
+        var uiLocation = script.rawLocationToUILocation(location.lineNumber, location.columnNumber);
+        var breakpoint = this._breakpointManager.findBreakpoint(uiLocation.uiSourceCode, uiLocation.lineNumber, uiLocation.columnNumber);
+        if (breakpoint && breakpoint != this) {
+            // location clash
+            this.remove();
+            return false;
+        }
         this._liveLocations.push(location.createLiveLocation(this._locationUpdated.bind(this, location)));
+        return true;
     },
 
     /**
@@ -496,17 +531,23 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
      */
     _locationUpdated: function(location, uiLocation)
     {
-        var stringifiedLocation = location.scriptId + ":" + location.lineNumber + ":" + location.columnNumber;
-        var oldUILocation = /** @type {!WebInspector.UILocation} */ (this._uiLocations[stringifiedLocation]);
-        if (oldUILocation)
+        var oldUILocation = /** @type {!WebInspector.UILocation} */ (this._uiLocations[location.id()]);
+        if (oldUILocation && --this._numberOfDebuggerLocationForUILocation[oldUILocation.id()] === 0) {
+            delete this._numberOfDebuggerLocationForUILocation[oldUILocation.id()];
             this._breakpointManager._uiLocationRemoved(this, oldUILocation);
+        }
         if (this._uiLocations[""]) {
             var defaultLocation = this._uiLocations[""];
             delete this._uiLocations[""];
             this._breakpointManager._uiLocationRemoved(this, defaultLocation);
         }
-        this._uiLocations[stringifiedLocation] = uiLocation;
-        this._breakpointManager._uiLocationAdded(this, uiLocation);
+        this._uiLocations[location.id()] = uiLocation;
+
+        if (!this._numberOfDebuggerLocationForUILocation[uiLocation.id()])
+            this._numberOfDebuggerLocationForUILocation[uiLocation.id()] = 0;
+
+        if (++this._numberOfDebuggerLocationForUILocation[uiLocation.id()] === 1)
+            this._breakpointManager._uiLocationAdded(this, uiLocation);
     },
 
     /**
@@ -549,22 +590,10 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
     {
         if (this._enabled === enabled && this._condition === condition)
             return;
-        this._removeFromDebugger();
         this._enabled = enabled;
         this._condition = condition;
         this._breakpointManager._storage._updateBreakpoint(this);
-        this._fakeBreakpointAtPrimaryLocation();
         this._updateInDebugger();
-    },
-
-    _updateInDebugger: function()
-    {
-        var uiSourceCode = this.uiSourceCode();
-        if (!uiSourceCode)
-            return;
-        var scriptFile = uiSourceCode && uiSourceCode.scriptFile();
-        if (this._enabled && !(scriptFile && scriptFile.hasDivergedFromVM()))
-            this._setInDebugger();
     },
 
     /**
@@ -573,23 +602,33 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
     remove: function(keepInStorage)
     {
         var removeFromStorage = !keepInStorage;
-        this._resetLocations();
         this._removeFromDebugger();
         this._breakpointManager._removeBreakpoint(this, removeFromStorage);
     },
 
-    _setInDebugger: function()
+    _updateInDebugger: function()
     {
         this._removeFromDebugger();
-        var uiSourceCode = this._breakpointManager._workspace.uiSourceCode(this._projectId, this._path);
-        if (!uiSourceCode)
+        this._fakeBreakpointAtPrimaryLocation();
+        var uiSourceCode = this.uiSourceCode();
+        if (!uiSourceCode || !this._enabled)
             return;
-        var rawLocation = uiSourceCode.uiLocationToRawLocation(this._lineNumber, this._columnNumber);
-        var debuggerModelLocation = /** @type {!WebInspector.DebuggerModel.Location} */ (rawLocation);
-        if (debuggerModelLocation)
-            this._breakpointManager._debuggerModel.setBreakpointByScriptLocation(debuggerModelLocation, this._condition, this._didSetBreakpointInDebugger.bind(this));
-        else if (uiSourceCode.url)
-            this._breakpointManager._debuggerModel.setBreakpointByURL(uiSourceCode.url, this._lineNumber, this._columnNumber, this._condition, this._didSetBreakpointInDebugger.bind(this));
+
+        var targets = this._breakpointManager._targetManager.targets();
+        for (var i = 0; i < targets.length; ++i) {
+            var scriptFile = uiSourceCode.scriptFileForTarget(targets[i]);
+            if (scriptFile && scriptFile.hasDivergedFromVM())
+                return;
+        }
+
+        for (var i = 0; i < targets.length; ++i) {
+            var rawLocation = uiSourceCode.uiLocationToRawLocation(targets[i], this._lineNumber, this._columnNumber);
+            var debuggerModelLocation = /** @type {!WebInspector.DebuggerModel.Location} */ (rawLocation);
+            if (debuggerModelLocation)
+                targets[i].debuggerModel.setBreakpointByScriptLocation(debuggerModelLocation, this._condition, this._didSetBreakpointInDebugger.bind(this));
+            else if (uiSourceCode.url)
+                targets[i].debuggerModel.setBreakpointByURL(uiSourceCode.url, this._lineNumber, this._columnNumber, this._condition, this._didSetBreakpointInDebugger.bind(this));
+        }
     },
 
     /**
@@ -599,39 +638,26 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
     _didSetBreakpointInDebugger: function(breakpointId, locations)
     {
         if (!breakpointId) {
-            this._resetLocations();
-            this._breakpointManager._removeBreakpoint(this, false);
+            this.remove(true);
             return;
         }
 
         this._debuggerId = breakpointId;
         this._breakpointManager._breakpointForDebuggerId[breakpointId] = this;
 
-        if (!locations.length) {
-            this._fakeBreakpointAtPrimaryLocation();
-            return;
-        }
-
-        this._resetLocations();
-        for (var i = 0; i < locations.length; ++i) {
-            var script = locations[i].script();
-            var uiLocation = script.rawLocationToUILocation(locations[i].lineNumber, locations[i].columnNumber);
-            if (this._breakpointManager.findBreakpoint(uiLocation.uiSourceCode, uiLocation.lineNumber, uiLocation.columnNumber)) {
-                // location clash
-                this.remove();
-                return;
-            }
-        }
-
         for (var i = 0; i < locations.length; ++i)
-            this._addResolvedLocation(locations[i]);
+            if (!this._addResolvedLocation(locations[i]))
+                return;
     },
 
     _removeFromDebugger: function()
     {
+        this._resetLocations();
         if (!this._debuggerId)
             return;
-        this._breakpointManager._debuggerModel.removeBreakpoint(this._debuggerId, this._didRemoveFromDebugger.bind(this));
+        var barrier = new CallbackBarrier();
+        this._breakpointManager._targetManager.targets().forEach(function(target){target.debuggerModel.removeBreakpoint(this._debuggerId, barrier.createCallback())}, this);
+        barrier.callWhenDone(this._didRemoveFromDebugger.bind(this));
     },
 
     _didRemoveFromDebugger: function()
@@ -642,12 +668,20 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
 
     _resetLocations: function()
     {
-        for (var stringifiedLocation in this._uiLocations)
-            this._breakpointManager._uiLocationRemoved(this, this._uiLocations[stringifiedLocation]);
+        for (var stringifiedLocation in this._uiLocations) {
+            var uiLocation = this._uiLocations[stringifiedLocation];
+            if (this._numberOfDebuggerLocationForUILocation[uiLocation.id()]) {
+                this._breakpointManager._uiLocationRemoved(this, uiLocation);
+                delete this._numberOfDebuggerLocationForUILocation[uiLocation.id()];
+            }
+        }
+        if (this._uiLocations[""])
+            this._breakpointManager._uiLocationRemoved(this, this._uiLocations[""]);
         for (var i = 0; i < this._liveLocations.length; ++i)
             this._liveLocations[i].dispose();
         this._liveLocations = [];
         this._uiLocations = {};
+        this._numberOfDebuggerLocationForUILocation = {};
     },
 
     /**
@@ -660,7 +694,6 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
 
     _fakeBreakpointAtPrimaryLocation: function()
     {
-        this._resetLocations();
         var uiSourceCode = this._breakpointManager._workspace.uiSourceCode(this._projectId, this._path);
         if (!uiSourceCode)
             return;

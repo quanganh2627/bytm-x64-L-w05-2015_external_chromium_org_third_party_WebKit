@@ -743,13 +743,13 @@ void TextIterator::handleTextBox()
     }
 }
 
-static inline RenderText* firstRenderTextInFirstLetter(RenderObject* firstLetter)
+static inline RenderText* firstRenderTextInFirstLetter(RenderBoxModelObject* firstLetter)
 {
     if (!firstLetter)
         return 0;
 
     // FIXME: Should this check descendent objects?
-    for (RenderObject* current = firstLetter->firstChild(); current; current = current->nextSibling()) {
+    for (RenderObject* current = firstLetter->slowFirstChild(); current; current = current->nextSibling()) {
         if (current->isText())
             return toRenderText(current);
     }
@@ -759,7 +759,7 @@ static inline RenderText* firstRenderTextInFirstLetter(RenderObject* firstLetter
 void TextIterator::handleTextNodeFirstLetter(RenderTextFragment* renderer)
 {
     if (renderer->firstLetter()) {
-        RenderObject* r = renderer->firstLetter();
+        RenderBoxModelObject* r = renderer->firstLetter();
         if (r->style()->visibility() != VISIBLE && !m_ignoresStyleVisibility)
             return;
         if (RenderText* firstLetter = firstRenderTextInFirstLetter(r)) {

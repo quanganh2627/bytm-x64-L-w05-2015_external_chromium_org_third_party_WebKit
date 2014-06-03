@@ -26,7 +26,7 @@
 #define RTCDataChannel_h
 
 #include "bindings/v8/ScriptWrappable.h"
-#include "core/events/EventTarget.h"
+#include "modules/EventTargetModules.h"
 #include "platform/Timer.h"
 #include "platform/heap/Handle.h"
 #include "public/platform/WebRTCDataChannelHandler.h"
@@ -44,11 +44,12 @@ namespace WebCore {
 class Blob;
 class ExceptionState;
 
-class RTCDataChannel FINAL : public RefCounted<RTCDataChannel>, public ScriptWrappable, public EventTargetWithInlineData, public blink::WebRTCDataChannelHandlerClient {
+class RTCDataChannel FINAL : public RefCountedWillBeRefCountedGarbageCollected<RTCDataChannel>, public ScriptWrappable, public EventTargetWithInlineData, public blink::WebRTCDataChannelHandlerClient {
     REFCOUNTED_EVENT_TARGET(RTCDataChannel);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(RTCDataChannel);
 public:
-    static PassRefPtr<RTCDataChannel> create(ExecutionContext*, PassOwnPtr<blink::WebRTCDataChannelHandler>);
-    static PassRefPtr<RTCDataChannel> create(ExecutionContext*, blink::WebRTCPeerConnectionHandler*, const String& label, const blink::WebRTCDataChannelInit&, ExceptionState&);
+    static PassRefPtrWillBeRawPtr<RTCDataChannel> create(ExecutionContext*, PassOwnPtr<blink::WebRTCDataChannelHandler>);
+    static PassRefPtrWillBeRawPtr<RTCDataChannel> create(ExecutionContext*, blink::WebRTCPeerConnectionHandler*, const String& label, const blink::WebRTCDataChannelInit&, ExceptionState&);
     virtual ~RTCDataChannel();
 
     String label() const;
@@ -86,6 +87,8 @@ public:
     virtual const AtomicString& interfaceName() const OVERRIDE;
     virtual ExecutionContext* executionContext() const OVERRIDE;
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 private:
     RTCDataChannel(ExecutionContext*, PassOwnPtr<blink::WebRTCDataChannelHandler>);
 
@@ -113,7 +116,7 @@ private:
     BinaryType m_binaryType;
 
     Timer<RTCDataChannel> m_scheduledEventTimer;
-    WillBePersistentHeapVector<RefPtrWillBeMember<Event> > m_scheduledEvents;
+    WillBeHeapVector<RefPtrWillBeMember<Event> > m_scheduledEvents;
 };
 
 } // namespace WebCore

@@ -62,6 +62,7 @@
 #include "platform/DragImage.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "platform/graphics/ImageBuffer.h"
+#include "platform/text/TextStream.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/StdLibExtras.h"
 
@@ -88,9 +89,8 @@ static inline float parentTextZoomFactor(LocalFrame* frame)
 }
 
 inline LocalFrame::LocalFrame(FrameLoaderClient* client, FrameHost* host, HTMLFrameOwnerElement* ownerElement)
-    : Frame(host, ownerElement)
-    , m_treeNode(this)
-    , m_loader(this, client)
+    : Frame(client, host, ownerElement)
+    , m_loader(this)
     , m_navigationScheduler(this)
     , m_script(adoptPtr(new ScriptController(this)))
     , m_editor(Editor::create(*this))
@@ -163,11 +163,21 @@ void LocalFrame::setView(PassRefPtr<FrameView> view)
 
 void LocalFrame::sendOrientationChangeEvent()
 {
-    if (!RuntimeEnabledFeatures::orientationEventEnabled())
+    if (!RuntimeEnabledFeatures::orientationEventEnabled() && !RuntimeEnabledFeatures::screenOrientationEnabled())
         return;
 
-    if (DOMWindow* window = domWindow())
-        window->dispatchEvent(Event::create(EventTypeNames::orientationchange));
+    DOMWindow* window = domWindow();
+    if (!window)
+        return;
+    window->dispatchEvent(Event::create(EventTypeNames::orientationchange));
+
+    // Notify subframes.
+    Vector<RefPtr<LocalFrame> > childFrames;
+    for (LocalFrame* child = tree().firstChild(); child; child = child->tree().nextSibling())
+        childFrames.append(child);
+
+    for (size_t i = 0; i < childFrames.size(); ++i)
+        childFrames[i]->sendOrientationChangeEvent();
 }
 
 void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio)
@@ -179,7 +189,7 @@ void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const Flo
     document()->setPrinting(printing);
     view()->adjustMediaTypeForPrinting(printing);
 
-    document()->styleResolverChanged(RecalcStyleImmediately);
+    document()->styleResolverChanged();
     if (shouldUsePrintingLayout()) {
         view()->forceLayoutForPagination(pageSize, originalPageSize, maximumShrinkRatio);
     } else {
@@ -405,7 +415,26 @@ void LocalFrame::countObjectsNeedingLayout(unsigned& needsLayoutObjects, unsigne
     }
 }
 
-String LocalFrame::layerTreeAsText(unsigned flags) const
+String LocalFrame::layerTreeAsText(LayerTreeFlags flags) const
+{
+    TextStream textStream;
+    textStream << localLayerTreeAsText(flags);
+
+    for (LocalFrame* child = tree().firstChild(); child; child = child->tree().traverseNext(this)) {
+        String childLayerTree = child->localLayerTreeAsText(flags);
+        if (!childLayerTree.length())
+            continue;
+
+        textStream << "\n\n--------\nFrame: '";
+        textStream << child->tree().uniqueName();
+        textStream << "'\n--------\n";
+        textStream << childLayerTree;
+    }
+
+    return textStream.release();
+}
+
+String LocalFrame::localLayerTreeAsText(unsigned flags) const
 {
     if (!contentRenderer())
         return String();

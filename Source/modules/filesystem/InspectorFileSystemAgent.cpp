@@ -34,7 +34,6 @@
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/dom/DOMImplementation.h"
 #include "core/dom/Document.h"
-#include "core/events/Event.h"
 #include "core/fileapi/File.h"
 #include "core/fileapi/FileError.h"
 #include "core/fileapi/FileReader.h"
@@ -565,7 +564,7 @@ void DeleteEntryRequest::start(ExecutionContext* executionContext)
 
     if (path == "/") {
         OwnPtr<VoidCallback> successCallback = adoptPtr(new VoidCallbackImpl(this));
-        OwnPtr<AsyncFileSystemCallbacks> fileSystemCallbacks = VoidCallbacks::create(successCallback.release(), errorCallback.release(), nullptr);
+        OwnPtr<AsyncFileSystemCallbacks> fileSystemCallbacks = VoidCallbacks::create(successCallback.release(), errorCallback.release(), executionContext, nullptr);
         LocalFileSystem::from(*executionContext)->deleteFileSystem(executionContext, type, fileSystemCallbacks.release());
     } else {
         OwnPtr<EntryCallback> successCallback = CallbackDispatcherFactory<EntryCallback>::create(this, &DeleteEntryRequest::didGetEntry);

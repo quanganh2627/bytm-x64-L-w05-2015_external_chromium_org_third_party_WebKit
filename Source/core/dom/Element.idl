@@ -19,7 +19,7 @@
  */
 
 [
-    SpecialWrapFor=HTMLElement|SVGElement
+    SpecialWrapFor=HTMLElement|SVGElement,
 ] interface Element : Node {
 
     // DOM Level 1 Core
@@ -124,6 +124,7 @@
     [PerWorldBindings, LogActivity, LogAllWorlds, MeasureAs=PrefixedElementRequestFullscreen] void webkitRequestFullscreen();
 
     [MeasureAs=PrefixedElementRequestPointerLock] void webkitRequestPointerLock();
+    [MeasureAs=ElementRequestPointerLock] void requestPointerLock();
 
     // Event handler attributes
     attribute EventHandler onbeforecopy;

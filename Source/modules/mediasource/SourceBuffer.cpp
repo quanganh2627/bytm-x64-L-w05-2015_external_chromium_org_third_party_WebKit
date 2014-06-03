@@ -35,7 +35,6 @@
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/events/Event.h"
 #include "core/events/GenericEventQueue.h"
 #include "core/fileapi/FileReaderLoader.h"
 #include "core/fileapi/Stream.h"
@@ -72,11 +71,11 @@ static bool throwExceptionIfRemovedOrUpdating(bool isRemoved, bool isUpdating, E
 
 } // namespace
 
-SourceBuffer* SourceBuffer::create(PassOwnPtr<WebSourceBuffer> webSourceBuffer, MediaSource* source, GenericEventQueue* asyncEventQueue)
+PassRefPtrWillBeRawPtr<SourceBuffer> SourceBuffer::create(PassOwnPtr<WebSourceBuffer> webSourceBuffer, MediaSource* source, GenericEventQueue* asyncEventQueue)
 {
-    SourceBuffer* sourceBuffer(adoptRefCountedGarbageCollected(new SourceBuffer(webSourceBuffer, source, asyncEventQueue)));
+    RefPtrWillBeRawPtr<SourceBuffer> sourceBuffer(adoptRefWillBeRefCountedGarbageCollected(new SourceBuffer(webSourceBuffer, source, asyncEventQueue)));
     sourceBuffer->suspendIfNeeded();
-    return sourceBuffer;
+    return sourceBuffer.release();
 }
 
 SourceBuffer::SourceBuffer(PassOwnPtr<WebSourceBuffer> webSourceBuffer, MediaSource* source, GenericEventQueue* asyncEventQueue)
@@ -714,6 +713,7 @@ void SourceBuffer::trace(Visitor* visitor)
 {
     visitor->trace(m_source);
     visitor->trace(m_stream);
+    EventTargetWithInlineData::trace(visitor);
 }
 
 } // namespace WebCore

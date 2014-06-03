@@ -73,9 +73,12 @@ v8::Handle<v8::Value> throwError(v8::Handle<v8::Value>, v8::Isolate*);
 v8::Handle<v8::Value> throwTypeError(const String&, v8::Isolate*);
 
 // Helpers for throwing JavaScript TypeErrors for arity mismatches.
-void throwArityTypeErrorForMethod(const char* method, const char* type, unsigned expected, unsigned providedLeastNumMandatoryParams, v8::Isolate*);
-void throwArityTypeErrorForConstructor(const char* type, unsigned expected, unsigned providedLeastNumMandatoryParams, v8::Isolate*);
-void throwArityTypeError(ExceptionState&, unsigned expected, unsigned providedLeastNumMandatoryParams);
+void throwArityTypeErrorForMethod(const char* method, const char* type, const char* valid, unsigned provided, v8::Isolate*);
+void throwArityTypeErrorForConstructor(const char* type, const char* valid, unsigned provided, v8::Isolate*);
+void throwArityTypeError(ExceptionState&, const char* valid, unsigned provided);
+void throwMinimumArityTypeErrorForMethod(const char* method, const char* type, unsigned expected, unsigned providedLeastNumMandatoryParams, v8::Isolate*);
+void throwMinimumArityTypeErrorForConstructor(const char* type, unsigned expected, unsigned providedLeastNumMandatoryParams, v8::Isolate*);
+void throwMinimumArityTypeError(ExceptionState&, unsigned expected, unsigned providedLeastNumMandatoryParams);
 
 v8::ArrayBuffer::Allocator* v8ArrayBufferAllocator();
 
@@ -543,7 +546,7 @@ inline v8::Handle<v8::Value> v8DateOrNaN(double value, v8::Isolate* isolate)
 }
 
 // FIXME: Remove the special casing for NodeFilter and XPathNSResolver.
-PassRefPtr<NodeFilter> toNodeFilter(v8::Handle<v8::Value>, v8::Isolate*);
+PassRefPtrWillBeRawPtr<NodeFilter> toNodeFilter(v8::Handle<v8::Value>, v8::Handle<v8::Object>, ScriptState*);
 PassRefPtrWillBeRawPtr<XPathNSResolver> toXPathNSResolver(v8::Handle<v8::Value>, v8::Isolate*);
 
 template<class T> struct NativeValueTraits;
@@ -649,7 +652,7 @@ Vector<RefPtr<T> > toRefPtrNativeArray(v8::Handle<v8::Value> value, const String
 }
 
 template <class T, class V8T>
-HeapVector<Member<T> > toRefPtrWillBeMemberNativeArray(v8::Handle<v8::Value> value, int argumentIndex, v8::Isolate* isolate, bool* success = 0)
+WillBeHeapVector<RefPtrWillBeMember<T> > toRefPtrWillBeMemberNativeArray(v8::Handle<v8::Value> value, int argumentIndex, v8::Isolate* isolate, bool* success = 0)
 {
     if (success)
         *success = true;
@@ -818,13 +821,6 @@ PassRefPtr<JSONValue> v8ToJSONValue(v8::Isolate*, v8::Handle<v8::Value>, int);
 // Each specialized implementation will be generated.
 template<typename T>
 v8::Handle<v8::Value> toV8NoInline(T* impl, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-template<typename T>
-v8::Handle<v8::Value> toV8NoInline(T* impl, ExecutionContext* context)
-{
-    v8::Isolate* isolate = toIsolate(context);
-    v8::Handle<v8::Context> v8Context = toV8Context(context, DOMWrapperWorld::current(isolate));
-    return toV8NoInline(impl, v8Context->Global(), isolate);
-}
 
 // ToV8Value<U, Context> is a class that converts a C++ object to a
 // v8 value. U has to be a class having a static method getCreationContext
@@ -927,13 +923,13 @@ private:
     v8::Isolate* m_isolate;
 };
 
-class V8ExecutionScope {
+class V8TestingScope {
 public:
-    static PassOwnPtr<V8ExecutionScope> create(v8::Isolate*);
-    explicit V8ExecutionScope(v8::Isolate*);
+    static PassOwnPtr<V8TestingScope> create(v8::Isolate*);
+    explicit V8TestingScope(v8::Isolate*);
     ScriptState* scriptState() const;
     v8::Isolate* isolate() const;
-    ~V8ExecutionScope();
+    ~V8TestingScope();
 
 private:
     v8::HandleScope m_handleScope;

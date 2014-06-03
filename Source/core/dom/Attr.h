@@ -40,8 +40,8 @@ class ExceptionState;
 
 class Attr FINAL : public ContainerNode {
 public:
-    static PassRefPtr<Attr> create(Element&, const QualifiedName&);
-    static PassRefPtr<Attr> create(Document&, const QualifiedName&, const AtomicString& value);
+    static PassRefPtrWillBeRawPtr<Attr> create(Element&, const QualifiedName&);
+    static PassRefPtrWillBeRawPtr<Attr> create(Document&, const QualifiedName&, const AtomicString& value);
     virtual ~Attr();
 
     String name() const { return qualifiedName().toString(); }
@@ -63,6 +63,8 @@ public:
     virtual const AtomicString& namespaceURI() const OVERRIDE { return m_name.namespaceURI(); }
     const AtomicString& prefix() const { return m_name.prefix(); }
 
+    virtual void trace(Visitor*) OVERRIDE;
+
 private:
     Attr(Element&, const QualifiedName&);
     Attr(Document&, const QualifiedName&, const AtomicString& value);
@@ -76,7 +78,7 @@ private:
 
     virtual String nodeValue() const OVERRIDE { return value(); }
     virtual void setNodeValue(const String&) OVERRIDE;
-    virtual PassRefPtr<Node> cloneNode(bool deep = true) OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<Node> cloneNode(bool deep = true) OVERRIDE;
 
     virtual bool isAttributeNode() const OVERRIDE { return true; }
     virtual bool childTypeAllowed(NodeType) const OVERRIDE;
@@ -87,7 +89,7 @@ private:
 
     // Attr wraps either an element/name, or a name/value pair (when it's a standalone Node.)
     // Note that m_name is always set, but m_element/m_standaloneValue may be null.
-    Element* m_element;
+    RawPtrWillBeMember<Element> m_element;
     QualifiedName m_name;
     AtomicString m_standaloneValue;
     unsigned m_ignoreChildrenChanged;

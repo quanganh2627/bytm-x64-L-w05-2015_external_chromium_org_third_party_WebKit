@@ -318,9 +318,9 @@ void HTMLElement::parseAttribute(const QualifiedName& name, const AtomicString& 
     }
 }
 
-PassRefPtr<DocumentFragment> HTMLElement::textToFragment(const String& text, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<DocumentFragment> HTMLElement::textToFragment(const String& text, ExceptionState& exceptionState)
 {
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(document());
+    RefPtrWillBeRawPtr<DocumentFragment> fragment = DocumentFragment::create(document());
     unsigned i, length = text.length();
     UChar c = 0;
     for (unsigned start = 0; start < length; ) {
@@ -393,7 +393,7 @@ void HTMLElement::setInnerText(const String& text, ExceptionState& exceptionStat
     }
 
     // Add text nodes and <br> elements.
-    RefPtr<DocumentFragment> fragment = textToFragment(text, exceptionState);
+    RefPtrWillBeRawPtr<DocumentFragment> fragment = textToFragment(text, exceptionState);
     if (!exceptionState.hadException())
         replaceChildrenWithFragment(this, fragment.release(), exceptionState);
 }
@@ -760,7 +760,7 @@ void HTMLElement::calculateAndAdjustDirectionality()
 
 void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeChange, int childCountDelta)
 {
-    if (document().renderer() && childCountDelta < 0) {
+    if (document().renderView() && childCountDelta < 0) {
         Node* node = beforeChange ? NodeTraversal::nextSkippingChildren(*beforeChange) : 0;
         for (int counter = 0; node && counter < childCountDelta; counter++, node = NodeTraversal::nextSkippingChildren(*node)) {
             if (elementAffectsDirectionality(node))

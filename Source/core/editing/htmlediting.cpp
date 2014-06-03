@@ -52,6 +52,7 @@
 #include "core/html/HTMLTableCellElement.h"
 #include "core/html/HTMLUListElement.h"
 #include "core/rendering/RenderObject.h"
+#include "core/rendering/RenderTableCell.h"
 #include "wtf/Assertions.h"
 #include "wtf/StdLibExtras.h"
 #include "wtf/text/StringBuilder.h"
@@ -770,7 +771,7 @@ bool isEmptyTableCell(const Node* node)
         return false;
 
     // Check that the table cell contains no child renderers except for perhaps a single <br>.
-    RenderObject* childRenderer = renderer->firstChild();
+    RenderObject* childRenderer = toRenderTableCell(renderer)->firstChild();
     if (!childRenderer)
         return true;
     if (!childRenderer->isBR())
@@ -778,7 +779,7 @@ bool isEmptyTableCell(const Node* node)
     return !childRenderer->nextSibling();
 }
 
-PassRefPtr<HTMLElement> createDefaultParagraphElement(Document& document)
+PassRefPtrWillBeRawPtr<HTMLElement> createDefaultParagraphElement(Document& document)
 {
     switch (document.frame()->editor().defaultParagraphSeparator()) {
     case EditorParagraphSeparatorIsDiv:
@@ -791,32 +792,32 @@ PassRefPtr<HTMLElement> createDefaultParagraphElement(Document& document)
     return nullptr;
 }
 
-PassRefPtr<HTMLElement> createBreakElement(Document& document)
+PassRefPtrWillBeRawPtr<HTMLElement> createBreakElement(Document& document)
 {
     return HTMLBRElement::create(document);
 }
 
-PassRefPtr<HTMLElement> createOrderedListElement(Document& document)
+PassRefPtrWillBeRawPtr<HTMLElement> createOrderedListElement(Document& document)
 {
     return HTMLOListElement::create(document);
 }
 
-PassRefPtr<HTMLElement> createUnorderedListElement(Document& document)
+PassRefPtrWillBeRawPtr<HTMLElement> createUnorderedListElement(Document& document)
 {
     return HTMLUListElement::create(document);
 }
 
-PassRefPtr<HTMLElement> createListItemElement(Document& document)
+PassRefPtrWillBeRawPtr<HTMLElement> createListItemElement(Document& document)
 {
     return HTMLLIElement::create(document);
 }
 
-PassRefPtr<HTMLElement> createHTMLElement(Document& document, const QualifiedName& name)
+PassRefPtrWillBeRawPtr<HTMLElement> createHTMLElement(Document& document, const QualifiedName& name)
 {
     return createHTMLElement(document, name.localName());
 }
 
-PassRefPtr<HTMLElement> createHTMLElement(Document& document, const AtomicString& tagName)
+PassRefPtrWillBeRawPtr<HTMLElement> createHTMLElement(Document& document, const AtomicString& tagName)
 {
     return HTMLElementFactory::createHTMLElement(tagName, document, 0, false);
 }
@@ -836,12 +837,12 @@ Node* tabSpanNode(const Node* node)
     return isTabSpanTextNode(node) ? node->parentNode() : 0;
 }
 
-PassRefPtr<Element> createTabSpanElement(Document& document, PassRefPtr<Node> prpTabTextNode)
+PassRefPtrWillBeRawPtr<Element> createTabSpanElement(Document& document, PassRefPtrWillBeRawPtr<Node> prpTabTextNode)
 {
-    RefPtr<Node> tabTextNode = prpTabTextNode;
+    RefPtrWillBeRawPtr<Node> tabTextNode = prpTabTextNode;
 
     // Make the span to hold the tab.
-    RefPtr<Element> spanElement = document.createElement(spanTag, false);
+    RefPtrWillBeRawPtr<Element> spanElement = document.createElement(spanTag, false);
     spanElement->setAttribute(classAttr, AppleTabSpanClass);
     spanElement->setAttribute(styleAttr, "white-space:pre");
 
@@ -854,14 +855,14 @@ PassRefPtr<Element> createTabSpanElement(Document& document, PassRefPtr<Node> pr
     return spanElement.release();
 }
 
-PassRefPtr<Element> createTabSpanElement(Document& document, const String& tabText)
+PassRefPtrWillBeRawPtr<Element> createTabSpanElement(Document& document, const String& tabText)
 {
     return createTabSpanElement(document, document.createTextNode(tabText));
 }
 
-PassRefPtr<Element> createTabSpanElement(Document& document)
+PassRefPtrWillBeRawPtr<Element> createTabSpanElement(Document& document)
 {
-    return createTabSpanElement(document, PassRefPtr<Node>());
+    return createTabSpanElement(document, PassRefPtrWillBeRawPtr<Node>(nullptr));
 }
 
 bool isNodeRendered(const Node *node)
@@ -1000,7 +1001,7 @@ VisibleSelection selectionForParagraphIteration(const VisibleSelection& original
 // opertion is unreliable. TextIterator's TextIteratorEmitsCharactersBetweenAllVisiblePositions mode needs to be fixed,
 // or these functions need to be changed to iterate using actual VisiblePositions.
 // FIXME: Deploy these functions everywhere that TextIterators are used to convert between VisiblePositions and indices.
-int indexForVisiblePosition(const VisiblePosition& visiblePosition, RefPtr<ContainerNode>& scope)
+int indexForVisiblePosition(const VisiblePosition& visiblePosition, RefPtrWillBeRawPtr<ContainerNode>& scope)
 {
     if (visiblePosition.isNull())
         return 0;

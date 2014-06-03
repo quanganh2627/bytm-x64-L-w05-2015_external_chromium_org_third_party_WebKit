@@ -8,6 +8,7 @@
 #include "V8TestInterfaceWillBeGarbageCollected.h"
 
 #include "RuntimeEnabledFeatures.h"
+#include "bindings/tests/v8/V8TestInterfaceWillBeGarbageCollected.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8DOMConfiguration.h"
 #include "bindings/v8/V8HiddenValue.h"
@@ -75,11 +76,15 @@ static void attr1AttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Va
 static void funcMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForMethod("func", "TestInterfaceWillBeGarbageCollected", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForMethod("func", "TestInterfaceWillBeGarbageCollected", 1, info.Length(), info.GetIsolate());
         return;
     }
     TestInterfaceWillBeGarbageCollected* impl = V8TestInterfaceWillBeGarbageCollected::toNative(info.Holder());
-    TONATIVE_VOID(TestInterfaceWillBeGarbageCollected*, arg, V8TestInterfaceWillBeGarbageCollected::toNativeWithTypeCheck(info.GetIsolate(), info[0]));
+    TestInterfaceWillBeGarbageCollected* arg;
+    {
+        v8::TryCatch block;
+        TONATIVE_VOID_INTERNAL(arg, V8TestInterfaceWillBeGarbageCollected::toNativeWithTypeCheck(info.GetIsolate(), info[0]));
+    }
     impl->func(arg);
 }
 
@@ -94,10 +99,13 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     v8::Isolate* isolate = info.GetIsolate();
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForConstructor("TestInterfaceWillBeGarbageCollected", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForConstructor("TestInterfaceWillBeGarbageCollected", 1, info.Length(), info.GetIsolate());
         return;
     }
-    TOSTRING_VOID(V8StringResource<>, str, info[0]);
+    V8StringResource<> str;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(str, info[0]);
+    }
     RefPtrWillBeRawPtr<TestInterfaceWillBeGarbageCollected> impl = TestInterfaceWillBeGarbageCollected::create(str);
 
     v8::Handle<v8::Object> wrapper = info.Holder();
@@ -114,6 +122,61 @@ static const V8DOMConfiguration::AttributeConfiguration V8TestInterfaceWillBeGar
 static const V8DOMConfiguration::MethodConfiguration V8TestInterfaceWillBeGarbageCollectedMethods[] = {
     {"func", TestInterfaceWillBeGarbageCollectedV8Internal::funcMethodCallback, 0, 1},
 };
+
+const WrapperTypeInfo V8TestInterfaceWillBeGarbageCollectedConstructor::wrapperTypeInfo = { gin::kEmbedderBlink, V8TestInterfaceWillBeGarbageCollectedConstructor::domTemplate, V8TestInterfaceWillBeGarbageCollected::derefObject, 0, V8TestInterfaceWillBeGarbageCollected::toEventTarget, 0, V8TestInterfaceWillBeGarbageCollected::installPerContextEnabledMethods, 0, WrapperTypeObjectPrototype, WillBeGarbageCollectedObject };
+
+static void V8TestInterfaceWillBeGarbageCollectedConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    v8::Isolate* isolate = info.GetIsolate();
+    if (!info.IsConstructCall()) {
+        throwTypeError(ExceptionMessages::constructorNotCallableAsFunction("TestInterface"), isolate);
+        return;
+    }
+
+    if (ConstructorMode::current(isolate) == ConstructorMode::WrapExistingObject) {
+        v8SetReturnValue(info, info.Holder());
+        return;
+    }
+
+    Document* document = currentDOMWindow(isolate)->document();
+    ASSERT(document);
+
+    // Make sure the document is added to the DOM Node map. Otherwise, the TestInterfaceWillBeGarbageCollected instance
+    // may end up being the only node in the map and get garbage-collected prematurely.
+    toV8(document, info.Holder(), isolate);
+
+    if (UNLIKELY(info.Length() < 1)) {
+        throwMinimumArityTypeErrorForConstructor("TestInterfaceWillBeGarbageCollected", 1, info.Length(), info.GetIsolate());
+        return;
+    }
+    V8StringResource<> str;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(str, info[0]);
+    }
+    RefPtrWillBeRawPtr<TestInterfaceWillBeGarbageCollected> impl = TestInterfaceWillBeGarbageCollected::createForJSConstructor(*document, str);
+
+    v8::Handle<v8::Object> wrapper = info.Holder();
+    V8DOMWrapper::associateObjectWithWrapper<V8TestInterfaceWillBeGarbageCollected>(impl.release(), &V8TestInterfaceWillBeGarbageCollectedConstructor::wrapperTypeInfo, wrapper, isolate, WrapperConfiguration::Independent);
+    v8SetReturnValue(info, wrapper);
+}
+
+v8::Handle<v8::FunctionTemplate> V8TestInterfaceWillBeGarbageCollectedConstructor::domTemplate(v8::Isolate* isolate)
+{
+    static int domTemplateKey; // This address is used for a key to look up the dom template.
+    V8PerIsolateData* data = V8PerIsolateData::from(isolate);
+    v8::Local<v8::FunctionTemplate> result = data->existingDOMTemplate(&domTemplateKey);
+    if (!result.IsEmpty())
+        return result;
+
+    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
+    result = v8::FunctionTemplate::New(isolate, V8TestInterfaceWillBeGarbageCollectedConstructorCallback);
+    v8::Local<v8::ObjectTemplate> instanceTemplate = result->InstanceTemplate();
+    instanceTemplate->SetInternalFieldCount(V8TestInterfaceWillBeGarbageCollected::internalFieldCount);
+    result->SetClassName(v8AtomicString(isolate, "TestInterfaceWillBeGarbageCollected"));
+    result->Inherit(V8TestInterfaceWillBeGarbageCollected::domTemplate(isolate));
+    data->setDOMTemplate(&domTemplateKey, result);
+    return result;
+}
 
 void V8TestInterfaceWillBeGarbageCollected::constructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {

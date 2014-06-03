@@ -8,6 +8,7 @@
 #include "V8TestInterfaceGarbageCollected.h"
 
 #include "RuntimeEnabledFeatures.h"
+#include "bindings/tests/v8/V8TestInterfaceGarbageCollected.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8DOMConfiguration.h"
 #include "bindings/v8/V8HiddenValue.h"
@@ -75,11 +76,15 @@ static void attr1AttributeSetterCallback(v8::Local<v8::String>, v8::Local<v8::Va
 static void funcMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForMethod("func", "TestInterfaceGarbageCollected", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForMethod("func", "TestInterfaceGarbageCollected", 1, info.Length(), info.GetIsolate());
         return;
     }
     TestInterfaceGarbageCollected* impl = V8TestInterfaceGarbageCollected::toNative(info.Holder());
-    TONATIVE_VOID(TestInterfaceGarbageCollected*, arg, V8TestInterfaceGarbageCollected::toNativeWithTypeCheck(info.GetIsolate(), info[0]));
+    TestInterfaceGarbageCollected* arg;
+    {
+        v8::TryCatch block;
+        TONATIVE_VOID_INTERNAL(arg, V8TestInterfaceGarbageCollected::toNativeWithTypeCheck(info.GetIsolate(), info[0]));
+    }
     impl->func(arg);
 }
 
@@ -94,10 +99,13 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     v8::Isolate* isolate = info.GetIsolate();
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForConstructor("TestInterfaceGarbageCollected", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForConstructor("TestInterfaceGarbageCollected", 1, info.Length(), info.GetIsolate());
         return;
     }
-    TOSTRING_VOID(V8StringResource<>, str, info[0]);
+    V8StringResource<> str;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(str, info[0]);
+    }
     RawPtr<TestInterfaceGarbageCollected> impl = TestInterfaceGarbageCollected::create(str);
 
     v8::Handle<v8::Object> wrapper = info.Holder();

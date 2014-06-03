@@ -185,7 +185,7 @@ void TextAutosizer::recalculateMultipliers()
     if (!isApplicable() && !m_previouslyAutosized)
         return;
 
-    RenderObject* renderer = m_document->renderer();
+    RenderObject* renderer = m_document->renderView();
     while (renderer) {
         if (renderer->style() && renderer->style()->textAutosizingMultiplier() != 1)
             setMultiplier(renderer, 1);
@@ -460,7 +460,7 @@ void TextAutosizer::setMultiplierForList(RenderObject* renderer, float multiplie
     setMultiplier(renderer, multiplier);
 
     // Make sure all list items are autosized consistently.
-    for (RenderObject* child = renderer->firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = renderer->slowFirstChild(); child; child = child->nextSibling()) {
         if (child->isListItem() && child->style()->textAutosizingMultiplier() == 1)
             setMultiplier(child, multiplier);
     }
@@ -801,7 +801,7 @@ const RenderObject* TextAutosizer::findFirstTextLeafNotInCluster(const RenderObj
         return parent;
 
     ++depth;
-    const RenderObject* child = (direction == FirstToLast) ? parent->firstChild() : parent->lastChild();
+    const RenderObject* child = (direction == FirstToLast) ? parent->slowFirstChild() : parent->slowLastChild();
     while (child) {
         if (!isAutosizingContainer(child) || !isIndependentDescendant(toRenderBlock(child))) {
             const RenderObject* leaf = findFirstTextLeafNotInCluster(child, depth, direction);

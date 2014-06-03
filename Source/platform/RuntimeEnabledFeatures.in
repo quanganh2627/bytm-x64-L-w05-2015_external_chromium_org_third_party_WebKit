@@ -18,6 +18,7 @@
 ApplicationCache status=stable
 AuthorShadowDOMForAnyElement
 BatteryStatus status=experimental
+Beacon status=experimental
 
 // This feature is deprecated and we are evangalizing affected sites.
 // See https://crbug.com/346236 for current status.
@@ -36,7 +37,7 @@ CSSExclusions status=experimental
 CSSGridLayout status=experimental
 CSSMaskSourceType status=experimental
 CSSOMSmoothScroll status=experimental
-CSSShapes status=experimental
+CSSShapes status=stable
 CSSStickyPosition status=experimental
 CSSTouchAction status=stable
 CSSTouchActionDelay status=test
@@ -47,8 +48,7 @@ CSS3Text status=experimental
 CSS3TextDecorations status=experimental
 CustomSchemeHandler depends_on=NavigatorContentUtils, status=experimental
 Database status=stable
-DeviceMotion status=stable
-DeviceOrientation status=stable
+DeviceLight status=test
 DialogElement status=experimental
 EncodingAPI status=experimental
 EncryptedMedia status=test
@@ -80,6 +80,7 @@ MediaSource status=stable
 MediaSourceExperimental depends_on=MediaSource, status=experimental
 MediaStream status=stable
 MemoryInfoInWorkers status=experimental
+NavigationTransitions status=experimental
 NavigatorContentUtils
 Notifications status=stable
 ObjectFitPosition status=stable
@@ -99,7 +100,7 @@ RegionBasedColumns status=experimental
 
 // This is implementation flag for the re-write of the layout/paint system to
 // do painting after we have completed layout, instead of piecemeal during layout.
-RepaintAfterLayout status=stable
+RepaintAfterLayout status=test
 
 RequestAutocomplete status=test
 ScreenOrientation status=experimental
@@ -138,12 +139,12 @@ Touch status=stable
 
 TouchIconLoading
 UserSelectAll status=experimental
-ScriptPromiseOnV8Promise status=stable
 WebAnimationsSVG
 WebAnimationsElementAnimate status=stable
 WebAnimationsAPI status=experimental, depends_on=WebAnimationsElementAnimate
 WebAudio condition=WEB_AUDIO, status=stable
 WebGLDraftExtensions status=experimental
+WebGLImageChromium
 WebMIDI status=test
 WebVTTRegions depends_on=Media, status=experimental
 WOFF2 status=stable

@@ -231,6 +231,11 @@ void WebRuntimeFeatures::enableWebGLDraftExtensions(bool enable)
     RuntimeEnabledFeatures::setWebGLDraftExtensionsEnabled(enable);
 }
 
+void WebRuntimeFeatures::enableWebGLImageChromium(bool enable)
+{
+    RuntimeEnabledFeatures::setWebGLImageChromiumEnabled(enable);
+}
+
 void WebRuntimeFeatures::enableWebMIDI(bool enable)
 {
     return RuntimeEnabledFeatures::setWebMIDIEnabled(enable);
@@ -279,6 +284,11 @@ void WebRuntimeFeatures::enableTargetedStyleRecalc(bool enable)
 void WebRuntimeFeatures::enablePreciseMemoryInfo(bool enable)
 {
     RuntimeEnabledFeatures::setPreciseMemoryInfoEnabled(enable);
+}
+
+void WebRuntimeFeatures::enableLayerSquashing(bool enable)
+{
+    RuntimeEnabledFeatures::setLayerSquashingEnabled(enable);
 }
 
 } // namespace blink

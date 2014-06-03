@@ -47,10 +47,13 @@ static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     v8::Isolate* isolate = info.GetIsolate();
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForConstructor("TestInterfaceConstructor3", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForConstructor("TestInterfaceConstructor3", 1, info.Length(), info.GetIsolate());
         return;
     }
-    TOSTRING_VOID(V8StringResource<>, stringArg, info[0]);
+    V8StringResource<> stringArg;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(stringArg, info[0]);
+    }
     RefPtr<TestInterfaceConstructor3> impl = TestInterfaceConstructor3::create(stringArg);
 
     v8::Handle<v8::Object> wrapper = info.Holder();

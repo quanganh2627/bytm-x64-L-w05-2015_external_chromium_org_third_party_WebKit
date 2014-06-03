@@ -22,6 +22,7 @@
 #define SVGDocumentExtensions_h
 
 #include "platform/geometry/FloatPoint.h"
+#include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
 #include "wtf/HashMap.h"
 #include "wtf/HashSet.h"
@@ -41,8 +42,8 @@ class SVGSMILElement;
 class SVGSVGElement;
 class Element;
 
-class SVGDocumentExtensions {
-    WTF_MAKE_NONCOPYABLE(SVGDocumentExtensions); WTF_MAKE_FAST_ALLOCATED;
+class SVGDocumentExtensions : public NoBaseWillBeGarbageCollectedFinalized<SVGDocumentExtensions> {
+    WTF_MAKE_NONCOPYABLE(SVGDocumentExtensions); WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED;
 public:
     typedef HashSet<Element*> SVGPendingElements;
     explicit SVGDocumentExtensions(Document*);
@@ -78,11 +79,11 @@ public:
     void invalidateSVGRootsWithRelativeLengthDescendents(SubtreeLayoutScope*);
 
 #if ENABLE(SVG_FONTS)
-    const HashSet<SVGFontFaceElement*>& svgFontFaceElements() const { return m_svgFontFaceElements; }
+    const WillBeHeapHashSet<RawPtrWillBeMember<SVGFontFaceElement> >& svgFontFaceElements() const { return m_svgFontFaceElements; }
     void registerSVGFontFaceElement(SVGFontFaceElement*);
     void unregisterSVGFontFaceElement(SVGFontFaceElement*);
 
-    void registerPendingSVGFontFaceElementsForRemoval(PassRefPtr<SVGFontFaceElement>);
+    void registerPendingSVGFontFaceElementsForRemoval(PassRefPtrWillBeRawPtr<SVGFontFaceElement>);
     void removePendingSVGFontFaceElementsForRemoval();
 #endif
 
@@ -94,13 +95,15 @@ public:
     static SVGSVGElement* rootElement(const Document&);
     SVGSVGElement* rootElement() const;
 
+    void trace(Visitor*);
+
 private:
     Document* m_document; // weak reference
-    HashSet<SVGSVGElement*> m_timeContainers; // For SVG 1.2 support this will need to be made more general.
+    WillBeHeapHashSet<RawPtrWillBeMember<SVGSVGElement> > m_timeContainers; // For SVG 1.2 support this will need to be made more general.
 #if ENABLE(SVG_FONTS)
-    HashSet<SVGFontFaceElement*> m_svgFontFaceElements;
+    WillBeHeapHashSet<RawPtrWillBeMember<SVGFontFaceElement> > m_svgFontFaceElements;
     // SVGFontFaceElements that are pending and scheduled for removal.
-    HashSet<RefPtr<SVGFontFaceElement> > m_pendingSVGFontFaceElementsForRemoval;
+    WillBeHeapHashSet<RefPtrWillBeMember<SVGFontFaceElement> > m_pendingSVGFontFaceElementsForRemoval;
 #endif
     HashMap<AtomicString, RenderSVGResourceContainer*> m_resources;
     HashMap<AtomicString, OwnPtr<SVGPendingElements> > m_pendingResources; // Resources that are pending.

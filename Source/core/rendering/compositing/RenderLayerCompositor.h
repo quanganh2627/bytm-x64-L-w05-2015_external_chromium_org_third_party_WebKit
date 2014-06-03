@@ -90,9 +90,6 @@ public:
     bool hasAcceleratedCompositing() const { return m_hasAcceleratedCompositing; }
     bool layerSquashingEnabled() const;
 
-    bool legacyOrCurrentAcceleratedCompositingForOverflowScrollEnabled() const;
-    bool legacyAcceleratedCompositingForOverflowScrollEnabled() const;
-
     bool acceleratedCompositingForOverflowScrollEnabled() const;
 
     bool rootShouldAlwaysComposite() const;
@@ -117,7 +114,6 @@ public:
     };
 
     // Update the compositing dirty bits, based on the compositing-impacting properties of the layer.
-    // (At the moment, it also has some legacy compatibility hacks.)
     void updateLayerCompositingState(RenderLayer*, UpdateLayerCompositingStateOptions = Normal);
 
     // Returns whether this layer is clipped by another layer that is not an ancestor of the given layer in the stacking context hierarchy.
@@ -196,8 +192,6 @@ public:
 
     void updateStyleDeterminedCompositingReasons(RenderLayer*);
 
-    void scheduleAnimationIfNeeded();
-
     // Whether the layer could ever be composited.
     bool canBeComposited(const RenderLayer*) const;
 
@@ -210,7 +204,7 @@ public:
 private:
     class OverlapMap;
 
-    bool hasUnresolvedDirtyBits();
+    void assertNoUnresolvedDirtyBits();
 
     // Make updates to the layer based on viewport-constrained properties such as position:fixed. This can in turn affect
     // compositing.
@@ -262,6 +256,8 @@ private:
     void applyUpdateLayerCompositingStateChickenEggHacks(RenderLayer*, CompositingStateTransitionType compositedLayerUpdate);
 
     DocumentLifecycle& lifecycle() const;
+
+    void applyOverlayFullscreenVideoAdjustment();
 
     RenderView& m_renderView;
     OwnPtr<GraphicsLayer> m_rootContentLayer;

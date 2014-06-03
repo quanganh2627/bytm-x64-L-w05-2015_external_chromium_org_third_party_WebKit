@@ -56,7 +56,6 @@ typedef WTF::HashMap<const RenderBlock*, OwnPtr<TrackedRendererListHashSet> > Tr
 typedef WTF::HashMap<const RenderBox*, OwnPtr<HashSet<RenderBlock*> > > TrackedContainerMap;
 typedef Vector<WordMeasurement, 64> WordMeasurements;
 
-enum CaretType { CursorCaret, DragCaret };
 enum ContainingBlockState { NewContainingBlock, SameContainingBlock };
 
 enum TextRunFlag {
@@ -78,6 +77,10 @@ protected:
 public:
     RenderObject* firstChild() const { ASSERT(children() == virtualChildren()); return children()->firstChild(); }
     RenderObject* lastChild() const { ASSERT(children() == virtualChildren()); return children()->lastChild(); }
+
+    // If you have a RenderBlock, use firstChild or lastChild instead.
+    void slowFirstChild() const WTF_DELETED_FUNCTION;
+    void slowLastChild() const WTF_DELETED_FUNCTION;
 
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
@@ -244,8 +247,9 @@ public:
     LayoutUnit collapsedMarginAfterForChild(const RenderBox* child) const;
 
     virtual void updateFirstLetter();
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) OVERRIDE;
 
-    virtual void scrollbarsChanged(bool /*horizontalScrollbarChanged*/, bool /*verticalScrollbarChanged*/) { };
+    virtual void scrollbarsChanged(bool /*horizontalScrollbarChanged*/, bool /*verticalScrollbarChanged*/) { }
 
     LayoutUnit availableLogicalWidthForContent() const { return max<LayoutUnit>(0, logicalRightOffsetForContent() - logicalLeftOffsetForContent()); }
     LayoutUnit logicalLeftOffsetForContent() const { return isHorizontalWritingMode() ? borderLeft() + paddingLeft() : borderTop() + paddingTop(); }
@@ -295,8 +299,6 @@ protected:
 
     virtual void adjustInlineDirectionLineBounds(unsigned /* expansionOpportunityCount */, float& /* logicalLeft */, float& /* logicalWidth */) const { }
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) OVERRIDE;
-
     virtual void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const OVERRIDE;
     virtual void computePreferredLogicalWidths() OVERRIDE;
     void adjustIntrinsicLogicalWidthsForColumns(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const;
@@ -327,7 +329,6 @@ protected:
 
     void setDesiredColumnCountAndWidth(int, LayoutUnit);
 
-    bool avoidsOrIgnoresFloats() { return isFloatingOrOutOfFlowPositioned() || avoidsFloats(); }
 public:
     virtual void computeOverflow(LayoutUnit oldClientAfterEdge, bool = false);
 protected:
@@ -346,7 +347,7 @@ protected:
 
     virtual bool isInlineBlockOrInlineTable() const OVERRIDE FINAL { return isInline() && isReplaced(); }
 
-    virtual void repaintTreeAfterLayout() OVERRIDE;
+    virtual void repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer) OVERRIDE;
 
 private:
     virtual RenderObjectChildList* virtualChildren() OVERRIDE FINAL { return children(); }
@@ -385,10 +386,11 @@ private:
     void paintColumnContents(PaintInfo&, const LayoutPoint&, bool paintFloats = false);
     void paintColumnRules(PaintInfo&, const LayoutPoint&);
     void paintSelection(PaintInfo&, const LayoutPoint&);
-    void paintCaret(PaintInfo&, const LayoutPoint&, CaretType);
+    void paintCarets(PaintInfo&, const LayoutPoint&);
 
-    bool hasCaret() const { return hasCaret(CursorCaret) || hasCaret(DragCaret); }
-    bool hasCaret(CaretType) const;
+    bool hasCaret() const;
+
+    virtual bool avoidsFloats() const OVERRIDE;
 
     bool hitTestColumns(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
     bool hitTestContents(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
@@ -469,6 +471,8 @@ protected:
     // For a page height of 800px, the first rule will return 800 if the value passed in is 0. The second rule will simply return 0.
     enum PageBoundaryRule { ExcludePageBoundary, IncludePageBoundary };
     LayoutUnit nextPageLogicalTop(LayoutUnit logicalOffset, PageBoundaryRule = ExcludePageBoundary) const;
+
+    bool createsBlockFormattingContext() const;
 
 public:
     LayoutUnit pageLogicalTopForOffset(LayoutUnit offset) const;

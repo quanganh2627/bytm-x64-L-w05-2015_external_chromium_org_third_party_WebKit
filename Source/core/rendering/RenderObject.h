@@ -170,18 +170,13 @@ public:
     RenderObject* previousSibling() const { return m_previous; }
     RenderObject* nextSibling() const { return m_next; }
 
-    // FIXME: These should be renamed slowFirstChild, slowLastChild, etc.
-    // to discourage their use. The virtualChildren() call inside these
-    // can be slow for hot code paths.
-    // Currently, some subclasses like RenderBlock, override these NON-virtual
-    // functions to make these fast when we already have a more specific pointer type.
-    RenderObject* firstChild() const
+    RenderObject* slowFirstChild() const
     {
         if (const RenderObjectChildList* children = virtualChildren())
             return children->firstChild();
         return 0;
     }
-    RenderObject* lastChild() const
+    RenderObject* slowLastChild() const
     {
         if (const RenderObjectChildList* children = virtualChildren())
             return children->lastChild();
@@ -331,11 +326,10 @@ public:
 public:
     bool isPseudoElement() const { return node() && node()->isPseudoElement(); }
 
-    virtual bool isBR() const { return false; }
     virtual bool isBoxModelObject() const { return false; }
+    virtual bool isBR() const { return false; }
+    virtual bool isCanvas() const { return false; }
     virtual bool isCounter() const { return false; }
-    virtual bool isQuote() const { return false; }
-
     virtual bool isDetailsMarker() const { return false; }
     virtual bool isEmbeddedObject() const { return false; }
     virtual bool isFieldset() const { return false; }
@@ -353,48 +347,40 @@ public:
     virtual bool isMenuList() const { return false; }
     virtual bool isMeter() const { return false; }
     virtual bool isProgress() const { return false; }
+    virtual bool isQuote() const { return false; }
     virtual bool isRenderBlock() const { return false; }
     virtual bool isRenderBlockFlow() const { return false; }
     virtual bool isRenderButton() const { return false; }
+    virtual bool isRenderFlowThread() const { return false; }
+    virtual bool isRenderFullScreen() const { return false; }
+    virtual bool isRenderFullScreenPlaceholder() const { return false; }
+    virtual bool isRenderGrid() const { return false; }
     virtual bool isRenderIFrame() const { return false; }
     virtual bool isRenderImage() const { return false; }
     virtual bool isRenderInline() const { return false; }
+    virtual bool isRenderMultiColumnSet() const { return false; }
     virtual bool isRenderPart() const { return false; }
     virtual bool isRenderRegion() const { return false; }
+    virtual bool isRenderScrollbarPart() const { return false; }
+    virtual bool isRenderTableCol() const { return false; }
     virtual bool isRenderView() const { return false; }
     virtual bool isReplica() const { return false; }
-
     virtual bool isRuby() const { return false; }
     virtual bool isRubyBase() const { return false; }
     virtual bool isRubyRun() const { return false; }
     virtual bool isRubyText() const { return false; }
-
     virtual bool isSlider() const { return false; }
     virtual bool isSliderThumb() const { return false; }
     virtual bool isTable() const { return false; }
-    virtual bool isTableCell() const { return false; }
-    virtual bool isRenderTableCol() const { return false; }
     virtual bool isTableCaption() const { return false; }
+    virtual bool isTableCell() const { return false; }
     virtual bool isTableRow() const { return false; }
     virtual bool isTableSection() const { return false; }
-    virtual bool isTextControl() const { return false; }
     virtual bool isTextArea() const { return false; }
+    virtual bool isTextControl() const { return false; }
     virtual bool isTextField() const { return false; }
     virtual bool isVideo() const { return false; }
     virtual bool isWidget() const { return false; }
-    virtual bool isCanvas() const { return false; }
-    virtual bool isRenderFullScreen() const { return false; }
-    virtual bool isRenderFullScreenPlaceholder() const { return false; }
-
-    virtual bool isRenderGrid() const { return false; }
-
-    virtual bool isRenderFlowThread() const { return false; }
-    bool isInFlowRenderFlowThread() const { return isRenderFlowThread() && !isOutOfFlowPositioned(); }
-    bool isOutOfFlowRenderFlowThread() const { return isRenderFlowThread() && isOutOfFlowPositioned(); }
-
-    virtual bool isRenderMultiColumnSet() const { return false; }
-
-    virtual bool isRenderScrollbarPart() const { return false; }
 
     bool isDocumentElement() const { return document().documentElement() == m_node; }
     // isBody is called from RenderBox::styleWillChange and is thus quite hot.
@@ -423,7 +409,7 @@ public:
     {
         m_bitfields.setAncestorLineBoxDirty(value);
         if (value)
-            setNeedsLayout();
+            setNeedsLayoutAndFullRepaint();
     }
 
     enum FlowThreadState {
@@ -634,6 +620,7 @@ public:
 
     void markContainingBlocksForLayout(bool scheduleRelayout = true, RenderObject* newRoot = 0, SubtreeLayoutScope* = 0);
     void setNeedsLayout(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0);
+    void setNeedsLayoutAndFullRepaint(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0);
     void clearNeedsLayout();
     void setChildNeedsLayout(MarkingBehavior = MarkContainingBlockChain, SubtreeLayoutScope* = 0);
     void setNeedsPositionedMovementLayout();
@@ -644,6 +631,11 @@ public:
     void setNeedsLayoutAndPrefWidthsRecalc()
     {
         setNeedsLayout();
+        setPreferredLogicalWidthsDirty();
+    }
+    void setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint()
+    {
+        setNeedsLayoutAndFullRepaint();
         setPreferredLogicalWidthsDirty();
     }
 
@@ -727,10 +719,6 @@ public:
 
     bool canContainFixedPositionObjects() const
     {
-        return isRenderView() || (hasTransform() && isRenderBlock()) || isSVGForeignObject() || isOutOfFlowRenderFlowThread();
-    }
-    bool canContainAbsolutePositionObjects() const
-    {
         return isRenderView() || (hasTransform() && isRenderBlock()) || isSVGForeignObject();
     }
 
@@ -753,9 +741,9 @@ public:
 
     // Return the offset from the container() renderer (excluding transforms). In multi-column layout,
     // different offsets apply at different points, so return the offset that applies to the given point.
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const;
+    virtual LayoutSize offsetFromContainer(const RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const;
     // Return the offset from an object up the container() chain. Asserts that none of the intermediate objects have transforms.
-    LayoutSize offsetFromAncestorContainer(RenderObject*) const;
+    LayoutSize offsetFromAncestorContainer(const RenderObject*) const;
 
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint&) const { }
 
@@ -814,6 +802,9 @@ public:
     // if painting is root-relative. This is the container that should be passed to the 'forRepaint'
     // methods.
     const RenderLayerModelObject* containerForRepaint() const;
+    const RenderLayerModelObject* enclosingCompositedContainer() const;
+    const RenderLayerModelObject* adjustCompositedContainerForSpecialAncestors(const RenderLayerModelObject* repaintContainer) const;
+    bool isRepaintContainer() const;
 
     // Actually do the repaint of rect r for this object which has been computed in the coordinate space
     // of repaintContainer. If repaintContainer is 0, repaint via the view.
@@ -831,7 +822,7 @@ public:
         const LayoutRect& oldBounds, const LayoutPoint& oldPositionFromRepaintContainer, const LayoutRect* newBoundsPtr = 0, const LayoutPoint* newPositionFromRepaintContainer = 0);
 
     // Walk the tree after layout repainting renderers that have changed or moved, updating bounds that have changed, and clearing repaint state.
-    virtual void repaintTreeAfterLayout();
+    virtual void repaintTreeAfterLayout(const RenderLayerModelObject& repaintContainer);
 
     virtual void repaintOverflow();
     void repaintOverflowIfNeeded();
@@ -1327,6 +1318,8 @@ inline bool RenderObject::isBeforeOrAfterContent() const
     return isBeforeContent() || isAfterContent();
 }
 
+// If repaintAfterLayout is enabled, setNeedsLayout() won't cause full repaint as
+// setNeedsLayoutAndFullRepaint() does. Otherwise the two methods are identical.
 inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLayoutScope* layouter)
 {
     ASSERT(!isSetNeedsLayoutForbidden());
@@ -1338,10 +1331,14 @@ inline void RenderObject::setNeedsLayout(MarkingBehavior markParents, SubtreeLay
     }
 }
 
+inline void RenderObject::setNeedsLayoutAndFullRepaint(MarkingBehavior markParents, SubtreeLayoutScope* layouter)
+{
+    setNeedsLayout(markParents, layouter);
+    setShouldDoFullRepaintAfterLayout(true);
+}
+
 inline void RenderObject::clearNeedsLayout()
 {
-    if (!shouldDoFullRepaintAfterLayout())
-        setShouldDoFullRepaintAfterLayout(selfNeedsLayout());
     if (needsPositionedMovementLayoutOnly())
         setOnlyNeededPositionedMovementLayout(true);
     setLayoutDidGetCalled(true);
@@ -1443,6 +1440,12 @@ inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRenderi
 inline int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 {
     return adjustForAbsoluteZoom(value, renderer->style());
+}
+
+inline double adjustDoubleForAbsoluteZoom(double value, RenderObject& renderer)
+{
+    ASSERT(renderer.style());
+    return adjustDoubleForAbsoluteZoom(value, *renderer.style());
 }
 
 inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit value, RenderObject& renderer)

@@ -45,6 +45,10 @@
 
 struct NPObject;
 
+#if BLINK_IMPLEMENTATION
+namespace WebCore { class Frame; }
+#endif
+
 namespace v8 {
 class Context;
 class Function;
@@ -466,6 +470,8 @@ public:
     virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) = 0;
     virtual void extendSelectionAndDelete(int before, int after) = 0;
 
+    virtual void addStyleSheetByURL(const WebString& url) = 0;
+
     virtual void setCaretVisible(bool) = 0;
 
     // Printing ------------------------------------------------------------
@@ -685,6 +691,10 @@ private:
     WebFrame* m_opener;
     WebPrivateOwnPtr<OpenedFrameTracker> m_openedFrameTracker;
 };
+
+#if BLINK_IMPLEMENTATION
+WebCore::Frame* toWebCoreFrame(WebFrame*);
+#endif
 
 } // namespace blink
 

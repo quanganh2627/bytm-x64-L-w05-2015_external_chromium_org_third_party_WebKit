@@ -29,6 +29,7 @@
 #include "V8DOMError.h"
 #include "V8EventTarget.h"
 #include "V8Gamepad.h"
+#include "V8HeaderMap.h"
 #include "V8IDBKeyRange.h"
 #include "V8MIDIPort.h"
 #include "V8MediaKeyError.h"
@@ -570,6 +571,16 @@ bool Dictionary::get(const String& key, Dictionary& value) const
     return true;
 }
 
+bool Dictionary::get(const String& key, RefPtr<HeaderMap>& value) const
+{
+    v8::Local<v8::Value> v8Value;
+    if (!getKey(key, v8Value))
+        return false;
+
+    value = V8HeaderMap::toNativeWithTypeCheck(m_isolate, v8Value);
+    return true;
+}
+
 bool Dictionary::convert(ConversionContext& context, const String& key, Dictionary& value) const
 {
     ConversionContextScope scope(context);
@@ -667,19 +678,6 @@ bool Dictionary::get(const String& key, RefPtrWillBeMember<DOMError>& value) con
         return false;
 
     value = V8DOMError::toNativeWithTypeCheck(m_isolate, v8Value);
-    return true;
-}
-
-bool Dictionary::get(const String& key, OwnPtr<VoidCallback>& value) const
-{
-    v8::Local<v8::Value> v8Value;
-    if (!getKey(key, v8Value))
-        return false;
-
-    if (!v8Value->IsFunction())
-        return false;
-
-    value = V8VoidCallback::create(v8::Handle<v8::Function>::Cast(v8Value), currentExecutionContext(m_isolate));
     return true;
 }
 

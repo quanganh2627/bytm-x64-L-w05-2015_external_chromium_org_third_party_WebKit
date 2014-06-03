@@ -107,6 +107,8 @@ public:
 
     BLINK_EXPORT static void enableWebGLDraftExtensions(bool);
 
+    BLINK_EXPORT static void enableWebGLImageChromium(bool);
+
     BLINK_EXPORT static void enableWebMIDI(bool);
 
     BLINK_EXPORT static void enableHTMLImports(bool);
@@ -126,6 +128,8 @@ public:
     BLINK_EXPORT static void enableTargetedStyleRecalc(bool);
 
     BLINK_EXPORT static void enablePreciseMemoryInfo(bool);
+
+    BLINK_EXPORT static void enableLayerSquashing(bool);
 
 private:
     WebRuntimeFeatures();

@@ -42,7 +42,9 @@
 #include "WebGamepads.h"
 #include "WebGraphicsContext3D.h"
 #include "WebLocalizedString.h"
+#include "WebLockOrientationCallback.h"
 #include "WebScreenOrientationLockType.h"
+#include "WebScreenOrientationType.h"
 #include "WebSpeechSynthesizer.h"
 #include "WebStorageQuotaCallbacks.h"
 #include "WebStorageQuotaType.h"
@@ -64,6 +66,7 @@ class WebConvertableToTraceFormat;
 class WebCookieJar;
 class WebCrypto;
 class WebDatabaseObserver;
+class WebDeviceLightListener;
 class WebDeviceMotionListener;
 class WebDeviceOrientationListener;
 class WebDiscardableMemory;
@@ -614,20 +617,32 @@ public:
     virtual WebCrypto* crypto() { return 0; }
 
 
-    // Device Motion / Orientation ----------------------------------------
+    // Device Motion / Orientation / Light ----------------------------------------
 
     // Sets a Listener to listen for device motion data updates.
     // If null, the platform stops providing device motion data to the current listener.
     virtual void setDeviceMotionListener(blink::WebDeviceMotionListener*) { }
 
     // Sets a Listener to listen for device orientation data updates.
-    // If null, the platform stops proving device orientation data to the current listener.
+    // If null, the platform stops providing device orientation data to the current listener.
     virtual void setDeviceOrientationListener(blink::WebDeviceOrientationListener*) { }
+
+    // Sets a Listener to listen for device light data updates.
+    // If null, the platform stops providing device light data to the current listener.
+    virtual void setDeviceLightListener(blink::WebDeviceLightListener*) { }
+
 
     // Screen Orientation -------------------------------------------------
 
     virtual void setScreenOrientationListener(blink::WebScreenOrientationListener*) { }
     virtual void lockOrientation(WebScreenOrientationLockType) { }
+    // Request a screen orientation lock and pass a |callback| object to be used
+    // to notify of success/failure. The |callback| parameter is expected to be
+    // owned by the implementation.
+    virtual void lockOrientation(WebScreenOrientationLockType, WebLockOrientationCallback* callback)
+    {
+        delete callback; // prevents memory leak if there is no implementation.
+    }
     virtual void unlockOrientation() { }
 
 

@@ -348,7 +348,7 @@ PassRefPtrWillBeRawPtr<MediaStreamAudioSourceNode> AudioContext::createMediaStre
     }
 
     // Use the first audio track in the media stream.
-    RefPtr<MediaStreamTrack> audioTrack = audioTracks[0];
+    RefPtrWillBeRawPtr<MediaStreamTrack> audioTrack = audioTracks[0];
     OwnPtr<AudioSourceProvider> provider = audioTrack->createWebAudioSource();
     RefPtrWillBeRawPtr<MediaStreamAudioSourceNode> node = MediaStreamAudioSourceNode::create(this, mediaStream, audioTrack.get(), provider.release());
 
@@ -973,6 +973,7 @@ void AudioContext::trace(Visitor* visitor)
     visitor->trace(m_destinationNode);
     visitor->trace(m_listener);
     visitor->trace(m_dirtySummingJunctions);
+    EventTargetWithInlineData::trace(visitor);
 }
 
 } // namespace WebCore

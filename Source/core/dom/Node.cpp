@@ -375,7 +375,7 @@ void Node::setNodeValue(const String&)
     // By default, setting nodeValue has no effect.
 }
 
-PassRefPtr<NodeList> Node::childNodes()
+PassRefPtrWillBeRawPtr<NodeList> Node::childNodes()
 {
     if (isContainerNode())
         return ensureRareData().ensureNodeLists().ensureChildNodeList(toContainerNode(*this));
@@ -682,33 +682,6 @@ void Node::markAncestorsWithChildNeedsDistributionRecalc()
 
 namespace {
 
-unsigned styledSubtreeSize(const Node*);
-
-unsigned styledSubtreeSizeIgnoringSelfAndShadowRoots(const Node* rootNode)
-{
-    unsigned nodeCount = 0;
-    for (Node* child = rootNode->firstChild(); child; child = child->nextSibling())
-        nodeCount += styledSubtreeSize(child);
-    return nodeCount;
-}
-
-unsigned styledSubtreeSize(const Node* rootNode)
-{
-    if (rootNode->isTextNode())
-        return 1;
-    if (!rootNode->isElementNode())
-        return 0;
-
-    // FIXME: We should use a shadow-tree aware node-iterator when such exists.
-    unsigned nodeCount = 1 + styledSubtreeSizeIgnoringSelfAndShadowRoots(rootNode);
-
-    // ShadowRoots don't have style (so don't count them), but their children might.
-    for (ShadowRoot* shadowRoot = rootNode->youngestShadowRoot(); shadowRoot; shadowRoot = shadowRoot->olderShadowRoot())
-        nodeCount += styledSubtreeSizeIgnoringSelfAndShadowRoots(shadowRoot);
-
-    return nodeCount;
-}
-
 PassRefPtr<JSONArray> jsStackAsJSONArray()
 {
     RefPtr<JSONArray> jsonArray = JSONArray::create();
@@ -731,10 +704,24 @@ PassRefPtr<JSONObject> jsonObjectForStyleInvalidation(unsigned nodeCount, const 
 
 } // anonymous namespace'd functions supporting traceStyleChange
 
+unsigned Node::styledSubtreeSize() const
+{
+    unsigned nodeCount = 0;
+
+    for (const Node* node = this; node; node = NodeTraversal::next(*node, this)) {
+        if (node->isTextNode() || node->isElementNode())
+            nodeCount++;
+        for (ShadowRoot* root = node->youngestShadowRoot(); root; root = root->olderShadowRoot())
+            nodeCount += root->styledSubtreeSize();
+    }
+
+    return nodeCount;
+}
+
 void Node::traceStyleChange(StyleChangeType changeType)
 {
     static const unsigned kMinLoggedSize = 100;
-    unsigned nodeCount = styledSubtreeSize(this);
+    unsigned nodeCount = styledSubtreeSize();
     if (nodeCount < kMinLoggedSize)
         return;
 
@@ -995,7 +982,8 @@ bool Node::inDetach() const
 
 void Node::detach(const AttachContext& context)
 {
-    DeprecatedDisableModifyRenderTreeStructureAsserts disabler;
+    ASSERT(document().lifecycle().stateAllowsDetach());
+    DocumentLifecycle::DetachScope willDetach(document().lifecycle());
 
 #ifndef NDEBUG
     ASSERT(!detachingNode);
@@ -1036,12 +1024,12 @@ void Node::reattachWhitespaceSiblings(Text* start)
 {
     for (Node* sibling = start; sibling; sibling = sibling->nextSibling()) {
         if (sibling->isTextNode() && toText(sibling)->containsOnlyWhitespace()) {
-            bool hadRenderer = sibling->hasRenderer();
+            bool hadRenderer = !!sibling->renderer();
             sibling->reattach();
             // If the reattach didn't toggle the visibility of the whitespace we don't
             // need to continue reattaching siblings since they won't toggle visibility
             // either.
-            if (hadRenderer == sibling->hasRenderer())
+            if (hadRenderer == !!sibling->renderer())
                 return;
         } else if (sibling->renderer()) {
             return;
@@ -1307,9 +1295,6 @@ bool Node::isEqualNode(Node* other) const
             return false;
 
         if (documentTypeThis->systemId() != documentTypeOther->systemId())
-            return false;
-
-        if (documentTypeThis->internalSubset() != documentTypeOther->internalSubset())
             return false;
     }
 
@@ -1903,7 +1888,7 @@ void Node::showTreeForThisAcrossFrame() const
 
 Node* Node::enclosingLinkEventParentOrSelf()
 {
-    for (Node* node = this; node; node = node->parentOrShadowHostNode()) {
+    for (Node* node = this; node; node = NodeRenderingTraversal::parent(node)) {
         // For imagemaps, the enclosing link node is the associated area element not the image itself.
         // So we don't let images be the enclosingLinkNode, even though isLink sometimes returns true
         // for them.
@@ -2464,10 +2449,10 @@ void Node::updateAncestorConnectedSubframeCountForInsertion() const
         node->incrementConnectedSubframeCount(count);
 }
 
-PassRefPtr<NodeList> Node::getDestinationInsertionPoints()
+PassRefPtrWillBeRawPtr<NodeList> Node::getDestinationInsertionPoints()
 {
     document().updateDistributionForNodeIfNeeded(this);
-    Vector<InsertionPoint*, 8> insertionPoints;
+    WillBeHeapVector<RawPtrWillBeMember<InsertionPoint>, 8> insertionPoints;
     collectDestinationInsertionPoints(*this, insertionPoints);
     Vector<RefPtr<Node> > filteredInsertionPoints;
     for (size_t i = 0; i < insertionPoints.size(); ++i) {
@@ -2573,8 +2558,8 @@ void Node::trace(Visitor* visitor)
     visitor->trace(m_next);
     if (hasRareData())
         visitor->trace(rareData());
-
     visitor->trace(m_treeScope);
+    EventTarget::trace(visitor);
 }
 
 } // namespace WebCore

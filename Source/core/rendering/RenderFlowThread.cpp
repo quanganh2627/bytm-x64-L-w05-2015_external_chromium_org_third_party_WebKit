@@ -68,7 +68,7 @@ void RenderFlowThread::invalidateRegions()
     }
 
     m_regionRangeMap.clear();
-    setNeedsLayout();
+    setNeedsLayoutAndFullRepaint();
 
     m_regionsInvalidated = true;
 }
@@ -127,8 +127,6 @@ void RenderFlowThread::validateRegions()
 void RenderFlowThread::layout()
 {
     m_pageLogicalSizeChanged = m_regionsInvalidated && everHadLayout();
-
-    validateRegions();
 
     CurrentRenderFlowThreadMaintainer currentFlowThreadSetter(this);
     RenderBlockFlow::layout();

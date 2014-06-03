@@ -128,12 +128,6 @@ StepRange RangeInputType::createStepRange(AnyStepHandling anyStepHandling) const
     const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), rangeDefaultMinimum);
     const Decimal maximum = ensureMaximum(parseToNumber(element().fastGetAttribute(maxAttr), rangeDefaultMaximum), minimum, rangeDefaultMaximum);
 
-    const AtomicString& precisionValue = element().fastGetAttribute(precisionAttr);
-    if (!precisionValue.isNull()) {
-        const Decimal step = equalIgnoringCase(precisionValue, "float") ? Decimal::nan() : 1;
-        return StepRange(stepBase, minimum, maximum, step, stepDescription);
-    }
-
     const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
     return StepRange(stepBase, minimum, maximum, step, stepDescription);
 }
@@ -204,7 +198,7 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
     bool isVertical = false;
     if (element().renderer()) {
         ControlPart part = element().renderer()->style()->appearance();
-        isVertical = part == SliderVerticalPart || part == MediaVolumeSliderPart;
+        isVertical = part == SliderVerticalPart;
     }
 
     Decimal newValue;
@@ -246,7 +240,7 @@ void RangeInputType::createShadowSubtree()
     ASSERT(element().shadow());
 
     Document& document = element().document();
-    RefPtr<HTMLDivElement> track = HTMLDivElement::create(document);
+    RefPtrWillBeRawPtr<HTMLDivElement> track = HTMLDivElement::create(document);
     track->setShadowPseudoId(AtomicString("-webkit-slider-runnable-track", AtomicString::ConstructFromLiteral));
     track->setAttribute(idAttr, ShadowElementNames::sliderTrack());
     track->appendChild(SliderThumbElement::create(document));
@@ -336,7 +330,7 @@ void RangeInputType::listAttributeTargetChanged()
     m_tickMarkValuesDirty = true;
     Element* sliderTrackElement = this->sliderTrackElement();
     if (sliderTrackElement->renderer())
-        sliderTrackElement->renderer()->setNeedsLayout();
+        sliderTrackElement->renderer()->setNeedsLayoutAndFullRepaint();
 }
 
 static bool decimalCompare(const Decimal& a, const Decimal& b)
@@ -353,7 +347,7 @@ void RangeInputType::updateTickMarkValues()
     HTMLDataListElement* dataList = element().dataList();
     if (!dataList)
         return;
-    RefPtr<HTMLCollection> options = dataList->options();
+    RefPtrWillBeRawPtr<HTMLCollection> options = dataList->options();
     m_tickMarkValues.reserveCapacity(options->length());
     for (unsigned i = 0; i < options->length(); ++i) {
         Element* element = options->item(i);

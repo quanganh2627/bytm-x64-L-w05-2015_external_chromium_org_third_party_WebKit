@@ -474,7 +474,7 @@ void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavi
         }
     }
 
-    for (RenderObject* child = o.firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = o.slowFirstChild(); child; child = child->nextSibling()) {
         if (child->hasLayer())
             continue;
         write(ts, *child, indent + 1, behavior);
@@ -538,10 +538,10 @@ static void write(TextStream& ts, RenderLayer& l,
             ts << " scrollX " << l.scrollableArea()->scrollXOffset();
         if (l.scrollableArea()->scrollYOffset())
             ts << " scrollY " << l.scrollableArea()->scrollYOffset();
-        if (l.renderBox() && l.renderBox()->pixelSnappedClientWidth() != l.renderBox()->scrollWidth())
-            ts << " scrollWidth " << l.renderBox()->scrollWidth();
-        if (l.renderBox() && l.renderBox()->pixelSnappedClientHeight() != l.renderBox()->scrollHeight())
-            ts << " scrollHeight " << l.renderBox()->scrollHeight();
+        if (l.renderBox() && l.renderBox()->pixelSnappedClientWidth() != l.renderBox()->pixelSnappedScrollWidth())
+            ts << " scrollWidth " << l.renderBox()->pixelSnappedScrollWidth();
+        if (l.renderBox() && l.renderBox()->pixelSnappedClientHeight() != l.renderBox()->pixelSnappedScrollHeight())
+            ts << " scrollHeight " << l.renderBox()->pixelSnappedScrollHeight();
     }
 
     if (paintPhase == LayerPaintPhaseBackground)
@@ -736,7 +736,7 @@ String externalRepresentation(Element* element, RenderAsTextBehavior behavior)
 
 static void writeCounterValuesFromChildren(TextStream& stream, RenderObject* parent, bool& isFirstCounter)
 {
-    for (RenderObject* child = parent->firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = parent->slowFirstChild(); child; child = child->nextSibling()) {
         if (child->isCounter()) {
             if (!isFirstCounter)
                 stream << " ";

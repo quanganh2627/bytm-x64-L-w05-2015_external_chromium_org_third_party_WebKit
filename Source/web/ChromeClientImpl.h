@@ -118,7 +118,6 @@ public:
     virtual void invalidateContentsAndRootView(const WebCore::IntRect&) OVERRIDE;
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&) OVERRIDE;
     virtual void scheduleAnimation() OVERRIDE;
-    virtual bool isCompositorFramePending() const OVERRIDE;
     virtual void scroll(
         const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll,
         const WebCore::IntRect& clipRect) OVERRIDE;
@@ -166,9 +165,6 @@ public:
     virtual void setPagePopupDriver(WebCore::PagePopupDriver*) OVERRIDE;
     virtual void resetPagePopupDriver() OVERRIDE;
 
-    virtual bool isPasswordGenerationEnabled() const OVERRIDE;
-    virtual void openPasswordGenerator(WebCore::HTMLInputElement*) OVERRIDE;
-
     virtual bool shouldRunModalDialogDuringPageDismissal(const DialogType&, const String& dialogMessage, WebCore::Document::PageDismissalType) const OVERRIDE;
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE;
@@ -177,7 +173,7 @@ public:
     virtual bool requestPointerLock() OVERRIDE;
     virtual void requestPointerUnlock() OVERRIDE;
 
-    virtual void didAssociateFormControls(const Vector<RefPtr<WebCore::Element> >&) OVERRIDE;
+    virtual void didAssociateFormControls(const WillBeHeapVector<RefPtrWillBeMember<WebCore::Element> >&) OVERRIDE;
     virtual void didChangeValueInTextField(WebCore::HTMLFormControlElement&) OVERRIDE;
     virtual void didEndEditingOnTextField(WebCore::HTMLInputElement&) OVERRIDE;
     virtual void handleKeyboardEventOnTextField(WebCore::HTMLInputElement&, WebCore::KeyboardEvent&) OVERRIDE;

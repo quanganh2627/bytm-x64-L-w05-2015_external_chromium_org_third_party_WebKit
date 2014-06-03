@@ -80,7 +80,6 @@
 #include "public/web/WebInputEvent.h"
 #include "public/web/WebKit.h"
 #include "public/web/WebNode.h"
-#include "public/web/WebPasswordGeneratorClient.h"
 #include "public/web/WebPlugin.h"
 #include "public/web/WebPopupMenuInfo.h"
 #include "public/web/WebSettings.h"
@@ -494,11 +493,6 @@ void ChromeClientImpl::scheduleAnimation()
     m_webView->scheduleAnimation();
 }
 
-bool ChromeClientImpl::isCompositorFramePending() const
-{
-    return m_webView->client()->isCompositorFramePending();
-}
-
 void ChromeClientImpl::scroll(
     const IntSize& scrollDelta, const IntRect& scrollRect,
     const IntRect& clipRect)
@@ -764,18 +758,6 @@ void ChromeClientImpl::resetPagePopupDriver()
     m_pagePopupDriver = m_webView;
 }
 
-bool ChromeClientImpl::isPasswordGenerationEnabled() const
-{
-    return m_webView->passwordGeneratorClient();
-}
-
-void ChromeClientImpl::openPasswordGenerator(HTMLInputElement* input)
-{
-    ASSERT(isPasswordGenerationEnabled());
-    WebInputElement webInput(input);
-    m_webView->passwordGeneratorClient()->openPasswordGenerator(webInput);
-}
-
 bool ChromeClientImpl::shouldRunModalDialogDuringPageDismissal(const DialogType& dialogType, const String& dialogMessage, Document::PageDismissalType dismissalType) const
 {
     const char* kDialogs[] = {"alert", "confirm", "prompt", "showModalDialog"};
@@ -845,15 +827,10 @@ void ChromeClientImpl::annotatedRegionsChanged()
         client->draggableRegionsChanged();
 }
 
-void ChromeClientImpl::didAssociateFormControls(const Vector<RefPtr<Element> >& elements)
+void ChromeClientImpl::didAssociateFormControls(const WillBeHeapVector<RefPtrWillBeMember<Element> >& elements)
 {
-    if (!m_webView->autofillClient())
-        return;
-    WebVector<WebNode> elementVector(static_cast<size_t>(elements.size()));
-    size_t elementsCount = elements.size();
-    for (size_t i = 0; i < elementsCount; ++i)
-        elementVector[i] = elements[i].get();
-    m_webView->autofillClient()->didAssociateFormControls(elementVector);
+    if (m_webView->autofillClient())
+        m_webView->autofillClient()->didAssociateFormControls(elements);
 }
 
 void ChromeClientImpl::didCancelCompositionOnSelectionChange()

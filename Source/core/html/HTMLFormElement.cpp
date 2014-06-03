@@ -62,7 +62,9 @@ using namespace HTMLNames;
 
 HTMLFormElement::HTMLFormElement(Document& document)
     : HTMLElement(formTag, document)
+#if !ENABLE(OILPAN)
     , m_weakPtrFactory(this)
+#endif
     , m_associatedElementsAreDirty(false)
     , m_imageElementsAreDirty(false)
     , m_hasElementsAssociatedByParser(false)
@@ -95,7 +97,9 @@ void HTMLFormElement::trace(Visitor* visitor)
 {
 #if ENABLE(OILPAN)
     visitor->trace(m_pastNamesMap);
+    visitor->trace(m_radioButtonGroupScope);
     visitor->trace(m_associatedElements);
+    visitor->trace(m_imageElements);
 #endif
     HTMLElement::trace(visitor);
 }
@@ -164,10 +168,10 @@ void HTMLFormElement::removedFrom(ContainerNode* insertionPoint)
         }
 
         if (!m_imageElementsAreDirty) {
-            Vector<HTMLImageElement*> images(imageElements());
+            WillBeHeapVector<RawPtrWillBeMember<HTMLImageElement> > images(imageElements());
             notifyFormRemovedFromTree(images, root);
         } else {
-            Vector<HTMLImageElement*> images;
+            WillBeHeapVector<RawPtrWillBeMember<HTMLImageElement> > images;
             collectImageElements(insertionPoint->highestAncestorOrSelf(), images);
             notifyFormRemovedFromTree(images, root);
             collectImageElements(root, images);
@@ -527,10 +531,12 @@ void HTMLFormElement::disassociate(HTMLImageElement& e)
     removeFromPastNamesMap(e);
 }
 
+#if !ENABLE(OILPAN)
 WeakPtr<HTMLFormElement> HTMLFormElement::createWeakPtr()
 {
     return m_weakPtrFactory.createWeakPtr();
 }
+#endif
 
 void HTMLFormElement::didAssociateByParser()
 {
@@ -540,7 +546,7 @@ void HTMLFormElement::didAssociateByParser()
     UseCounter::count(document(), UseCounter::FormAssociationByParser);
 }
 
-PassRefPtr<HTMLCollection> HTMLFormElement::elements()
+PassRefPtrWillBeRawPtr<HTMLCollection> HTMLFormElement::elements()
 {
     return ensureCachedHTMLCollection(FormControls);
 }
@@ -579,7 +585,7 @@ const FormAssociatedElement::List& HTMLFormElement::associatedElements() const
     return m_associatedElements;
 }
 
-void HTMLFormElement::collectImageElements(Node& root, Vector<HTMLImageElement*>& elements)
+void HTMLFormElement::collectImageElements(Node& root, WillBeHeapVector<RawPtrWillBeMember<HTMLImageElement> >& elements)
 {
     elements.clear();
     for (HTMLImageElement* image = Traversal<HTMLImageElement>::firstWithin(root); image; image = Traversal<HTMLImageElement>::next(*image)) {
@@ -588,7 +594,7 @@ void HTMLFormElement::collectImageElements(Node& root, Vector<HTMLImageElement*>
     }
 }
 
-const Vector<HTMLImageElement*>& HTMLFormElement::imageElements()
+const WillBeHeapVector<RawPtrWillBeMember<HTMLImageElement> >& HTMLFormElement::imageElements()
 {
     if (!m_imageElementsAreDirty)
         return m_imageElements;
@@ -710,14 +716,14 @@ void HTMLFormElement::removeFromPastNamesMap(HTMLElement& element)
         return;
     PastNamesMap::iterator end = m_pastNamesMap->end();
     for (PastNamesMap::iterator it = m_pastNamesMap->begin(); it != end; ++it) {
-        if (it->value.get() == &element) {
+        if (it->value == &element) {
             it->value = nullptr;
             // Keep looping. Single element can have multiple names.
         }
     }
 }
 
-void HTMLFormElement::getNamedElements(const AtomicString& name, Vector<RefPtr<Element> >& namedItems)
+void HTMLFormElement::getNamedElements(const AtomicString& name, WillBeHeapVector<RefPtrWillBeMember<Element> >& namedItems)
 {
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/forms.html#dom-form-nameditem
     elements()->namedItems(name, namedItems);
@@ -749,13 +755,13 @@ void HTMLFormElement::copyNonAttributePropertiesFromElement(const Element& sourc
     HTMLElement::copyNonAttributePropertiesFromElement(source);
 }
 
-void HTMLFormElement::anonymousNamedGetter(const AtomicString& name, bool& returnValue0Enabled, RefPtr<RadioNodeList>& returnValue0, bool& returnValue1Enabled, RefPtr<Element>& returnValue1)
+void HTMLFormElement::anonymousNamedGetter(const AtomicString& name, bool& returnValue0Enabled, RefPtrWillBeRawPtr<RadioNodeList>& returnValue0, bool& returnValue1Enabled, RefPtrWillBeRawPtr<Element>& returnValue1)
 {
     // Call getNamedElements twice, first time check if it has a value
     // and let HTMLFormElement update its cache.
     // See issue: 867404
     {
-        Vector<RefPtr<Element> > elements;
+        WillBeHeapVector<RefPtrWillBeMember<Element> > elements;
         getNamedElements(name, elements);
         if (elements.isEmpty())
             return;
@@ -763,7 +769,7 @@ void HTMLFormElement::anonymousNamedGetter(const AtomicString& name, bool& retur
 
     // Second call may return different results from the first call,
     // but if the first the size cannot be zero.
-    Vector<RefPtr<Element> > elements;
+    WillBeHeapVector<RefPtrWillBeMember<Element> > elements;
     getNamedElements(name, elements);
     ASSERT(!elements.isEmpty());
 

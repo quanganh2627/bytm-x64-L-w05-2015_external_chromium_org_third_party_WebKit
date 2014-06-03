@@ -44,6 +44,7 @@
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/canvas/CanvasRenderingContext.h"
 #include "core/inspector/InspectorInstrumentation.h"
+#include "core/inspector/InspectorNodeIds.h"
 #include "core/page/Chrome.h"
 #include "core/page/Page.h"
 #include "core/page/scrolling/ScrollingConstraints.h"
@@ -213,16 +214,6 @@ bool RenderLayerCompositor::layerSquashingEnabled() const
     return true;
 }
 
-bool RenderLayerCompositor::legacyOrCurrentAcceleratedCompositingForOverflowScrollEnabled() const
-{
-    return legacyAcceleratedCompositingForOverflowScrollEnabled() || acceleratedCompositingForOverflowScrollEnabled();
-}
-
-bool RenderLayerCompositor::legacyAcceleratedCompositingForOverflowScrollEnabled() const
-{
-    return m_compositingReasonFinder.hasLegacyOverflowScrollTrigger();
-}
-
 bool RenderLayerCompositor::acceleratedCompositingForOverflowScrollEnabled() const
 {
     return m_compositingReasonFinder.hasOverflowScrollTrigger();
@@ -247,22 +238,11 @@ void RenderLayerCompositor::updateCompositingRequirementsState()
     TRACE_EVENT0("blink_rendering,comp-scroll", "RenderLayerCompositor::updateCompositingRequirementsState");
 
     m_needsUpdateCompositingRequirementsState = false;
-
-    if (!rootRenderLayer())
-        return;
-
-    if (!legacyOrCurrentAcceleratedCompositingForOverflowScrollEnabled())
+    if (!rootRenderLayer() || !acceleratedCompositingForOverflowScrollEnabled())
         return;
 
     for (HashSet<RenderLayer*>::iterator it = m_outOfFlowPositionedLayers.begin(); it != m_outOfFlowPositionedLayers.end(); ++it)
         (*it)->updateHasUnclippedDescendant();
-
-    const FrameView::ScrollableAreaSet* scrollableAreas = m_renderView.frameView()->scrollableAreas();
-    if (!scrollableAreas)
-        return;
-
-    for (FrameView::ScrollableAreaSet::iterator it = scrollableAreas->begin(); it != scrollableAreas->end(); ++it)
-        (*it)->updateNeedsCompositedScrolling();
 }
 
 static RenderVideo* findFullscreenVideoRenderer(Document& document)
@@ -302,6 +282,10 @@ void RenderLayerCompositor::updateIfNeededRecursive()
     DocumentAnimations::startPendingAnimations(m_renderView.document());
     // TODO: Figure out why this fails on Chrome OS login page. crbug.com/365507
     // ASSERT(lifecycle().state() == DocumentLifecycle::CompositingClean);
+
+    assertNoUnresolvedDirtyBits();
+    for (LocalFrame* child = m_renderView.frameView()->frame().tree().firstChild(); child; child = child->tree().nextSibling())
+        child->contentRenderer()->compositor()->assertNoUnresolvedDirtyBits();
 }
 
 void RenderLayerCompositor::setNeedsCompositingUpdate(CompositingUpdateType updateType)
@@ -326,23 +310,45 @@ void RenderLayerCompositor::setNeedsCompositingUpdate(CompositingUpdateType upda
     lifecycle().ensureStateAtMost(DocumentLifecycle::LayoutClean);
 }
 
-void RenderLayerCompositor::scheduleAnimationIfNeeded()
+void RenderLayerCompositor::assertNoUnresolvedDirtyBits()
 {
-    LocalFrame* localFrame = &m_renderView.frameView()->frame();
-    for (LocalFrame* currentFrame = localFrame; currentFrame; currentFrame = currentFrame->tree().traverseNext(localFrame)) {
-        if (currentFrame->contentRenderer()) {
-            RenderLayerCompositor* childCompositor = currentFrame->contentRenderer()->compositor();
-            if (childCompositor && childCompositor->hasUnresolvedDirtyBits()) {
-                m_renderView.frameView()->scheduleAnimation();
-                return;
-            }
-        }
-    }
+    ASSERT(!compositingLayersNeedRebuild());
+    ASSERT(!m_needsUpdateCompositingRequirementsState);
+    ASSERT(m_pendingUpdateType == CompositingUpdateNone);
+    ASSERT(!m_rootShouldAlwaysCompositeDirty);
+    ASSERT(!m_needsToRecomputeCompositingRequirements);
 }
 
-bool RenderLayerCompositor::hasUnresolvedDirtyBits()
+void RenderLayerCompositor::applyOverlayFullscreenVideoAdjustment()
 {
-    return m_needsToRecomputeCompositingRequirements || compositingLayersNeedRebuild() || m_needsUpdateCompositingRequirementsState || m_pendingUpdateType != CompositingUpdateNone;
+    if (!m_rootContentLayer)
+        return;
+
+    bool isMainFrame = m_renderView.frame()->isMainFrame();
+    RenderVideo* video = findFullscreenVideoRenderer(m_renderView.document());
+    if (!video || !video->hasCompositedLayerMapping()) {
+        if (isMainFrame) {
+            GraphicsLayer* backgroundLayer = fixedRootBackgroundLayer();
+            if (backgroundLayer && !backgroundLayer->parent())
+                rootFixedBackgroundsChanged();
+        }
+        return;
+    }
+
+    GraphicsLayer* videoLayer = video->compositedLayerMapping()->mainGraphicsLayer();
+
+    // The fullscreen video has layer position equal to its enclosing frame's scroll position because fullscreen container is fixed-positioned.
+    // We should reset layer position here since we are going to reattach the layer at the very top level.
+    videoLayer->setPosition(IntPoint());
+
+    // Only steal fullscreen video layer and clear all other layers if we are the main frame.
+    if (!isMainFrame)
+        return;
+
+    m_rootContentLayer->removeAllChildren();
+    m_overflowControlsHostLayer->addChild(videoLayer);
+    if (GraphicsLayer* backgroundLayer = fixedRootBackgroundLayer())
+        backgroundLayer->removeFromParent();
 }
 
 void RenderLayerCompositor::updateIfNeeded()
@@ -360,14 +366,14 @@ void RenderLayerCompositor::updateIfNeeded()
     }
 
     CompositingUpdateType updateType = m_pendingUpdateType;
-    bool needCompositingRequirementsUpdate = m_needsToRecomputeCompositingRequirements || updateType >= CompositingUpdateAfterCompositingInputChange;
+    bool needCompositingRequirementsUpdate = m_needsToRecomputeCompositingRequirements;
     bool needHierarchyAndGeometryUpdate = compositingLayersNeedRebuild();
 
     m_pendingUpdateType = CompositingUpdateNone;
     m_compositingLayersNeedRebuild = false;
     m_needsToRecomputeCompositingRequirements = false;
 
-    if (!hasAcceleratedCompositing() || (!needCompositingRequirementsUpdate && !m_compositing))
+    if (!hasAcceleratedCompositing())
         return;
 
     bool needsToUpdateScrollingCoordinator = scrollingCoordinator() ? scrollingCoordinator()->needsToUpdateAfterCompositingChange() : false;
@@ -385,7 +391,7 @@ void RenderLayerCompositor::updateIfNeeded()
 
     RenderLayer* updateRoot = rootRenderLayer();
 
-    if (needCompositingRequirementsUpdate) {
+    if (needCompositingRequirementsUpdate || updateType >= CompositingUpdateAfterCompositingInputChange) {
         bool layersChanged = false;
 
         {
@@ -438,25 +444,13 @@ void RenderLayerCompositor::updateIfNeeded()
             GraphicsLayerUpdater().rebuildTree(*updateRoot, childList);
         }
 
-        // Host the document layer in the RenderView's root layer.
-        if (RuntimeEnabledFeatures::overlayFullscreenVideoEnabled() && m_renderView.frame()->isMainFrame()) {
-            RenderVideo* video = findFullscreenVideoRenderer(m_renderView.document());
-            GraphicsLayer* backgroundLayer = fixedRootBackgroundLayer();
-            if (video && video->hasCompositedLayerMapping()) {
-                childList.clear();
-                childList.append(video->compositedLayerMapping()->mainGraphicsLayer());
-                if (backgroundLayer && backgroundLayer->parent())
-                    backgroundLayer->removeFromParent();
-            } else {
-                if (backgroundLayer && !backgroundLayer->parent())
-                    rootFixedBackgroundsChanged();
-            }
-        }
-
         if (childList.isEmpty())
             destroyRootLayer();
         else
             m_rootContentLayer->setChildren(childList);
+
+        if (RuntimeEnabledFeatures::overlayFullscreenVideoEnabled())
+            applyOverlayFullscreenVideoAdjustment();
     }
 
     if (m_needsUpdateFixedBackground) {
@@ -590,6 +584,7 @@ bool RenderLayerCompositor::updateLayerIfViewportConstrained(RenderLayer* layer)
 {
     RenderLayer::ViewportConstrainedNotCompositedReason viewportConstrainedNotCompositedReason = RenderLayer::NoNotCompositedReason;
     m_compositingReasonFinder.requiresCompositingForPosition(layer->renderer(), layer, &viewportConstrainedNotCompositedReason, &m_needsToRecomputeCompositingRequirements);
+    ASSERT(!m_needsToRecomputeCompositingRequirements || lifecycle().state() < DocumentLifecycle::InCompositingUpdate);
 
     if (layer->viewportConstrainedNotCompositedReason() != viewportConstrainedNotCompositedReason) {
         ASSERT(viewportConstrainedNotCompositedReason == RenderLayer::NoNotCompositedReason || layer->renderer()->style()->position() == FixedPosition);
@@ -925,7 +920,7 @@ bool RenderLayerCompositor::canBeComposited(const RenderLayer* layer) const
 {
     // FIXME: We disable accelerated compositing for elements in a RenderFlowThread as it doesn't work properly.
     // See http://webkit.org/b/84900 to re-enable it.
-    return m_hasAcceleratedCompositing && layer->isSelfPaintingLayer() && layer->renderer()->flowThreadState() == RenderObject::NotInsideFlowThread;
+    return m_hasAcceleratedCompositing && layer->isSelfPaintingLayer() && !layer->subtreeIsInvisible() && layer->renderer()->flowThreadState() == RenderObject::NotInsideFlowThread;
 }
 
 // Return true if the given layer has some ancestor in the RenderLayer hierarchy that clips,
@@ -1192,6 +1187,7 @@ void RenderLayerCompositor::ensureRootLayer()
         IntRect overflowRect = m_renderView.pixelSnappedLayoutOverflowRect();
         m_rootContentLayer->setSize(FloatSize(overflowRect.maxX(), overflowRect.maxY()));
         m_rootContentLayer->setPosition(FloatPoint());
+        m_rootContentLayer->setOwnerNodeId(InspectorNodeIds::idForNode(m_renderView.generatingNode()));
 
         // Need to clip to prevent transformed content showing outside this frame
         m_rootContentLayer->setMasksToBounds(true);

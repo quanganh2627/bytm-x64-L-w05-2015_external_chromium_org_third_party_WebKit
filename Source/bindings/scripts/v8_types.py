@@ -108,6 +108,7 @@ CPP_SPECIAL_CONVERSION_RULES = {
     'Dictionary': 'Dictionary',
     'EventHandler': 'EventListener*',
     'MediaQueryListListener': 'RefPtrWillBeRawPtr<MediaQueryListListener>',
+    'NodeFilter': 'RefPtrWillBeRawPtr<NodeFilter>',
     'Promise': 'ScriptPromise',
     'ScriptValue': 'ScriptValue',
     # FIXME: Eliminate custom bindings for XPathNSResolver  http://crbug.com/345529
@@ -118,7 +119,7 @@ CPP_SPECIAL_CONVERSION_RULES = {
 }
 
 
-def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, used_in_cpp_sequence=False):
+def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, used_as_variadic_argument=False, used_in_cpp_sequence=False):
     """Returns C++ type corresponding to IDL type.
 
     |idl_type| argument is of type IdlType, while return value is a string
@@ -144,7 +145,10 @@ def cpp_type(idl_type, extended_attributes=None, used_as_argument=False, used_in
     idl_type = idl_type.preprocessed_type
 
     # Composite types
-    array_or_sequence_type = idl_type.array_or_sequence_type
+    if used_as_variadic_argument:
+        array_or_sequence_type = idl_type
+    else:
+        array_or_sequence_type = idl_type.array_or_sequence_type
     if array_or_sequence_type:
         vector_type = cpp_ptr_type('Vector', 'HeapVector', array_or_sequence_type.gc_type)
         return cpp_template_type(vector_type, array_or_sequence_type.cpp_type_args(used_in_cpp_sequence=True))
@@ -224,6 +228,7 @@ def v8_type(interface_name):
 # This data is external to Foo.idl, and hence computed as global information in
 # compute_interfaces_info.py to avoid having to parse IDLs of all used interfaces.
 IdlType.implemented_as_interfaces = {}
+
 
 def implemented_as(idl_type):
     base_idl_type = idl_type.base_type
@@ -321,7 +326,8 @@ def includes_for_type(idl_type):
     if base_idl_type.endswith('Constructor'):
         # FIXME: replace with a [ConstructorAttribute] extended attribute
         base_idl_type = idl_type.constructor_type_name
-    return set(['V8%s.h' % base_idl_type])
+    return set(['bindings/%s/v8/V8%s.h' % (component_dir[base_idl_type],
+                                           base_idl_type)])
 
 IdlType.includes_for_type = property(includes_for_type)
 IdlUnionType.includes_for_type = property(
@@ -342,6 +348,12 @@ def includes_for_interface(interface_name):
 
 def add_includes_for_interface(interface_name):
     includes.update(includes_for_interface(interface_name))
+
+component_dir = {}
+
+
+def set_component_dirs(new_component_dirs):
+        component_dir.update(new_component_dirs)
 
 
 ################################################################################
@@ -369,9 +381,9 @@ V8_VALUE_TO_CPP_VALUE = {
     'CompareHow': 'static_cast<Range::CompareHow>({v8_value}->Int32Value())',
     'Dictionary': 'Dictionary({v8_value}, info.GetIsolate())',
     'EventTarget': 'V8DOMWrapper::isDOMWrapper({v8_value}) ? toWrapperTypeInfo(v8::Handle<v8::Object>::Cast({v8_value}))->toEventTarget(v8::Handle<v8::Object>::Cast({v8_value})) : 0',
-    'MediaQueryListListener': 'MediaQueryListListener::create(ScriptValue(ScriptState::current(info.GetIsolate()), {v8_value}))',
-    'NodeFilter': 'toNodeFilter({v8_value}, info.GetIsolate())',
-    'Promise': 'ScriptPromise(ScriptState::current(info.GetIsolate()), {v8_value})',
+    'MediaQueryListListener': 'MediaQueryListListener::create(ScriptState::current(info.GetIsolate()), ScriptValue(ScriptState::current(info.GetIsolate()), {v8_value}))',
+    'NodeFilter': 'toNodeFilter({v8_value}, info.Holder(), ScriptState::current(info.GetIsolate()))',
+    'Promise': 'ScriptPromise::cast(ScriptState::current(info.GetIsolate()), {v8_value})',
     'SerializedScriptValue': 'SerializedScriptValue::create({v8_value}, info.GetIsolate())',
     'ScriptValue': 'ScriptValue(ScriptState::current(info.GetIsolate()), {v8_value})',
     'Window': 'toDOMWindow({v8_value}, info.GetIsolate())',
@@ -431,13 +443,13 @@ def v8_value_to_cpp_value_array_or_sequence(array_or_sequence_type, v8_value, in
     return expression
 
 
-def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variable_name, index=None):
+def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variable_name, index=None, declare_variable=True, method_has_try_catch=False):
     """Returns an expression that converts a V8 value to a C++ value and stores it as a local value."""
     this_cpp_type = idl_type.cpp_type_args(extended_attributes=extended_attributes, used_as_argument=True)
 
     idl_type = idl_type.preprocessed_type
     cpp_value = v8_value_to_cpp_value(idl_type, extended_attributes, v8_value, index)
-    args = [this_cpp_type, variable_name, cpp_value]
+    args = [variable_name, cpp_value]
     if idl_type.base_type == 'DOMString' and not idl_type.array_or_sequence_type:
         macro = 'TOSTRING_VOID'
     elif idl_type.is_integer_type:
@@ -446,7 +458,26 @@ def v8_value_to_local_cpp_value(idl_type, extended_attributes, v8_value, variabl
     else:
         macro = 'TONATIVE_VOID'
 
-    return '%s(%s)' % (macro, ', '.join(args))
+    # Macros come in several variants, to minimize expensive creation of
+    # v8::TryCatch.
+    suffix = ''
+
+    if declare_variable:
+        args.insert(0, this_cpp_type)
+    else:
+        suffix += '_INTERNAL'
+
+    # The TOSTRING_VOID_INTERNAL macro comes in two flavors; use the right one
+    # depending on whether the containing method has a v8::TryCatch local
+    # (named 'block') declared or not. If there is such a local, use the block
+    # for avoiding declaring another one for performance and propagate the
+    # exception.
+    if (macro == 'TOSTRING_VOID' and not declare_variable and
+       not method_has_try_catch):
+        suffix += '_NOTRYCATCH'
+
+    return '%s(%s)' % (macro + suffix, ', '.join(args))
+
 
 IdlType.v8_value_to_local_cpp_value = v8_value_to_local_cpp_value
 IdlUnionType.v8_value_to_local_cpp_value = v8_value_to_local_cpp_value

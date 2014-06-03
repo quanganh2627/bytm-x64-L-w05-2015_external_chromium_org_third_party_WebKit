@@ -7,8 +7,8 @@
 
 #include "core/dom/ContextLifecycleObserver.h"
 #include "core/dom/Document.h"
-#include "core/events/EventTarget.h"
 #include "core/frame/DeviceSensorEventController.h"
+#include "modules/EventTargetModules.h"
 #include "platform/heap/Handle.h"
 
 namespace WebCore {
@@ -16,7 +16,8 @@ namespace WebCore {
 class Navigator;
 
 class BatteryManager FINAL : public RefCountedWillBeRefCountedGarbageCollected<BatteryManager>, public ActiveDOMObject, public DeviceSensorEventController, public EventTargetWithInlineData {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<BatteryManager>);
+    REFCOUNTED_EVENT_TARGET(BatteryManager);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(BatteryManager);
 public:
     virtual ~BatteryManager();
     static PassRefPtrWillBeRawPtr<BatteryManager> create(ExecutionContext*);
@@ -50,8 +51,6 @@ public:
     virtual PassRefPtrWillBeRawPtr<Event> getLastEvent() OVERRIDE;
     virtual bool isNullEvent(Event*) OVERRIDE;
     virtual Document* document() OVERRIDE;
-
-    void trace(Visitor*) { }
 
 private:
     explicit BatteryManager(ExecutionContext*);

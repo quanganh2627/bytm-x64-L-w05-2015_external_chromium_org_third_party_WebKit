@@ -55,12 +55,21 @@
 
 namespace WebCore {
 
-void init()
+void CoreInitializer::initEventNames()
 {
-    static bool isInited;
-    if (isInited)
+    EventNames::init();
+}
+
+void CoreInitializer::initEventTargetNames()
+{
+    EventTargetNames::init();
+}
+
+void CoreInitializer::init()
+{
+    if (m_isInited)
         return;
-    isInited = true;
+    m_isInited = true;
 
     // It would make logical sense to do this and WTF::StringStatics::init() in
     // WTF::initialize() but there are ordering dependencies.
@@ -72,8 +81,8 @@ void init()
     XMLNSNames::init();
     XMLNames::init();
 
-    EventNames::init();
-    EventTargetNames::init();
+    initEventNames();
+    initEventTargetNames();
     EventTypeNames::init();
     FetchInitiatorTypeNames::init();
     FontFamilyNames::init();

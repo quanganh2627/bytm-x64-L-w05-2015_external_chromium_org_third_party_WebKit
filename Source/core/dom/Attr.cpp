@@ -47,7 +47,7 @@ Attr::Attr(Element& element, const QualifiedName& name)
 
 Attr::Attr(Document& document, const QualifiedName& name, const AtomicString& standaloneValue)
     : ContainerNode(&document)
-    , m_element(0)
+    , m_element(nullptr)
     , m_name(name)
     , m_standaloneValue(standaloneValue)
     , m_ignoreChildrenChanged(0)
@@ -55,16 +55,16 @@ Attr::Attr(Document& document, const QualifiedName& name, const AtomicString& st
     ScriptWrappable::init(this);
 }
 
-PassRefPtr<Attr> Attr::create(Element& element, const QualifiedName& name)
+PassRefPtrWillBeRawPtr<Attr> Attr::create(Element& element, const QualifiedName& name)
 {
-    RefPtr<Attr> attr = adoptRef(new Attr(element, name));
+    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeRefCountedGarbageCollected(new Attr(element, name));
     attr->createTextChild();
     return attr.release();
 }
 
-PassRefPtr<Attr> Attr::create(Document& document, const QualifiedName& name, const AtomicString& value)
+PassRefPtrWillBeRawPtr<Attr> Attr::create(Document& document, const QualifiedName& name, const AtomicString& value)
 {
-    RefPtr<Attr> attr = adoptRef(new Attr(document, name, value));
+    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeRefCountedGarbageCollected(new Attr(document, name, value));
     attr->createTextChild();
     return attr.release();
 }
@@ -79,7 +79,7 @@ void Attr::createTextChild()
     ASSERT(refCount());
 #endif
     if (!value().isEmpty()) {
-        RefPtr<Text> textNode = document().createTextNode(value().string());
+        RefPtrWillBeRawPtr<Text> textNode = document().createTextNode(value().string());
 
         // This does everything appendChild() would do in this situation (assuming m_ignoreChildrenChanged was set),
         // but much more efficiently.
@@ -137,9 +137,9 @@ void Attr::setNodeValue(const String& v)
     setValueInternal(AtomicString(v));
 }
 
-PassRefPtr<Node> Attr::cloneNode(bool /*deep*/)
+PassRefPtrWillBeRawPtr<Node> Attr::cloneNode(bool /*deep*/)
 {
-    RefPtr<Attr> clone = adoptRef(new Attr(document(), qualifiedName(), value()));
+    RefPtrWillBeRawPtr<Attr> clone = adoptRefWillBeRefCountedGarbageCollected(new Attr(document(), qualifiedName(), value()));
     cloneChildNodes(clone.get());
     return clone.release();
 }
@@ -195,7 +195,7 @@ void Attr::detachFromElementWithValue(const AtomicString& value)
     ASSERT(m_element);
     ASSERT(m_standaloneValue.isNull());
     m_standaloneValue = value;
-    m_element = 0;
+    m_element = nullptr;
 }
 
 void Attr::attachToElement(Element* element)
@@ -203,6 +203,12 @@ void Attr::attachToElement(Element* element)
     ASSERT(!m_element);
     m_element = element;
     m_standaloneValue = nullAtom;
+}
+
+void Attr::trace(Visitor* visitor)
+{
+    visitor->trace(m_element);
+    ContainerNode::trace(visitor);
 }
 
 }

@@ -29,15 +29,14 @@
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/dom/ActiveDOMObject.h"
 #include "core/dom/DOMError.h"
-#include "core/events/Event.h"
 #include "core/events/EventListener.h"
-#include "core/events/EventTarget.h"
+#include "modules/EventModules.h"
+#include "modules/EventTargetModules.h"
 #include "modules/indexeddb/IDBMetadata.h"
 #include "modules/indexeddb/IndexedDB.h"
 #include "platform/heap/Handle.h"
 #include "public/platform/WebIDBDatabase.h"
 #include "wtf/HashSet.h"
-#include "wtf/RefCounted.h"
 
 namespace WebCore {
 
@@ -50,17 +49,17 @@ class IDBOpenDBRequest;
 struct IDBObjectStoreMetadata;
 
 class IDBTransaction FINAL
-    : public RefCountedWillBeRefCountedGarbageCollected<IDBTransaction>
+    : public RefCountedGarbageCollected<IDBTransaction>
     , public ScriptWrappable
     , public EventTargetWithInlineData
     , public ActiveDOMObject {
-    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<IDBTransaction>);
-
+    DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedGarbageCollected<IDBTransaction>);
+    WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(IDBTransaction);
 public:
-    static PassRefPtrWillBeRawPtr<IDBTransaction> create(ExecutionContext*, int64_t, const Vector<String>& objectStoreNames, blink::WebIDBDatabase::TransactionMode, IDBDatabase*);
-    static PassRefPtrWillBeRawPtr<IDBTransaction> create(ExecutionContext*, int64_t, IDBDatabase*, IDBOpenDBRequest*, const IDBDatabaseMetadata& previousMetadata);
+    static IDBTransaction* create(ExecutionContext*, int64_t, const Vector<String>& objectStoreNames, blink::WebIDBDatabase::TransactionMode, IDBDatabase*);
+    static IDBTransaction* create(ExecutionContext*, int64_t, IDBDatabase*, IDBOpenDBRequest*, const IDBDatabaseMetadata& previousMetadata);
     virtual ~IDBTransaction();
-    void trace(Visitor*);
+    virtual void trace(Visitor*) OVERRIDE;
 
     static const AtomicString& modeReadOnly();
     static const AtomicString& modeReadWrite();
@@ -83,12 +82,12 @@ public:
     const String& mode() const;
     IDBDatabase* db() const { return m_database.get(); }
     PassRefPtrWillBeRawPtr<DOMError> error() const { return m_error; }
-    PassRefPtrWillBeRawPtr<IDBObjectStore> objectStore(const String& name, ExceptionState&);
+    IDBObjectStore* objectStore(const String& name, ExceptionState&);
     void abort(ExceptionState&);
 
     void registerRequest(IDBRequest*);
     void unregisterRequest(IDBRequest*);
-    void objectStoreCreated(const String&, PassRefPtrWillBeRawPtr<IDBObjectStore>);
+    void objectStoreCreated(const String&, IDBObjectStore*);
     void objectStoreDeleted(const String&);
     void setActive(bool);
     void setError(PassRefPtrWillBeRawPtr<DOMError>);
@@ -124,24 +123,24 @@ private:
     };
 
     int64_t m_id;
-    RefPtrWillBeMember<IDBDatabase> m_database;
+    Member<IDBDatabase> m_database;
     const Vector<String> m_objectStoreNames;
-    RawPtrWillBeMember<IDBOpenDBRequest> m_openDBRequest;
+    Member<IDBOpenDBRequest> m_openDBRequest;
     const blink::WebIDBDatabase::TransactionMode m_mode;
     State m_state;
     bool m_hasPendingActivity;
     bool m_contextStopped;
     RefPtrWillBeMember<DOMError> m_error;
 
-    WillBeHeapListHashSet<RefPtrWillBeMember<IDBRequest> > m_requestList;
+    HeapListHashSet<Member<IDBRequest> > m_requestList;
 
-    typedef WillBeHeapHashMap<String, RefPtrWillBeMember<IDBObjectStore> > IDBObjectStoreMap;
+    typedef HeapHashMap<String, Member<IDBObjectStore> > IDBObjectStoreMap;
     IDBObjectStoreMap m_objectStoreMap;
 
-    typedef WillBeHeapHashSet<RefPtrWillBeMember<IDBObjectStore> > IDBObjectStoreSet;
+    typedef HeapHashSet<Member<IDBObjectStore> > IDBObjectStoreSet;
     IDBObjectStoreSet m_deletedObjectStores;
 
-    typedef WillBeHeapHashMap<RefPtrWillBeMember<IDBObjectStore>, IDBObjectStoreMetadata> IDBObjectStoreMetadataMap;
+    typedef HeapHashMap<Member<IDBObjectStore>, IDBObjectStoreMetadata> IDBObjectStoreMetadataMap;
     IDBObjectStoreMetadataMap m_objectStoreCleanupMap;
     IDBDatabaseMetadata m_previousMetadata;
 };

@@ -356,6 +356,9 @@ public:
 
     operator T*() const { return m_raw; }
     operator RawPtr<T>() const { return m_raw; }
+    // FIXME: Oilpan: Remove this ASAP. Only here to make Node transition easier.
+    template<typename U>
+    operator PassRefPtr<U>() { return PassRefPtr<U>(m_raw); }
 
     T* operator->() const { return *this; }
 
@@ -783,6 +786,7 @@ template<typename T, typename U> inline bool operator!=(const PassRefPtr<T>& a, 
 #define RefPtrWillBePersistent WebCore::Persistent
 #define RefPtrWillBeRawPtr WTF::RawPtr
 #define RefPtrWillBeMember WebCore::Member
+#define RefPtrWillBeWeakMember WebCore::WeakMember
 #define RefPtrWillBeCrossThreadPersistent WebCore::CrossThreadPersistent
 #define RawPtrWillBeMember WebCore::Member
 #define RawPtrWillBeWeakMember WebCore::WeakMember
@@ -794,6 +798,7 @@ template<typename T, typename U> inline bool operator!=(const PassRefPtr<T>& a, 
 #define WeakPtrWillBeWeakMember WebCore::WeakMember
 #define NoBaseWillBeGarbageCollected WebCore::GarbageCollected
 #define NoBaseWillBeGarbageCollectedFinalized WebCore::GarbageCollectedFinalized
+#define NoBaseWillBeRefCountedGarbageCollected WebCore::RefCountedGarbageCollected
 #define WillBeHeapHashMap WebCore::HeapHashMap
 #define WillBePersistentHeapHashMap WebCore::PersistentHeapHashMap
 #define WillBeHeapHashSet WebCore::HeapHashSet
@@ -817,8 +822,8 @@ template<typename T, typename U> inline bool operator!=(const PassRefPtr<T>& a, 
 
 template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeNoop(T* ptr)
 {
-    static const bool notRefCountedGarbageCollected = !WTF::IsSubclassOfTemplate<T, RefCountedGarbageCollected>::value;
-    static const bool notRefCounted = !WTF::IsSubclassOfTemplate<T, RefCounted>::value;
+    static const bool notRefCountedGarbageCollected = !WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCountedGarbageCollected>::value;
+    static const bool notRefCounted = !WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCounted>::value;
     COMPILE_ASSERT(notRefCountedGarbageCollected, useAdoptRefCountedWillBeRefCountedGarbageCollected);
     COMPILE_ASSERT(notRefCounted, youMustAdopt);
     return PassRefPtrWillBeRawPtr<T>(ptr);
@@ -826,25 +831,32 @@ template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeNoop(T* ptr)
 
 template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeRefCountedGarbageCollected(T* ptr)
 {
-    static const bool isRefCountedGarbageCollected = WTF::IsSubclassOfTemplate<T, RefCountedGarbageCollected>::value;
+    static const bool isRefCountedGarbageCollected = WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCountedGarbageCollected>::value;
     COMPILE_ASSERT(isRefCountedGarbageCollected, useAdoptRefWillBeNoop);
     return PassRefPtrWillBeRawPtr<T>(adoptRefCountedGarbageCollected(ptr));
 }
 
 template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeThreadSafeRefCountedGarbageCollected(T* ptr)
 {
-    static const bool isThreadSafeRefCountedGarbageCollected = WTF::IsSubclassOfTemplate<T, ThreadSafeRefCountedGarbageCollected>::value;
+    static const bool isThreadSafeRefCountedGarbageCollected = WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, ThreadSafeRefCountedGarbageCollected>::value;
     COMPILE_ASSERT(isThreadSafeRefCountedGarbageCollected, useAdoptRefWillBeNoop);
     return PassRefPtrWillBeRawPtr<T>(adoptRefCountedGarbageCollected(ptr));
 }
 
 template<typename T> PassOwnPtrWillBeRawPtr<T> adoptPtrWillBeNoop(T* ptr)
 {
-    static const bool notRefCountedGarbageCollected = !WTF::IsSubclassOfTemplate<T, RefCountedGarbageCollected>::value;
-    static const bool notRefCounted = !WTF::IsSubclassOfTemplate<T, RefCounted>::value;
+    static const bool notRefCountedGarbageCollected = !WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCountedGarbageCollected>::value;
+    static const bool notRefCounted = !WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCounted>::value;
     COMPILE_ASSERT(notRefCountedGarbageCollected, useAdoptRefCountedWillBeRefCountedGarbageCollected);
     COMPILE_ASSERT(notRefCounted, youMustAdopt);
     return PassOwnPtrWillBeRawPtr<T>(ptr);
+}
+
+template<typename T> T* adoptPtrWillBeRefCountedGarbageCollected(T* ptr)
+{
+    static const bool isRefCountedGarbageCollected = WTF::IsSubclassOfTemplate<typename WTF::RemoveConst<T>::Type, RefCountedGarbageCollected>::value;
+    COMPILE_ASSERT(isRefCountedGarbageCollected, useAdoptRefWillBeNoop);
+    return adoptRefCountedGarbageCollected(ptr);
 }
 
 #define WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED // do nothing when oilpan is enabled.
@@ -876,6 +888,7 @@ public:
 #define RefPtrWillBePersistent WTF::RefPtr
 #define RefPtrWillBeRawPtr WTF::RefPtr
 #define RefPtrWillBeMember WTF::RefPtr
+#define RefPtrWillBeWeakMember WTF::RefPtr
 #define RefPtrWillBeCrossThreadPersistent WTF::RefPtr
 #define RawPtrWillBeMember WTF::RawPtr
 #define RawPtrWillBeWeakMember WTF::RawPtr
@@ -887,6 +900,7 @@ public:
 #define WeakPtrWillBeWeakMember WTF::WeakPtr
 #define NoBaseWillBeGarbageCollected WebCore::DummyBase
 #define NoBaseWillBeGarbageCollectedFinalized WebCore::DummyBase
+#define NoBaseWillBeRefCountedGarbageCollected WebCore::DummyBase
 #define WillBeHeapHashMap WTF::HashMap
 #define WillBePersistentHeapHashMap WTF::HashMap
 #define WillBeHeapHashSet WTF::HashSet
@@ -912,6 +926,7 @@ template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeNoop(T* ptr) { retu
 template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeRefCountedGarbageCollected(T* ptr) { return adoptRef(ptr); }
 template<typename T> PassRefPtrWillBeRawPtr<T> adoptRefWillBeThreadSafeRefCountedGarbageCollected(T* ptr) { return adoptRef(ptr); }
 template<typename T> PassOwnPtrWillBeRawPtr<T> adoptPtrWillBeNoop(T* ptr) { return adoptPtr(ptr); }
+template<typename T> PassOwnPtrWillBeRawPtr<T> adoptPtrWillBeRefCountedGarbageCollected(T* ptr) { return adoptPtr(ptr); }
 
 #define WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED WTF_MAKE_FAST_ALLOCATED
 #define DECLARE_EMPTY_DESTRUCTOR_WILL_BE_REMOVED(type) \

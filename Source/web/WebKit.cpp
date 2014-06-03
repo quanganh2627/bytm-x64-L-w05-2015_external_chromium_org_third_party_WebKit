@@ -35,11 +35,13 @@
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/V8Initializer.h"
 #include "core/Init.h"
+#include "core/animation/AnimationClock.h"
 #include "core/dom/Microtask.h"
 #include "core/frame/Settings.h"
 #include "core/page/Page.h"
 #include "core/workers/WorkerGlobalScopeProxy.h"
 #include "gin/public/v8_platform.h"
+#include "modules/InitModules.h"
 #include "platform/LayoutTestSupport.h"
 #include "platform/Logging.h"
 #include "platform/graphics/ImageDecodingStore.h"
@@ -66,8 +68,11 @@ namespace {
 
 class EndOfTaskRunner : public WebThread::TaskObserver {
 public:
-    virtual void willProcessTask() { }
-    virtual void didProcessTask()
+    virtual void willProcessTask() OVERRIDE
+    {
+        WebCore::AnimationClock::notifyTaskStart();
+    }
+    virtual void didProcessTask() OVERRIDE
     {
         WebCore::Microtask::performCheckpoint();
     }
@@ -104,7 +109,6 @@ void initialize(Platform* platform)
     v8::V8::SetEntropySource(&generateEntropy);
     v8::V8::SetArrayBufferAllocator(WebCore::v8ArrayBufferAllocator());
     v8::V8::Initialize();
-    isolate->SetAutorunMicrotasks(false);
     WebCore::V8PerIsolateData::ensureInitialized(isolate);
 
     s_isolateInterruptor = new WebCore::V8IsolateInterruptor(v8::Isolate::GetCurrent());
@@ -167,8 +171,9 @@ void initializeWithoutV8(Platform* platform)
         s_messageLoopInterruptor = new WebCore::MessageLoopInterruptor(currentThread);
         WebCore::ThreadState::current()->addInterruptor(s_messageLoopInterruptor);
     }
-    WebCore::init();
-    WebCore::ImageDecodingStore::initializeOnce();
+
+    DEFINE_STATIC_LOCAL(WebCore::ModulesInitializer, initializer, ());
+    initializer.init();
 
     // There are some code paths (for example, running WebKit in the browser
     // process and calling into LocalStorage before anything else) where the
@@ -224,7 +229,6 @@ void shutdown()
 void shutdownWithoutV8()
 {
     ASSERT(!s_endOfTaskRunner);
-    WebCore::ImageDecodingStore::shutdown();
     WebCore::shutdown();
     WebCore::Heap::shutdown();
     WTF::shutdown();

@@ -44,7 +44,6 @@ namespace WebCore {
 class EventListener;
 class EventTarget;
 class ExecutionContext;
-class ExecutionContextTask;
 class MutationObserver;
 class XMLHttpRequest;
 
@@ -88,20 +87,13 @@ public:
     void didCancelAnimationFrame(ExecutionContext*, int callbackId);
     void willFireAnimationFrame(ExecutionContext*, int callbackId);
 
-    void didAddEventListener(EventTarget*, const AtomicString& eventType, EventListener*, bool useCapture, const ScriptValue& callFrames);
-    void didRemoveEventListener(EventTarget*, const AtomicString& eventType, EventListener*, bool useCapture);
-    void didRemoveAllEventListeners(EventTarget*);
     void willHandleEvent(EventTarget*, const AtomicString& eventType, EventListener*, bool useCapture);
-
     void willLoadXHR(XMLHttpRequest*, const ScriptValue& callFrames);
 
     void didEnqueueMutationRecord(ExecutionContext*, MutationObserver*, const ScriptValue& callFrames);
     bool hasEnqueuedMutationRecord(ExecutionContext*, MutationObserver*);
     void didClearAllMutationRecords(ExecutionContext*, MutationObserver*);
     void willDeliverMutationRecords(ExecutionContext*, MutationObserver*);
-
-    void didPostPromiseTask(ExecutionContext*, ExecutionContextTask*, bool isResolved, const ScriptValue& callFrames);
-    void willPerformPromiseTask(ExecutionContext*, ExecutionContextTask*);
 
     void didFireAsyncCall();
     void clear();

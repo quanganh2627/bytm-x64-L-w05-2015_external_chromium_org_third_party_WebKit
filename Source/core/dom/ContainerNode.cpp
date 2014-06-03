@@ -24,6 +24,7 @@
 #include "core/dom/ContainerNode.h"
 
 #include "bindings/v8/ExceptionState.h"
+#include "core/dom/ChildFrameDisconnector.h"
 #include "core/dom/ChildListMutationScope.h"
 #include "core/dom/ClassCollection.h"
 #include "core/dom/ContainerNodeAlgorithms.h"
@@ -53,8 +54,6 @@ using namespace HTMLNames;
 
 static void dispatchChildInsertionEvents(Node&);
 static void dispatchChildRemovalEvents(Node&);
-
-ChildNodesLazySnapshot* ChildNodesLazySnapshot::latestSnapshot = 0;
 
 #ifndef NDEBUG
 unsigned NoEventDispatchAssertion::s_count = 0;
@@ -95,9 +94,8 @@ void ContainerNode::parserTakeAllChildrenFrom(ContainerNode& oldParent)
 
 ContainerNode::~ContainerNode()
 {
-#if ENABLE(OILPAN)
     ASSERT(needsAttach());
-#else
+#if !ENABLE(OILPAN)
     willBeDeletedFromDocument();
     removeDetachedChildren();
 #endif
@@ -704,8 +702,8 @@ bool ContainerNode::getUpperLeftCorner(FloatPoint& point) const
     // find the next text/image child, to get a position
     while (o) {
         RenderObject* p = o;
-        if (o->firstChild()) {
-            o = o->firstChild();
+        if (RenderObject* oFirstChild = o->slowFirstChild()) {
+            o = oFirstChild;
         } else if (o->nextSibling()) {
             o = o->nextSibling();
         } else {
@@ -764,8 +762,8 @@ bool ContainerNode::getLowerRightCorner(FloatPoint& point) const
 
     // find the last text/image child, to get a position
     while (o) {
-        if (o->lastChild()) {
-            o = o->lastChild();
+        if (RenderObject* oLastChild = o->slowLastChild()) {
+            o = oLastChild;
         } else if (o->previousSibling()) {
             o = o->previousSibling();
         } else {
@@ -839,7 +837,7 @@ void ContainerNode::focusStateChanged()
     }
 
     if (renderer() && renderer()->style()->hasAppearance())
-        RenderTheme::theme().stateChanged(renderer(), FocusState);
+        RenderTheme::theme().stateChanged(renderer(), FocusControlState);
 }
 
 void ContainerNode::setFocus(bool received)
@@ -880,7 +878,7 @@ void ContainerNode::setActive(bool down)
         }
 
         if (renderStyle()->hasAppearance())
-            RenderTheme::theme().stateChanged(renderer(), PressedState);
+            RenderTheme::theme().stateChanged(renderer(), PressedControlState);
     }
 }
 
@@ -912,10 +910,10 @@ void ContainerNode::setHovered(bool over)
     }
 
     if (renderer()->style()->hasAppearance())
-        RenderTheme::theme().stateChanged(renderer(), HoverState);
+        RenderTheme::theme().stateChanged(renderer(), HoverControlState);
 }
 
-PassRefPtr<HTMLCollection> ContainerNode::children()
+PassRefPtrWillBeRawPtr<HTMLCollection> ContainerNode::children()
 {
     return ensureRareData().ensureNodeLists().addCache<HTMLCollection>(*this, NodeChildren);
 }
@@ -938,7 +936,7 @@ Node* ContainerNode::traverseToChildAt(unsigned index) const
     return n;
 }
 
-PassRefPtr<Element> ContainerNode::querySelector(const AtomicString& selectors, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<Element> ContainerNode::querySelector(const AtomicString& selectors, ExceptionState& exceptionState)
 {
     if (selectors.isEmpty()) {
         exceptionState.throwDOMException(SyntaxError, "The provided selector is empty.");
@@ -951,7 +949,7 @@ PassRefPtr<Element> ContainerNode::querySelector(const AtomicString& selectors, 
     return selectorQuery->queryFirst(*this);
 }
 
-PassRefPtr<NodeList> ContainerNode::querySelectorAll(const AtomicString& selectors, ExceptionState& exceptionState)
+PassRefPtrWillBeRawPtr<NodeList> ContainerNode::querySelectorAll(const AtomicString& selectors, ExceptionState& exceptionState)
 {
     if (selectors.isEmpty()) {
         exceptionState.throwDOMException(SyntaxError, "The provided selector is empty.");
@@ -1146,7 +1144,7 @@ void ContainerNode::checkForSiblingStyleChanges(bool finishedParsingCallback, No
     }
 }
 
-PassRefPtr<HTMLCollection> ContainerNode::getElementsByTagName(const AtomicString& localName)
+PassRefPtrWillBeRawPtr<HTMLCollection> ContainerNode::getElementsByTagName(const AtomicString& localName)
 {
     if (localName.isNull())
         return nullptr;
@@ -1156,7 +1154,7 @@ PassRefPtr<HTMLCollection> ContainerNode::getElementsByTagName(const AtomicStrin
     return ensureRareData().ensureNodeLists().addCache<TagCollection>(*this, TagCollectionType, localName);
 }
 
-PassRefPtr<HTMLCollection> ContainerNode::getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName)
+PassRefPtrWillBeRawPtr<HTMLCollection> ContainerNode::getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName)
 {
     if (localName.isNull())
         return nullptr;
@@ -1169,19 +1167,19 @@ PassRefPtr<HTMLCollection> ContainerNode::getElementsByTagNameNS(const AtomicStr
 
 // Takes an AtomicString in argument because it is common for elements to share the same name attribute.
 // Therefore, the NameNodeList factory function expects an AtomicString type.
-PassRefPtr<NodeList> ContainerNode::getElementsByName(const AtomicString& elementName)
+PassRefPtrWillBeRawPtr<NodeList> ContainerNode::getElementsByName(const AtomicString& elementName)
 {
     return ensureRareData().ensureNodeLists().addCache<NameNodeList>(*this, NameNodeListType, elementName);
 }
 
 // Takes an AtomicString in argument because it is common for elements to share the same set of class names.
 // Therefore, the ClassNodeList factory function expects an AtomicString type.
-PassRefPtr<HTMLCollection> ContainerNode::getElementsByClassName(const AtomicString& classNames)
+PassRefPtrWillBeRawPtr<HTMLCollection> ContainerNode::getElementsByClassName(const AtomicString& classNames)
 {
     return ensureRareData().ensureNodeLists().addCache<ClassCollection>(*this, ClassCollectionType, classNames);
 }
 
-PassRefPtr<RadioNodeList> ContainerNode::radioNodeList(const AtomicString& name, bool onlyMatchImgElements)
+PassRefPtrWillBeRawPtr<RadioNodeList> ContainerNode::radioNodeList(const AtomicString& name, bool onlyMatchImgElements)
 {
     ASSERT(isHTMLFormElement(this) || isHTMLFieldSetElement(this));
     CollectionType type = onlyMatchImgElements ? RadioImgNodeListType : RadioNodeListType;

@@ -80,8 +80,9 @@ public:
     void setFeatureSettings(ExecutionContext*, const String&, ExceptionState&);
 
     String status() const;
+    ScriptPromise loaded(ScriptState* scriptState) { return fontStatusPromise(scriptState); }
 
-    ScriptPromise load(ExecutionContext*);
+    ScriptPromise load(ScriptState*);
 
     LoadStatus loadStatus() const { return m_status; }
     void setLoadStatus(LoadStatus);
@@ -113,6 +114,7 @@ private:
     bool setFamilyValue(CSSValueList*);
     void resolveReadyPromises();
     void loadInternal(ExecutionContext*);
+    ScriptPromise fontStatusPromise(ScriptState*);
 
     AtomicString m_family;
     RefPtrWillBeMember<CSSValue> m_src;

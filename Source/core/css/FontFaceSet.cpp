@@ -50,9 +50,9 @@ static const char defaultFontFamily[] = "sans-serif";
 
 class LoadFontPromiseResolver FINAL : public FontFace::LoadFontCallback {
 public:
-    static PassRefPtrWillBeRawPtr<LoadFontPromiseResolver> create(FontFaceArray faces, ExecutionContext* context)
+    static PassRefPtrWillBeRawPtr<LoadFontPromiseResolver> create(FontFaceArray faces, ScriptState* scriptState)
     {
-        return adoptRefWillBeNoop(new LoadFontPromiseResolver(faces, context));
+        return adoptRefWillBeNoop(new LoadFontPromiseResolver(faces, scriptState));
     }
 
     void loadFonts(ExecutionContext*);
@@ -64,10 +64,10 @@ public:
     virtual void trace(Visitor*) OVERRIDE;
 
 private:
-    LoadFontPromiseResolver(FontFaceArray faces, ExecutionContext* context)
+    LoadFontPromiseResolver(FontFaceArray faces, ScriptState* scriptState)
         : m_numLoading(faces.size())
         , m_errorOccured(false)
-        , m_resolver(ScriptPromiseResolverWithContext::create(ScriptState::current(toIsolate(context))))
+        , m_resolver(ScriptPromiseResolverWithContext::create(scriptState))
     {
         m_fontFaces.swap(faces);
     }
@@ -297,19 +297,22 @@ void FontFaceSet::add(FontFace* fontFace, ExceptionState& exceptionState)
     fontSelector->fontFaceCache()->addFontFace(fontSelector, fontFace, false);
     if (fontFace->loadStatus() == FontFace::Loading)
         addToLoadingFonts(fontFace);
+    fontSelector->fontFaceInvalidated();
 }
 
 void FontFaceSet::clear()
 {
-    if (!inActiveDocumentContext())
+    if (!inActiveDocumentContext() || m_nonCSSConnectedFaces.isEmpty())
         return;
-    FontFaceCache* fontFaceCache = document()->styleEngine()->fontSelector()->fontFaceCache();
+    CSSFontSelector* fontSelector = document()->styleEngine()->fontSelector();
+    FontFaceCache* fontFaceCache = fontSelector->fontFaceCache();
     for (ListHashSet<RefPtrWillBeMember<FontFace> >::iterator it = m_nonCSSConnectedFaces.begin(); it != m_nonCSSConnectedFaces.end(); ++it) {
         fontFaceCache->removeFontFace(it->get(), false);
         if ((*it)->loadStatus() == FontFace::Loading)
             removeFromLoadingFonts(*it);
     }
     m_nonCSSConnectedFaces.clear();
+    fontSelector->fontFaceInvalidated();
 }
 
 bool FontFaceSet::remove(FontFace* fontFace, ExceptionState& exceptionState)
@@ -323,9 +326,11 @@ bool FontFaceSet::remove(FontFace* fontFace, ExceptionState& exceptionState)
     ListHashSet<RefPtrWillBeMember<FontFace> >::iterator it = m_nonCSSConnectedFaces.find(fontFace);
     if (it != m_nonCSSConnectedFaces.end()) {
         m_nonCSSConnectedFaces.remove(it);
-        document()->styleEngine()->fontSelector()->fontFaceCache()->removeFontFace(fontFace, false);
+        CSSFontSelector* fontSelector = document()->styleEngine()->fontSelector();
+        fontSelector->fontFaceCache()->removeFontFace(fontFace, false);
         if (fontFace->loadStatus() == FontFace::Loading)
             removeFromLoadingFonts(fontFace);
+        fontSelector->fontFaceInvalidated();
         return true;
     }
     if (isCSSConnectedFontFace(fontFace))
@@ -457,7 +462,7 @@ ScriptPromise FontFaceSet::load(ScriptState* scriptState, const String& fontStri
             segmentedFontFace->match(nullToSpace(text), faces);
     }
 
-    RefPtrWillBeRawPtr<LoadFontPromiseResolver> resolver = LoadFontPromiseResolver::create(faces, executionContext());
+    RefPtrWillBeRawPtr<LoadFontPromiseResolver> resolver = LoadFontPromiseResolver::create(faces, scriptState);
     ScriptPromise promise = resolver->promise();
     resolver->loadFonts(executionContext()); // After this, resolver->promise() may return null.
     return promise;
@@ -581,6 +586,7 @@ void FontFaceSet::trace(Visitor* visitor)
     visitor->trace(m_failedFonts);
     visitor->trace(m_nonCSSConnectedFaces);
     DocumentSupplement::trace(visitor);
+    EventTargetWithInlineData::trace(visitor);
 }
 #endif
 

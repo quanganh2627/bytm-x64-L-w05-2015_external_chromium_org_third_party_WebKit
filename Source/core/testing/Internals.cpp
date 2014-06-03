@@ -44,7 +44,7 @@
 #include "bindings/v8/ScriptPromiseResolver.h"
 #include "bindings/v8/SerializedScriptValue.h"
 #include "bindings/v8/V8ThrowException.h"
-#include "core/animation/DocumentTimeline.h"
+#include "core/animation/AnimationTimeline.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/css/resolver/StyleResolverStats.h"
@@ -105,6 +105,8 @@
 #include "core/page/Chrome.h"
 #include "core/page/ChromeClient.h"
 #include "core/page/EventHandler.h"
+#include "core/page/FocusController.h"
+#include "core/page/NetworkStateNotifier.h"
 #include "core/page/Page.h"
 #include "core/page/PagePopupController.h"
 #include "core/page/PrintContext.h"
@@ -128,6 +130,7 @@
 #include "platform/graphics/filters/FilterOperations.h"
 #include "platform/weborigin/SchemeRegistry.h"
 #include "public/platform/Platform.h"
+#include "public/platform/WebConnectionType.h"
 #include "public/platform/WebGraphicsContext3D.h"
 #include "public/platform/WebGraphicsContext3DProvider.h"
 #include "public/platform/WebLayer.h"
@@ -459,7 +462,7 @@ unsigned Internals::numberOfActiveAnimations() const
 {
     LocalFrame* contextFrame = frame();
     Document* document = contextFrame->document();
-    return document->timeline().numberOfActiveAnimationsForTesting() + document->transitionTimeline().numberOfActiveAnimationsForTesting();
+    return document->timeline().numberOfActiveAnimationsForTesting();
 }
 
 void Internals::pauseAnimations(double pauseTime, ExceptionState& exceptionState)
@@ -471,7 +474,6 @@ void Internals::pauseAnimations(double pauseTime, ExceptionState& exceptionState
 
     frame()->view()->updateLayoutAndStyleForPainting();
     frame()->document()->timeline().pauseAnimationsForTesting(pauseTime);
-    frame()->document()->transitionTimeline().pauseAnimationsForTesting(pauseTime);
 }
 
 bool Internals::hasShadowInsertionPoint(const Node* root, ExceptionState& exceptionState) const
@@ -806,10 +808,10 @@ unsigned Internals::activeMarkerCountForNode(Node* node, ExceptionState& excepti
 
     // Only TextMatch markers can be active.
     DocumentMarker::MarkerType markerType = DocumentMarker::TextMatch;
-    Vector<DocumentMarker*> markers = node->document().markers().markersFor(node, markerType);
+    WillBeHeapVector<DocumentMarker*> markers = node->document().markers().markersFor(node, markerType);
 
     unsigned activeMarkerCount = 0;
-    for (Vector<DocumentMarker*>::iterator iter = markers.begin(); iter != markers.end(); ++iter) {
+    for (WillBeHeapVector<DocumentMarker*>::iterator iter = markers.begin(); iter != markers.end(); ++iter) {
         if ((*iter)->activeMatch())
             activeMarkerCount++;
     }
@@ -830,7 +832,7 @@ DocumentMarker* Internals::markerAt(Node* node, const String& markerType, unsign
         return 0;
     }
 
-    Vector<DocumentMarker*> markers = node->document().markers().markersFor(node, markerTypes);
+    WillBeHeapVector<DocumentMarker*> markers = node->document().markers().markersFor(node, markerTypes);
     if (markers.size() <= index)
         return 0;
     return markers[index];
@@ -1443,7 +1445,7 @@ PassRefPtrWillBeRawPtr<LayerRectList> Internals::touchEventTargetLayerRects(Docu
     return nullptr;
 }
 
-PassRefPtr<NodeList> Internals::nodesFromRect(Document* document, int centerX, int centerY, unsigned topPadding, unsigned rightPadding,
+PassRefPtrWillBeRawPtr<NodeList> Internals::nodesFromRect(Document* document, int centerX, int centerY, unsigned topPadding, unsigned rightPadding,
     unsigned bottomPadding, unsigned leftPadding, bool ignoreClipping, bool allowShadowContent, bool allowChildFrameContent, ExceptionState& exceptionState) const
 {
     if (!document || !document->frame() || !document->frame()->view()) {
@@ -1749,19 +1751,6 @@ static RenderLayer* getRenderLayerForElement(Element* element, ExceptionState& e
     }
 
     return layer;
-}
-
-void Internals::setNeedsCompositedScrolling(Element* element, unsigned needsCompositedScrolling, ExceptionState& exceptionState)
-{
-    if (!element) {
-        exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Element"));
-        return;
-    }
-
-    element->document().updateLayout();
-
-    if (RenderLayer* layer = getRenderLayerForElement(element, exceptionState))
-        layer->scrollableArea()->setForceNeedsCompositedScrolling(static_cast<ForceNeedsCompositedScrollingMode>(needsCompositedScrolling));
 }
 
 String Internals::repaintRectsAsText(Document* document, ExceptionState& exceptionState) const
@@ -2259,16 +2248,6 @@ void Internals::forceCompositingUpdate(Document* document, ExceptionState& excep
     document->frame()->view()->updateLayoutAndStyleForPainting();
 }
 
-bool Internals::isCompositorFramePending(Document* document, ExceptionState& exceptionState)
-{
-    if (!document || !document->renderView()) {
-        exceptionState.throwDOMException(InvalidAccessError, document ? "The document's render view cannot be retrieved." : "The document provided is invalid.");
-        return false;
-    }
-
-    return document->page()->chrome().client().isCompositorFramePending();
-}
-
 void Internals::setZoomFactor(float factor)
 {
     frame()->setPageZoomFactor(factor);
@@ -2305,7 +2284,7 @@ private:
         v8::Isolate* isolate = value.isolate();
         ASSERT(v8Value->IsNumber());
         int intValue = v8Value.As<v8::Integer>()->Value();
-        ScriptValue result  = ScriptValue(v8::Integer::New(isolate, intValue + 1), isolate);
+        ScriptValue result  = ScriptValue(value.scriptState(), v8::Integer::New(isolate, intValue + 1));
         return result;
     }
 };
@@ -2358,4 +2337,36 @@ String Internals::textSurroundingNode(Node* node, int x, int y, unsigned long ma
     return surroundingText.content();
 }
 
+void Internals::setFocused(bool focused)
+{
+    frame()->page()->focusController().setFocused(focused);
 }
+
+void Internals::setNetworkStateNotifierTestOnly(bool testOnly)
+{
+    networkStateNotifier().setTestUpdatesOnly(testOnly);
+}
+
+void Internals::setNetworkConnectionInfo(const String& type, ExceptionState& exceptionState)
+{
+    blink::WebConnectionType webtype;
+    if (type == "cellular") {
+        webtype = blink::ConnectionTypeCellular;
+    } else if (type == "bluetooth") {
+        webtype = blink::ConnectionTypeBluetooth;
+    } else if (type == "ethernet") {
+        webtype = blink::ConnectionTypeEthernet;
+    } else if (type == "wifi") {
+        webtype = blink::ConnectionTypeWifi;
+    } else if (type == "other") {
+        webtype = blink::ConnectionTypeOther;
+    } else if (type == "none") {
+        webtype = blink::ConnectionTypeNone;
+    } else {
+        exceptionState.throwDOMException(NotFoundError, ExceptionMessages::failedToEnumerate("connection type", type));
+        return;
+    }
+    networkStateNotifier().setWebConnectionTypeForTest(webtype);
+}
+
+} // namespace WebCore

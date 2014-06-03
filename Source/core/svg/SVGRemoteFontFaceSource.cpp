@@ -7,6 +7,7 @@
 #include "core/svg/SVGRemoteFontFaceSource.h"
 
 #include "SVGNames.h"
+#include "core/css/FontLoader.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/svg/SVGFontData.h"
 #include "core/svg/SVGFontElement.h"
@@ -16,8 +17,8 @@
 
 namespace WebCore {
 
-SVGRemoteFontFaceSource::SVGRemoteFontFaceSource(const String& uri, FontResource* font)
-    : RemoteFontFaceSource(font)
+SVGRemoteFontFaceSource::SVGRemoteFontFaceSource(const String& uri, FontResource* font, PassRefPtrWillBeRawPtr<FontLoader> fontLoader)
+    : RemoteFontFaceSource(font, fontLoader)
     , m_uri(uri)
 {
 }
@@ -60,6 +61,12 @@ PassRefPtr<SimpleFontData> SVGRemoteFontFaceSource::createFontData(const FontDes
             fontDescription.isSyntheticItalic());
     }
     return nullptr;
+}
+
+void SVGRemoteFontFaceSource::trace(Visitor* visitor)
+{
+    visitor->trace(m_externalSVGFontElement);
+    RemoteFontFaceSource::trace(visitor);
 }
 
 } // namespace WebCore

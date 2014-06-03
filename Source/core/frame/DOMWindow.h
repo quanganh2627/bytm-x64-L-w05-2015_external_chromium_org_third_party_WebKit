@@ -94,16 +94,16 @@ enum PageshowEventPersistence {
 
     class DOMWindow FINAL : public RefCountedWillBeRefCountedGarbageCollected<DOMWindow>, public ScriptWrappable, public EventTargetWithInlineData, public DOMWindowBase64, public FrameDestructionObserver, public WillBeHeapSupplementable<DOMWindow>, public LifecycleContext<DOMWindow> {
         WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(DOMWindow);
-        DEFINE_EVENT_TARGET_REFCOUNTING(RefCountedWillBeRefCountedGarbageCollected<DOMWindow>);
+        REFCOUNTED_EVENT_TARGET(DOMWindow);
     public:
-        static PassRefPtr<Document> createDocument(const String& mimeType, const DocumentInit&, bool forceXHTML);
+        static PassRefPtrWillBeRawPtr<Document> createDocument(const String& mimeType, const DocumentInit&, bool forceXHTML);
         static PassRefPtrWillBeRawPtr<DOMWindow> create(LocalFrame& frame)
         {
             return adoptRefWillBeRefCountedGarbageCollected(new DOMWindow(frame));
         }
         virtual ~DOMWindow();
 
-        PassRefPtr<Document> installNewDocument(const String& mimeType, const DocumentInit&, bool forceXHTML = false);
+        PassRefPtrWillBeRawPtr<Document> installNewDocument(const String& mimeType, const DocumentInit&, bool forceXHTML = false);
 
         virtual const AtomicString& interfaceName() const OVERRIDE;
         virtual ExecutionContext* executionContext() const OVERRIDE;
@@ -159,7 +159,7 @@ enum PageshowEventPersistence {
         void showModalDialog(const String& urlString, const String& dialogFeaturesString,
             DOMWindow* callingWindow, DOMWindow* enteredWindow, PrepareDialogFunction, void* functionContext);
 
-        void alert(const String& message);
+        void alert(const String& message = String());
         bool confirm(const String& message);
         String prompt(const String& message, const String& defaultValue);
 
@@ -326,7 +326,7 @@ enum PageshowEventPersistence {
         // FIXME: This shouldn't be public once DOMWindow becomes ExecutionContext.
         void clearEventQueue();
 
-        void trace(Visitor*);
+        virtual void trace(Visitor*) OVERRIDE;
 
     protected:
         DOMWindowLifecycleNotifier& lifecycleNotifier();
@@ -343,7 +343,19 @@ enum PageshowEventPersistence {
         void resetDOMWindowProperties();
         void willDestroyDocumentInFrame();
 
-        RefPtr<Document> m_document;
+        // FIXME: Oilpan: the need for this internal method will fall
+        // away when EventTargets are no longer using refcounts and
+        // window properties are also on the heap. Inline the minimal
+        // do-not-broadcast handling then and remove the enum +
+        // removeAllEventListenersInternal().
+        enum BroadcastListenerRemoval {
+            DoNotBroadcastListenerRemoval,
+            DoBroadcastListenerRemoval
+        };
+
+        void removeAllEventListenersInternal(BroadcastListenerRemoval);
+
+        RefPtrWillBeMember<Document> m_document;
 
         bool m_shouldPrintWhenFinishedLoading;
 #if ASSERT_ENABLED

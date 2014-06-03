@@ -90,7 +90,7 @@ enum ElementFlags {
 
 class Element : public ContainerNode {
 public:
-    static PassRefPtr<Element> create(const QualifiedName&, Document*);
+    static PassRefPtrWillBeRawPtr<Element> create(const QualifiedName&, Document*);
     virtual ~Element();
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecopy);
@@ -217,18 +217,18 @@ public:
     void removeAttribute(const AtomicString& name);
     void removeAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName);
 
-    PassRefPtr<Attr> detachAttribute(size_t index);
+    PassRefPtrWillBeRawPtr<Attr> detachAttribute(size_t index);
 
-    PassRefPtr<Attr> getAttributeNode(const AtomicString& name);
-    PassRefPtr<Attr> getAttributeNodeNS(const AtomicString& namespaceURI, const AtomicString& localName);
-    PassRefPtr<Attr> setAttributeNode(Attr*, ExceptionState&);
-    PassRefPtr<Attr> setAttributeNodeNS(Attr*, ExceptionState&);
-    PassRefPtr<Attr> removeAttributeNode(Attr*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<Attr> getAttributeNode(const AtomicString& name);
+    PassRefPtrWillBeRawPtr<Attr> getAttributeNodeNS(const AtomicString& namespaceURI, const AtomicString& localName);
+    PassRefPtrWillBeRawPtr<Attr> setAttributeNode(Attr*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<Attr> setAttributeNodeNS(Attr*, ExceptionState&);
+    PassRefPtrWillBeRawPtr<Attr> removeAttributeNode(Attr*, ExceptionState&);
 
-    PassRefPtr<Attr> attrIfExists(const QualifiedName&);
-    PassRefPtr<Attr> ensureAttr(const QualifiedName&);
+    PassRefPtrWillBeRawPtr<Attr> attrIfExists(const QualifiedName&);
+    PassRefPtrWillBeRawPtr<Attr> ensureAttr(const QualifiedName&);
 
-    const Vector<RefPtr<Attr> >& attrNodeList();
+    const WillBeHeapVector<RefPtrWillBeMember<Attr> >& attrNodeList();
 
     CSSStyleDeclaration* style();
 
@@ -253,8 +253,8 @@ public:
 
     virtual String nodeName() const OVERRIDE;
 
-    PassRefPtr<Element> cloneElementWithChildren();
-    PassRefPtr<Element> cloneElementWithoutChildren();
+    PassRefPtrWillBeRawPtr<Element> cloneElementWithChildren();
+    PassRefPtrWillBeRawPtr<Element> cloneElementWithoutChildren();
 
     void scheduleLayerUpdate();
 
@@ -269,7 +269,7 @@ public:
 
     bool setInlineStyleProperty(CSSPropertyID, CSSValueID identifier, bool important = false);
     bool setInlineStyleProperty(CSSPropertyID, CSSPropertyID identifier, bool important = false);
-    bool setInlineStyleProperty(CSSPropertyID, double value, CSSPrimitiveValue::UnitTypes, bool important = false);
+    bool setInlineStyleProperty(CSSPropertyID, double value, CSSPrimitiveValue::UnitType, bool important = false);
     bool setInlineStyleProperty(CSSPropertyID, const String& value, bool important = false);
     bool removeInlineStyleProperty(CSSPropertyID);
     void removeAllInlineStyleProperties();
@@ -331,7 +331,7 @@ public:
 
     ElementShadow* shadow() const;
     ElementShadow& ensureShadow();
-    PassRefPtr<ShadowRoot> createShadowRoot(ExceptionState&);
+    PassRefPtrWillBeRawPtr<ShadowRoot> createShadowRoot(ExceptionState&);
     ShadowRoot* shadowRoot() const;
     ShadowRoot* youngestShadowRoot() const;
 
@@ -444,7 +444,6 @@ public:
     virtual bool isValidFormControlElement() { return false; }
     virtual bool isInRange() const { return false; }
     virtual bool isOutOfRange() const { return false; }
-    virtual bool isPasswordGeneratorButtonElement() const { return false; }
     virtual bool isClearButtonElement() const { return false; }
 
     virtual bool canContainRangeEndPoint() const OVERRIDE { return true; }
@@ -478,6 +477,7 @@ public:
     void setIsInTopLayer(bool);
 
     void webkitRequestPointerLock();
+    void requestPointerLock();
 
     bool isSpellCheckingEnabled() const;
 
@@ -519,7 +519,7 @@ protected:
     }
 
     void addPropertyToPresentationAttributeStyle(MutableStylePropertySet*, CSSPropertyID, CSSValueID identifier);
-    void addPropertyToPresentationAttributeStyle(MutableStylePropertySet*, CSSPropertyID, double value, CSSPrimitiveValue::UnitTypes);
+    void addPropertyToPresentationAttributeStyle(MutableStylePropertySet*, CSSPropertyID, double value, CSSPrimitiveValue::UnitType);
     void addPropertyToPresentationAttributeStyle(MutableStylePropertySet*, CSSPropertyID, const String& value);
 
     virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
@@ -543,7 +543,7 @@ protected:
     // moved to RenderObject because some focusable nodes don't have renderers,
     // e.g., HTMLOptionElement.
     virtual bool rendererIsFocusable() const;
-    PassRefPtr<HTMLCollection> ensureCachedHTMLCollection(CollectionType);
+    PassRefPtrWillBeRawPtr<HTMLCollection> ensureCachedHTMLCollection(CollectionType);
     HTMLCollection* cachedHTMLCollection(CollectionType);
 
     // classAttributeChanged() exists to share code between
@@ -626,8 +626,8 @@ private:
 
     // cloneNode is private so that non-virtual cloneElementWithChildren and cloneElementWithoutChildren
     // are used instead.
-    virtual PassRefPtr<Node> cloneNode(bool deep) OVERRIDE;
-    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren();
+    virtual PassRefPtrWillBeRawPtr<Node> cloneNode(bool deep) OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<Element> cloneElementWithoutAttributesAndChildren();
 
     QualifiedName m_tagName;
 

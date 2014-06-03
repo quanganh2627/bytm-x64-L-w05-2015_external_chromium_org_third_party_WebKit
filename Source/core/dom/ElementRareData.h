@@ -48,7 +48,7 @@ public:
 
     ~ElementRareData();
 
-    void setPseudoElement(PseudoId, PassRefPtr<PseudoElement>);
+    void setPseudoElement(PseudoId, PassRefPtrWillBeRawPtr<PseudoElement>);
     PseudoElement* pseudoElement(PseudoId) const;
 
     void resetStyleState();
@@ -131,16 +131,16 @@ private:
     OwnPtrWillBeMember<ClassList> m_classList;
     OwnPtrWillBeMember<ElementShadow> m_shadow;
     OwnPtrWillBeMember<NamedNodeMap> m_attributeMap;
-    OwnPtr<InputMethodContext> m_inputMethodContext;
+    OwnPtrWillBeMember<InputMethodContext> m_inputMethodContext;
     OwnPtrWillBeMember<ActiveAnimations> m_activeAnimations;
     OwnPtrWillBeMember<InlineCSSStyleDeclaration> m_cssomWrapper;
 
     RefPtr<RenderStyle> m_computedStyle;
     RefPtr<CustomElementDefinition> m_customElementDefinition;
 
-    RefPtr<PseudoElement> m_generatedBefore;
-    RefPtr<PseudoElement> m_generatedAfter;
-    RefPtr<PseudoElement> m_backdrop;
+    RefPtrWillBeMember<PseudoElement> m_generatedBefore;
+    RefPtrWillBeMember<PseudoElement> m_generatedAfter;
+    RefPtrWillBeMember<PseudoElement> m_backdrop;
 
     explicit ElementRareData(RenderObject*);
 };
@@ -174,7 +174,7 @@ inline void ElementRareData::clearPseudoElements()
     setPseudoElement(BACKDROP, nullptr);
 }
 
-inline void ElementRareData::setPseudoElement(PseudoId pseudoId, PassRefPtr<PseudoElement> element)
+inline void ElementRareData::setPseudoElement(PseudoId pseudoId, PassRefPtrWillBeRawPtr<PseudoElement> element)
 {
     switch (pseudoId) {
     case BEFORE:

@@ -27,6 +27,7 @@
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/dom/Node.h"
 #include "wtf/OwnPtr.h"
+#include "wtf/TemporaryChange.h"
 #include "wtf/Vector.h"
 
 namespace WebCore {
@@ -40,41 +41,62 @@ namespace Private {
     void addChildNodesToDeletionQueue(GenericNode*& head, GenericNode*& tail, GenericNodeContainer&);
 }
 
+#ifndef NDEBUG
+// FIXME: Move this class to its own file.
 class NoEventDispatchAssertion {
 public:
     NoEventDispatchAssertion()
     {
-#ifndef NDEBUG
         if (!isMainThread())
             return;
         s_count++;
-#endif
     }
 
     ~NoEventDispatchAssertion()
     {
-#ifndef NDEBUG
         if (!isMainThread())
             return;
         ASSERT(s_count);
         s_count--;
-#endif
     }
 
-#ifndef NDEBUG
     static bool isEventDispatchForbidden()
     {
         if (!isMainThread())
             return false;
         return s_count;
     }
-#endif
+
+    // It's safe to dispatch events in SVGImage since there can't be any script
+    // listeners.
+    class AllowSVGImageEvents {
+    public:
+        AllowSVGImageEvents()
+            : m_change(s_count, 0)
+        {
+        }
+
+        ~AllowSVGImageEvents()
+        {
+            ASSERT(!s_count);
+        }
+
+        TemporaryChange<unsigned> m_change;
+    };
 
 private:
-#ifndef NDEBUG
     static unsigned s_count;
-#endif
 };
+#else
+class NoEventDispatchAssertion {
+public:
+    NoEventDispatchAssertion() { }
+    class AllowSVGImageEvents {
+    public:
+        AllowSVGImageEvents() { }
+    };
+};
+#endif
 
 enum DynamicRestyleFlags {
     ChildrenAffectedByFocus = 1 << 0,
@@ -103,13 +125,13 @@ public:
     bool hasOneTextChild() const { return hasOneChild() && m_firstChild->isTextNode(); }
     bool hasChildCount(unsigned) const;
 
-    PassRefPtr<HTMLCollection> children();
+    PassRefPtrWillBeRawPtr<HTMLCollection> children();
 
     unsigned countChildren() const;
     Node* traverseToChildAt(unsigned index) const;
 
-    PassRefPtr<Element> querySelector(const AtomicString& selectors, ExceptionState&);
-    PassRefPtr<NodeList> querySelectorAll(const AtomicString& selectors, ExceptionState&);
+    PassRefPtrWillBeRawPtr<Element> querySelector(const AtomicString& selectors, ExceptionState&);
+    PassRefPtrWillBeRawPtr<NodeList> querySelectorAll(const AtomicString& selectors, ExceptionState&);
 
     void insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionState& = ASSERT_NO_EXCEPTION);
     void replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionState& = ASSERT_NO_EXCEPTION);
@@ -117,11 +139,11 @@ public:
     void appendChild(PassRefPtr<Node> newChild, ExceptionState& = ASSERT_NO_EXCEPTION);
 
     Element* getElementById(const AtomicString& id) const;
-    PassRefPtr<HTMLCollection> getElementsByTagName(const AtomicString&);
-    PassRefPtr<HTMLCollection> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
-    PassRefPtr<NodeList> getElementsByName(const AtomicString& elementName);
-    PassRefPtr<HTMLCollection> getElementsByClassName(const AtomicString& classNames);
-    PassRefPtr<RadioNodeList> radioNodeList(const AtomicString&, bool onlyMatchImgElements = false);
+    PassRefPtrWillBeRawPtr<HTMLCollection> getElementsByTagName(const AtomicString&);
+    PassRefPtrWillBeRawPtr<HTMLCollection> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
+    PassRefPtrWillBeRawPtr<NodeList> getElementsByName(const AtomicString& elementName);
+    PassRefPtrWillBeRawPtr<HTMLCollection> getElementsByClassName(const AtomicString& classNames);
+    PassRefPtrWillBeRawPtr<RadioNodeList> radioNodeList(const AtomicString&, bool onlyMatchImgElements = false);
 
     // These methods are only used during parsing.
     // They don't send DOM mutation events or handle reparenting.
@@ -323,6 +345,12 @@ inline ContainerNode* Node::parentElementOrShadowRoot() const
     return parent && (parent->isElementNode() || parent->isShadowRoot()) ? parent : 0;
 }
 
+inline ContainerNode* Node::parentElementOrDocumentFragment() const
+{
+    ContainerNode* parent = parentNode();
+    return parent && (parent->isElementNode() || parent->isDocumentFragment()) ? parent : 0;
+}
+
 // This constant controls how much buffer is initially allocated
 // for a Node Vector that is used to store child Nodes of a given Node.
 // FIXME: Optimize the value.
@@ -335,71 +363,6 @@ inline void getChildNodes(Node& node, NodeVector& nodes)
     for (Node* child = node.firstChild(); child; child = child->nextSibling())
         nodes.append(child);
 }
-
-class ChildNodesLazySnapshot {
-    WTF_MAKE_NONCOPYABLE(ChildNodesLazySnapshot);
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit ChildNodesLazySnapshot(Node& parentNode)
-        : m_currentNode(parentNode.firstChild())
-        , m_currentIndex(0)
-    {
-        m_nextSnapshot = latestSnapshot;
-        latestSnapshot = this;
-    }
-
-    ~ChildNodesLazySnapshot()
-    {
-        latestSnapshot = m_nextSnapshot;
-    }
-
-    // Returns 0 if there is no next Node.
-    PassRefPtr<Node> nextNode()
-    {
-        if (LIKELY(!hasSnapshot())) {
-            RefPtr<Node> node = m_currentNode;
-            if (node)
-                m_currentNode = node->nextSibling();
-            return node.release();
-        }
-        Vector<RefPtr<Node> >& nodeVector = *m_childNodes;
-        if (m_currentIndex >= nodeVector.size())
-            return nullptr;
-        return nodeVector[m_currentIndex++];
-    }
-
-    void takeSnapshot()
-    {
-        if (hasSnapshot())
-            return;
-        m_childNodes = adoptPtr(new Vector<RefPtr<Node> >());
-        Node* node = m_currentNode.get();
-        while (node) {
-            m_childNodes->append(node);
-            node = node->nextSibling();
-        }
-    }
-
-    ChildNodesLazySnapshot* nextSnapshot() { return m_nextSnapshot; }
-    bool hasSnapshot() { return !!m_childNodes.get(); }
-
-    static void takeChildNodesLazySnapshot()
-    {
-        ChildNodesLazySnapshot* snapshot = latestSnapshot;
-        while (snapshot && !snapshot->hasSnapshot()) {
-            snapshot->takeSnapshot();
-            snapshot = snapshot->nextSnapshot();
-        }
-    }
-
-private:
-    static ChildNodesLazySnapshot* latestSnapshot;
-
-    RefPtr<Node> m_currentNode;
-    unsigned m_currentIndex;
-    OwnPtr<Vector<RefPtr<Node> > > m_childNodes; // Lazily instantiated.
-    ChildNodesLazySnapshot* m_nextSnapshot;
-};
 
 } // namespace WebCore
 

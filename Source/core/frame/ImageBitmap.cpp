@@ -59,7 +59,12 @@ ImageBitmap::ImageBitmap(HTMLVideoElement* video, const IntRect& cropRect)
     , m_cropRect(cropRect)
     , m_bitmapOffset(IntPoint())
 {
-    IntRect videoRect = IntRect(IntPoint(), video->player()->naturalSize());
+    IntSize playerSize;
+
+    if (video->webMediaPlayer())
+        playerSize = video->webMediaPlayer()->naturalSize();
+
+    IntRect videoRect = IntRect(IntPoint(), playerSize);
     IntRect srcRect = intersection(cropRect, videoRect);
     IntRect dstRect(IntPoint(), srcRect.size());
 
@@ -145,8 +150,10 @@ ImageBitmap::ImageBitmap(Image* image, const IntRect& cropRect)
 
 ImageBitmap::~ImageBitmap()
 {
+#if !ENABLE(OILPAN)
     if (m_imageElement)
         m_imageElement->removeClient(this);
+#endif
 }
 
 PassRefPtrWillBeRawPtr<ImageBitmap> ImageBitmap::create(HTMLImageElement* image, const IntRect& cropRect)
@@ -226,6 +233,7 @@ FloatSize ImageBitmap::sourceSize() const
 
 void ImageBitmap::trace(Visitor* visitor)
 {
+    visitor->trace(m_imageElement);
     ImageLoaderClient::trace(visitor);
 }
 

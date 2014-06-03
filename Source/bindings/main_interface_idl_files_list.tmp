@@ -1,8 +1,8 @@
 ../core/animation/Animation.idl
 ../core/animation/AnimationEffect.idl
 ../core/animation/AnimationPlayer.idl
-../core/animation/TimedItem.idl
-../core/animation/Timeline.idl
+../core/animation/AnimationNode.idl
+../core/animation/AnimationTimeline.idl
 ../core/animation/Timing.idl
 ../core/clipboard/DataTransfer.idl
 ../core/clipboard/DataTransferItem.idl
@@ -70,7 +70,6 @@
 ../core/dom/NodeList.idl
 ../core/dom/Notation.idl
 ../core/dom/ProcessingInstruction.idl
-../core/dom/Promise.idl
 ../core/dom/Range.idl
 ../core/dom/RequestAnimationFrameCallback.idl
 ../core/dom/StringCallback.idl
@@ -218,6 +217,7 @@
 ../core/html/canvas/CanvasGradient.idl
 ../core/html/canvas/CanvasPattern.idl
 ../core/html/canvas/CanvasRenderingContext2D.idl
+../core/html/canvas/EXTBlendMinMax.idl
 ../core/html/canvas/EXTFragDepth.idl
 ../core/html/canvas/EXTShaderTextureLOD.idl
 ../core/html/canvas/EXTTextureFilterAnisotropic.idl
@@ -449,6 +449,7 @@
 ../modules/crypto/RsaHashedKeyAlgorithm.idl
 ../modules/crypto/RsaKeyAlgorithm.idl
 ../modules/crypto/SubtleCrypto.idl
+../modules/device_light/DeviceLightEvent.idl
 ../modules/device_orientation/DeviceAcceleration.idl
 ../modules/device_orientation/DeviceMotionEvent.idl
 ../modules/device_orientation/DeviceOrientationEvent.idl
@@ -543,6 +544,8 @@
 ../modules/serviceworkers/Cache.idl
 ../modules/serviceworkers/Client.idl
 ../modules/serviceworkers/FetchEvent.idl
+../modules/serviceworkers/HeaderMap.idl
+../modules/serviceworkers/HeaderMapForEachCallback.idl
 ../modules/serviceworkers/InstallEvent.idl
 ../modules/serviceworkers/InstallPhaseEvent.idl
 ../modules/serviceworkers/Response.idl

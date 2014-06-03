@@ -590,7 +590,7 @@ void InspectorDOMAgent::querySelectorAll(ErrorString* errorString, int nodeId, c
         return;
 
     TrackExceptionState exceptionState;
-    RefPtr<NodeList> nodes = toContainerNode(node)->querySelectorAll(AtomicString(selectors), exceptionState);
+    RefPtrWillBeRawPtr<NodeList> nodes = toContainerNode(node)->querySelectorAll(AtomicString(selectors), exceptionState);
     if (exceptionState.hadException()) {
         *errorString = "DOM Error while querying";
         return;
@@ -670,7 +670,7 @@ void InspectorDOMAgent::setAttributesAsText(ErrorString* errorString, int elemen
         return;
 
     String markup = "<span " + text + "></span>";
-    RefPtr<DocumentFragment> fragment = element->document().createDocumentFragment();
+    RefPtrWillBeRawPtr<DocumentFragment> fragment = element->document().createDocumentFragment();
 
     bool shouldIgnoreCase = element->document().isHTMLDocument() && element->isHTMLElement();
     // Not all elements can represent the context (i.e. IFRAME), hence using document.body.
@@ -742,7 +742,7 @@ void InspectorDOMAgent::setNodeName(ErrorString* errorString, int nodeId, const 
         return;
 
     TrackExceptionState exceptionState;
-    RefPtr<Element> newElem = oldNode->document().createElement(AtomicString(tagName), exceptionState);
+    RefPtrWillBeRawPtr<Element> newElem = oldNode->document().createElement(AtomicString(tagName), exceptionState);
     if (exceptionState.hadException())
         return;
 
@@ -1001,7 +1001,7 @@ void InspectorDOMAgent::performSearch(ErrorString*, const String& whitespaceTrim
         for (Vector<Document*>::iterator it = docs.begin(); it != docs.end(); ++it) {
             Document* document = *it;
             TrackExceptionState exceptionState;
-            RefPtr<NodeList> nodeList = document->querySelectorAll(AtomicString(whitespaceTrimmedQuery), exceptionState);
+            RefPtrWillBeRawPtr<NodeList> nodeList = document->querySelectorAll(AtomicString(whitespaceTrimmedQuery), exceptionState);
             if (exceptionState.hadException() || !nodeList)
                 continue;
 
@@ -1539,7 +1539,6 @@ PassRefPtr<TypeBuilder::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* n
         DocumentType* docType = toDocumentType(node);
         value->setPublicId(docType->publicId());
         value->setSystemId(docType->systemId());
-        value->setInternalSubset(docType->internalSubset());
     } else if (node->isAttributeNode()) {
         Attr* attribute = toAttr(node);
         value->setName(attribute->name());

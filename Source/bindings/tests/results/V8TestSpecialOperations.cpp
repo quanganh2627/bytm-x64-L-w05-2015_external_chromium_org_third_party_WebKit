@@ -8,8 +8,8 @@
 #include "V8TestSpecialOperations.h"
 
 #include "RuntimeEnabledFeatures.h"
-#include "V8Node.h"
-#include "V8NodeList.h"
+#include "bindings/tests/v8/V8Node.h"
+#include "bindings/tests/v8/V8NodeList.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8DOMConfiguration.h"
 #include "bindings/v8/V8HiddenValue.h"
@@ -47,15 +47,18 @@ template <typename T> void V8_USE(T) { }
 static void namedItemMethod(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     if (UNLIKELY(info.Length() < 1)) {
-        throwArityTypeErrorForMethod("namedItem", "TestSpecialOperations", 1, info.Length(), info.GetIsolate());
+        throwMinimumArityTypeErrorForMethod("namedItem", "TestSpecialOperations", 1, info.Length(), info.GetIsolate());
         return;
     }
     TestSpecialOperations* impl = V8TestSpecialOperations::toNative(info.Holder());
-    TOSTRING_VOID(V8StringResource<>, name, info[0]);
+    V8StringResource<> name;
+    {
+        TOSTRING_VOID_INTERNAL_NOTRYCATCH(name, info[0]);
+    }
     bool result0Enabled = false;
-    RefPtr<Node> result0;
+    RefPtrWillBeRawPtr<Node> result0;
     bool result1Enabled = false;
-    RefPtr<NodeList> result1;
+    RefPtrWillBeRawPtr<NodeList> result1;
     impl->getItem(name, result0Enabled, result0, result1Enabled, result1);
     if (result0Enabled) {
         v8SetReturnValue(info, result0.release());
@@ -80,9 +83,9 @@ static void namedPropertyGetter(v8::Local<v8::String> name, const v8::PropertyCa
     TestSpecialOperations* impl = V8TestSpecialOperations::toNative(info.Holder());
     AtomicString propertyName = toCoreAtomicString(name);
     bool result0Enabled = false;
-    RefPtr<Node> result0;
+    RefPtrWillBeRawPtr<Node> result0;
     bool result1Enabled = false;
-    RefPtr<NodeList> result1;
+    RefPtrWillBeRawPtr<NodeList> result1;
     impl->getItem(propertyName, result0Enabled, result0, result1Enabled, result1);
     if (!result0Enabled && !result1Enabled)
         return;

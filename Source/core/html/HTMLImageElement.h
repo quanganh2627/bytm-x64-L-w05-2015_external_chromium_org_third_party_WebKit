@@ -33,14 +33,16 @@
 namespace WebCore {
 
 class HTMLFormElement;
+class ImageCandidate;
 
 class HTMLImageElement FINAL : public HTMLElement, public CanvasImageSource {
 public:
     static PassRefPtrWillBeRawPtr<HTMLImageElement> create(Document&);
-    static PassRefPtrWillBeRawPtr<HTMLImageElement> create(Document&, HTMLFormElement*);
+    static PassRefPtrWillBeRawPtr<HTMLImageElement> create(Document&, HTMLFormElement*, bool createdByParser);
     static PassRefPtrWillBeRawPtr<HTMLImageElement> createForJSConstructor(Document&, int width, int height);
 
     virtual ~HTMLImageElement();
+    virtual void trace(Visitor*) OVERRIDE;
 
     int width(bool ignorePendingStylesheets = false);
     int height(bool ignorePendingStylesheets = false);
@@ -92,8 +94,14 @@ public:
     virtual FloatSize sourceSize() const OVERRIDE;
     virtual FloatSize defaultDestinationSize() const OVERRIDE;
 
+    enum UpdateFromElementBehavior {
+        UpdateNormal,
+        UpdateIgnorePreviousError
+    };
+    // public so that HTMLPictureElement can call this as well.
+    void selectSourceURL(UpdateFromElementBehavior);
 protected:
-    explicit HTMLImageElement(Document&, HTMLFormElement* = 0);
+    explicit HTMLImageElement(Document&, HTMLFormElement* = 0, bool createdByParser = false);
 
     virtual void didMoveToNewDocument(Document& oldDocument) OVERRIDE;
 
@@ -123,14 +131,21 @@ private:
     virtual Image* imageContents() OVERRIDE;
 
     void resetFormOwner();
+    ImageCandidate findBestFitImageFromPictureParent();
+    void setBestFitURLAndDPRFromImageCandidate(const ImageCandidate&);
 
     HTMLImageLoader m_imageLoader;
-    // m_form should be a strong reference in Oilpan.
+#if ENABLE(OILPAN)
+    Member<HTMLFormElement> m_form;
+#else
     WeakPtr<HTMLFormElement> m_form;
+#endif
     CompositeOperator m_compositeOperator;
     AtomicString m_bestFitImageURL;
+    AtomicString m_currentSrc;
     float m_imageDevicePixelRatio;
     bool m_formWasSetByParser;
+    bool m_elementCreatedByParser;
 };
 
 } //namespace
