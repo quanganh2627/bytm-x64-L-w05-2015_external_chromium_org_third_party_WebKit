@@ -138,7 +138,7 @@ public:
     // Unlike unregisterObject, only drops the V8 wrapper object,
     // not touching the NPObject itself, except for decrementing
     // its references counter.
-    BLINK_EXPORT static void dropV8WrapperForObject(NPObject*);
+    WEBKIT_EXPORT static void dropV8WrapperForObject(NPObject*);
 
     // NPN_UTF8FromIdentifier
     WEBKIT_EXPORT static NPUTF8* utf8FromIdentifier(NPIdentifier);
