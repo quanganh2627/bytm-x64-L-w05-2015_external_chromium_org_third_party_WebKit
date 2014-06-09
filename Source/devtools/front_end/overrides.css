@@ -66,7 +66,7 @@
     height: 22px;
     padding-left: 0;
     padding-left: 10px;
-    border-left: 4px solid transparent;
+    border-left: 6px solid transparent;
 }
 
 .overrides-view .tabbed-pane-header-tab:not(.selected) {
@@ -76,12 +76,27 @@
 .overrides-view .tabbed-pane-header-tab.selected {
     color: inherit;
     border: none transparent;
-    border-left: 4px solid #666;
+    border-left: 6px solid #666;
 }
 
 .overrides-view fieldset {
     border: none;
     padding: 0 0 5px 15px;
+}
+
+.overrides-view fieldset p {
+    display: inline-block;
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+
+.overrides-view fieldset p label {
+    display: inline-block;
+}
+
+.overrides-view .field-error-message {
+    display: none;
 }
 
 .overrides-user-agent fieldset {
@@ -214,6 +229,10 @@ button.overrides-swap {
     padding: 3px;
 }
 
+.overrides-view input[readonly] {
+    background-color: rgb(235, 235, 228);
+}
+
 .overrides-view .overrides-footer {
     flex: none;
     padding: 0 0 1px 3px;
@@ -233,6 +252,12 @@ button.overrides-swap {
     float: left;
     margin-right: 4px;
 }
+
+@media (-webkit-min-device-pixel-ratio: 1.5) {
+.overrides-view .overrides-footer::before {
+    background-image: url(Images/statusbarButtonGlyphs_2x.png);
+}
+} /* media */
 
 .overrides-view .overrides-footer .warning-icon-small {
     margin-right: 3px;

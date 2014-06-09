@@ -66,6 +66,8 @@
 ../../modules/mediasource/SourceBuffer.idl
 ../../modules/mediasource/SourceBufferList.idl
 ../../modules/mediasource/VideoPlaybackQuality.idl
+../../modules/mediastream/MediaDeviceInfo.idl
+../../modules/mediastream/MediaDeviceInfoCallback.idl
 ../../modules/mediastream/MediaStream.idl
 ../../modules/mediastream/MediaStreamEvent.idl
 ../../modules/mediastream/MediaStreamTrack.idl
@@ -88,6 +90,7 @@
 ../../modules/mediastream/RTCStatsReport.idl
 ../../modules/mediastream/RTCStatsResponse.idl
 ../../modules/mediastream/SourceInfo.idl
+../../modules/netinfo/NetworkInformation.idl
 ../../modules/notifications/Notification.idl
 ../../modules/notifications/NotificationPermissionCallback.idl
 ../../modules/performance/WorkerPerformance.idl
@@ -100,13 +103,13 @@
 ../../modules/quota/StorageQuota.idl
 ../../modules/quota/StorageQuotaCallback.idl
 ../../modules/quota/StorageUsageCallback.idl
-../../modules/serviceworkers/Cache.idl
 ../../modules/serviceworkers/Client.idl
 ../../modules/serviceworkers/FetchEvent.idl
 ../../modules/serviceworkers/HeaderMap.idl
 ../../modules/serviceworkers/HeaderMapForEachCallback.idl
 ../../modules/serviceworkers/InstallEvent.idl
 ../../modules/serviceworkers/InstallPhaseEvent.idl
+../../modules/serviceworkers/Request.idl
 ../../modules/serviceworkers/Response.idl
 ../../modules/serviceworkers/ServiceWorker.idl
 ../../modules/serviceworkers/ServiceWorkerClients.idl
@@ -201,6 +204,8 @@
 ../../modules/mediastream/URLMediaStream.idl
 ../../modules/mediastream/WindowMediaStream.idl
 ../../modules/navigatorcontentutils/NavigatorContentUtils.idl
+../../modules/netinfo/NavigatorNetworkInformation.idl
+../../modules/netinfo/WorkerNavigatorNetworkInformation.idl
 ../../modules/performance/SharedWorkerPerformance.idl
 ../../modules/performance/WorkerGlobalScopePerformance.idl
 ../../modules/push_messaging/NavigatorPushManager.idl
@@ -217,5 +222,6 @@
 ../../modules/webdatabase/WorkerGlobalScopeWebDatabase.idl
 ../../modules/webmidi/NavigatorWebMIDI.idl
 ../../modules/geolocation/testing/InternalsGeolocation.idl
+../../modules/navigatorcontentutils/testing/InternalsNavigatorContentUtils.idl
 ../../modules/speech/testing/InternalsSpeechSynthesis.idl
 ../../modules/vibration/testing/InternalsVibration.idl

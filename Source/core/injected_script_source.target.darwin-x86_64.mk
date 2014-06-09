@@ -15,19 +15,19 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "ConvertFileToHeaderWithCharacterArray":
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/xxd.py $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/InjectedScriptSource.js $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: Generating $(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h from inspector/InjectedScriptSource.js ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/xxd.py InjectedScriptSource_js inspector/InjectedScriptSource.js "$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h"
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/xxd.py $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/InjectedScriptSource.js $(GYP_TARGET_DEPENDENCIES)
+	@echo "Gyp action: Generating $(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h from inspector/InjectedScriptSource.js ($@)"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/xxd.py InjectedScriptSource_js inspector/InjectedScriptSource.js "$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h"
 
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/InjectedScriptSource.h
+	$(gyp_shared_intermediate_dir)/blink/core/InjectedScriptSource.h
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

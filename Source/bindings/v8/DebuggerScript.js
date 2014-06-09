@@ -205,6 +205,11 @@ DebuggerScript.setPauseOnExceptionsState = function(newState)
         Debug.clearBreakOnUncaughtException();
 }
 
+DebuggerScript.frameCount = function(execState)
+{
+    return execState.frameCount();
+}
+
 DebuggerScript.currentCallFrame = function(execState, data)
 {
     var maximumLimit = data >> 2;
@@ -496,6 +501,9 @@ DebuggerScript._buildScopeObject = function(scopeType, scopeObject)
     }
     return result;
 }
+
+// We never resolve Mirror by its handle so to avoid memory leaks caused by Mirrors in the cache we disable it.
+ToggleMirrorCache(false);
 
 return DebuggerScript;
 })();

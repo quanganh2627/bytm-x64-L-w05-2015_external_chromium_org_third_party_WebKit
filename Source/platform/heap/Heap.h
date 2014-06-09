@@ -464,7 +464,7 @@ public:
     bool contains(Address addr)
     {
         Address blinkPageStart = roundToBlinkPageStart(address());
-        ASSERT(blinkPageStart = address() - osPageSize()); // Page is at aligned address plus guard page size.
+        ASSERT(blinkPageStart == address() - osPageSize()); // Page is at aligned address plus guard page size.
         return blinkPageStart <= addr && addr < blinkPageStart + blinkPageSize;
     }
 
@@ -945,6 +945,8 @@ public:
     // garbage collector. Should only be called during garbage
     // collection where threads are known to be at safe points.
     static void getStats(HeapStats*);
+
+    static void getHeapSpaceSize(uint64_t*, uint64_t*);
 
     static bool isConsistentForGC();
     static void makeConsistentForGC();

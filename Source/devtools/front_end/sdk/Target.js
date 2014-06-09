@@ -49,6 +49,8 @@ WebInspector.Target.prototype = {
     /**
      * @param {string} name
      * @param {function()|null} callback
+     * @param {?Protocol.Error} error
+     * @param {*} result
      */
     _initializeCapability: function(name, callback, error, result)
     {
@@ -229,8 +231,16 @@ WebInspector.TargetManager.prototype = {
      */
     observeTargets: function(targetObserver)
     {
-        WebInspector.targetManager.targets().forEach(targetObserver.targetAdded.bind(targetObserver));
+        this.targets().forEach(targetObserver.targetAdded.bind(targetObserver));
         this._observers.push(targetObserver);
+    },
+
+    /**
+     * @param {!WebInspector.TargetManager.Observer} targetObserver
+     */
+    unobserveTargets: function(targetObserver)
+    {
+        this._observers.remove(targetObserver);
     },
 
     /**
@@ -243,7 +253,7 @@ WebInspector.TargetManager.prototype = {
 
         /**
          * @this {WebInspector.TargetManager}
-         * @param newTarget
+         * @param {!WebInspector.Target} newTarget
          */
         function callbackWrapper(newTarget)
         {

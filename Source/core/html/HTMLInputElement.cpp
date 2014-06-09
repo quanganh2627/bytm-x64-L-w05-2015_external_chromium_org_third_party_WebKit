@@ -452,11 +452,11 @@ void HTMLInputElement::updateType()
 
     if (didRespectHeightAndWidth != m_inputType->shouldRespectHeightAndWidthAttributes()) {
         ASSERT(elementData());
-        if (const Attribute* height = getAttributeItem(heightAttr))
+        if (const Attribute* height = findAttributeByName(heightAttr))
             attributeChanged(heightAttr, height->value());
-        if (const Attribute* width = getAttributeItem(widthAttr))
+        if (const Attribute* width = findAttributeByName(widthAttr))
             attributeChanged(widthAttr, width->value());
-        if (const Attribute* align = getAttributeItem(alignAttr))
+        if (const Attribute* align = findAttributeByName(alignAttr))
             attributeChanged(alignAttr, align->value());
     }
 
@@ -1082,13 +1082,17 @@ void* HTMLInputElement::preDispatchEventHandler(Event* event)
         return 0;
     if (!event->isMouseEvent() || toMouseEvent(event)->button() != LeftButton)
         return 0;
+#if ENABLE(OILPAN)
+    return m_inputTypeView->willDispatchClick();
+#else
     // FIXME: Check whether there are any cases where this actually ends up leaking.
     return m_inputTypeView->willDispatchClick().leakPtr();
+#endif
 }
 
 void HTMLInputElement::postDispatchEventHandler(Event* event, void* dataFromPreDispatch)
 {
-    OwnPtr<ClickHandlingState> state = adoptPtr(static_cast<ClickHandlingState*>(dataFromPreDispatch));
+    OwnPtrWillBeRawPtr<ClickHandlingState> state = adoptPtrWillBeNoop(static_cast<ClickHandlingState*>(dataFromPreDispatch));
     if (!state)
         return;
     m_inputTypeView->didDispatchClick(event, *state);

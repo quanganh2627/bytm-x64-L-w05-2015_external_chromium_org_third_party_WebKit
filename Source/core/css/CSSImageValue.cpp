@@ -62,8 +62,7 @@ StyleFetchedImage* CSSImageValue::cachedImage(ResourceFetcher* fetcher, const Re
         m_accessedImage = true;
 
         FetchRequest request(ResourceRequest(m_absoluteURL), m_initiatorName.isEmpty() ? FetchInitiatorTypeNames::css : m_initiatorName, options);
-        if (!m_referrer.isEmpty())
-            request.mutableResourceRequest().setHTTPReferrer(Referrer(m_referrer, ReferrerPolicyDefault));
+        request.mutableResourceRequest().setHTTPReferrer(m_referrer);
 
         if (options.corsEnabled == IsCORSEnabled)
             request.setCrossOriginAccessControl(fetcher->document()->securityOrigin(), options.allowCredentials, options.credentialsRequested);

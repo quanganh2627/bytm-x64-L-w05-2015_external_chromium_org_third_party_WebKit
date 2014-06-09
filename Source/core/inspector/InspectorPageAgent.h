@@ -146,8 +146,6 @@ public:
     virtual void clearFrontend() OVERRIDE;
     virtual void restore() OVERRIDE;
 
-    void webViewResized(const IntSize&);
-
     // Cross-agents API
     Page* page() { return m_page; }
     LocalFrame* mainFrame();
@@ -171,7 +169,7 @@ private:
     void updateViewMetricsFromState();
     void updateViewMetrics(bool enabled, int width, int height, double deviceScaleFactor, bool emulateViewport, bool fitWindow, double fontScaleFactor, bool textAutosizingEnabled);
     void updateTouchEventEmulationInPage(bool);
-    bool forceCompositingMode(ErrorString*);
+    bool compositingEnabled(ErrorString*);
 
     static bool dataContent(const char* data, unsigned size, const String& textEncodingName, bool withBase64Encode, String* result);
 

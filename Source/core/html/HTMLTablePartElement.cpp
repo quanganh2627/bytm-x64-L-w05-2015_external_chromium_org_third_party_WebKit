@@ -34,6 +34,7 @@
 #include "core/dom/NodeRenderingTraversal.h"
 #include "core/html/HTMLTableElement.h"
 #include "core/html/parser/HTMLParserIdioms.h"
+#include "platform/weborigin/Referrer.h"
 
 namespace WebCore {
 
@@ -54,7 +55,7 @@ void HTMLTablePartElement::collectStyleForPresentationAttribute(const QualifiedN
         String url = stripLeadingAndTrailingHTMLSpaces(value);
         if (!url.isEmpty()) {
             RefPtrWillBeRawPtr<CSSImageValue> imageValue = CSSImageValue::create(url, document().completeURL(url));
-            imageValue->setReferrer(document().outgoingReferrer());
+            imageValue->setReferrer(Referrer(document().outgoingReferrer(), document().referrerPolicy()));
             style->setProperty(CSSProperty(CSSPropertyBackgroundImage, imageValue.release()));
         }
     } else if (name == valignAttr) {

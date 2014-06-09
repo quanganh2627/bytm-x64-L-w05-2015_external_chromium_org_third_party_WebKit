@@ -49,7 +49,7 @@ Attr::Attr(Document& document, const QualifiedName& name, const AtomicString& st
     : ContainerNode(&document)
     , m_element(nullptr)
     , m_name(name)
-    , m_standaloneValue(standaloneValue)
+    , m_standaloneValueOrAttachedLocalName(standaloneValue)
     , m_ignoreChildrenChanged(0)
 {
     ScriptWrappable::init(this);
@@ -71,6 +71,19 @@ PassRefPtrWillBeRawPtr<Attr> Attr::create(Document& document, const QualifiedNam
 
 Attr::~Attr()
 {
+}
+
+const QualifiedName Attr::qualifiedName() const
+{
+    if (m_element && !m_standaloneValueOrAttachedLocalName.isNull()) {
+        // In the unlikely case the Element attribute has a local name
+        // that differs by case, construct the qualified name based on
+        // it. This is the qualified name that must be used when
+        // looking up the attribute on the element.
+        return QualifiedName(m_name.prefix(), m_standaloneValueOrAttachedLocalName, m_name.namespaceURI());
+    }
+
+    return m_name;
 }
 
 void Attr::createTextChild()
@@ -98,11 +111,12 @@ void Attr::setValue(const AtomicString& value)
     if (m_element)
         elementAttribute().setValue(value);
     else
-        m_standaloneValue = value;
+        m_standaloneValueOrAttachedLocalName = value;
     createTextChild();
     m_ignoreChildrenChanged--;
 
-    invalidateNodeListCachesInAncestors(&m_name, m_element);
+    QualifiedName name = qualifiedName();
+    invalidateNodeListCachesInAncestors(&name, m_element);
 }
 
 void Attr::setValueInternal(const AtomicString& value)
@@ -139,7 +153,7 @@ void Attr::setNodeValue(const String& v)
 
 PassRefPtrWillBeRawPtr<Node> Attr::cloneNode(bool /*deep*/)
 {
-    RefPtrWillBeRawPtr<Attr> clone = adoptRefWillBeRefCountedGarbageCollected(new Attr(document(), qualifiedName(), value()));
+    RefPtrWillBeRawPtr<Attr> clone = adoptRefWillBeRefCountedGarbageCollected(new Attr(document(), m_name, value()));
     cloneChildNodes(clone.get());
     return clone.release();
 }
@@ -155,7 +169,8 @@ void Attr::childrenChanged(bool, Node*, Node*, int)
     if (m_ignoreChildrenChanged > 0)
         return;
 
-    invalidateNodeListCachesInAncestors(&qualifiedName(), m_element);
+    QualifiedName name = qualifiedName();
+    invalidateNodeListCachesInAncestors(&name, m_element);
 
     StringBuilder valueBuilder;
     for (Node *n = firstChild(); n; n = n->nextSibling()) {
@@ -170,7 +185,7 @@ void Attr::childrenChanged(bool, Node*, Node*, int)
     if (m_element)
         elementAttribute().setValue(newValue);
     else
-        m_standaloneValue = newValue;
+        m_standaloneValueOrAttachedLocalName = newValue;
 
     if (m_element)
         m_element->attributeChanged(qualifiedName(), newValue);
@@ -180,34 +195,39 @@ const AtomicString& Attr::value() const
 {
     if (m_element)
         return m_element->getAttribute(qualifiedName());
-    return m_standaloneValue;
+    return m_standaloneValueOrAttachedLocalName;
 }
 
 Attribute& Attr::elementAttribute()
 {
     ASSERT(m_element);
     ASSERT(m_element->elementData());
-    return *m_element->ensureUniqueElementData().getAttributeItem(qualifiedName());
+    return *m_element->ensureUniqueElementData().findAttributeByName(qualifiedName());
 }
 
 void Attr::detachFromElementWithValue(const AtomicString& value)
 {
     ASSERT(m_element);
-    ASSERT(m_standaloneValue.isNull());
-    m_standaloneValue = value;
+    m_standaloneValueOrAttachedLocalName = value;
     m_element = nullptr;
 }
 
-void Attr::attachToElement(Element* element)
+void Attr::attachToElement(Element* element, const AtomicString& attachedLocalName)
 {
     ASSERT(!m_element);
     m_element = element;
-    m_standaloneValue = nullAtom;
+    m_standaloneValueOrAttachedLocalName = attachedLocalName;
+}
+
+void Attr::clearWeakMembers(Visitor* visitor)
+{
+    if (m_element && !visitor->isAlive(m_element))
+        detachFromElementWithValue(value());
 }
 
 void Attr::trace(Visitor* visitor)
 {
-    visitor->trace(m_element);
+    visitor->registerWeakMembers<Attr, &Attr::clearWeakMembers>(this);
     ContainerNode::trace(visitor);
 }
 

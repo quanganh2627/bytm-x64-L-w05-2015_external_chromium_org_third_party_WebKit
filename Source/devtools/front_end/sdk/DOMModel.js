@@ -291,7 +291,7 @@ WebInspector.DOMNode.prototype = {
 
     /**
      * @param {string} name
-     * @param {function(?Protocol.Error)=} callback
+     * @param {function(?Protocol.Error, number)=} callback
      */
     setNodeName: function(name, callback)
     {
@@ -432,7 +432,7 @@ WebInspector.DOMNode.prototype = {
     },
 
     /**
-     * @param {function(?Protocol.Error)=} callback
+     * @param {function(?Protocol.Error, string)=} callback
      */
     getOuterHTML: function(callback)
     {
@@ -903,6 +903,7 @@ WebInspector.DOMModel = function(target) {
 
     this._defaultHighlighter = new WebInspector.DefaultDOMNodeHighlighter(this._agent);
     this._highlighter = this._defaultHighlighter;
+    this._agent.enable();
 }
 
 WebInspector.DOMModel.Events = {
@@ -1477,9 +1478,9 @@ WebInspector.DOMModel.prototype = {
 
     /**
      * @param {!WebInspector.DOMNode} node
-     * @param {function(?Protocol.Error, !A=, !B=)=} callback
-     * @return {function(?Protocol.Error, !A=, !B=)}
-     * @template A,B
+     * @param {function(?Protocol.Error, ...)=} callback
+     * @return {function(...)}
+     * @template T
      */
     _markRevision: function(node, callback)
     {

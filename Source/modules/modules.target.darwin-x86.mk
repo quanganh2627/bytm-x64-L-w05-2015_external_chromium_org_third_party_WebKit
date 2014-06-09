@@ -23,11 +23,11 @@ GYP_GENERATED_OUTPUTS :=
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
 
-$(gyp_intermediate_dir)/EventModules.cpp: $(gyp_shared_intermediate_dir)/blink/EventModules.cpp
+$(gyp_intermediate_dir)/EventModules.cpp: $(gyp_shared_intermediate_dir)/blink/modules/EventModules.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/EventModulesNames.cpp: $(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp
+$(gyp_intermediate_dir)/EventModulesNames.cpp: $(gyp_shared_intermediate_dir)/blink/modules/EventModulesNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/EventTargetModulesNames.cpp: $(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp
+$(gyp_intermediate_dir)/EventTargetModulesNames.cpp: $(gyp_shared_intermediate_dir)/blink/modules/EventTargetModulesNames.cpp
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/V8GeneratedModulesBindings01.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/modules/v8/V8GeneratedModulesBindings01.cpp
 	mkdir -p $(@D); cp $< $@
@@ -92,7 +92,7 @@ LOCAL_GENERATED_SOURCES := \
 	$(gyp_intermediate_dir)/V8GeneratedModulesBindings19.cpp
 
 GYP_COPIED_SOURCE_ORIGIN_DIRS := \
-	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/modules \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8
 
 LOCAL_SRC_FILES := \
@@ -203,7 +203,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/indexeddb/WorkerGlobalScopeIndexedDatabase.cpp \
 	third_party/WebKit/Source/modules/mediasource/HTMLVideoElementMediaSource.cpp \
 	third_party/WebKit/Source/modules/mediasource/MediaSource.cpp \
-	third_party/WebKit/Source/modules/mediasource/MediaSourceBase.cpp \
 	third_party/WebKit/Source/modules/mediasource/MediaSourceRegistry.cpp \
 	third_party/WebKit/Source/modules/mediasource/SourceBuffer.cpp \
 	third_party/WebKit/Source/modules/mediasource/SourceBufferList.cpp \
@@ -238,6 +237,9 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/mediastream/UserMediaController.cpp \
 	third_party/WebKit/Source/modules/mediastream/UserMediaRequest.cpp \
 	third_party/WebKit/Source/modules/navigatorcontentutils/NavigatorContentUtils.cpp \
+	third_party/WebKit/Source/modules/netinfo/NavigatorNetworkInformation.cpp \
+	third_party/WebKit/Source/modules/netinfo/NetworkInformation.cpp \
+	third_party/WebKit/Source/modules/netinfo/WorkerNavigatorNetworkInformation.cpp \
 	third_party/WebKit/Source/modules/notifications/Notification.cpp \
 	third_party/WebKit/Source/modules/notifications/NotificationController.cpp \
 	third_party/WebKit/Source/modules/performance/SharedWorkerPerformance.cpp \
@@ -262,13 +264,13 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/screen_orientation/LockOrientationCallback.cpp \
 	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientation.cpp \
 	third_party/WebKit/Source/modules/screen_orientation/ScreenOrientationController.cpp \
-	third_party/WebKit/Source/modules/serviceworkers/Cache.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/Client.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/FetchEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/HeaderMap.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/InstallPhaseEvent.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/NavigatorServiceWorker.cpp \
+	third_party/WebKit/Source/modules/serviceworkers/Request.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/RespondWithObserver.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/Response.cpp \
 	third_party/WebKit/Source/modules/serviceworkers/ServiceWorker.cpp \
@@ -381,6 +383,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/webmidi/MIDIAccess.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIAccessor.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIClientMock.cpp \
+	third_party/WebKit/Source/modules/webmidi/MIDIConnectionEvent.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIController.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIInput.cpp \
 	third_party/WebKit/Source/modules/webmidi/MIDIOutput.cpp \
@@ -448,7 +451,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -479,11 +481,11 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -507,6 +509,8 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/skia/config \
@@ -516,6 +520,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/sqlite \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \
@@ -599,7 +604,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -630,11 +634,11 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -659,6 +663,8 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/skia/config \
@@ -668,6 +674,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/sqlite \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \

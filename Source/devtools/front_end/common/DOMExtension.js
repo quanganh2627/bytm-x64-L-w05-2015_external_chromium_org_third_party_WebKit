@@ -31,6 +31,9 @@
  */
 
 /**
+ * @param {number} offset
+ * @param {string} stopCharacters
+ * @param {!Node} stayWithinNode
  * @param {string=} direction
  */
 Node.prototype.rangeOfWord = function(offset, stopCharacters, stayWithinNode, direction)
@@ -331,6 +334,18 @@ Element.prototype.removeChildren = function()
         this.textContent = "";
 }
 
+Element.prototype.appendChildren = function(children)
+{
+    for (var i = 0; i < children.length; ++i)
+        this.appendChild(children[i]);
+}
+
+Element.prototype.setChildren = function(children)
+{
+    this.removeChildren();
+    this.appendChildren(children);
+}
+
 Element.prototype.isInsertionCaretInside = function()
 {
     var selection = window.getSelection();
@@ -353,6 +368,7 @@ Document.prototype.createElementWithClass = function(elementName, className)
 }
 
 /**
+ * @param {string} elementName
  * @param {string=} className
  */
 Element.prototype.createChild = function(elementName, className)

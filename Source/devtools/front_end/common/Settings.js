@@ -90,6 +90,9 @@ WebInspector.Settings = function()
     this.pauseOnExceptionEnabled = this.createSetting("pauseOnExceptionEnabled", false);
     this.pauseOnCaughtException = this.createSetting("pauseOnCaughtException", false);
     this.enableAsyncStackTraces = this.createSetting("enableAsyncStackTraces", false);
+
+    this.responsiveDesign = {};
+    this.responsiveDesign.enabled = this.createSetting("responsiveDesign.enabled", false);
 }
 
 WebInspector.Settings.prototype = {
@@ -282,7 +285,7 @@ WebInspector.BackendSetting.prototype = {
         function callback(error)
         {
             if (error) {
-                WebInspector.console.log("Error applying setting " + this._name + ": " + error);
+                WebInspector.messageSink.addErrorMessage("Error applying setting " + this._name + ": " + error);
                 this._eventSupport.dispatchEventToListeners(this._name, this._value);
                 return;
             }
@@ -676,8 +679,15 @@ WebInspector.VersionController.prototype = {
     }
 }
 
-WebInspector.settings = new WebInspector.Settings();
-WebInspector.experimentsSettings = new WebInspector.ExperimentsSettings(WebInspector.queryParam("experiments") !== null);
+/**
+ * @type {!WebInspector.Settings}
+ */
+WebInspector.settings;
+
+/**
+ * @type {!WebInspector.ExperimentsSettings}
+ */
+WebInspector.experimentsSettings;
 
 // These methods are added for backwards compatibility with Devtools CodeSchool extension.
 // DO NOT REMOVE
@@ -753,5 +763,3 @@ WebInspector.PauseOnExceptionStateSetting.prototype = {
         this._eventSupport.dispatchEventToListeners(this._name, this._value);
     }
 }
-
-WebInspector.settings.pauseOnExceptionStateString = new WebInspector.PauseOnExceptionStateSetting();

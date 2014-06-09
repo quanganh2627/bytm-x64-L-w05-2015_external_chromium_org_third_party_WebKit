@@ -56,8 +56,6 @@ class WebElement;
 class WebExternalPopupMenu;
 class WebExternalPopupMenuClient;
 class WebFileChooserCompletion;
-class WebGeolocationClient;
-class WebGeolocationService;
 class WebGestureEvent;
 class WebHitTestResult;
 class WebImage;
@@ -68,6 +66,7 @@ class WebNode;
 class WebPushClient;
 class WebRange;
 class WebSpeechRecognizer;
+class WebScreenOrientationClient;
 class WebStorageNamespace;
 class WebURL;
 class WebURLRequest;
@@ -201,8 +200,6 @@ public:
     // Called when a new node gets focused.
     virtual void focusedNodeChanged(const WebNode&) { }
 
-    virtual void numberOfWheelEventHandlersChanged(unsigned) { }
-
     // Indicates two things:
     //   1) This view may have a new layout now.
     //   2) Calling layout() is a no-op.
@@ -243,14 +240,6 @@ public:
     virtual void didUpdateInspectorSettings() { }
 
     virtual void didUpdateInspectorSetting(const WebString& key, const WebString& value) { }
-
-
-    // Geolocation ---------------------------------------------------------
-
-    // Access the embedder API for (client-based) geolocation client .
-    virtual WebGeolocationClient* geolocationClient() { return 0; }
-    // Access the embedder API for (non-client-based) geolocation services.
-    virtual WebGeolocationService* geolocationService() { return 0; }
 
 
     // Speech --------------------------------------------------------------
@@ -301,9 +290,18 @@ public:
 
     virtual WebMIDIClient* webMIDIClient() { return 0; }
 
+
     // Push Messaging -------------------------------------------------------
 
     virtual WebPushClient* webPushClient() { return 0; }
+
+    // Screen Orientation ---------------------------------------------------
+
+    virtual WebScreenOrientationClient* webScreenOrientationClient()
+    {
+        return 0;
+    }
+
 
     // Content detection ----------------------------------------------------
 

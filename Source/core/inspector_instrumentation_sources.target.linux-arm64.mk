@@ -15,29 +15,29 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "generateInspectorInstrumentation":
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/CodeGeneratorInstrumentation.py $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/InspectorInstrumentation.idl $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/CodeGeneratorInstrumentation.py $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/InspectorInstrumentation.idl $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: Generating Inspector instrumentation code from InspectorInstrumentation.idl ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python inspector/CodeGeneratorInstrumentation.py inspector/InspectorInstrumentation.idl --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python inspector/CodeGeneratorInstrumentation.py inspector/InspectorInstrumentation.idl --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
-$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
-$(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
-$(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
-$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InspectorConsoleInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InspectorInstrumentationInl.h: $(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InspectorOverridesInl.h: $(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InstrumentingAgentsInl.h: $(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InspectorInstrumentationImpl.cpp: $(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h ;
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/InspectorCanvasInstrumentationInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InspectorConsoleInstrumentationInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InspectorOverridesInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InstrumentingAgentsInl.h \
-	$(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorCanvasInstrumentationInl.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorConsoleInstrumentationInl.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorInstrumentationInl.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorOverridesInl.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InstrumentingAgentsInl.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorInstrumentationImpl.cpp
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

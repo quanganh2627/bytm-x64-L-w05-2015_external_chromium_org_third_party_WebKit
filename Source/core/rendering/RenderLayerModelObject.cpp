@@ -99,14 +99,14 @@ void RenderLayerModelObject::styleWillChange(StyleDifference diff, const RenderS
         // Do a repaint with the old style first through RenderLayerRepainter.
         // RenderObject::styleWillChange takes care of repainting objects without RenderLayers.
         if (parent() && diff.needsRepaintLayer()) {
-            layer()->repainter().repaintIncludingNonCompositingDescendants(containerForRepaint());
+            layer()->repainter().repaintIncludingNonCompositingDescendants();
             if (oldStyle->hasClip() != newStyle.hasClip()
                 || oldStyle->clip() != newStyle.clip())
                 layer()->clipper().clearClipRectsIncludingDescendants();
         } else if (diff.needsFullLayout()) {
             if (hasLayer()) {
                 if (!layer()->hasCompositedLayerMapping() && oldStyle->position() != newStyle.position())
-                    layer()->repainter().repaintIncludingNonCompositingDescendants(containerForRepaint());
+                    layer()->repainter().repaintIncludingNonCompositingDescendants();
             } else if (newStyle.hasTransform() || newStyle.opacity() < 1 || newStyle.hasFilter()) {
                 // If we don't have a layer yet, but we are going to get one because of transform or opacity,
                 //  then we need to repaint the old position of the object.
@@ -135,14 +135,14 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
                 // FIXME: This invalidation is overly broad. We should update to
                 // do the correct invalidation at RenderStyle::diff time. crbug.com/349061
                 if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-                    layer()->renderer()->setShouldDoFullRepaintAfterLayout(true);
+                    layer()->renderer()->setShouldDoFullPaintInvalidationAfterLayout(true);
                 else
                     layer()->repainter().setRepaintStatus(NeedsFullRepaint);
                 // Hit in animations/interpolation/perspective-interpolation.html
                 DisableCompositingQueryAsserts disabler;
                 // There is only one layer to update, it is not worth using |cachedOffset| since
                 // we are not sure the value will be used.
-                layer()->updateLayerPositions(0);
+                layer()->updateLayerPositions(0, 0);
             }
         }
     } else if (layer() && layer()->parent()) {

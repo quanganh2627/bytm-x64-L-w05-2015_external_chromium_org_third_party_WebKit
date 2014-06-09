@@ -28,6 +28,8 @@ bool EventHandlerRegistry::eventTypeToClass(const AtomicString& eventType, Event
 {
     if (eventType == EventTypeNames::scroll) {
         *result = ScrollEvent;
+    } else if (eventType == EventTypeNames::wheel || eventType == EventTypeNames::mousewheel) {
+        *result = WheelEvent;
 #if ASSERT_ENABLED
     } else if (eventType == EventTypeNames::load || eventType == EventTypeNames::mousemove || eventType == EventTypeNames::touchstart) {
         *result = EventsForTesting;
@@ -160,6 +162,10 @@ void EventHandlerRegistry::notifyHasHandlersChanged(EventHandlerClass handlerCla
     case ScrollEvent:
         if (scrollingCoordinator)
             scrollingCoordinator->updateHaveScrollEventHandlers();
+        break;
+    case WheelEvent:
+        if (scrollingCoordinator)
+            scrollingCoordinator->updateHaveWheelEventHandlers();
         break;
 #if ASSERT_ENABLED
     case EventsForTesting:

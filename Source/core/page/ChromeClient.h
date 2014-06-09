@@ -162,7 +162,6 @@ public:
     virtual void setToolTip(const String&, TextDirection) = 0;
 
     virtual void print(LocalFrame*) = 0;
-    virtual bool shouldRubberBandInDirection(ScrollDirection) const = 0;
 
     virtual void annotatedRegionsChanged() = 0;
 
@@ -215,8 +214,6 @@ public:
         HTMLDialog = 3
     };
     virtual bool shouldRunModalDialogDuringPageDismissal(const DialogType&, const String&, Document::PageDismissalType) const { return true; }
-
-    virtual void numWheelEventHandlersChanged(unsigned) = 0;
 
     virtual bool isSVGImageChromeClient() const { return false; }
 

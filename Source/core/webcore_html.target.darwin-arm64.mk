@@ -27,6 +27,7 @@ GYP_COPIED_SOURCE_ORIGIN_DIRS :=
 LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/ClassList.cpp \
 	third_party/WebKit/Source/core/html/DOMFormData.cpp \
+	third_party/WebKit/Source/core/html/DocumentNameCollection.cpp \
 	third_party/WebKit/Source/core/html/FormAssociatedElement.cpp \
 	third_party/WebKit/Source/core/html/FormDataList.cpp \
 	third_party/WebKit/Source/core/html/HTMLAllCollection.cpp \
@@ -140,6 +141,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/TextDocument.cpp \
 	third_party/WebKit/Source/core/html/TimeRanges.cpp \
 	third_party/WebKit/Source/core/html/ValidityState.cpp \
+	third_party/WebKit/Source/core/html/WindowNameCollection.cpp \
 	third_party/WebKit/Source/core/html/canvas/ANGLEInstancedArrays.cpp \
 	third_party/WebKit/Source/core/html/canvas/Canvas2DContextAttributes.cpp \
 	third_party/WebKit/Source/core/html/canvas/CanvasContextAttributes.cpp \
@@ -232,6 +234,7 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/core/html/imports/HTMLImportChild.cpp \
 	third_party/WebKit/Source/core/html/imports/HTMLImportLoader.cpp \
 	third_party/WebKit/Source/core/html/imports/HTMLImportStateResolver.cpp \
+	third_party/WebKit/Source/core/html/imports/HTMLImportTreeRoot.cpp \
 	third_party/WebKit/Source/core/html/imports/HTMLImportsController.cpp \
 	third_party/WebKit/Source/core/html/imports/LinkImport.cpp \
 	third_party/WebKit/Source/core/html/parser/BackgroundHTMLInputStream.cpp \
@@ -339,7 +342,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -368,11 +370,11 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -406,13 +408,16 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/skia/config \
 	$(LOCAL_PATH)/third_party/khronos \
 	$(LOCAL_PATH)/gpu \
-	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
+	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/skia/src/core \
 	$(LOCAL_PATH)/third_party/skia/include/core \
 	$(LOCAL_PATH)/third_party/skia/include/effects \
@@ -495,7 +500,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -524,11 +528,11 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -563,13 +567,16 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/skia/config \
 	$(LOCAL_PATH)/third_party/khronos \
 	$(LOCAL_PATH)/gpu \
-	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
+	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/skia/src/core \
 	$(LOCAL_PATH)/third_party/skia/include/core \
 	$(LOCAL_PATH)/third_party/skia/include/effects \

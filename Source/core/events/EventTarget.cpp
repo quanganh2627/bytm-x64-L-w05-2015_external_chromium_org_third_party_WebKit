@@ -34,8 +34,9 @@
 
 #include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionState.h"
-#include "core/events/Event.h"
 #include "core/dom/ExceptionCode.h"
+#include "core/dom/NoEventDispatchAssertion.h"
+#include "core/events/Event.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/frame/DOMWindow.h"
 #include "wtf/StdLibExtras.h"
@@ -282,7 +283,7 @@ bool EventTarget::fireEventListeners(Event* event)
 
 void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventListenerVector& entry)
 {
-    RefPtr<EventTarget> protect = this;
+    RefPtrWillBeRawPtr<EventTarget> protect(this);
 
     // Fire all listeners registered for this event. Don't fire listeners removed
     // during event dispatch. Also, don't fire event listeners added during event
@@ -299,6 +300,12 @@ void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventList
     } else if (event->type() == EventTypeNames::unload) {
         if (DOMWindow* executingWindow = this->executingWindow())
             UseCounter::count(executingWindow->document(), UseCounter::DocumentUnloadFired);
+    } else if (event->type() == EventTypeNames::DOMFocusIn || event->type() == EventTypeNames::DOMFocusOut) {
+        if (DOMWindow* executingWindow = this->executingWindow())
+            UseCounter::count(executingWindow->document(), UseCounter::DOMFocusInOutEvent);
+    } else if (event->type() == EventTypeNames::focusin || event->type() == EventTypeNames::focusout) {
+        if (DOMWindow* executingWindow = this->executingWindow())
+            UseCounter::count(executingWindow->document(), UseCounter::FocusInOutEvent);
     }
 
     size_t i = 0;

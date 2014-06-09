@@ -398,12 +398,6 @@ void InspectorPageAgent::restore()
     }
 }
 
-void InspectorPageAgent::webViewResized(const IntSize& size)
-{
-    int currentWidth = static_cast<int>(m_state->getLong(PageAgentState::pageAgentScreenWidthOverride));
-    m_overlay->resize(currentWidth ? size : IntSize());
-}
-
 void InspectorPageAgent::enable(ErrorString*)
 {
     m_enabled = true;
@@ -589,9 +583,11 @@ void InspectorPageAgent::getCookies(ErrorString*, RefPtr<TypeBuilder::Array<Type
 {
     ListHashSet<Cookie> rawCookiesList;
 
-    for (LocalFrame* frame = mainFrame(); frame; frame = frame->tree().traverseNext(mainFrame())) {
-        Document* document = frame->document();
-        Vector<KURL> allURLs = allResourcesURLsForFrame(frame);
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree().traverseNext(mainFrame())) {
+        if (!frame->isLocalFrame())
+            continue;
+        Document* document = toLocalFrame(frame)->document();
+        Vector<KURL> allURLs = allResourcesURLsForFrame(toLocalFrame(frame));
         for (Vector<KURL>::const_iterator it = allURLs.begin(); it != allURLs.end(); ++it) {
             Vector<Cookie> docCookiesList;
             getRawCookies(document, *it, docCookiesList);
@@ -609,8 +605,10 @@ void InspectorPageAgent::getCookies(ErrorString*, RefPtr<TypeBuilder::Array<Type
 void InspectorPageAgent::deleteCookie(ErrorString*, const String& cookieName, const String& url)
 {
     KURL parsedURL(ParsedURLString, url);
-    for (LocalFrame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext(m_page->mainFrame()))
-        WebCore::deleteCookie(frame->document(), parsedURL, cookieName);
+    for (Frame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext(m_page->mainFrame())) {
+        if (frame->isLocalFrame())
+            WebCore::deleteCookie(toLocalFrame(frame)->document(), parsedURL, cookieName);
+    }
 }
 
 void InspectorPageAgent::getResourceTree(ErrorString*, RefPtr<TypeBuilder::Page::FrameResourceTree>& object)
@@ -758,7 +756,7 @@ void InspectorPageAgent::setShowPaintRects(ErrorString*, bool show)
 void InspectorPageAgent::setShowDebugBorders(ErrorString* errorString, bool show)
 {
     m_state->setBoolean(PageAgentState::pageAgentShowDebugBorders, show);
-    if (show && !forceCompositingMode(errorString))
+    if (show && !compositingEnabled(errorString))
         return;
     m_client->setShowDebugBorders(show);
 }
@@ -767,7 +765,7 @@ void InspectorPageAgent::setShowFPSCounter(ErrorString* errorString, bool show)
 {
     // FIXME: allow metrics override, fps counter and continuous painting at the same time: crbug.com/299837.
     m_state->setBoolean(PageAgentState::pageAgentShowFPSCounter, show);
-    if (show && !forceCompositingMode(errorString))
+    if (show && !compositingEnabled(errorString))
         return;
     m_client->setShowFPSCounter(show && !m_deviceMetricsOverridden);
 }
@@ -775,7 +773,7 @@ void InspectorPageAgent::setShowFPSCounter(ErrorString* errorString, bool show)
 void InspectorPageAgent::setContinuousPaintingEnabled(ErrorString* errorString, bool enabled)
 {
     m_state->setBoolean(PageAgentState::pageAgentContinuousPaintingEnabled, enabled);
-    if (enabled && !forceCompositingMode(errorString))
+    if (enabled && !compositingEnabled(errorString))
         return;
     m_client->setContinuousPaintingEnabled(enabled && !m_deviceMetricsOverridden);
 }
@@ -783,7 +781,7 @@ void InspectorPageAgent::setContinuousPaintingEnabled(ErrorString* errorString, 
 void InspectorPageAgent::setShowScrollBottleneckRects(ErrorString* errorString, bool show)
 {
     m_state->setBoolean(PageAgentState::pageAgentShowScrollBottleneckRects, show);
-    if (show && !forceCompositingMode(errorString))
+    if (show && !compositingEnabled(errorString))
         return;
     m_client->setShowScrollBottleneckRects(show);
 }
@@ -873,7 +871,10 @@ void InspectorPageAgent::didCommitLoad(LocalFrame*, DocumentLoader* loader)
 
 void InspectorPageAgent::frameAttachedToParent(LocalFrame* frame)
 {
-    m_frontend->frameAttached(frameId(frame), frameId(frame->tree().parent()));
+    Frame* parentFrame = frame->tree().parent();
+    if (!parentFrame->isLocalFrame())
+        parentFrame = 0;
+    m_frontend->frameAttached(frameId(frame), frameId(toLocalFrame(parentFrame)));
 }
 
 void InspectorPageAgent::frameDetachedFromParent(LocalFrame* frame)
@@ -928,10 +929,13 @@ String InspectorPageAgent::loaderId(DocumentLoader* loader)
 
 LocalFrame* InspectorPageAgent::findFrameWithSecurityOrigin(const String& originRawString)
 {
-    for (LocalFrame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        RefPtr<SecurityOrigin> documentOrigin = frame->document()->securityOrigin();
+    for (Frame* frame = m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        // FIXME: RemoteFrame security origins are not yet available.
+        if (!frame->isLocalFrame())
+            continue;
+        RefPtr<SecurityOrigin> documentOrigin = toLocalFrame(frame)->document()->securityOrigin();
         if (documentOrigin->toRawString() == originRawString)
-            return frame;
+            return toLocalFrame(frame);
     }
     return 0;
 }
@@ -1076,12 +1080,14 @@ PassRefPtr<TypeBuilder::Page::Frame> InspectorPageAgent::buildObjectForFrame(Loc
         .setUrl(urlWithoutFragment(frame->document()->url()).string())
         .setMimeType(frame->loader().documentLoader()->responseMIMEType())
         .setSecurityOrigin(frame->document()->securityOrigin()->toRawString());
-    if (frame->tree().parent())
-        frameObject->setParentId(frameId(frame->tree().parent()));
-    if (frame->ownerElement()) {
-        AtomicString name = frame->ownerElement()->getNameAttribute();
+    // FIXME: This doesn't work for OOPI.
+    Frame* parentFrame = frame->tree().parent();
+    if (parentFrame && parentFrame->isLocalFrame())
+        frameObject->setParentId(frameId(toLocalFrame(parentFrame)));
+    if (frame->deprecatedLocalOwner()) {
+        AtomicString name = frame->deprecatedLocalOwner()->getNameAttribute();
         if (name.isEmpty())
-            name = frame->ownerElement()->getAttribute(HTMLNames::idAttr);
+            name = frame->deprecatedLocalOwner()->getAttribute(HTMLNames::idAttr);
         frameObject->setName(name);
     }
 
@@ -1122,12 +1128,14 @@ PassRefPtr<TypeBuilder::Page::FrameResourceTree> InspectorPageAgent::buildObject
     }
 
     RefPtr<TypeBuilder::Array<TypeBuilder::Page::FrameResourceTree> > childrenArray;
-    for (LocalFrame* child = frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+    for (Frame* child = frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (!child->isLocalFrame())
+            continue;
         if (!childrenArray) {
             childrenArray = TypeBuilder::Array<TypeBuilder::Page::FrameResourceTree>::create();
             result->setChildFrames(childrenArray);
         }
-        childrenArray->addItem(buildObjectForFrameTree(child));
+        childrenArray->addItem(buildObjectForFrameTree(toLocalFrame(child)));
     }
     return result;
 }
@@ -1251,20 +1259,13 @@ void InspectorPageAgent::applyEmulatedMedia(String* media)
         *media = emulatedMedia;
 }
 
-bool InspectorPageAgent::forceCompositingMode(ErrorString* errorString)
+bool InspectorPageAgent::compositingEnabled(ErrorString* errorString)
 {
-    Settings& settings = m_page->settings();
-    if (!settings.acceleratedCompositingEnabled()) {
+    if (!m_page->settings().acceleratedCompositingEnabled()) {
         if (errorString)
             *errorString = "Compositing mode is not supported";
         return false;
     }
-    if (settings.forceCompositingMode())
-        return true;
-    settings.setForceCompositingMode(true);
-    LocalFrame* mainFrame = m_page->mainFrame();
-    if (mainFrame)
-        mainFrame->view()->updateCompositingLayersAfterStyleChange();
     return true;
 }
 

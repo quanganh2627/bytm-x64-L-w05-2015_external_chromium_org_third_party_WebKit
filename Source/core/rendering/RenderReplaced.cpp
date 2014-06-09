@@ -547,7 +547,7 @@ LayoutRect RenderReplaced::selectionRectForRepaint(const RenderLayerModelObject*
 
     LayoutRect rect = localSelectionRect();
     if (clipToVisibleContent)
-        computeRectForRepaint(repaintContainer, rect);
+        mapRectToRepaintBacking(repaintContainer, rect);
     else
         rect = localToContainerQuad(FloatRect(rect), repaintContainer).enclosingBoundingBox();
 
@@ -581,7 +581,7 @@ void RenderReplaced::setSelectionState(SelectionState state)
     // We only include the space below the baseline in our layer's cached repaint rect if the
     // image is selected. Since the selection state has changed update the rect.
     if (hasLayer())
-        layer()->repainter().computeRepaintRects(containerForRepaint());
+        layer()->repainter().computeRepaintRects();
 
     if (canUpdateSelectionOnRootLineBoxes())
         inlineBoxWrapper()->root().setHasSelectedChildren(isSelected());
@@ -625,7 +625,7 @@ LayoutRect RenderReplaced::clippedOverflowRectForRepaint(const RenderLayerModelO
         r.move(v->layoutDelta());
     }
 
-    computeRectForRepaint(repaintContainer, r);
+    mapRectToRepaintBacking(repaintContainer, r);
     return r;
 }
 

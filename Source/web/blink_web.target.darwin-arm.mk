@@ -27,9 +27,9 @@ $(gyp_shared_intermediate_dir)/blink/PickerCommon.h: gyp_var_prefix := $(GYP_VAR
 $(gyp_shared_intermediate_dir)/blink/PickerCommon.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/PickerCommon.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/PickerCommon.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/PickerCommon.h: $(LOCAL_PATH)/third_party/WebKit/Source/web/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerCommon.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerCommon.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/PickerCommon.h: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerCommon.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerCommon.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_web_web_gyp_blink_web_target_PickerCommon ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/PickerCommon.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/PickerCommon.cpp" resources/pickerCommon.css resources/pickerCommon.js
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/PickerCommon.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/PickerCommon.cpp" resources/pickerCommon.css resources/pickerCommon.js
 
 $(gyp_shared_intermediate_dir)/blink/PickerCommon.cpp: $(gyp_shared_intermediate_dir)/blink/PickerCommon.h ;
 
@@ -39,9 +39,9 @@ $(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: gyp_var_prefix := $(GYP_V
 $(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: $(LOCAL_PATH)/third_party/WebKit/Source/web/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/calendarPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/calendarPicker.js $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerButton.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/suggestionPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/suggestionPicker.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/CalendarPicker.h: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/calendarPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/calendarPicker.js $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/pickerButton.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/suggestionPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/suggestionPicker.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_web_web_gyp_blink_web_target_CalendarPicker ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/CalendarPicker.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/CalendarPicker.cpp" resources/calendarPicker.css resources/calendarPicker.js resources/pickerButton.css resources/suggestionPicker.css resources/suggestionPicker.js
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/CalendarPicker.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/CalendarPicker.cpp" resources/calendarPicker.css resources/calendarPicker.js resources/pickerButton.css resources/suggestionPicker.css resources/suggestionPicker.js
 
 $(gyp_shared_intermediate_dir)/blink/CalendarPicker.cpp: $(gyp_shared_intermediate_dir)/blink/CalendarPicker.h ;
 
@@ -51,9 +51,9 @@ $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: gyp_var_prefix := 
 $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: $(LOCAL_PATH)/third_party/WebKit/Source/web/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/colorSuggestionPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/colorSuggestionPicker.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make-file-arrays.py $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/colorSuggestionPicker.css $(LOCAL_PATH)/third_party/WebKit/Source/web/resources/colorSuggestionPicker.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_web_web_gyp_blink_web_target_ColorSuggestionPicker ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.cpp" resources/colorSuggestionPicker.css resources/colorSuggestionPicker.js
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/web; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make-file-arrays.py "--out-h=$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h" "--out-cpp=$(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.cpp" resources/colorSuggestionPicker.css resources/colorSuggestionPicker.js
 
 $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.cpp: $(gyp_shared_intermediate_dir)/blink/ColorSuggestionPicker.h ;
 
@@ -141,13 +141,13 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/web/WebAXObject.cpp \
 	third_party/WebKit/Source/web/WebArrayBufferConverter.cpp \
 	third_party/WebKit/Source/web/WebArrayBufferView.cpp \
-	third_party/WebKit/Source/web/WebAutocompleteParams.cpp \
 	third_party/WebKit/Source/web/WebBindings.cpp \
 	third_party/WebKit/Source/web/WebBlob.cpp \
 	third_party/WebKit/Source/web/WebCache.cpp \
 	third_party/WebKit/Source/web/WebCachedURLRequest.cpp \
 	third_party/WebKit/Source/web/WebColorName.cpp \
 	third_party/WebKit/Source/web/WebColorSuggestion.cpp \
+	third_party/WebKit/Source/web/WebCryptoNormalize.cpp \
 	third_party/WebKit/Source/web/WebCustomElement.cpp \
 	third_party/WebKit/Source/web/WebDOMActivityLogger.cpp \
 	third_party/WebKit/Source/web/WebDOMCustomEvent.cpp \
@@ -316,7 +316,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -347,11 +346,11 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -384,6 +383,9 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \
@@ -473,7 +475,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -504,11 +505,11 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -542,6 +543,9 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/WebKit \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/openmax_dl \

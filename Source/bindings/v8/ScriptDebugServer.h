@@ -35,13 +35,14 @@
 #include "bindings/v8/ScopedPersistent.h"
 #include "core/inspector/ScriptBreakpoint.h"
 #include "core/inspector/ScriptDebugListener.h"
-#include <v8-debug.h>
 #include "wtf/HashMap.h"
 #include "wtf/Noncopyable.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/Vector.h"
 #include "wtf/text/StringHash.h"
 #include "wtf/text/WTFString.h"
+#include <v8-debug.h>
+#include <v8.h>
 
 namespace WebCore {
 
@@ -80,6 +81,7 @@ public:
     ScriptValue currentCallFrames();
     ScriptValue currentCallFramesForAsyncStack();
     PassRefPtr<JavaScriptCallFrame> topCallFrameNoScopes();
+    int frameCount();
 
     class Task {
     public:
@@ -117,7 +119,7 @@ protected:
     virtual void quitMessageLoopOnPause() = 0;
 
     static void breakProgramCallback(const v8::FunctionCallbackInfo<v8::Value>&);
-    void handleProgramBreak(v8::Handle<v8::Context> pausedContext, v8::Handle<v8::Object> executionState, v8::Handle<v8::Value> exception, v8::Handle<v8::Array> hitBreakpoints);
+    void handleProgramBreak(ScriptState* pausedScriptState, v8::Handle<v8::Object> executionState, v8::Handle<v8::Value> exception, v8::Handle<v8::Array> hitBreakpoints);
 
     static void v8DebugEventCallback(const v8::Debug::EventDetails& eventDetails);
     void handleV8DebugEvent(const v8::Debug::EventDetails& eventDetails);
@@ -129,7 +131,7 @@ protected:
     PauseOnExceptionsState m_pauseOnExceptionsState;
     ScopedPersistent<v8::Object> m_debuggerScript;
     v8::Local<v8::Object> m_executionState;
-    v8::Local<v8::Context> m_pausedContext;
+    RefPtr<ScriptState> m_pausedScriptState;
     bool m_breakpointsActivated;
     ScopedPersistent<v8::FunctionTemplate> m_breakProgramCallbackTemplate;
     HashMap<String, OwnPtr<ScopedPersistent<v8::Script> > > m_compiledScripts;

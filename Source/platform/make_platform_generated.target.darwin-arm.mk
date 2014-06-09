@@ -15,47 +15,47 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "FontFamilyNames":
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/platform/fonts/FontFamilyNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/platform/fonts/FontFamilyNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_platform_platform_generated_gyp_make_platform_generated_target_FontFamilyNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py fonts/FontFamilyNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink/platform; python ../build/scripts/make_names.py fonts/FontFamilyNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/platform"
 
-$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.h: $(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.h: $(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp ;
 
 ### Rules for action "RuntimeEnabledFeatures":
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_runtime_features.py $(LOCAL_PATH)/third_party/WebKit/Source/platform/RuntimeEnabledFeatures.in $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/RuntimeEnabledFeatures.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/RuntimeEnabledFeatures.h.tmpl $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_runtime_features.py $(LOCAL_PATH)/third_party/WebKit/Source/platform/RuntimeEnabledFeatures.in $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/RuntimeEnabledFeatures.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/RuntimeEnabledFeatures.h.tmpl $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_platform_platform_generated_gyp_make_platform_generated_target_RuntimeEnabledFeatures ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_runtime_features.py RuntimeEnabledFeatures.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink/platform; python ../build/scripts/make_runtime_features.py RuntimeEnabledFeatures.in --output_dir "$(gyp_shared_intermediate_dir)/blink/platform"
 
-$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.h: $(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp ;
+$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.h: $(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp ;
 
 ### Rules for action "ColorData":
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/ColorData.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/platform/ColorData.gperf $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/platform/ColorData.gperf $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_platform_platform_generated_gyp_make_platform_generated_target_ColorData ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink; gperf "--key-positions=*" -D -s 2 ColorData.gperf "--output-file=$(gyp_shared_intermediate_dir)/blink/ColorData.cpp"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/platform; mkdir -p $(gyp_shared_intermediate_dir)/blink/platform; gperf "--key-positions=*" -D -s 2 ColorData.gperf "--output-file=$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp"
 
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/FontFamilyNames.h \
-	$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.cpp \
-	$(gyp_shared_intermediate_dir)/blink/RuntimeEnabledFeatures.h \
-	$(gyp_shared_intermediate_dir)/blink/ColorData.cpp
+	$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/platform/FontFamilyNames.h \
+	$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.cpp \
+	$(gyp_shared_intermediate_dir)/blink/platform/RuntimeEnabledFeatures.h \
+	$(gyp_shared_intermediate_dir)/blink/platform/ColorData.cpp
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

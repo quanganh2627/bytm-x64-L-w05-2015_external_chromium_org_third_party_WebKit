@@ -47,7 +47,6 @@
 #include "platform/text/TextCheckerClient.h"
 #include "public/platform/WebScreenInfo.h"
 #include "wtf/Forward.h"
-
 #include <v8.h>
 
 /*
@@ -157,10 +156,6 @@ public:
     virtual void needTouchEvents(bool) OVERRIDE { }
     virtual void setTouchAction(TouchAction touchAction) OVERRIDE { };
 
-    virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE { }
-
-    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE { return false; }
-
     virtual void didAssociateFormControls(const WillBeHeapVector<RefPtrWillBeMember<Element> >&) OVERRIDE { }
 
     virtual void annotatedRegionsChanged() OVERRIDE { }
@@ -246,7 +241,7 @@ public:
 
     virtual blink::WebCookieJar* cookieJar() const OVERRIDE { return 0; }
 
-    virtual void didRequestAutocomplete(HTMLFormElement*, const Dictionary&) OVERRIDE;
+    virtual void didRequestAutocomplete(HTMLFormElement*) OVERRIDE;
 
     virtual PassOwnPtr<blink::WebServiceWorkerProvider> createServiceWorkerProvider() OVERRIDE;
     virtual PassOwnPtr<blink::WebApplicationCacheHost> createApplicationCacheHost(blink::WebApplicationCacheHostClient*) OVERRIDE;

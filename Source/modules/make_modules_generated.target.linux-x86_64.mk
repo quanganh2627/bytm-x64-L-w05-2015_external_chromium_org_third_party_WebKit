@@ -13,70 +13,12 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_core_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/core_bindings_generated.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_modules_modules_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/modules_bindings_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_core_event_interfaces_gyp,,,$(GYP_VAR_PREFIX))/core_event_interfaces.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_modules_event_generated_gyp,,,$(GYP_VAR_PREFIX))/modules_event_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp
 
-### Rules for action "EventModulesFactory":
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventModules.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.in $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: third_party_WebKit_Source_modules_modules_gyp_make_modules_generated_target_EventModulesFactory ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/modules; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_event_factory.py "$(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.in" --output_dir "$(gyp_shared_intermediate_dir)/blink"
 
-$(gyp_shared_intermediate_dir)/blink/EventModulesHeaders.h: $(gyp_shared_intermediate_dir)/blink/EventModules.cpp ;
-$(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.h: $(gyp_shared_intermediate_dir)/blink/EventModules.cpp ;
-
-### Rules for action "EventModulesNames":
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.in $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: third_party_WebKit_Source_modules_modules_gyp_make_modules_generated_target_EventModulesNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/modules; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py "$(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.in" --output_dir "$(gyp_shared_intermediate_dir)/blink"
-
-$(gyp_shared_intermediate_dir)/blink/EventModulesNames.h: $(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp ;
-
-### Rules for action "EventTargetModulesFactory":
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/modules/EventTargetModulesFactory.in $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: third_party_WebKit_Source_modules_modules_gyp_make_modules_generated_target_EventTargetModulesFactory ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/modules; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_event_factory.py EventTargetModulesFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
-
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesInterfaces.h: $(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h ;
-
-### Rules for action "EventTargetModulesNames":
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/modules/EventTargetModulesFactory.in $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: third_party_WebKit_Source_modules_modules_gyp_make_modules_generated_target_EventTargetModulesNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/modules; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py EventTargetModulesFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
-
-$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.h: $(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp ;
-
-
-GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/EventModules.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventModulesHeaders.h \
-	$(gyp_shared_intermediate_dir)/blink/EventModulesInterfaces.h \
-	$(gyp_shared_intermediate_dir)/blink/EventModulesNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventModulesNames.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetModulesHeaders.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetModulesInterfaces.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetModulesNames.h
+GYP_GENERATED_OUTPUTS :=
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
@@ -134,7 +76,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -226,7 +167,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \

@@ -122,7 +122,7 @@ void InsertionPoint::willRecalcStyle(StyleRecalcChange change)
     if (change < Inherit)
         return;
     for (size_t i = 0; i < m_distribution.size(); ++i)
-        m_distribution.at(i)->setNeedsStyleRecalc(LocalStyleChange);
+        m_distribution.at(i)->setNeedsStyleRecalc(SubtreeStyleChange);
 }
 
 bool InsertionPoint::shouldUseFallbackElements() const
@@ -175,7 +175,7 @@ PassRefPtrWillBeRawPtr<NodeList> InsertionPoint::getDistributedNodes()
 {
     document().updateDistributionForNodeIfNeeded(this);
 
-    Vector<RefPtr<Node> > nodes;
+    WillBeHeapVector<RefPtrWillBeMember<Node> > nodes;
     nodes.reserveInitialCapacity(m_distribution.size());
     for (size_t i = 0; i < m_distribution.size(); ++i)
         nodes.uncheckedAppend(m_distribution.at(i));

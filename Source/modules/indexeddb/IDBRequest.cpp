@@ -234,6 +234,7 @@ void IDBRequest::onError(PassRefPtrWillBeRawPtr<DOMError> error)
         return;
 
     m_error = error;
+    setResult(IDBAny::createUndefined());
     m_pendingCursor.clear();
     enqueueEvent(Event::createCancelableBubble(EventTypeNames::error));
 }
@@ -435,7 +436,7 @@ bool IDBRequest::dispatchEvent(PassRefPtrWillBeRawPtr<Event> event)
         m_readyState = DONE;
     dequeueEvent(event.get());
 
-    Vector<RefPtr<EventTarget> > targets;
+    WillBeHeapVector<RefPtrWillBeMember<EventTarget> > targets;
     targets.append(this);
     if (m_transaction && !m_preventPropagation) {
         targets.append(m_transaction);

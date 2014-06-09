@@ -20,8 +20,9 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_canvas_script_source_gyp,,,$(GYP_VAR_PREFIX))/injected_canvas_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_injected_script_source_gyp,,,$(GYP_VAR_PREFIX))/injected_script_source.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_debugger_script_source_gyp,,,$(GYP_VAR_PREFIX))/debugger_script_source.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_v8_bindings_core_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_core_generated.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_v8_bindings_modules_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_modules_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_v8_bindings_core_v8_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_core_v8_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_modules_event_generated_gyp,,,$(GYP_VAR_PREFIX))/modules_event_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_v8_bindings_modules_v8_generated_gyp,,,$(GYP_VAR_PREFIX))/bindings_modules_v8_generated.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_platform_make_platform_generated_gyp,,,$(GYP_VAR_PREFIX))/make_platform_generated.stamp \
 	$(call intermediates-dir-for,GYP,skia_skia_gyp,,,$(GYP_VAR_PREFIX))/skia.stamp \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,skia_skia_library_gyp,,,$(GYP_VAR_PREFIX))/skia_skia_library_gyp.a \
@@ -72,77 +73,77 @@ $(gyp_intermediate_dir)/V8GeneratedCoreBindings18.cpp: $(gyp_shared_intermediate
 	mkdir -p $(@D); cp $< $@
 $(gyp_intermediate_dir)/V8GeneratedCoreBindings19.cpp: $(gyp_shared_intermediate_dir)/blink/bindings/core/v8/V8GeneratedCoreBindings19.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/CSSPropertyNames.cpp: $(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp
+$(gyp_intermediate_dir)/CSSPropertyNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/CSSValueKeywords.cpp: $(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp
+$(gyp_intermediate_dir)/CSSValueKeywords.cpp: $(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/Event.cpp: $(gyp_shared_intermediate_dir)/blink/Event.cpp
+$(gyp_intermediate_dir)/Event.cpp: $(gyp_shared_intermediate_dir)/blink/core/Event.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/EventNames.cpp: $(gyp_shared_intermediate_dir)/blink/EventNames.cpp
+$(gyp_intermediate_dir)/EventNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/EventTargetNames.cpp: $(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp
+$(gyp_intermediate_dir)/EventTargetNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/EventTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp
+$(gyp_intermediate_dir)/EventTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/FetchInitiatorTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp
+$(gyp_intermediate_dir)/FetchInitiatorTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLElementFactory.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp
+$(gyp_intermediate_dir)/HTMLElementFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLElementLookupTrie.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp
+$(gyp_intermediate_dir)/HTMLElementLookupTrie.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLNames.cpp
+$(gyp_intermediate_dir)/HTMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLTokenizerNames.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp
+$(gyp_intermediate_dir)/HTMLTokenizerNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/InputTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp
+$(gyp_intermediate_dir)/InputTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/MathMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp
+$(gyp_intermediate_dir)/MathMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/SVGNames.cpp: $(gyp_shared_intermediate_dir)/blink/SVGNames.cpp
+$(gyp_intermediate_dir)/SVGNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/SVGNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/UserAgentStyleSheetsData.cpp: $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp
+$(gyp_intermediate_dir)/UserAgentStyleSheetsData.cpp: $(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheetsData.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8HTMLElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/V8HTMLElementWrapperFactory.cpp
+$(gyp_intermediate_dir)/V8HTMLElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/V8HTMLElementWrapperFactory.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/XLinkNames.cpp: $(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp
+$(gyp_intermediate_dir)/XLinkNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/XMLNSNames.cpp: $(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp
+$(gyp_intermediate_dir)/XMLNSNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/XMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/XMLNames.cpp
+$(gyp_intermediate_dir)/XMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLEntityTable.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp
+$(gyp_intermediate_dir)/HTMLEntityTable.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/MediaFeatureNames.cpp: $(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp
+$(gyp_intermediate_dir)/MediaFeatureNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/MediaTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp
+$(gyp_intermediate_dir)/MediaTypeNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/CSSTokenizer.cpp: $(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp
+$(gyp_intermediate_dir)/CSSTokenizer.cpp: $(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/BisonCSSParser.cpp: $(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp
+$(gyp_intermediate_dir)/BisonCSSParser.cpp: $(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/HTMLMetaElement.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp
+$(gyp_intermediate_dir)/HTMLMetaElement.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/CSSGrammar.cpp: $(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp
+$(gyp_intermediate_dir)/CSSGrammar.cpp: $(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/XPathGrammar.cpp: $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp
+$(gyp_intermediate_dir)/XPathGrammar.cpp: $(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/InspectorFrontend.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorFrontend.cpp
+$(gyp_intermediate_dir)/InspectorFrontend.cpp: $(gyp_shared_intermediate_dir)/blink/core/InspectorFrontend.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/InspectorBackendDispatcher.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorBackendDispatcher.cpp
+$(gyp_intermediate_dir)/InspectorBackendDispatcher.cpp: $(gyp_shared_intermediate_dir)/blink/core/InspectorBackendDispatcher.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/InspectorTypeBuilder.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorTypeBuilder.cpp
+$(gyp_intermediate_dir)/InspectorTypeBuilder.cpp: $(gyp_shared_intermediate_dir)/blink/core/InspectorTypeBuilder.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/InspectorInstrumentationImpl.cpp: $(gyp_shared_intermediate_dir)/blink/InspectorInstrumentationImpl.cpp
+$(gyp_intermediate_dir)/InspectorInstrumentationImpl.cpp: $(gyp_shared_intermediate_dir)/blink/core/InspectorInstrumentationImpl.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/SVGElementFactory.cpp: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp
+$(gyp_intermediate_dir)/SVGElementFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/V8SVGElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/V8SVGElementWrapperFactory.cpp
+$(gyp_intermediate_dir)/V8SVGElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/V8SVGElementWrapperFactory.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/StylePropertyShorthand.cpp: $(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp
+$(gyp_intermediate_dir)/StylePropertyShorthand.cpp: $(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/StyleBuilder.cpp: $(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp
+$(gyp_intermediate_dir)/StyleBuilder.cpp: $(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp
 	mkdir -p $(@D); cp $< $@
-$(gyp_intermediate_dir)/StyleBuilderFunctions.cpp: $(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.cpp
+$(gyp_intermediate_dir)/StyleBuilderFunctions.cpp: $(gyp_shared_intermediate_dir)/blink/core/StyleBuilderFunctions.cpp
 	mkdir -p $(@D); cp $< $@
 LOCAL_GENERATED_SOURCES := \
 	$(gyp_intermediate_dir)/V8GeneratedCoreBindings01.cpp \
@@ -203,7 +204,7 @@ LOCAL_GENERATED_SOURCES := \
 
 GYP_COPIED_SOURCE_ORIGIN_DIRS := \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
-	$(gyp_shared_intermediate_dir)/blink
+	$(gyp_shared_intermediate_dir)/blink/core
 
 LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/bindings/v8/custom/V8ArrayBufferCustom.cpp \
@@ -388,7 +389,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -417,11 +417,11 @@ MY_DEFS_Debug := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -450,9 +450,11 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/WebKit/Source/bindings/v8/custom \
@@ -465,6 +467,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/khronos \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/angle/include \
+	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/ots/include \
 	$(LOCAL_PATH)/third_party/zlib \
 	$(PWD)/external/icu4c/common \
@@ -554,7 +557,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -583,11 +585,11 @@ MY_DEFS_Release := \
 	'-DGR_GL_IGNORE_ES3_MSAA=0' \
 	'-DSK_WILL_NEVER_DRAW_PERSPECTIVE_TEXT' \
 	'-DSK_SUPPORT_LEGACY_GETTOPDEVICE' \
-	'-DSK_SUPPORT_LEGACY_ASIMAGEINFO' \
+	'-DSK_SUPPORT_LEGACY_SETCONFIG_INFO' \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
-	'-DSK_IGNORE_CORRECT_HIGH_QUALITY_IMAGE_SCALE' \
+	'-DSK_IGNORE_ETC1_SUPPORT' \
 	'-DSK_SUPPORT_LEGACY_INSTALLPIXELSPARAMS' \
-	'-DSK_SUPPORT_LEGACY_IMAGEGENERATORAPI' \
+	'-DSK_SUPPORT_LEGACY_DRAWPICTURE_API' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -617,9 +619,11 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/shim_headers/ashmem/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icuuc/target \
 	$(gyp_shared_intermediate_dir)/shim_headers/icui18n/target \
-	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/WebKit/Source \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(gyp_shared_intermediate_dir)/blink/core \
+	$(gyp_shared_intermediate_dir)/blink/modules \
+	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(LOCAL_PATH)/third_party/WebKit/Source/bindings/v8/custom \
@@ -632,6 +636,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/khronos \
 	$(LOCAL_PATH)/gpu \
 	$(LOCAL_PATH)/third_party/angle/include \
+	$(LOCAL_PATH)/third_party/WebKit \
 	$(LOCAL_PATH)/third_party/ots/include \
 	$(LOCAL_PATH)/third_party/zlib \
 	$(PWD)/external/icu4c/common \

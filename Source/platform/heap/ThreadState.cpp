@@ -35,6 +35,7 @@
 #include "platform/heap/AddressSanitizer.h"
 #include "platform/heap/Handle.h"
 #include "platform/heap/Heap.h"
+#include "public/platform/Platform.h"
 #include "wtf/ThreadingPrimitives.h"
 
 #if OS(WIN)
@@ -468,8 +469,11 @@ void ThreadState::visitStack(Visitor* visitor)
     for (; current < start; ++current) {
         Address ptr = *current;
 #if defined(MEMORY_SANITIZER)
-        // ptr may be uninitialized by design. Mark it as initialized to keep
+        // |ptr| may be uninitialized by design. Mark it as initialized to keep
         // MSan from complaining.
+        // Note: it may be tempting to get rid of |ptr| and simply use |current|
+        // here, but that would be incorrect. We intentionally use a local
+        // variable because we don't want to unpoison the original stack.
         __msan_unpoison(&ptr, sizeof(ptr));
 #endif
         Heap::checkAndMarkPointer(visitor, ptr);
@@ -477,8 +481,13 @@ void ThreadState::visitStack(Visitor* visitor)
     }
 
     for (Vector<Address>::iterator it = m_safePointStackCopy.begin(); it != m_safePointStackCopy.end(); ++it) {
-        Heap::checkAndMarkPointer(visitor, *it);
-        visitAsanFakeStackForPointer(visitor, *it);
+        Address ptr = *it;
+#if defined(MEMORY_SANITIZER)
+        // See the comment above.
+        __msan_unpoison(&ptr, sizeof(ptr));
+#endif
+        Heap::checkAndMarkPointer(visitor, ptr);
+        visitAsanFakeStackForPointer(visitor, ptr);
     }
 }
 
@@ -818,6 +827,7 @@ void ThreadState::performPendingSweep()
         return;
 
     TRACE_EVENT0("Blink", "ThreadState::performPendingSweep");
+    double timeStamp = WTF::currentTimeMS();
     const char* samplingState = TRACE_EVENT_GET_SAMPLING_STATE();
     if (isMainThread())
         TRACE_EVENT_SET_SAMPLING_STATE("Blink", "BlinkGCSweeping");
@@ -836,6 +846,10 @@ void ThreadState::performPendingSweep()
     m_sweepInProgress = false;
     clearGCRequested();
     clearSweepRequested();
+
+    if (blink::Platform::current()) {
+        blink::Platform::current()->histogramCustomCounts("BlinkGC.PerformPendingSweep", WTF::currentTimeMS() - timeStamp, 0, 10 * 1000, 50);
+    }
 
     if (isMainThread())
         TRACE_EVENT_SET_NONCONST_SAMPLING_STATE(samplingState);

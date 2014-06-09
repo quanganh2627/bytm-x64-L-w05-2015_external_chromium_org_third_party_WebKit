@@ -15,19 +15,19 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "generateInspectorProtocolVersion":
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/generate-inspector-protocol-version $(LOCAL_PATH)/third_party/WebKit/Source/devtools/protocol.json $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/inspector/generate-inspector-protocol-version $(LOCAL_PATH)/third_party/WebKit/Source/devtools/protocol.json $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: Validate inspector protocol for backwards compatibility and generate version file ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python inspector/generate-inspector-protocol-version -o "$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h" ../devtools/protocol.json
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python inspector/generate-inspector-protocol-version -o "$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h" ../devtools/protocol.json
 
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/InspectorProtocolVersion.h
+	$(gyp_shared_intermediate_dir)/blink/core/InspectorProtocolVersion.h
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -42,6 +43,44 @@ class ShareableElementData;
 class StylePropertySet;
 class UniqueElementData;
 
+class AttributeConstIterator {
+public:
+    AttributeConstIterator(const Attribute* array, unsigned index)
+        : m_array(array)
+        , m_index(index)
+    { }
+
+    const Attribute* operator*() const { return &m_array[m_index]; }
+    const Attribute* operator->() const { return &m_array[m_index]; }
+    AttributeConstIterator& operator++() { ++m_index; return *this; }
+
+    bool operator==(const AttributeConstIterator& other) const { return m_index == other.m_index; }
+    bool operator!=(const AttributeConstIterator& other) const { return !(*this == other); }
+
+    unsigned index() const { return m_index; }
+
+private:
+    const Attribute* m_array;
+    unsigned m_index;
+};
+
+class AttributeIteratorAccessor {
+public:
+    AttributeIteratorAccessor(const Attribute* array, unsigned size)
+        : m_array(array)
+        , m_size(size)
+    { }
+
+    AttributeConstIterator begin() const { return AttributeConstIterator(m_array, 0); }
+    AttributeConstIterator end() const { return AttributeConstIterator(m_array, m_size); }
+
+    unsigned size() const { return m_size; }
+
+private:
+    const Attribute* m_array;
+    unsigned m_size;
+};
+
 // ElementData represents very common, but not necessarily unique to an element,
 // data such as attributes, inline style, and parsed class names and ids.
 class ElementData : public RefCounted<ElementData> {
@@ -63,14 +102,16 @@ public:
     const StylePropertySet* presentationAttributeStyle() const;
 
     // This is not a trivial getter and its return value should be cached for performance.
-    size_t length() const;
-    bool isEmpty() const { return !length(); }
+    size_t attributeCount() const;
+    bool hasAttributes() const { return !!attributeCount(); }
 
-    const Attribute& attributeItem(unsigned index) const;
-    const Attribute* getAttributeItem(const QualifiedName&) const;
-    size_t getAttributeItemIndex(const QualifiedName&, bool shouldIgnoreCase = false) const;
-    size_t getAttributeItemIndex(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
-    size_t getAttrIndex(Attr*) const;
+    AttributeIteratorAccessor attributesIterator() const;
+
+    const Attribute& attributeAt(unsigned index) const;
+    const Attribute* findAttributeByName(const QualifiedName&) const;
+    size_t findAttributeIndexByName(const QualifiedName&, bool shouldIgnoreCase = false) const;
+    size_t findAttributeIndexByName(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
+    size_t findAttrNodeIndex(Attr*) const;
 
     bool hasID() const { return !m_idForStyleResolution.isNull(); }
     bool hasClass() const { return !m_classNames.isNull(); }
@@ -104,8 +145,8 @@ private:
     void destroy();
 
     const Attribute* attributeBase() const;
-    const Attribute* getAttributeItem(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
-    size_t getAttributeItemIndexSlowCase(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
+    const Attribute* findAttributeByName(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
+    size_t findAttributeIndexByNameSlowCase(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
 
     PassRefPtr<UniqueElementData> makeUniqueCopy() const;
 };
@@ -146,11 +187,11 @@ public:
     PassRefPtr<ShareableElementData> makeShareableCopy() const;
 
     // These functions do no error/duplicate checking.
-    void addAttribute(const QualifiedName&, const AtomicString&);
-    void removeAttribute(size_t index);
+    void appendAttribute(const QualifiedName&, const AtomicString&);
+    void removeAttributeAt(size_t index);
 
-    Attribute& attributeItem(unsigned index);
-    Attribute* getAttributeItem(const QualifiedName&);
+    Attribute& attributeAt(unsigned index);
+    Attribute* findAttributeByName(const QualifiedName&);
 
     UniqueElementData();
     explicit UniqueElementData(const ShareableElementData&);
@@ -171,7 +212,7 @@ inline void ElementData::deref()
     destroy();
 }
 
-inline size_t ElementData::length() const
+inline size_t ElementData::attributeCount() const
 {
     if (isUnique())
         return static_cast<const UniqueElementData*>(this)->m_attributeVector.size();
@@ -185,11 +226,11 @@ inline const StylePropertySet* ElementData::presentationAttributeStyle() const
     return static_cast<const UniqueElementData*>(this)->m_presentationAttributeStyle.get();
 }
 
-inline const Attribute* ElementData::getAttributeItem(const AtomicString& name, bool shouldIgnoreAttributeCase) const
+inline const Attribute* ElementData::findAttributeByName(const AtomicString& name, bool shouldIgnoreAttributeCase) const
 {
-    size_t index = getAttributeItemIndex(name, shouldIgnoreAttributeCase);
+    size_t index = findAttributeIndexByName(name, shouldIgnoreAttributeCase);
     if (index != kNotFound)
-        return &attributeItem(index);
+        return &attributeAt(index);
     return 0;
 }
 
@@ -200,76 +241,80 @@ inline const Attribute* ElementData::attributeBase() const
     return static_cast<const ShareableElementData*>(this)->m_attributeArray;
 }
 
-inline size_t ElementData::getAttributeItemIndex(const QualifiedName& name, bool shouldIgnoreCase) const
+inline size_t ElementData::findAttributeIndexByName(const QualifiedName& name, bool shouldIgnoreCase) const
 {
-    const Attribute* begin = attributeBase();
-    // Cache length for performance as ElementData::length() contains a conditional branch.
-    unsigned length = this->length();
-    for (unsigned i = 0; i < length; ++i) {
-        const Attribute& attribute = begin[i];
-        if (attribute.name().matchesPossiblyIgnoringCase(name, shouldIgnoreCase))
-            return i;
+    AttributeIteratorAccessor attributes = attributesIterator();
+    AttributeConstIterator end = attributes.end();
+    for (AttributeConstIterator it = attributes.begin(); it != end; ++it) {
+        if (it->name().matchesPossiblyIgnoringCase(name, shouldIgnoreCase))
+            return it.index();
     }
     return kNotFound;
 }
 
 // We use a boolean parameter instead of calling shouldIgnoreAttributeCase so that the caller
 // can tune the behavior (hasAttribute is case sensitive whereas getAttribute is not).
-inline size_t ElementData::getAttributeItemIndex(const AtomicString& name, bool shouldIgnoreAttributeCase) const
+inline size_t ElementData::findAttributeIndexByName(const AtomicString& name, bool shouldIgnoreAttributeCase) const
 {
-    // Cache length for performance as ElementData::length() contains a conditional branch.
-    unsigned length = this->length();
     bool doSlowCheck = shouldIgnoreAttributeCase;
 
     // Optimize for the case where the attribute exists and its name exactly matches.
-    const Attribute* begin = attributeBase();
-    for (unsigned i = 0; i < length; ++i) {
-        const Attribute& attribute = begin[i];
+    AttributeIteratorAccessor attributes = attributesIterator();
+    AttributeConstIterator end = attributes.end();
+    for (AttributeConstIterator it = attributes.begin(); it != end; ++it) {
         // FIXME: Why check the prefix? Namespaces should be all that matter.
         // Most attributes (all of HTML and CSS) have no namespace.
-        if (!attribute.name().hasPrefix()) {
-            if (name == attribute.localName())
-                return i;
+        if (!it->name().hasPrefix()) {
+            if (name == it->localName())
+                return it.index();
         } else {
             doSlowCheck = true;
         }
     }
 
     if (doSlowCheck)
-        return getAttributeItemIndexSlowCase(name, shouldIgnoreAttributeCase);
+        return findAttributeIndexByNameSlowCase(name, shouldIgnoreAttributeCase);
     return kNotFound;
 }
 
-inline const Attribute* ElementData::getAttributeItem(const QualifiedName& name) const
+inline AttributeIteratorAccessor ElementData::attributesIterator() const
 {
-    const Attribute* begin = attributeBase();
-    unsigned length = this->length();
-    for (unsigned i = 0; i < length; ++i) {
-        const Attribute& attribute = begin[i];
-        if (attribute.name().matches(name))
-            return &attribute;
+    if (isUnique()) {
+        const Vector<Attribute, 4>& attributeVector = static_cast<const UniqueElementData*>(this)->m_attributeVector;
+        return AttributeIteratorAccessor(attributeVector.data(), attributeVector.size());
+    }
+    return AttributeIteratorAccessor(static_cast<const ShareableElementData*>(this)->m_attributeArray, m_arraySize);
+}
+
+inline const Attribute* ElementData::findAttributeByName(const QualifiedName& name) const
+{
+    AttributeIteratorAccessor attributes = attributesIterator();
+    AttributeConstIterator end = attributes.end();
+    for (AttributeConstIterator it = attributes.begin(); it != end; ++it) {
+        if (it->name().matches(name))
+            return *it;
     }
     return 0;
 }
 
-inline const Attribute& ElementData::attributeItem(unsigned index) const
+inline const Attribute& ElementData::attributeAt(unsigned index) const
 {
-    RELEASE_ASSERT(index < length());
+    RELEASE_ASSERT(index < attributeCount());
     ASSERT(attributeBase() + index);
     return *(attributeBase() + index);
 }
 
-inline void UniqueElementData::addAttribute(const QualifiedName& attributeName, const AtomicString& value)
+inline void UniqueElementData::appendAttribute(const QualifiedName& attributeName, const AtomicString& value)
 {
     m_attributeVector.append(Attribute(attributeName, value));
 }
 
-inline void UniqueElementData::removeAttribute(size_t index)
+inline void UniqueElementData::removeAttributeAt(size_t index)
 {
     m_attributeVector.remove(index);
 }
 
-inline Attribute& UniqueElementData::attributeItem(unsigned index)
+inline Attribute& UniqueElementData::attributeAt(unsigned index)
 {
     return m_attributeVector.at(index);
 }

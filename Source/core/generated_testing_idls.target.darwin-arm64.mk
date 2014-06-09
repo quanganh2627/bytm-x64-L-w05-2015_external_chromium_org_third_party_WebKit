@@ -15,39 +15,39 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 GYP_TARGET_DEPENDENCIES :=
 
 ### Rules for action "Settings":
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_settings.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.idl.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/SettingsMacros.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/frame/Settings.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_settings.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.idl.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalSettingsGenerated.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/SettingsMacros.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/frame/Settings.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_generated_testing_idls_target_Settings ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_settings.py frame/Settings.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_settings.py frame/Settings.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.idl: $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h ;
-$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.cpp: $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h ;
-$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.h: $(gyp_shared_intermediate_dir)/blink/SettingsMacros.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.idl: $(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.cpp: $(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h ;
+$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.h: $(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h ;
 
 ### Rules for action "InternalRuntimeFlags":
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_internal_runtime_flags.py $(LOCAL_PATH)/third_party/WebKit/Source/platform/RuntimeEnabledFeatures.in $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalRuntimeFlags.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalRuntimeFlags.idl.tmpl $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_internal_runtime_flags.py $(LOCAL_PATH)/third_party/WebKit/Source/platform/RuntimeEnabledFeatures.in $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalRuntimeFlags.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/InternalRuntimeFlags.idl.tmpl $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_generated_testing_idls_target_InternalRuntimeFlags ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_internal_runtime_flags.py ../platform/RuntimeEnabledFeatures.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_internal_runtime_flags.py ../platform/RuntimeEnabledFeatures.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.h: $(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl ;
+$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.h: $(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl ;
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/SettingsMacros.h \
-	$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.idl \
-	$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.cpp \
-	$(gyp_shared_intermediate_dir)/blink/InternalSettingsGenerated.h \
-	$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.idl \
-	$(gyp_shared_intermediate_dir)/blink/InternalRuntimeFlags.h
+	$(gyp_shared_intermediate_dir)/blink/core/SettingsMacros.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.idl \
+	$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/InternalSettingsGenerated.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.idl \
+	$(gyp_shared_intermediate_dir)/blink/core/InternalRuntimeFlags.h
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)

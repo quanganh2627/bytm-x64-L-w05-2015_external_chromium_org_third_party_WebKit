@@ -62,7 +62,7 @@ namespace WebCore {
 
     class LocalFrame : public Frame, public Supplementable<LocalFrame>  {
     public:
-        static PassRefPtr<LocalFrame> create(FrameLoaderClient*, FrameHost*, HTMLFrameOwnerElement*);
+        static PassRefPtr<LocalFrame> create(FrameLoaderClient*, FrameHost*, FrameOwner*);
 
         virtual bool isLocalFrame() const OVERRIDE { return true; }
 
@@ -143,15 +143,12 @@ namespace WebCore {
         Document* documentAtPoint(const IntPoint& windowPoint);
         PassRefPtrWillBeRawPtr<Range> rangeForPoint(const IntPoint& framePoint);
 
-        // Should only be called on the main frame of a page.
-        void notifyChromeClientWheelEventHandlerCountChanged() const;
-
         bool isURLAllowed(const KURL&) const;
 
     // ========
 
     private:
-        LocalFrame(FrameLoaderClient*, FrameHost*, HTMLFrameOwnerElement*);
+        LocalFrame(FrameLoaderClient*, FrameHost*, FrameOwner*);
 
         String localLayerTreeAsText(unsigned flags) const;
 
@@ -161,10 +158,10 @@ namespace WebCore {
         RefPtr<FrameView> m_view;
 
         OwnPtr<ScriptController> m_script;
-        const OwnPtr<Editor> m_editor;
+        const OwnPtrWillBePersistent<Editor> m_editor;
         const OwnPtr<SpellChecker> m_spellChecker;
-        const OwnPtr<FrameSelection> m_selection;
-        const OwnPtr<EventHandler> m_eventHandler;
+        const OwnPtrWillBePersistent<FrameSelection> m_selection;
+        const OwnPtrWillBePersistent<EventHandler> m_eventHandler;
         const OwnPtr<FrameConsole> m_console;
         OwnPtr<InputMethodController> m_inputMethodController;
 

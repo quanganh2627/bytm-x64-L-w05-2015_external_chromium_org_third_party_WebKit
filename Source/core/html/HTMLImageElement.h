@@ -70,6 +70,7 @@ public:
     void setSrc(const String&);
 
     void setWidth(int);
+    void updateCurrentSrc();
 
     int x() const;
     int y() const;
@@ -93,6 +94,7 @@ public:
     virtual bool wouldTaintOrigin(SecurityOrigin*) const OVERRIDE;
     virtual FloatSize sourceSize() const OVERRIDE;
     virtual FloatSize defaultDestinationSize() const OVERRIDE;
+    virtual const KURL& sourceURL() const OVERRIDE;
 
     enum UpdateFromElementBehavior {
         UpdateNormal,

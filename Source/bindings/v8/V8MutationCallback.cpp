@@ -26,8 +26,8 @@
 #include "config.h"
 #include "bindings/v8/V8MutationCallback.h"
 
-#include "V8MutationObserver.h"
-#include "V8MutationRecord.h"
+#include "bindings/core/v8/V8MutationObserver.h"
+#include "bindings/core/v8/V8MutationRecord.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/V8HiddenValue.h"
@@ -69,7 +69,7 @@ void V8MutationCallback::call(const WillBeHeapVector<RefPtrWillBeMember<Mutation
         return;
 
     v8::Handle<v8::Object> thisObject = v8::Handle<v8::Object>::Cast(observerHandle);
-    v8::Handle<v8::Value> argv[] = { v8Array(mutations, isolate), observerHandle };
+    v8::Handle<v8::Value> argv[] = { v8Array(mutations, m_scriptState->context()->Global(), isolate), observerHandle };
 
     v8::TryCatch exceptionCatcher;
     exceptionCatcher.SetVerbose(true);

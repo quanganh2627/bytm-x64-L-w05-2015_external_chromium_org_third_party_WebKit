@@ -135,7 +135,7 @@ void HTMLPlugInElement::attach(const AttachContext& context)
 
 void HTMLPlugInElement::updateWidget()
 {
-    RefPtr<HTMLPlugInElement> protector(this);
+    RefPtrWillBeRawPtr<HTMLPlugInElement> protector(this);
     updateWidgetInternal();
     if (m_isDelayingLoadEvent) {
         m_isDelayingLoadEvent = false;
@@ -437,7 +437,7 @@ bool HTMLPlugInElement::requestObject(const String& url, const String& mimeType,
 
     bool useFallback;
     bool requireRenderer = true;
-    if (shouldUsePlugin(completedURL, mimeType, renderer->hasFallbackContent(), useFallback))
+    if (shouldUsePlugin(completedURL, mimeType, hasFallbackContent(), useFallback))
         return loadPlugin(completedURL, mimeType, paramNames, paramValues, useFallback, requireRenderer);
 
     // If the plug-in element already contains a subframe,
@@ -483,7 +483,7 @@ bool HTMLPlugInElement::loadPlugin(const KURL& url, const String& mimeType, cons
         m_persistedPluginWidget = widget;
     }
     document().setContainsPlugins();
-    scheduleLayerUpdate();
+    scheduleSVGFilterLayerUpdateHack();
     return true;
 }
 
@@ -553,6 +553,11 @@ void HTMLPlugInElement::didAddUserAgentShadowRoot(ShadowRoot&)
 void HTMLPlugInElement::willAddFirstAuthorShadowRoot()
 {
     lazyReattachIfAttached();
+}
+
+bool HTMLPlugInElement::hasFallbackContent() const
+{
+    return false;
 }
 
 bool HTMLPlugInElement::useFallbackContent() const

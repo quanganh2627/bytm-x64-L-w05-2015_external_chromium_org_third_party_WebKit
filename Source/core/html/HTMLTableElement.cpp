@@ -44,6 +44,7 @@
 #include "core/html/HTMLTableSectionElement.h"
 #include "core/html/parser/HTMLParserIdioms.h"
 #include "core/rendering/RenderTable.h"
+#include "platform/weborigin/Referrer.h"
 #include "wtf/StdLibExtras.h"
 
 namespace WebCore {
@@ -214,7 +215,7 @@ PassRefPtrWillBeRawPtr<HTMLElement> HTMLTableElement::insertRow(int index, Excep
         }
     }
 
-    RefPtr<ContainerNode> parent;
+    RefPtrWillBeRawPtr<ContainerNode> parent;
     if (lastRow)
         parent = row ? row->parentNode() : lastRow->parentNode();
     else {
@@ -313,7 +314,7 @@ void HTMLTableElement::collectStyleForPresentationAttribute(const QualifiedName&
         String url = stripLeadingAndTrailingHTMLSpaces(value);
         if (!url.isEmpty()) {
             RefPtrWillBeRawPtr<CSSImageValue> imageValue = CSSImageValue::create(url, document().completeURL(url));
-            imageValue->setReferrer(document().outgoingReferrer());
+            imageValue->setReferrer(Referrer(document().outgoingReferrer(), document().referrerPolicy()));
             style->setProperty(CSSProperty(CSSPropertyBackgroundImage, imageValue.release()));
         }
     } else if (name == valignAttr) {

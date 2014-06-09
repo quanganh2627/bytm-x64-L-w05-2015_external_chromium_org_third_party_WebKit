@@ -14,487 +14,487 @@ gyp_shared_intermediate_dir := $(call intermediates-dir-for,GYP,shared,,,$(GYP_V
 # Make sure our deps are built first.
 GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_generated_testing_idls_gyp,,,$(GYP_VAR_PREFIX))/generated_testing_idls.stamp \
-	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_core_bindings_generated_gyp,,,$(GYP_VAR_PREFIX))/core_bindings_generated.stamp \
+	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_core_core_event_interfaces_gyp,,,$(GYP_VAR_PREFIX))/core_event_interfaces.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_config_gyp,,,$(GYP_VAR_PREFIX))/config.stamp
 
 ### Rules for action "generateXMLViewerCSS":
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XMLViewer.css $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XMLViewer.css $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_generateXMLViewerCSS ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/xxd.py XMLViewer_css xml/XMLViewer.css "$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/xxd.py XMLViewer_css xml/XMLViewer.css "$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h"
 
 
 ### Rules for action "generateXMLViewerJS":
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XMLViewer.js $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XMLViewer.js $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_generateXMLViewerJS ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/xxd.py XMLViewer_js xml/XMLViewer.js "$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/xxd.py XMLViewer_js xml/XMLViewer.js "$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h"
 
 
 ### Rules for action "HTMLEntityTable":
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/create-html-entity-table $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/HTMLEntityNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/create-html-entity-table $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/HTMLEntityNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLEntityTable ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python html/parser/create-html-entity-table -o "$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp" html/parser/HTMLEntityNames.in
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python html/parser/create-html-entity-table -o "$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp" html/parser/HTMLEntityNames.in
 
 
 ### Rules for action "CSSPropertyNames":
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_css_property_names.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSPropertyNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/css/SVGCSSPropertyNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_css_property_names.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSPropertyNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/css/SVGCSSPropertyNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_CSSPropertyNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_css_property_names.py css/CSSPropertyNames.in css/SVGCSSPropertyNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --gperf gperf --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_css_property_names.py css/CSSPropertyNames.in css/SVGCSSPropertyNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --gperf gperf --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
-$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.h: $(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.h: $(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp ;
 
 ### Rules for action "MediaFeatureNames":
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_media_feature_names.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaFeatureNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_media_feature_names.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaFeatureNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MediaFeatureNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_media_feature_names.py css/MediaFeatureNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_media_feature_names.py css/MediaFeatureNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
-$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.h: $(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.h: $(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp ;
 
 ### Rules for action "MediaFeatures":
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_media_features.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MediaFeatures.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaFeatureNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_media_features.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MediaFeatures.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaFeatureNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MediaFeatures ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_media_features.py css/MediaFeatureNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_media_features.py css/MediaFeatureNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
 
 ### Rules for action "MediaTypeNames":
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaTypeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/MediaTypeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MediaTypeNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py css/MediaTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py css/MediaTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
-$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.h: $(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.h: $(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp ;
 
 ### Rules for action "MediaQueryTokenizerCodepoints":
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_mediaquery_tokenizer_codepoints.py $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_mediaquery_tokenizer_codepoints.py $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MediaQueryTokenizerCodepoints ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_mediaquery_tokenizer_codepoints.py --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_mediaquery_tokenizer_codepoints.py --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
 
 ### Rules for action "StylePropertyShorthand":
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_style_shorthands.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StylePropertyShorthand.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StylePropertyShorthand.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSShorthands.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_style_shorthands.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StylePropertyShorthand.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StylePropertyShorthand.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSShorthands.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_StylePropertyShorthand ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_style_shorthands.py css/CSSShorthands.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_style_shorthands.py css/CSSShorthands.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.h: $(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.h: $(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp ;
 
 ### Rules for action "StyleBuilder":
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_style_builder.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilder.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilderFunctions.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilderFunctions.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSProperties.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_style_builder.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilder.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilderFunctions.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/StyleBuilderFunctions.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSProperties.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_StyleBuilder ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_style_builder.py css/CSSProperties.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_style_builder.py css/CSSProperties.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.h: $(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp ;
-$(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.cpp: $(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilderFunctions.h: $(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/StyleBuilderFunctions.cpp: $(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp ;
 
 ### Rules for action "CSSValueKeywords":
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_css_value_keywords.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSValueKeywords.in $(LOCAL_PATH)/third_party/WebKit/Source/core/css/SVGCSSValueKeywords.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_css_value_keywords.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSValueKeywords.in $(LOCAL_PATH)/third_party/WebKit/Source/core/css/SVGCSSValueKeywords.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_CSSValueKeywords ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_css_value_keywords.py css/CSSValueKeywords.in css/SVGCSSValueKeywords.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --gperf gperf --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_css_value_keywords.py css/CSSValueKeywords.in css/SVGCSSValueKeywords.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --gperf gperf --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
-$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.h: $(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.h: $(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp ;
 
 ### Rules for action "HTMLElementFactory":
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLElementFactory ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_element_factory.py html/HTMLTagNames.in html/HTMLAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_element_factory.py html/HTMLTagNames.in html/HTMLAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.h: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/HTMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/HTMLNames.h: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/V8HTMLElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/V8HTMLElementWrapperFactory.h: $(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.h: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/HTMLNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/HTMLNames.h: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/V8HTMLElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/V8HTMLElementWrapperFactory.h: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp ;
 
 ### Rules for action "HTMLElementTypeHelpers":
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_type_helpers.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementTypeHelpers.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_type_helpers.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementTypeHelpers.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLElementTypeHelpers ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_element_type_helpers.py html/HTMLTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_element_type_helpers.py html/HTMLTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
 
 ### Rules for action "SVGNames":
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementWrapperFactory.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_SVGNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_element_factory.py svg/SVGTagNames.in svg/SVGAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_element_factory.py svg/SVGTagNames.in svg/SVGAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.h: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/SVGNames.cpp: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/SVGNames.h: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/V8SVGElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp ;
-$(gyp_shared_intermediate_dir)/blink/V8SVGElementWrapperFactory.h: $(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.h: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/SVGNames.cpp: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/SVGNames.h: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/V8SVGElementWrapperFactory.cpp: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/V8SVGElementWrapperFactory.h: $(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp ;
 
 ### Rules for action "SVGElementTypeHelpers":
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_type_helpers.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementTypeHelpers.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGTagNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_type_helpers.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementTypeHelpers.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/SVGTagNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_SVGElementTypeHelpers ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_element_type_helpers.py svg/SVGTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_element_type_helpers.py svg/SVGTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
 
 ### Rules for action "EventFactory":
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/Event.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(gyp_shared_intermediate_dir)/blink/EventInterfaces.in $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventAliases.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/Event.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.in $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventAliases.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_EventFactory ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_event_factory.py "$(gyp_shared_intermediate_dir)/blink/EventInterfaces.in" events/EventAliases.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_event_factory.py "$(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.in" events/EventAliases.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/EventHeaders.h: $(gyp_shared_intermediate_dir)/blink/Event.cpp ;
-$(gyp_shared_intermediate_dir)/blink/EventInterfaces.h: $(gyp_shared_intermediate_dir)/blink/Event.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/EventHeaders.h: $(gyp_shared_intermediate_dir)/blink/core/Event.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.h: $(gyp_shared_intermediate_dir)/blink/core/Event.cpp ;
 
 ### Rules for action "EventNames":
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(gyp_shared_intermediate_dir)/blink/EventInterfaces.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_EventNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py "$(gyp_shared_intermediate_dir)/blink/EventInterfaces.in" --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py "$(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.in" --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/EventNames.h: $(gyp_shared_intermediate_dir)/blink/EventNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/EventNames.h: $(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp ;
 
 ### Rules for action "EventTargetFactory":
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTargetFactory.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_event_factory.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/EventFactory.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTargetFactory.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_EventTargetFactory ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_event_factory.py events/EventTargetFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_event_factory.py events/EventTargetFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/EventTargetInterfaces.h: $(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h ;
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetInterfaces.h: $(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h ;
 
 ### Rules for action "EventTargetNames":
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTargetFactory.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTargetFactory.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_EventTargetNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py events/EventTargetFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py events/EventTargetFactory.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/EventTargetNames.h: $(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.h: $(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp ;
 
 ### Rules for action "MathMLNames":
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/MathMLTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/MathMLAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/MathMLTagNames.in $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/MathMLAttributeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MathMLNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_qualified_names.py html/parser/MathMLTagNames.in html/parser/MathMLAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_qualified_names.py html/parser/MathMLTagNames.in html/parser/MathMLAttributeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core" --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\""
 
-$(gyp_shared_intermediate_dir)/blink/MathMLNames.h: $(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.h: $(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp ;
 
 ### Rules for action "UserAgentStyleSheets":
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/make-css-file-arrays.pl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/preprocessor.pm $(LOCAL_PATH)/third_party/WebKit/Source/core/css/html.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/quirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/view-source.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromium.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumLinux.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumSkia.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeMac.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWin.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWinQuirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/svg.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/navigationTransitions.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mathml.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControls.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControlsAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/fullscreen.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/xhtmlmp.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/viewportAndroid.css $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/make-css-file-arrays.pl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/preprocessor.pm $(LOCAL_PATH)/third_party/WebKit/Source/core/css/html.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/quirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/view-source.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromium.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumLinux.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeChromiumSkia.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeMac.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWin.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/themeWinQuirks.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/svg.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/navigationTransitions.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mathml.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControls.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/mediaControlsAndroid.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/fullscreen.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/xhtmlmp.css $(LOCAL_PATH)/third_party/WebKit/Source/core/css/viewportAndroid.css $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_UserAgentStyleSheets ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/action_useragentstylesheets.py "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h" "$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp" css/html.css css/quirks.css css/view-source.css css/themeChromium.css css/themeChromiumAndroid.css css/themeChromiumLinux.css css/themeChromiumSkia.css css/themeMac.css css/themeWin.css css/themeWinQuirks.css css/svg.css css/navigationTransitions.css css/mathml.css css/mediaControls.css css/mediaControlsAndroid.css css/fullscreen.css css/xhtmlmp.css css/viewportAndroid.css -- css/make-css-file-arrays.pl ../build/scripts/preprocessor.pm -- --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\"" --preprocessor "/usr/bin/gcc -E -P -x c++" --perl perl
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/action_useragentstylesheets.py "$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h" "$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheetsData.cpp" css/html.css css/quirks.css css/view-source.css css/themeChromium.css css/themeChromiumAndroid.css css/themeChromiumLinux.css css/themeChromiumSkia.css css/themeMac.css css/themeWin.css css/themeWinQuirks.css css/svg.css css/navigationTransitions.css css/mathml.css css/mediaControls.css css/mediaControlsAndroid.css css/fullscreen.css css/xhtmlmp.css css/viewportAndroid.css -- css/make-css-file-arrays.pl ../build/scripts/preprocessor.pm -- --defines "\"ENABLE_CUSTOM_SCHEME_HANDLER=0\" \"ENABLE_SVG_FONTS=1\" \"WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1\" \"ENABLE_FAST_MOBILE_SCROLLING=1\" \"ENABLE_MEDIA_CAPTURE=1\" \"WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1\" \"ENABLE_WEB_AUDIO=1\" \"ENABLE_OPENTYPE_VERTICAL=1\"" --preprocessor "/usr/bin/gcc -E -P -x c++" --perl perl
 
-$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp: $(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h ;
+$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheetsData.cpp: $(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h ;
 
 ### Rules for action "FetchInitiatorTypeNames":
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/fetch/FetchInitiatorTypeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/fetch/FetchInitiatorTypeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_FetchInitiatorTypeNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py fetch/FetchInitiatorTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py fetch/FetchInitiatorTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.h: $(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.h: $(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp ;
 
 ### Rules for action "EventTypeNames":
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTypeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/events/EventTypeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_EventTypeNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py events/EventTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py events/EventTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/EventTypeNames.h: $(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.h: $(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp ;
 
 ### Rules for action "HTMLTokenizerNames":
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/HTMLTokenizerNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/parser/HTMLTokenizerNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLTokenizerNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py html/parser/HTMLTokenizerNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py html/parser/HTMLTokenizerNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.h: $(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.h: $(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp ;
 
 ### Rules for action "InputTypeNames":
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/forms/InputTypeNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/forms/InputTypeNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_InputTypeNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_names.py html/forms/InputTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_names.py html/forms/InputTypeNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/InputTypeNames.h: $(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.h: $(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp ;
 
 ### Rules for action "XLinkNames":
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/xlinkattrs.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/svg/xlinkattrs.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_XLinkNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_qualified_names.py svg/xlinkattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_qualified_names.py svg/xlinkattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/XLinkNames.h: $(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.h: $(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp ;
 
 ### Rules for action "XMLNSNames":
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/xmlnsattrs.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/xmlnsattrs.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_XMLNSNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_qualified_names.py xml/xmlnsattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_qualified_names.py xml/xmlnsattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/XMLNSNames.h: $(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.h: $(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp ;
 
 ### Rules for action "XMLNames":
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/xmlattrs.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_qualified_names.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/MakeQualifiedNames.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/xmlattrs.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_XMLNames ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_qualified_names.py xml/xmlattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_qualified_names.py xml/xmlattrs.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/XMLNames.h: $(gyp_shared_intermediate_dir)/blink/XMLNames.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/XMLNames.h: $(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp ;
 
 ### Rules for action "MakeTokenMatcher":
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSTokenizer-in.cpp $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSTokenizer-in.cpp $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MakeTokenMatcher ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_token_matcher.py ../core/css/CSSTokenizer-in.cpp "$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_token_matcher.py ../core/css/CSSTokenizer-in.cpp "$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp"
 
 
 ### Rules for action "MakeParser":
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/parser/BisonCSSParser-in.cpp $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/css/parser/BisonCSSParser-in.cpp $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MakeParser ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_token_matcher.py ../core/css/parser/BisonCSSParser-in.cpp "$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_token_matcher.py ../core/css/parser/BisonCSSParser-in.cpp "$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp"
 
 
 ### Rules for action "MakeTokenMatcherForViewport":
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLMetaElement-in.cpp $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_token_matcher.py $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLMetaElement-in.cpp $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_MakeTokenMatcherForViewport ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_token_matcher.py ../core/html/HTMLMetaElement-in.cpp "$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_token_matcher.py ../core/html/HTMLMetaElement-in.cpp "$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp"
 
 
 ### Rules for action "HTMLElementLookupTrie":
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_lookup_trie.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementLookupTrie.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementLookupTrie.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(GYP_TARGET_DEPENDENCIES)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp: $(LOCAL_PATH)/third_party/jinja2/__init__.py $(LOCAL_PATH)/third_party/markupsafe/__init__.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/hasher.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_file.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/in_generator.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/license.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_macros.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/name_utilities.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/template_expander.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/macros.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/make_element_lookup_trie.py $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementLookupTrie.cpp.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/build/scripts/templates/ElementLookupTrie.h.tmpl $(LOCAL_PATH)/third_party/WebKit/Source/core/html/HTMLTagNames.in $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_HTMLElementLookupTrie ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink; python ../build/scripts/make_element_lookup_trie.py html/HTMLTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink"
+	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/core; mkdir -p $(gyp_shared_intermediate_dir)/blink/core; python ../build/scripts/make_element_lookup_trie.py html/HTMLTagNames.in --output_dir "$(gyp_shared_intermediate_dir)/blink/core"
 
-$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.h: $(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.h: $(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp ;
 
 
 
 ### Generated for rule "third_party_WebKit_Source_core_core_generated_gyp_make_core_generated_target_bison":
-# "{'action': ['python', '../build/scripts/rule_bison.py', '$(RULE_SOURCES)', '$(gyp_shared_intermediate_dir)/blink', 'bison'], 'rule_name': 'bison', 'rule_sources': ['css/CSSGrammar.y', 'xml/XPathGrammar.y'], 'extension': 'y', 'outputs': ['$(gyp_shared_intermediate_dir)/blink/%(INPUT_ROOT)s.cpp', '$(gyp_shared_intermediate_dir)/blink/%(INPUT_ROOT)s.h']}":
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSGrammar.y $(GYP_TARGET_DEPENDENCIES)
-	mkdir -p $(gyp_shared_intermediate_dir)/blink; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py css/CSSGrammar.y "$(gyp_shared_intermediate_dir)/blink" bison
+# "{'action': ['python', '../build/scripts/rule_bison.py', '$(RULE_SOURCES)', '$(gyp_shared_intermediate_dir)/blink/core', 'bison'], 'rule_name': 'bison', 'rule_sources': ['css/CSSGrammar.y', 'xml/XPathGrammar.y'], 'extension': 'y', 'outputs': ['$(gyp_shared_intermediate_dir)/blink/core/%(INPUT_ROOT)s.cpp', '$(gyp_shared_intermediate_dir)/blink/core/%(INPUT_ROOT)s.h']}":
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/css/CSSGrammar.y $(GYP_TARGET_DEPENDENCIES)
+	mkdir -p $(gyp_shared_intermediate_dir)/blink/core; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py css/CSSGrammar.y "$(gyp_shared_intermediate_dir)/blink/core" bison
 
-$(gyp_shared_intermediate_dir)/blink/CSSGrammar.h: $(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.h: $(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp ;
 
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_local_path := $(LOCAL_PATH)
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XPathGrammar.y $(GYP_TARGET_DEPENDENCIES)
-	mkdir -p $(gyp_shared_intermediate_dir)/blink; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py xml/XPathGrammar.y "$(gyp_shared_intermediate_dir)/blink" bison
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: gyp_var_prefix := $(GYP_VAR_PREFIX)
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp: $(LOCAL_PATH)/third_party/WebKit/Source/core/xml/XPathGrammar.y $(GYP_TARGET_DEPENDENCIES)
+	mkdir -p $(gyp_shared_intermediate_dir)/blink/core; cd $(gyp_local_path)/third_party/WebKit/Source/core; python ../build/scripts/rule_bison.py xml/XPathGrammar.y "$(gyp_shared_intermediate_dir)/blink/core" bison
 
-$(gyp_shared_intermediate_dir)/blink/XPathGrammar.h: $(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp ;
+$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.h: $(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp ;
 
 
 GYP_GENERATED_OUTPUTS := \
-	$(gyp_shared_intermediate_dir)/blink/XMLViewerCSS.h \
-	$(gyp_shared_intermediate_dir)/blink/XMLViewerJS.h \
-	$(gyp_shared_intermediate_dir)/blink/HTMLEntityTable.cpp \
-	$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/CSSPropertyNames.h \
-	$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/MediaFeatureNames.h \
-	$(gyp_shared_intermediate_dir)/blink/MediaFeatures.h \
-	$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/MediaTypeNames.h \
-	$(gyp_shared_intermediate_dir)/blink/MediaQueryTokenizerCodepoints.cpp \
-	$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.cpp \
-	$(gyp_shared_intermediate_dir)/blink/StylePropertyShorthand.h \
-	$(gyp_shared_intermediate_dir)/blink/StyleBuilder.cpp \
-	$(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.h \
-	$(gyp_shared_intermediate_dir)/blink/StyleBuilderFunctions.cpp \
-	$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.cpp \
-	$(gyp_shared_intermediate_dir)/blink/CSSValueKeywords.h \
-	$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLElementFactory.h \
-	$(gyp_shared_intermediate_dir)/blink/HTMLNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLNames.h \
-	$(gyp_shared_intermediate_dir)/blink/V8HTMLElementWrapperFactory.cpp \
-	$(gyp_shared_intermediate_dir)/blink/V8HTMLElementWrapperFactory.h \
-	$(gyp_shared_intermediate_dir)/blink/HTMLElementTypeHelpers.h \
-	$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.cpp \
-	$(gyp_shared_intermediate_dir)/blink/SVGElementFactory.h \
-	$(gyp_shared_intermediate_dir)/blink/SVGNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/SVGNames.h \
-	$(gyp_shared_intermediate_dir)/blink/V8SVGElementWrapperFactory.cpp \
-	$(gyp_shared_intermediate_dir)/blink/V8SVGElementWrapperFactory.h \
-	$(gyp_shared_intermediate_dir)/blink/SVGElementTypeHelpers.h \
-	$(gyp_shared_intermediate_dir)/blink/Event.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventHeaders.h \
-	$(gyp_shared_intermediate_dir)/blink/EventInterfaces.h \
-	$(gyp_shared_intermediate_dir)/blink/EventNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventNames.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetHeaders.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetInterfaces.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventTargetNames.h \
-	$(gyp_shared_intermediate_dir)/blink/MathMLNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/MathMLNames.h \
-	$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheets.h \
-	$(gyp_shared_intermediate_dir)/blink/UserAgentStyleSheetsData.cpp \
-	$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/FetchInitiatorTypeNames.h \
-	$(gyp_shared_intermediate_dir)/blink/EventTypeNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/EventTypeNames.h \
-	$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLTokenizerNames.h \
-	$(gyp_shared_intermediate_dir)/blink/InputTypeNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/InputTypeNames.h \
-	$(gyp_shared_intermediate_dir)/blink/XLinkNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/XLinkNames.h \
-	$(gyp_shared_intermediate_dir)/blink/XMLNSNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/XMLNSNames.h \
-	$(gyp_shared_intermediate_dir)/blink/XMLNames.cpp \
-	$(gyp_shared_intermediate_dir)/blink/XMLNames.h \
-	$(gyp_shared_intermediate_dir)/blink/CSSTokenizer.cpp \
-	$(gyp_shared_intermediate_dir)/blink/BisonCSSParser.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLMetaElement.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.cpp \
-	$(gyp_shared_intermediate_dir)/blink/HTMLElementLookupTrie.h \
-	$(gyp_shared_intermediate_dir)/blink/CSSGrammar.cpp \
-	$(gyp_shared_intermediate_dir)/blink/CSSGrammar.h \
-	$(gyp_shared_intermediate_dir)/blink/XPathGrammar.cpp \
-	$(gyp_shared_intermediate_dir)/blink/XPathGrammar.h
+	$(gyp_shared_intermediate_dir)/blink/core/XMLViewerCSS.h \
+	$(gyp_shared_intermediate_dir)/blink/core/XMLViewerJS.h \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLEntityTable.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSPropertyNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaFeatureNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaFeatures.h \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/MediaQueryTokenizerCodepoints.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/StylePropertyShorthand.h \
+	$(gyp_shared_intermediate_dir)/blink/core/StyleBuilder.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/StyleBuilderFunctions.h \
+	$(gyp_shared_intermediate_dir)/blink/core/StyleBuilderFunctions.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSValueKeywords.h \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLElementFactory.h \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/V8HTMLElementWrapperFactory.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/V8HTMLElementWrapperFactory.h \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLElementTypeHelpers.h \
+	$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/SVGElementFactory.h \
+	$(gyp_shared_intermediate_dir)/blink/core/SVGNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/SVGNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/V8SVGElementWrapperFactory.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/V8SVGElementWrapperFactory.h \
+	$(gyp_shared_intermediate_dir)/blink/core/SVGElementTypeHelpers.h \
+	$(gyp_shared_intermediate_dir)/blink/core/Event.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/EventHeaders.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventInterfaces.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/EventNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTargetHeaders.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTargetInterfaces.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTargetNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/MathMLNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheets.h \
+	$(gyp_shared_intermediate_dir)/blink/core/UserAgentStyleSheetsData.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/FetchInitiatorTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/EventTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLTokenizerNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/InputTypeNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/XLinkNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/XMLNSNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/XMLNames.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/XMLNames.h \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSTokenizer.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/BisonCSSParser.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLMetaElement.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/HTMLElementLookupTrie.h \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/CSSGrammar.h \
+	$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.cpp \
+	$(gyp_shared_intermediate_dir)/blink/core/XPathGrammar.h
 
 # Make sure our deps and generated files are built first.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(GYP_TARGET_DEPENDENCIES) $(GYP_GENERATED_OUTPUTS)
@@ -558,7 +558,6 @@ MY_DEFS_Debug := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \
@@ -657,7 +656,6 @@ MY_DEFS_Release := \
 	'-DENABLE_WEBRTC=1' \
 	'-DUSE_PROPRIETARY_CODECS' \
 	'-DENABLE_CONFIGURATION_POLICY' \
-	'-DENABLE_NEW_GAMEPAD_API=1' \
 	'-DDISCARDABLE_MEMORY_ALWAYS_SUPPORTED_NATIVELY' \
 	'-DSYSTEM_NATIVELY_SIGNALS_MEMORY_PRESSURE' \
 	'-DENABLE_EGLIMAGE=1' \

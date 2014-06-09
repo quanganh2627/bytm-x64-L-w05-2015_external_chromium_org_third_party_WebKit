@@ -68,7 +68,6 @@ class UserGestureToken;
 }
 
 namespace blink {
-class GeolocationClientProxy;
 class LinkHighlight;
 class PopupContainer;
 class WebActiveGestureAnimation;
@@ -101,7 +100,6 @@ public:
     virtual void didExitFullScreen() OVERRIDE;
     virtual void animate(double) OVERRIDE;
     virtual void layout() OVERRIDE;
-    virtual void enterForceCompositingMode(bool enable) OVERRIDE;
     virtual void paint(WebCanvas*, const WebRect&) OVERRIDE;
 #if OS(ANDROID)
     virtual void paintCompositedDeprecated(WebCanvas*, const WebRect&) OVERRIDE;
@@ -322,7 +320,6 @@ public:
     bool detectContentOnTouch(const WebPoint&);
     bool startPageScaleAnimation(const WebCore::IntPoint& targetPosition, bool useAnchor, float newScale, double durationInSeconds);
 
-    void numberOfWheelEventHandlersChanged(unsigned);
     void hasTouchEventHandlers(bool);
 
     // WebGestureCurveTarget implementation for fling.
@@ -693,8 +690,6 @@ private:
     // If true, the graphics context is being restored.
     bool m_recreatingGraphicsContext;
     static const WebInputEvent* m_currentInputEvent;
-
-    OwnPtr<GeolocationClientProxy> m_geolocationClientProxy;
 
     MediaKeysClientImpl m_mediaKeysClientImpl;
     OwnPtr<WebActiveGestureAnimation> m_gestureAnimation;
