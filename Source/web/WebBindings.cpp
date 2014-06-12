@@ -185,7 +185,7 @@ void WebBindings::unregisterObject(NPObject* object)
 
 void WebBindings::dropV8WrapperForObject(NPObject* object)
 {
-    WebCore::forgetV8ObjectForNPObject(object);
+    WebCore::dropV8WrapperForNPObject(object);
 }
 
 NPUTF8* WebBindings::utf8FromIdentifier(NPIdentifier identifier)
