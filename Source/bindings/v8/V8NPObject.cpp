@@ -484,7 +484,7 @@ void dropV8WrapperForNPObject(NPObject* object)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::HandleScope scope(isolate);
-    v8::Handle<v8::Object> wrapper = staticNPObjectMap().newLocal(object, isolate);
+    v8::Handle<v8::Object> wrapper = staticNPObjectMap().getNewLocal(isolate, object);
     if (!wrapper.IsEmpty()) {
         staticNPObjectMap().removeAndDispose(object);
         _NPN_ReleaseObject(object);
