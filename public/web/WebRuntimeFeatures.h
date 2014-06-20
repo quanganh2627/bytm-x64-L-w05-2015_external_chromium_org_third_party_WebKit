@@ -58,13 +58,13 @@ public:
 
     BLINK_EXPORT static void enableExperimentalCanvasFeatures(bool);
 
+    BLINK_EXPORT static void enableFastMobileScrolling(bool);
+
     BLINK_EXPORT static void enableFastTextAutosizing(bool);
 
     BLINK_EXPORT static void enableFileSystem(bool);
 
     BLINK_EXPORT static void enableGamepad(bool);
-
-    BLINK_EXPORT static void enableLazyLayout(bool);
 
     BLINK_EXPORT static void enableLocalStorage(bool);
 
@@ -100,7 +100,6 @@ public:
 
     BLINK_EXPORT static void enableTouchIconLoading(bool);
 
-    BLINK_EXPORT static void enableWebAnimationsCSS(bool);
     BLINK_EXPORT static void enableWebAnimationsSVG(bool);
 
     BLINK_EXPORT static void enableWebAudio(bool);
@@ -130,6 +129,8 @@ public:
     BLINK_EXPORT static void enablePreciseMemoryInfo(bool);
 
     BLINK_EXPORT static void enableLayerSquashing(bool);
+
+    BLINK_EXPORT static void enableShowModalDialog(bool);
 
 private:
     WebRuntimeFeatures();

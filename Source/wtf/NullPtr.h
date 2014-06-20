@@ -31,8 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // nullptr_t type and nullptr object. They are defined in the same namespaces they
 // would be in compiler and library that had the support.
 
-#include <ciso646>
-
 #if COMPILER_SUPPORTS(CXX_NULLPTR) || defined(_LIBCPP_VERSION)
 
 #include <cstddef>
@@ -49,6 +47,12 @@ typedef decltype(nullptr) nullptr_t;
 namespace std {
 class nullptr_t {
 public:
+    // Required in order to create const nullptr_t objects without an
+    // explicit initializer in GCC 4.5, a la:
+    //
+    // const std::nullptr_t nullptr;
+    nullptr_t() { }
+
     // Make nullptr convertible to any pointer type.
     template<typename T> operator T*() const { return 0; }
     // Make nullptr convertible to any member pointer type.

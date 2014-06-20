@@ -28,11 +28,10 @@
 #include "config.h"
 #include "core/html/HTMLCanvasElement.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptController.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/frame/LocalFrame.h"
@@ -43,8 +42,10 @@
 #include "core/html/canvas/WebGLContextAttributes.h"
 #include "core/html/canvas/WebGLContextEvent.h"
 #include "core/html/canvas/WebGLRenderingContext.h"
+#include "core/page/ChromeClient.h"
 #include "core/rendering/RenderHTMLCanvas.h"
 #include "platform/MIMETypeRegistry.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/graphics/Canvas2DImageBufferSurface.h"
 #include "platform/graphics/GraphicsContextStateSaver.h"
 #include "platform/graphics/ImageBuffer.h"
@@ -73,7 +74,7 @@ static const int MaxSkiaDim = 32767; // Maximum width/height in CSS pixels.
 
 DEFINE_EMPTY_DESTRUCTOR_WILL_BE_REMOVED(CanvasObserver);
 
-HTMLCanvasElement::HTMLCanvasElement(Document& document)
+inline HTMLCanvasElement::HTMLCanvasElement(Document& document)
     : HTMLElement(canvasTag, document)
     , DocumentVisibilityObserver(document)
     , m_size(DefaultWidth, DefaultHeight)
@@ -87,10 +88,7 @@ HTMLCanvasElement::HTMLCanvasElement(Document& document)
     ScriptWrappable::init(this);
 }
 
-PassRefPtrWillBeRawPtr<HTMLCanvasElement> HTMLCanvasElement::create(Document& document)
-{
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLCanvasElement(document));
-}
+DEFINE_NODE_FACTORY(HTMLCanvasElement)
 
 HTMLCanvasElement::~HTMLCanvasElement()
 {
@@ -213,7 +211,7 @@ void HTMLCanvasElement::didDraw(const FloatRect& rect)
             return;
 
         m_dirtyRect.unite(r);
-        ro->repaintRectangle(enclosingIntRect(m_dirtyRect));
+        ro->invalidatePaintRectangle(enclosingIntRect(m_dirtyRect));
     }
 
     notifyObserversCanvasChanged(rect);
@@ -275,7 +273,7 @@ void HTMLCanvasElement::reset()
                     renderBox()->contentChanged(CanvasChanged);
             }
             if (hadImageBuffer)
-                renderer->repaint();
+                renderer->paintInvalidationForWholeRenderer();
         }
     }
 
@@ -324,7 +322,7 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const LayoutRect& r)
     } else {
         // When alpha is false, we should draw to opaque black.
         if (m_context && !m_context->hasAlpha())
-            context->fillRect(FloatRect(0, 0, width(), height()), Color(0, 0, 0));
+            context->fillRect(FloatRect(r), Color(0, 0, 0));
     }
 
     if (is3D())
@@ -378,10 +376,10 @@ String HTMLCanvasElement::toEncodingMimeType(const String& mimeType)
 
 const AtomicString HTMLCanvasElement::imageSourceURL() const
 {
-    return AtomicString(toDataURLInternal("image/png", 0));
+    return AtomicString(toDataURLInternal("image/png", 0, true));
 }
 
-String HTMLCanvasElement::toDataURLInternal(const String& mimeType, const double* quality) const
+String HTMLCanvasElement::toDataURLInternal(const String& mimeType, const double* quality, bool isSaving) const
 {
     if (m_size.isEmpty() || !buffer())
         return String("data:,");
@@ -394,8 +392,11 @@ String HTMLCanvasElement::toDataURLInternal(const String& mimeType, const double
     if (imageData)
         return ImageDataToDataURL(ImageDataBuffer(imageData->size(), imageData->data()), encodingMimeType, quality);
 
-    if (m_context)
+    if (m_context && m_context->is3d()) {
+        toWebGLRenderingContext(m_context.get())->setSavingImage(isSaving);
         m_context->paintRenderingResultsToCanvas();
+        toWebGLRenderingContext(m_context.get())->setSavingImage(false);
+    }
 
     return buffer()->toDataURL(encodingMimeType, quality);
 }
@@ -434,8 +435,9 @@ bool HTMLCanvasElement::shouldAccelerate(const IntSize& size) const
     if (!settings || !settings->accelerated2dCanvasEnabled())
         return false;
 
-    // Do not use acceleration for small canvas.
-    if (size.width() * size.height() < settings->minimumAccelerated2dCanvasSize())
+    // Do not use acceleration for small canvases, unless GPU rasterization is available.
+    // GPU raterization is a heuristic to avoid difficult content & whitelist targeted content.
+    if (!(document().frame() && document().frame()->chromeClient().usesGpuRasterization()) && size.width() * size.height() < settings->minimumAccelerated2dCanvasSize())
         return false;
 
     if (!blink::Platform::current()->canAccelerate2dCanvas())
@@ -518,7 +520,7 @@ void HTMLCanvasElement::createImageBufferInternal()
     // See CanvasRenderingContext2D::State::State() for more information.
     m_imageBuffer->context()->setMiterLimit(10);
     m_imageBuffer->context()->setStrokeThickness(1);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_imageBuffer->context()->disableDestructionChecks(); // 2D canvas is allowed to leave context in an unfinalized state.
 #endif
     m_contextStateSaver = adoptPtr(new GraphicsContextStateSaver(*m_imageBuffer->context()));
@@ -539,6 +541,7 @@ void HTMLCanvasElement::trace(Visitor* visitor)
 {
     visitor->trace(m_observers);
     visitor->trace(m_context);
+    DocumentVisibilityObserver::trace(visitor);
     HTMLElement::trace(visitor);
 }
 

@@ -21,6 +21,7 @@
 #ifndef HTMLFrameOwnerElement_h
 #define HTMLFrameOwnerElement_h
 
+#include "core/dom/Document.h"
 #include "core/frame/FrameOwner.h"
 #include "core/html/HTMLElement.h"
 #include "wtf/HashCountedSet.h"
@@ -36,11 +37,6 @@ class Widget;
 class HTMLFrameOwnerElement : public HTMLElement, public FrameOwner {
 public:
     virtual ~HTMLFrameOwnerElement();
-
-    // FrameOwner overrides:
-    virtual bool isLocal() const { return true; }
-    virtual SandboxFlags sandboxFlags() const OVERRIDE { return m_sandboxFlags; }
-    virtual void dispatchLoad() OVERRIDE;
 
     Frame* contentFrame() const { return m_contentFrame; }
     DOMWindow* contentWindow() const;
@@ -87,6 +83,11 @@ protected:
 private:
     virtual bool isKeyboardFocusable() const OVERRIDE;
     virtual bool isFrameOwnerElement() const OVERRIDE FINAL { return true; }
+
+    // FrameOwner overrides:
+    virtual bool isLocal() const { return true; }
+    virtual SandboxFlags sandboxFlags() const OVERRIDE { return m_sandboxFlags; }
+    virtual void dispatchLoad() OVERRIDE;
 
     Frame* m_contentFrame;
     RefPtr<Widget> m_widget;

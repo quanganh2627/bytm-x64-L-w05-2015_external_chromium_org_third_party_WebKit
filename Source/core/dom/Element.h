@@ -25,11 +25,11 @@
 #ifndef Element_h
 #define Element_h
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
+#include "core/CSSPropertyNames.h"
+#include "core/HTMLNames.h"
 #include "core/css/CSSPrimitiveValue.h"
 #include "core/dom/Attribute.h"
-#include "core/dom/Document.h"
+#include "core/dom/ContainerNode.h"
 #include "core/dom/ElementData.h"
 #include "core/dom/SpaceSplitString.h"
 #include "core/html/CollectionType.h"
@@ -42,11 +42,13 @@ namespace WebCore {
 class ActiveAnimations;
 class Attr;
 class Attribute;
+class CSSStyleDeclaration;
 class ClientRect;
 class ClientRectList;
 class CustomElementDefinition;
 class DOMStringMap;
 class DOMTokenList;
+class Document;
 class ElementRareData;
 class ElementShadow;
 class ExceptionState;
@@ -229,7 +231,7 @@ public:
     PassRefPtrWillBeRawPtr<Attr> attrIfExists(const QualifiedName&);
     PassRefPtrWillBeRawPtr<Attr> ensureAttr(const QualifiedName&);
 
-    const WillBeHeapVector<RefPtrWillBeMember<Attr> >& attrNodeList();
+    WillBeHeapVector<RefPtrWillBeMember<Attr> >* attrNodeList();
 
     CSSStyleDeclaration* style();
 
@@ -403,6 +405,9 @@ public:
 
     virtual const AtomicString& shadowPseudoId() const;
     void setShadowPseudoId(const AtomicString&);
+
+    LayoutSize minimumSizeForResizing() const;
+    void setMinimumSizeForResizing(const LayoutSize&);
 
     virtual void didBecomeFullscreenElement() { }
     virtual void willStopBeingFullscreenElement() { }
@@ -639,6 +644,8 @@ private:
     ElementRareData* elementRareData() const;
     ElementRareData& ensureElementRareData();
 
+    WillBeHeapVector<RefPtrWillBeMember<Attr> >& ensureAttrNodeList();
+    void removeAttrNodeList();
     void detachAllAttrNodesFromElement();
     void detachAttrNodeFromElementWithValue(Attr*, const AtomicString& value);
     void detachAttrNodeAtIndex(Attr*, size_t index);
@@ -745,11 +752,6 @@ inline const AtomicString& Element::getClassAttribute() const
     if (isSVGElement())
         return getAttribute(HTMLNames::classAttr);
     return fastGetAttribute(HTMLNames::classAttr);
-}
-
-inline bool Element::shouldIgnoreAttributeCase() const
-{
-    return isHTMLElement() && document().isHTMLDocument();
 }
 
 inline void Element::setIdAttribute(const AtomicString& value)
@@ -877,6 +879,14 @@ inline bool isShadowHost(const Element* element)
 #define DEFINE_ELEMENT_TYPE_CASTS_WITH_FUNCTION(thisType) \
     template <> inline bool isElementOfType<const thisType>(const Element& element) { return is##thisType(element); } \
     DEFINE_NODE_TYPE_CASTS_WITH_FUNCTION(thisType)
+
+#define DECLARE_ELEMENT_FACTORY_WITH_TAGNAME(T) \
+    static PassRefPtrWillBeRawPtr<T> create(const QualifiedName&, Document&)
+#define DEFINE_ELEMENT_FACTORY_WITH_TAGNAME(T) \
+    PassRefPtrWillBeRawPtr<T> T::create(const QualifiedName& tagName, Document& document) \
+    { \
+        return adoptRefWillBeNoop(new T(tagName, document)); \
+    }
 
 } // namespace
 

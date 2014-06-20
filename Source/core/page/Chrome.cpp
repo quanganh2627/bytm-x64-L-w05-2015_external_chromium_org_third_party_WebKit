@@ -22,8 +22,7 @@
 #include "config.h"
 #include "core/page/Chrome.h"
 
-#include "public/platform/WebScreenInfo.h"
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/frame/LocalFrame.h"
 #include "core/html/HTMLInputElement.h"
@@ -40,6 +39,7 @@
 #include "platform/FileChooser.h"
 #include "platform/geometry/FloatRect.h"
 #include "platform/network/DNS.h"
+#include "public/platform/WebScreenInfo.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/Vector.h"
 
@@ -341,7 +341,7 @@ PassOwnPtr<ColorChooser> Chrome::createColorChooser(LocalFrame* frame, ColorChoo
     return m_client->createColorChooser(frame, client, initialColor);
 }
 
-PassRefPtr<DateTimeChooser> Chrome::openDateTimeChooser(DateTimeChooserClient* client, const DateTimeChooserParameters& parameters)
+PassRefPtrWillBeRawPtr<DateTimeChooser> Chrome::openDateTimeChooser(DateTimeChooserClient* client, const DateTimeChooserParameters& parameters)
 {
     notifyPopupOpeningObservers();
     return m_client->openDateTimeChooser(client, parameters);

@@ -641,8 +641,8 @@ static void partialCallWithExecutionContextLongAttributeAttributeGetter(const v8
 {
     v8::Handle<v8::Object> holder = info.Holder();
     TestInterfaceImplementation* impl = V8TestInterface::toNative(holder);
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
-    v8SetReturnValueInt(info, TestPartialInterface::partialCallWithExecutionContextLongAttribute(scriptContext, *impl));
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+    v8SetReturnValueInt(info, TestPartialInterface::partialCallWithExecutionContextLongAttribute(executionContext, *impl));
 }
 #endif // ENABLE(PARTIAL_CONDITION)
 
@@ -662,8 +662,8 @@ static void partialCallWithExecutionContextLongAttributeAttributeSetter(v8::Loca
     ExceptionState exceptionState(ExceptionState::SetterContext, "partialCallWithExecutionContextLongAttribute", "TestInterface", holder, info.GetIsolate());
     TestInterfaceImplementation* impl = V8TestInterface::toNative(holder);
     TONATIVE_VOID_EXCEPTIONSTATE(int, cppValue, toInt32(v8Value, exceptionState), exceptionState);
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
-    TestPartialInterface::setPartialCallWithExecutionContextLongAttribute(scriptContext, *impl, cppValue);
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+    TestPartialInterface::setPartialCallWithExecutionContextLongAttribute(executionContext, *impl, cppValue);
 }
 #endif // ENABLE(PARTIAL_CONDITION)
 
@@ -938,8 +938,8 @@ static void implementsComplexMethodMethod(const v8::FunctionCallbackInfo<v8::Val
         }
         TONATIVE_VOID_INTERNAL(testInterfaceEmptyArg, V8TestInterfaceEmpty::toNativeWithTypeCheck(info.GetIsolate(), info[1]));
     }
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
-    RefPtr<TestInterfaceEmpty> result = impl->implementsComplexMethod(scriptContext, strArg, testInterfaceEmptyArg, exceptionState);
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+    RefPtr<TestInterfaceEmpty> result = impl->implementsComplexMethod(executionContext, strArg, testInterfaceEmptyArg, exceptionState);
     if (exceptionState.hadException()) {
         exceptionState.throwIfNeeded();
         return;
@@ -1077,8 +1077,8 @@ static void partialCallWithExecutionContextRaisesExceptionVoidMethodMethod(const
 {
     ExceptionState exceptionState(ExceptionState::ExecutionContext, "partialCallWithExecutionContextRaisesExceptionVoidMethod", "TestInterface", info.Holder(), info.GetIsolate());
     TestInterfaceImplementation* impl = V8TestInterface::toNative(info.Holder());
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
-    TestPartialInterface::partialCallWithExecutionContextRaisesExceptionVoidMethod(scriptContext, *impl, exceptionState);
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+    TestPartialInterface::partialCallWithExecutionContextRaisesExceptionVoidMethod(executionContext, *impl, exceptionState);
     if (exceptionState.hadException()) {
         exceptionState.throwIfNeeded();
         return;
@@ -1402,30 +1402,35 @@ static void configureV8TestInterfaceTemplate(v8::Handle<v8::FunctionTemplate> fu
     functionTemplate->InstanceTemplate()->SetNamedPropertyHandler(TestInterfaceImplementationV8Internal::namedPropertyGetterCallback, TestInterfaceImplementationV8Internal::namedPropertySetterCallback, TestInterfaceImplementationV8Internal::namedPropertyQueryCallback, TestInterfaceImplementationV8Internal::namedPropertyDeleterCallback, TestInterfaceImplementationV8Internal::namedPropertyEnumeratorCallback);
     functionTemplate->InstanceTemplate()->SetCallAsFunctionHandler(V8TestInterface::legacyCallCustom);
     functionTemplate->Set(v8AtomicString(isolate, "implementsStaticVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::implementsStaticVoidMethodMethodCallback, v8Undefined(), v8::Local<v8::Signature>(), 0));
-    if (RuntimeEnabledFeatures::implements2FeatureNameEnabled())
+    if (RuntimeEnabledFeatures::implements2FeatureNameEnabled()) {
         prototypeTemplate->Set(v8AtomicString(isolate, "implements2VoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::implements2VoidMethodMethodCallback, v8Undefined(), defaultSignature, 0));
+    }
     functionTemplate->Set(v8AtomicString(isolate, "implements3StaticVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::implements3StaticVoidMethodMethodCallback, v8Undefined(), v8::Local<v8::Signature>(), 0));
 #if ENABLE(PARTIAL_CONDITION)
-    if (RuntimeEnabledFeatures::partialFeatureNameEnabled())
+    if (RuntimeEnabledFeatures::partialFeatureNameEnabled()) {
         prototypeTemplate->Set(v8AtomicString(isolate, "partialVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partialVoidMethodMethodCallback, v8Undefined(), defaultSignature, 0));
+    }
 #endif // ENABLE(PARTIAL_CONDITION)
 #if ENABLE(PARTIAL_CONDITION)
-    if (RuntimeEnabledFeatures::partialFeatureNameEnabled())
+    if (RuntimeEnabledFeatures::partialFeatureNameEnabled()) {
         functionTemplate->Set(v8AtomicString(isolate, "partialStaticVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partialStaticVoidMethodMethodCallback, v8Undefined(), v8::Local<v8::Signature>(), 0));
+    }
 #endif // ENABLE(PARTIAL_CONDITION)
 #if ENABLE(PARTIAL_CONDITION)
-    if (RuntimeEnabledFeatures::partialFeatureNameEnabled())
+    if (RuntimeEnabledFeatures::partialFeatureNameEnabled()) {
         prototypeTemplate->Set(v8AtomicString(isolate, "partialVoidMethodLongArg"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partialVoidMethodLongArgMethodCallback, v8Undefined(), defaultSignature, 1));
+    }
 #endif // ENABLE(PARTIAL_CONDITION)
 #if ENABLE(PARTIAL_CONDITION)
-    if (RuntimeEnabledFeatures::partialFeatureNameEnabled())
+    if (RuntimeEnabledFeatures::partialFeatureNameEnabled()) {
         prototypeTemplate->Set(v8AtomicString(isolate, "partialCallWithExecutionContextRaisesExceptionVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partialCallWithExecutionContextRaisesExceptionVoidMethodMethodCallback, v8Undefined(), defaultSignature, 0));
+    }
 #endif // ENABLE(PARTIAL_CONDITION)
 #if ENABLE(PARTIAL_CONDITION)
-    if (RuntimeEnabledFeatures::partialFeatureNameEnabled())
+    if (RuntimeEnabledFeatures::partialFeatureNameEnabled()) {
         prototypeTemplate->Set(v8AtomicString(isolate, "partialVoidMethodPartialCallbackTypeArg"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partialVoidMethodPartialCallbackTypeArgMethodCallback, v8Undefined(), defaultSignature, 1));
+    }
 #endif // ENABLE(PARTIAL_CONDITION)
-    functionTemplate->Set(v8AtomicString(isolate, "partial2StaticVoidMethod"), v8::FunctionTemplate::New(isolate, TestInterfaceImplementationV8Internal::partial2StaticVoidMethodMethodCallback, v8Undefined(), v8::Local<v8::Signature>(), 0));
     functionTemplate->SetNativeDataProperty(v8AtomicString(isolate, "staticStringAttribute"), TestInterfaceImplementationV8Internal::staticStringAttributeAttributeGetterCallback, TestInterfaceImplementationV8Internal::staticStringAttributeAttributeSetterCallback, v8::External::New(isolate, 0), static_cast<v8::PropertyAttribute>(v8::None), v8::Handle<v8::AccessorSignature>(), static_cast<v8::AccessControl>(v8::DEFAULT));
     functionTemplate->SetNativeDataProperty(v8AtomicString(isolate, "implementsStaticReadOnlyLongAttribute"), TestInterfaceImplementationV8Internal::implementsStaticReadOnlyLongAttributeAttributeGetterCallback, 0, v8::External::New(isolate, 0), static_cast<v8::PropertyAttribute>(v8::None), v8::Handle<v8::AccessorSignature>(), static_cast<v8::AccessControl>(v8::DEFAULT));
     functionTemplate->SetNativeDataProperty(v8AtomicString(isolate, "implementsStaticStringAttribute"), TestInterfaceImplementationV8Internal::implementsStaticStringAttributeAttributeGetterCallback, TestInterfaceImplementationV8Internal::implementsStaticStringAttributeAttributeSetterCallback, v8::External::New(isolate, 0), static_cast<v8::PropertyAttribute>(v8::None), v8::Handle<v8::AccessorSignature>(), static_cast<v8::AccessControl>(v8::DEFAULT));
@@ -1442,16 +1447,7 @@ static void configureV8TestInterfaceTemplate(v8::Handle<v8::FunctionTemplate> fu
 
 v8::Handle<v8::FunctionTemplate> V8TestInterface::domTemplate(v8::Isolate* isolate)
 {
-    V8PerIsolateData* data = V8PerIsolateData::from(isolate);
-    v8::Local<v8::FunctionTemplate> result = data->existingDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo));
-    if (!result.IsEmpty())
-        return result;
-
-    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
-    result = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
-    configureV8TestInterfaceTemplate(result, isolate);
-    data->setDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), result);
-    return result;
+    return V8DOMConfiguration::domClassTemplate(isolate, const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), configureV8TestInterfaceTemplate);
 }
 
 bool V8TestInterface::hasInstance(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)

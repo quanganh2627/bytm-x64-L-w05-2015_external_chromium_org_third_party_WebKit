@@ -25,17 +25,8 @@
  */
 
 #include "config.h"
-#include "Internals.h"
+#include "core/testing/Internals.h"
 
-#include "InternalProfilers.h"
-#include "InternalRuntimeFlags.h"
-#include "InternalSettings.h"
-#include "LayerRect.h"
-#include "LayerRectList.h"
-#include "MallocStatistics.h"
-#include "MockPagePopupDriver.h"
-#include "RuntimeEnabledFeatures.h"
-#include "TypeConversions.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptFunction.h"
@@ -43,6 +34,7 @@
 #include "bindings/v8/ScriptPromiseResolver.h"
 #include "bindings/v8/SerializedScriptValue.h"
 #include "bindings/v8/V8ThrowException.h"
+#include "core/InternalRuntimeFlags.h"
 #include "core/animation/AnimationTimeline.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/css/resolver/StyleResolver.h"
@@ -116,10 +108,17 @@
 #include "core/rendering/compositing/CompositedLayerMapping.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/testing/GCObservation.h"
+#include "core/testing/InternalProfilers.h"
+#include "core/testing/InternalSettings.h"
+#include "core/testing/LayerRect.h"
+#include "core/testing/LayerRectList.h"
+#include "core/testing/MallocStatistics.h"
+#include "core/testing/MockPagePopupDriver.h"
+#include "core/testing/TypeConversions.h"
 #include "core/workers/WorkerThread.h"
-#include "platform/ColorChooser.h"
 #include "platform/Cursor.h"
 #include "platform/Language.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
 #include "platform/geometry/IntRect.h"
 #include "platform/geometry/LayoutRect.h"
@@ -191,15 +190,15 @@ void Internals::resetToConsistentState(Page* page)
     delete s_pagePopupDriver;
     s_pagePopupDriver = 0;
     page->chrome().client().resetPagePopupDriver();
-    if (!page->mainFrame()->spellChecker().isContinuousSpellCheckingEnabled())
-        page->mainFrame()->spellChecker().toggleContinuousSpellChecking();
-    if (page->mainFrame()->editor().isOverwriteModeEnabled())
-        page->mainFrame()->editor().toggleOverwriteModeEnabled();
+    if (!page->deprecatedLocalMainFrame()->spellChecker().isContinuousSpellCheckingEnabled())
+        page->deprecatedLocalMainFrame()->spellChecker().toggleContinuousSpellChecking();
+    if (page->deprecatedLocalMainFrame()->editor().isOverwriteModeEnabled())
+        page->deprecatedLocalMainFrame()->editor().toggleOverwriteModeEnabled();
 
     if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator())
         scrollingCoordinator->reset();
 
-    page->mainFrame()->view()->clear();
+    page->deprecatedLocalMainFrame()->view()->clear();
 }
 
 Internals::Internals(Document* document)
@@ -573,15 +572,6 @@ String Internals::elementRenderTreeAsText(Element* element, ExceptionState& exce
     return representation;
 }
 
-size_t Internals::numberOfScopedHTMLStyleChildren(const Node* scope, ExceptionState& exceptionState) const
-{
-    if (scope && (scope->isElementNode() || scope->isShadowRoot()))
-        return scope->numberOfScopedHTMLStyleChildren();
-
-    exceptionState.throwDOMException(InvalidAccessError, ExceptionMessages::argumentNullOrIncorrectType(1, "Node"));
-    return 0;
-}
-
 PassRefPtrWillBeRawPtr<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(Node* node, ExceptionState& exceptionState) const
 {
     if (!node) {
@@ -737,7 +727,7 @@ void Internals::setEnableMockPagePopup(bool enabled, ExceptionState& exceptionSt
         return;
     }
     if (!s_pagePopupDriver)
-        s_pagePopupDriver = MockPagePopupDriver::create(page->mainFrame()).leakPtr();
+        s_pagePopupDriver = MockPagePopupDriver::create(page->deprecatedLocalMainFrame()).leakPtr();
     page->chrome().client().setPagePopupDriver(s_pagePopupDriver);
 }
 
@@ -908,7 +898,7 @@ String Internals::viewportAsText(Document* document, float, int availableWidth, 
 
     // Update initial viewport size.
     IntSize initialViewportSize(availableWidth, availableHeight);
-    document->page()->mainFrame()->view()->setFrameRect(IntRect(IntPoint::zero(), initialViewportSize));
+    document->page()->deprecatedLocalMainFrame()->view()->setFrameRect(IntRect(IntPoint::zero(), initialViewportSize));
 
     ViewportDescription description = page->viewportDescription();
     PageScaleConstraints constraints = description.resolve(initialViewportSize, Length());
@@ -1602,9 +1592,9 @@ unsigned Internals::numberOfScrollableAreas(Document* document, ExceptionState&)
     if (frame->view()->scrollableAreas())
         count += frame->view()->scrollableAreas()->size();
 
-    for (LocalFrame* child = frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
-        if (child->view() && child->view()->scrollableAreas())
-            count += child->view()->scrollableAreas()->size();
+    for (Frame* child = frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (child->isLocalFrame() && toLocalFrame(child)->view() && toLocalFrame(child)->view()->scrollableAreas())
+            count += toLocalFrame(child)->view()->scrollableAreas()->size();
     }
 
     return count;
@@ -1695,7 +1685,7 @@ bool Internals::isUnclippedDescendant(Element* element, ExceptionState& exceptio
     if (!layer->compositor()->acceleratedCompositingForOverflowScrollEnabled())
         return false;
 
-    return layer->ancestorDependentProperties().isUnclippedDescendant;
+    return layer->compositingInputs().isUnclippedDescendant;
 }
 
 String Internals::layerTreeAsText(Document* document, unsigned flags, ExceptionState& exceptionState) const
@@ -2038,6 +2028,17 @@ void Internals::updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(Node* 
     document->updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasksSynchronously);
 }
 
+void Internals::forceFullRepaint(Document* document, ExceptionState& exceptionState)
+{
+    if (!document || !document->view()) {
+        exceptionState.throwDOMException(InvalidAccessError, document ? "The document's view cannot be retrieved." : "The document provided is invalid.");
+        return;
+    }
+
+    if (RenderView *renderView = document->renderView())
+        renderView->repaintViewAndCompositedLayers();
+}
+
 PassRefPtrWillBeRawPtr<ClientRectList> Internals::draggableRegions(Document* document, ExceptionState& exceptionState)
 {
     return annotatedRegions(document, true, exceptionState);
@@ -2286,10 +2287,9 @@ private:
     virtual ScriptValue call(ScriptValue value) OVERRIDE
     {
         v8::Local<v8::Value> v8Value = value.v8Value();
-        v8::Isolate* isolate = value.isolate();
         ASSERT(v8Value->IsNumber());
         int intValue = v8Value.As<v8::Integer>()->Value();
-        ScriptValue result  = ScriptValue(value.scriptState(), v8::Integer::New(isolate, intValue + 1));
+        ScriptValue result  = ScriptValue(ScriptState::current(isolate()), v8::Integer::New(isolate(), intValue + 1));
         return result;
     }
 };
@@ -2338,13 +2338,23 @@ String Internals::textSurroundingNode(Node* node, int x, int y, unsigned long ma
     if (!node)
         return String();
     blink::WebPoint point(x, y);
-    SurroundingText surroundingText(VisiblePosition(node->renderer()->positionForPoint(static_cast<IntPoint>(point))), maxLength);
+    SurroundingText surroundingText(VisiblePosition(node->renderer()->positionForPoint(static_cast<IntPoint>(point))).deepEquivalent().parentAnchoredEquivalent(), maxLength);
     return surroundingText.content();
 }
 
 void Internals::setFocused(bool focused)
 {
     frame()->page()->focusController().setFocused(focused);
+}
+
+bool Internals::ignoreLayoutWithPendingStylesheets(Document* document, ExceptionState& exceptionState)
+{
+    if (!document) {
+        exceptionState.throwDOMException(InvalidAccessError, "No context document is available.");
+        return false;
+    }
+
+    return document->ignoreLayoutWithPendingStylesheets();
 }
 
 void Internals::setNetworkStateNotifierTestOnly(bool testOnly)

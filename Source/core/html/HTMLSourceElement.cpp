@@ -26,13 +26,12 @@
 #include "config.h"
 #include "core/html/HTMLSourceElement.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
+#include "core/events/Event.h"
 #include "core/events/EventSender.h"
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/HTMLPictureElement.h"
 #include "platform/Logging.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -51,10 +50,7 @@ inline HTMLSourceElement::HTMLSourceElement(Document& document)
     ScriptWrappable::init(this);
 }
 
-PassRefPtrWillBeRawPtr<HTMLSourceElement> HTMLSourceElement::create(Document& document)
-{
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLSourceElement(document));
-}
+DEFINE_NODE_FACTORY(HTMLSourceElement)
 
 HTMLSourceElement::~HTMLSourceElement()
 {

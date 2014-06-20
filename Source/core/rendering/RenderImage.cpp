@@ -28,7 +28,7 @@
 #include "config.h"
 #include "core/rendering/RenderImage.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/editing/FrameSelection.h"
 #include "core/fetch/ImageResource.h"
 #include "core/fetch/ResourceLoadPriorityOptimizer.h"
@@ -141,11 +141,6 @@ bool RenderImage::setImageSizeForAltText(ImageResource* newImage /* = 0 */)
     return true;
 }
 
-void RenderImage::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
-{
-    RenderReplaced::styleDidChange(diff, oldStyle);
-}
-
 void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 {
     if (documentBeingDestroyed())
@@ -223,7 +218,7 @@ void RenderImage::repaintOrMarkForLayout(bool imageSizeChangedToAccomodateAltTex
     bool containingBlockNeedsToRecomputePreferredSize =  style()->logicalWidth().isPercent() || style()->logicalMaxWidth().isPercent()  || style()->logicalMinWidth().isPercent();
 
     if (needsLayout || containingBlockNeedsToRecomputePreferredSize) {
-        setNeedsLayoutAndFullRepaint();
+        setNeedsLayoutAndFullPaintInvalidation();
         return;
     }
 
@@ -251,7 +246,7 @@ void RenderImage::repaintOrMarkForLayout(bool imageSizeChangedToAccomodateAltTex
     {
         // FIXME: We should not be allowing repaint during layout. crbug.com/339584
         AllowPaintInvalidationScope scoper(frameView());
-        repaintRectangle(repaintRect);
+        invalidatePaintRectangle(repaintRect);
     }
 
     // Tell any potential compositing layers that the image needs updating.
@@ -438,7 +433,7 @@ void RenderImage::areaElementFocusChanged(HTMLAreaElement* areaElement)
     repaintRect.moveBy(-absoluteContentBox().location());
     repaintRect.inflate(outlineWidth);
 
-    repaintRectangle(repaintRect);
+    invalidatePaintRectangle(repaintRect);
 }
 
 void RenderImage::paintIntoRect(GraphicsContext* context, const LayoutRect& rect)

@@ -9,7 +9,6 @@
 {
   'includes': [
     # ../.. == Source
-    '../../bindings/bindings.gypi',
     '../../bindings/core/core.gypi',
     '../../bindings/scripts/scripts.gypi',
     '../../build/scripts/scripts.gypi',  # FIXME: Needed for event files, should be in modules, not bindings_modules http://crbug.com/358074
@@ -22,11 +21,13 @@
   'targets': [
 ################################################################################
   {
+    # GN version: //third_party/WebKit/Source/bindings/modules:bindings_modules_generated
     # FIXME: Should be in modules, not bindings_modules http://crbug.com/358074
     'target_name': 'modules_event_generated',
     'type': 'none',
     'actions': [
       {
+        # GN version: //third_party/WebKit/Source/bindings/modules:modules_bindings_generated_event_interfaces
         'action_name': 'event_interfaces',
         'variables': {
           'event_idl_files': [
@@ -58,6 +59,7 @@
         ],
       },
       {
+        # GN version: //third_party/WebKit/Source/bindings/modules:bindings_modules_generated_event_modules_factory
         'action_name': 'EventModulesFactory',
         'inputs': [
           '<@(make_event_factory_files)',
@@ -77,6 +79,7 @@
         ],
       },
       {
+        # GN version: //third_party/WebKit/Source/bindings/modules:bindings_modules_generated_event_modules_names
         'action_name': 'EventModulesNames',
         'inputs': [
           '<@(make_names_files)',
@@ -95,6 +98,7 @@
         ],
       },
       {
+        # GN version: //third_party/WebKit/Source/bindings/modules:bindings_modules_generated_event_target_modules_factory
         'action_name': 'EventTargetModulesFactory',
         'inputs': [
           '<@(make_event_factory_files)',
@@ -113,6 +117,7 @@
         ],
       },
       {
+        # GN version: //third_party/WebKit/Source/bindings/modules:bindings_modules_generated_event_target_modules_names
         'action_name': 'EventTargetModulesNames',
         'inputs': [
           '<@(make_names_files)',
@@ -135,110 +140,53 @@
 ################################################################################
   {
     'target_name': 'modules_global_objects',
-    'type': 'none',
     'dependencies': [
-        '../core/generated.gyp:core_global_objects',
+      '../core/generated.gyp:core_global_objects',
     ],
-    'actions': [{
-      'action_name': 'compute_modules_global_objects',
-      'inputs': [
-        '<(bindings_scripts_dir)/compute_global_objects.py',
-        '<(bindings_scripts_dir)/utilities.py',
-        # Only look in main IDL files (exclude dependencies and testing,
-        # which should not define global objects).
-        '<(modules_idl_files_list)',
-        '<@(modules_idl_files)',
-      ],
-      'outputs': [
-        '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
-      ],
-      'action': [
-        'python',
-        '<(bindings_scripts_dir)/compute_global_objects.py',
-        '--idl-files-list',
-        '<(modules_idl_files_list)',
-        '--write-file-only-if-changed',
-        '<(write_file_only_if_changed)',
-        '--',
+    'variables': {
+      'idl_files': '<(modules_idl_files)',
+      'input_files': [
         '<(bindings_core_output_dir)/GlobalObjectsCore.pickle',
+      ],
+      'output_file':
         '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
-       ],
-       'message': 'Computing global objects in modules',
-      }]
+    },
+    'includes': ['../../bindings/scripts/global_objects.gypi'],
   },
 ################################################################################
   {
     # Global constructors for global objects in modules (ServiceWorker)
     # but interfaces in core.
     'target_name': 'modules_core_global_constructors_idls',
-    'type': 'none',
     'dependencies': [
-        'modules_global_objects',
+      'modules_global_objects',
     ],
-    'actions': [{
-      'action_name': 'generate_modules_core_global_constructors_idls',
-      'inputs': [
-        '<(bindings_scripts_dir)/generate_global_constructors.py',
-        '<(bindings_scripts_dir)/utilities.py',
-        # Only includes main IDL files (exclude dependencies and testing,
-        # which should not appear on global objects).
-        '<(core_idl_files_list)',
-        '<@(core_idl_files)',
+    'variables': {
+      'idl_files': '<(core_idl_files)',
+      'global_objects_file':
         '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
+      'global_names_idl_files': [
+        'ServiceWorkerGlobalScope',
+        '<(blink_modules_output_dir)/ServiceWorkerGlobalScopeCoreConstructors.idl',
       ],
       'outputs': [
         '<@(modules_core_global_constructors_generated_idl_files)',
         '<@(modules_core_global_constructors_generated_header_files)',
       ],
-      'action': [
-        'python',
-        '<(bindings_scripts_dir)/generate_global_constructors.py',
-        '--idl-files-list',
-        '<(core_idl_files_list)',
-        '--global-objects-file',
-        '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
-        '--write-file-only-if-changed',
-        '<(write_file_only_if_changed)',
-        '--',
-        'ServiceWorkerGlobalScope',
-        '<(blink_modules_output_dir)/ServiceWorkerGlobalScopeCoreConstructors.idl',
-       ],
-       'message':
-         'Generating IDL files for constructors for interfaces in core, on global objects from modules',
-      }]
+    },
+    'includes': ['../../bindings/scripts/global_constructors.gypi'],
   },
 ################################################################################
   {
     'target_name': 'modules_global_constructors_idls',
-    'type': 'none',
     'dependencies': [
       'modules_global_objects',
     ],
-    'actions': [{
-      'action_name': 'generate_modules_global_constructors_idls',
-      'inputs': [
-        '<(bindings_scripts_dir)/generate_global_constructors.py',
-        '<(bindings_scripts_dir)/utilities.py',
-        # Only includes main IDL files (exclude dependencies and testing,
-        # which should not appear on global objects).
-        '<(modules_idl_files_list)',
-        '<@(modules_idl_files)',
+    'variables': {
+      'idl_files': '<(modules_idl_files)',
+      'global_objects_file':
         '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
-      ],
-      'outputs': [
-        '<@(modules_global_constructors_generated_idl_files)',
-        '<@(modules_global_constructors_generated_header_files)',
-      ],
-      'action': [
-        'python',
-        '<(bindings_scripts_dir)/generate_global_constructors.py',
-        '--idl-files-list',
-        '<(modules_idl_files_list)',
-        '--global-objects-file',
-        '<(bindings_modules_output_dir)/GlobalObjectsModules.pickle',
-        '--write-file-only-if-changed',
-        '<(write_file_only_if_changed)',
-        '--',
+      'global_names_idl_files': [
         'Window',
         '<(blink_modules_output_dir)/WindowModulesConstructors.idl',
         'SharedWorkerGlobalScope',
@@ -247,79 +195,47 @@
         '<(blink_modules_output_dir)/DedicatedWorkerGlobalScopeModulesConstructors.idl',
         'ServiceWorkerGlobalScope',
         '<(blink_modules_output_dir)/ServiceWorkerGlobalScopeModulesConstructors.idl',
-       ],
-       'message':
-         'Generating IDL files for constructors on global objects from modules',
-      }]
+      ],
+      'outputs': [
+        '<@(modules_global_constructors_generated_idl_files)',
+        '<@(modules_global_constructors_generated_header_files)',
+      ],
+    },
+    'includes': ['../../bindings/scripts/global_constructors.gypi'],
   },
 ################################################################################
   {
     'target_name': 'interfaces_info_individual_modules',
-    'type': 'none',
     'dependencies': [
       'modules_core_global_constructors_idls',
       'modules_global_constructors_idls',
     ],
-    'actions': [{
-      'action_name': 'compute_interfaces_info_individual_modules',
-      'inputs': [
-        '<(bindings_scripts_dir)/compute_interfaces_info_individual.py',
-        '<(bindings_scripts_dir)/utilities.py',
-        '<(modules_static_idl_files_list)',
-        '<@(modules_static_idl_files)',
-        '<@(modules_generated_idl_files)',
-      ],
-      'outputs': [
+    'variables': {
+      'static_idl_files': '<(modules_static_idl_files)',
+      'generated_idl_files': '<(modules_generated_idl_files)',
+      'component_dir': 'modules',
+      'output_file':
         '<(bindings_modules_output_dir)/InterfacesInfoModulesIndividual.pickle',
-      ],
-      'action': [
-        'python',
-        '<(bindings_scripts_dir)/compute_interfaces_info_individual.py',
-        '--component-dir',
-        'modules',
-        '--idl-files-list',
-        '<(modules_static_idl_files_list)',
-        '--interfaces-info-file',
-        '<(bindings_modules_output_dir)/InterfacesInfoModulesIndividual.pickle',
-        '--write-file-only-if-changed',
-        '<(write_file_only_if_changed)',
-        '--',
-        # Generated files must be passed at command line
-        '<@(modules_generated_idl_files)',
-      ],
-      'message': 'Computing global information about individual IDL files',
-      }]
+    },
+    'includes': ['../../bindings/scripts/interfaces_info_individual.gypi'],
   },
 ################################################################################
   {
+    # GN version: //third_party/WebKit/Source/bindings/modules:interfaces_info
     'target_name': 'interfaces_info',
-    'type': 'none',
     'dependencies': [
         '../core/generated.gyp:interfaces_info_individual_core',
         'interfaces_info_individual_modules',
     ],
-    'actions': [{
-      'action_name': 'compute_interfaces_info_overall',
-      'inputs': [
-        '<(bindings_scripts_dir)/compute_interfaces_info_overall.py',
+    'variables': {
+      'input_files': [
         '<(bindings_core_output_dir)/InterfacesInfoCoreIndividual.pickle',
         '<(bindings_modules_output_dir)/InterfacesInfoModulesIndividual.pickle',
       ],
-      'outputs': [
+      'output_file':
         '<(bindings_modules_output_dir)/InterfacesInfoModules.pickle',
-      ],
-      'action': [
-        'python',
-        '<(bindings_scripts_dir)/compute_interfaces_info_overall.py',
-        '--write-file-only-if-changed',
-        '<(write_file_only_if_changed)',
-        '--',
-        '<(bindings_core_output_dir)/InterfacesInfoCoreIndividual.pickle',
-        '<(bindings_modules_output_dir)/InterfacesInfoModulesIndividual.pickle',
-        '<(bindings_modules_output_dir)/InterfacesInfoModules.pickle',
-      ],
-      'message': 'Computing overall global information about IDL files',
-      }]
+    },
+    'includes': ['../../bindings/scripts/interfaces_info_overall.gypi'],
   },
 ################################################################################
   ],  # targets

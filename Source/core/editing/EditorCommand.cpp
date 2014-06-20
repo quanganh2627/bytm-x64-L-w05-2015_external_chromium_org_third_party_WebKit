@@ -28,11 +28,11 @@
 #include "config.h"
 #include "core/editing/Editor.h"
 
-#include "CSSPropertyNames.h"
-#include "CSSValueKeywords.h"
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/CSSPropertyNames.h"
+#include "core/CSSValueKeywords.h"
+#include "core/HTMLNames.h"
 #include "core/clipboard/Pasteboard.h"
 #include "core/css/CSSValueList.h"
 #include "core/css/StylePropertySet.h"
@@ -219,7 +219,7 @@ static bool expandSelectionToGranularity(LocalFrame& frame, TextGranularity gran
     if (newRange->collapsed())
         return false;
     EAffinity affinity = frame.selection().affinity();
-    frame.selection().setSelectedRange(newRange.get(), affinity, FrameSelection::CloseTyping);
+    frame.selection().setSelectedRange(newRange.get(), affinity, FrameSelection::NonDirectional, FrameSelection::CloseTyping);
     return true;
 }
 
@@ -381,7 +381,7 @@ static bool executeDeleteToMark(LocalFrame& frame, Event*, EditorCommandSource, 
 {
     RefPtrWillBeRawPtr<Range> mark = frame.editor().mark().toNormalizedRange();
     if (mark) {
-        bool selected = frame.selection().setSelectedRange(unionDOMRanges(mark.get(), frame.editor().selectedRange().get()).get(), DOWNSTREAM, FrameSelection::CloseTyping);
+        bool selected = frame.selection().setSelectedRange(unionDOMRanges(mark.get(), frame.editor().selectedRange().get()).get(), DOWNSTREAM, FrameSelection::NonDirectional, FrameSelection::CloseTyping);
         ASSERT(selected);
         if (!selected)
             return false;
@@ -1031,7 +1031,7 @@ static bool executeSelectToMark(LocalFrame& frame, Event*, EditorCommandSource, 
     RefPtrWillBeRawPtr<Range> selection = frame.editor().selectedRange();
     if (!mark || !selection)
         return false;
-    frame.selection().setSelectedRange(unionDOMRanges(mark.get(), selection.get()).get(), DOWNSTREAM, FrameSelection::CloseTyping);
+    frame.selection().setSelectedRange(unionDOMRanges(mark.get(), selection.get()).get(), DOWNSTREAM, FrameSelection::NonDirectional, FrameSelection::CloseTyping);
     return true;
 }
 
@@ -1626,14 +1626,14 @@ static const CommandMap& createCommandMap()
     // Unbookmark (not supported)
 
     CommandMap& commandMap = *new CommandMap;
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     HashSet<int> idSet;
 #endif
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(commands); ++i) {
         const CommandEntry& command = commands[i];
         ASSERT(!commandMap.get(command.name));
         commandMap.set(command.name, &command.command);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         ASSERT(!idSet.contains(command.command.idForUserMetrics));
         idSet.add(command.command.idForUserMetrics);
 #endif

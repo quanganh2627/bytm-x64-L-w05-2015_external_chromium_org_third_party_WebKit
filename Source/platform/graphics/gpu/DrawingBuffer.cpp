@@ -32,7 +32,7 @@
 
 #include "platform/graphics/gpu/DrawingBuffer.h"
 
-#include "RuntimeEnabledFeatures.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include <algorithm>
 #include "platform/TraceEvent.h"
 #include "platform/graphics/GraphicsLayer.h"
@@ -429,10 +429,15 @@ bool DrawingBuffer::initialize(const IntSize& size)
     return true;
 }
 
-bool DrawingBuffer::copyToPlatformTexture(blink::WebGraphicsContext3D* context, Platform3DObject texture, GLenum internalFormat, GLenum destType, GLint level, bool premultiplyAlpha, bool flipY)
+bool DrawingBuffer::copyToPlatformTexture(blink::WebGraphicsContext3D* context, Platform3DObject texture, GLenum internalFormat, GLenum destType, GLint level, bool premultiplyAlpha, bool flipY, bool fromFrontBuffer)
 {
     if (!m_context->makeContextCurrent())
         return false;
+
+    GLint textureId = m_colorBuffer.textureId;
+    if (fromFrontBuffer)
+        textureId = m_frontColorBuffer.textureId;
+
     if (m_contentsChanged) {
         if (m_multisampleMode != None) {
             commit();
@@ -450,8 +455,7 @@ bool DrawingBuffer::copyToPlatformTexture(blink::WebGraphicsContext3D* context, 
     // Contexts may be in a different share group. We must transfer the texture through a mailbox first
     RefPtr<MailboxInfo> bufferMailbox = adoptRef(new MailboxInfo());
     m_context->genMailboxCHROMIUM(bufferMailbox->mailbox.name);
-    m_context->bindTexture(GL_TEXTURE_2D, m_colorBuffer.textureId);
-    m_context->produceTextureCHROMIUM(GL_TEXTURE_2D, bufferMailbox->mailbox.name);
+    m_context->produceTextureDirectCHROMIUM(textureId, GL_TEXTURE_2D, bufferMailbox->mailbox.name);
     m_context->flush();
 
     bufferMailbox->mailbox.syncPoint = m_context->insertSyncPoint();
@@ -459,16 +463,8 @@ bool DrawingBuffer::copyToPlatformTexture(blink::WebGraphicsContext3D* context, 
     if (!context->makeContextCurrent())
         return false;
 
-    Platform3DObject sourceTexture = context->createTexture();
-
-    // TODO(bajones): Should be able to change the texture bindings here without reverting but
-    // something else in the system is depending on it. Failing to revert causes WebGL
-    // tests to fail. We should find out why and fix it.
-    GLint boundTexture = 0;
-    context->getIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
-    context->bindTexture(GL_TEXTURE_2D, sourceTexture);
     context->waitSyncPoint(bufferMailbox->mailbox.syncPoint);
-    context->consumeTextureCHROMIUM(GL_TEXTURE_2D, bufferMailbox->mailbox.name);
+    Platform3DObject sourceTexture = context->createAndConsumeTextureCHROMIUM(GL_TEXTURE_2D, bufferMailbox->mailbox.name);
 
     bool unpackPremultiplyAlphaNeeded = false;
     bool unpackUnpremultiplyAlphaNeeded = false;
@@ -485,7 +481,6 @@ bool DrawingBuffer::copyToPlatformTexture(blink::WebGraphicsContext3D* context, 
     context->pixelStorei(GC3D_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM, false);
     context->pixelStorei(GC3D_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM, false);
 
-    context->bindTexture(GL_TEXTURE_2D, boundTexture);
     context->deleteTexture(sourceTexture);
 
     context->flush();

@@ -25,10 +25,10 @@
 #include "config.h"
 #include "core/dom/Node.h"
 
-#include "HTMLNames.h"
-#include "XMLNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptCallStackFactory.h"
+#include "core/HTMLNames.h"
+#include "core/XMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/dom/Attr.h"
 #include "core/dom/Attribute.h"
@@ -95,8 +95,6 @@
 #include "wtf/Vector.h"
 #include "wtf/text/CString.h"
 #include "wtf/text/StringBuilder.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -701,7 +699,7 @@ namespace {
 PassRefPtr<JSONArray> jsStackAsJSONArray()
 {
     RefPtr<JSONArray> jsonArray = JSONArray::create();
-    RefPtr<ScriptCallStack> stack = createScriptCallStack(10);
+    RefPtrWillBeRawPtr<ScriptCallStack> stack = createScriptCallStack(10);
     if (!stack)
         return jsonArray.release();
     for (size_t i = 0; i < stack->size(); i++)
@@ -1622,7 +1620,7 @@ unsigned short Node::compareDocumentPositionInternal(const Node* otherNode, Shad
     unsigned connection = start1->treeScope() != start2->treeScope() ? DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC : 0;
 
     // Walk the two chains backwards and look for the first difference.
-    for (unsigned i = min(index1, index2); i; --i) {
+    for (unsigned i = std::min(index1, index2); i; --i) {
         const Node* child1 = chain1[--index1];
         const Node* child2 = chain2[--index2];
         if (child1 != child2) {
@@ -1941,7 +1939,7 @@ void Node::didMoveToNewDocument(Document& oldDocument)
     }
 
     oldDocument.markers().removeMarkers(this);
-
+    oldDocument.updateRangesAfterNodeMovedToAnotherDocument(*this);
 
     if (const TouchEventTargetSet* touchHandlers = oldDocument.touchEventTargets()) {
         while (touchHandlers->contains(this)) {
@@ -2203,7 +2201,7 @@ void Node::dispatchScopedEvent(PassRefPtrWillBeRawPtr<Event> event)
     dispatchScopedEventDispatchMediator(EventDispatchMediator::create(event));
 }
 
-void Node::dispatchScopedEventDispatchMediator(PassRefPtr<EventDispatchMediator> eventDispatchMediator)
+void Node::dispatchScopedEventDispatchMediator(PassRefPtrWillBeRawPtr<EventDispatchMediator> eventDispatchMediator)
 {
     EventDispatcher::dispatchScopedEvent(this, eventDispatchMediator);
 }
@@ -2372,13 +2370,13 @@ inline void TreeScope::removedLastRefToScope()
         // extra self-only ref.
         guardRef();
         dispose();
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         // We need to do this right now since guardDeref() can delete this.
         rootNode().m_inRemovedLastRefFunction = false;
 #endif
         guardDeref();
     } else {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         rootNode().m_inRemovedLastRefFunction = false;
 #endif
 #if SECURITY_ASSERT_ENABLED
@@ -2458,28 +2456,6 @@ PassRefPtrWillBeRawPtr<NodeList> Node::getDestinationInsertionPoints()
             filteredInsertionPoints.append(insertionPoint);
     }
     return StaticNodeList::adopt(filteredInsertionPoints);
-}
-
-void Node::registerScopedHTMLStyleChild()
-{
-    setHasScopedHTMLStyleChild(true);
-}
-
-void Node::unregisterScopedHTMLStyleChild()
-{
-    ASSERT(hasScopedHTMLStyleChild());
-    setHasScopedHTMLStyleChild(numberOfScopedHTMLStyleChildren());
-}
-
-size_t Node::numberOfScopedHTMLStyleChildren() const
-{
-    size_t count = 0;
-    for (HTMLStyleElement* style = Traversal<HTMLStyleElement>::firstChild(*this); style; style = Traversal<HTMLStyleElement>::nextSibling(*style)) {
-        if (style->isRegisteredAsScoped())
-            ++count;
-    }
-
-    return count;
 }
 
 void Node::setFocus(bool flag)

@@ -20,16 +20,18 @@
 #include "config.h"
 #include "core/svg/SVGFEPointLightElement.h"
 
-#include "SVGNames.h"
+#include "core/SVGNames.h"
 #include "platform/graphics/filters/PointLightSource.h"
 
 namespace WebCore {
 
-SVGFEPointLightElement::SVGFEPointLightElement(Document& document)
+inline SVGFEPointLightElement::SVGFEPointLightElement(Document& document)
     : SVGFELightElement(SVGNames::fePointLightTag, document)
 {
     ScriptWrappable::init(this);
 }
+
+DEFINE_NODE_FACTORY(SVGFEPointLightElement)
 
 PassRefPtr<LightSource> SVGFEPointLightElement::lightSource() const
 {

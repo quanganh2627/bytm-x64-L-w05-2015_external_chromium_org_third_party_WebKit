@@ -27,7 +27,7 @@
 
 #include "core/rendering/RenderVideo.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
@@ -81,7 +81,7 @@ void RenderVideo::updateIntrinsicSize()
 
     setIntrinsicSize(size);
     setPreferredLogicalWidthsDirty();
-    setNeedsLayoutAndFullRepaint();
+    setNeedsLayoutAndFullPaintInvalidation();
 }
 
 LayoutSize RenderVideo::calculateIntrinsicSize()
@@ -210,7 +210,7 @@ void RenderVideo::updatePlayer()
     if (!videoElement()->isActive())
         return;
 
-    contentChanged(VideoChanged);
+    videoElement()->setNeedsCompositingUpdate();
 }
 
 LayoutUnit RenderVideo::computeReplacedLogicalWidth(ShouldComputePreferred shouldComputePreferred) const

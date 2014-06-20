@@ -174,8 +174,8 @@ private:
     bool shouldLoadNewResource(Resource::Type) const;
 
     ResourcePtr<Resource> requestResource(Resource::Type, FetchRequest&);
-    ResourcePtr<Resource> revalidateResource(const FetchRequest&, Resource*);
-    ResourcePtr<Resource> loadResource(Resource::Type, FetchRequest&, const String& charset);
+    ResourcePtr<Resource> createResourceForRevalidation(const FetchRequest&, Resource*);
+    ResourcePtr<Resource> createResourceForLoading(Resource::Type, FetchRequest&, const String& charset);
     void preCacheDataURIImage(const FetchRequest&);
     void preCacheSubstituteDataForMainResource(const FetchRequest&, const SubstituteData&);
     void storeResourceTimingInitiatorInformation(Resource*);
@@ -205,7 +205,10 @@ private:
 
     HashSet<String> m_validatedURLs;
     mutable DocumentResourceMap m_documentResources;
-    RawPtrWillBeMember<Document> m_document;
+    // FIXME: Oilpan: Ideally this should just be a traced Member but that will
+    // currently leak because RenderStyle and its data are not on the heap.
+    // See crbug.com/383860 for details.
+    RawPtrWillBeWeakMember<Document> m_document;
     DocumentLoader* m_documentLoader;
 
     int m_requestCount;

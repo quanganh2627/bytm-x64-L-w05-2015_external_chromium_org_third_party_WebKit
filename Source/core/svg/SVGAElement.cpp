@@ -24,8 +24,8 @@
 
 #include "core/svg/SVGAElement.h"
 
-#include "SVGNames.h"
-#include "XLinkNames.h"
+#include "core/SVGNames.h"
+#include "core/XLinkNames.h"
 #include "core/dom/Attr.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/Document.h"
@@ -53,7 +53,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-SVGAElement::SVGAElement(Document& document)
+inline SVGAElement::SVGAElement(Document& document)
     : SVGGraphicsElement(SVGNames::aTag, document)
     , SVGURIReference(this)
     , m_svgTarget(SVGAnimatedString::create(this, SVGNames::targetAttr, SVGString::create()))
@@ -61,6 +61,8 @@ SVGAElement::SVGAElement(Document& document)
     ScriptWrappable::init(this);
     addToPropertyMap(m_svgTarget);
 }
+
+DEFINE_NODE_FACTORY(SVGAElement)
 
 String SVGAElement::title() const
 {

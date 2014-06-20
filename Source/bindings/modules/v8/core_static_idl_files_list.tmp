@@ -252,11 +252,15 @@
 ../../../core/html/canvas/WebGLUniformLocation.idl
 ../../../core/html/canvas/WebGLVertexArrayObjectOES.idl
 ../../../core/html/ime/InputMethodContext.idl
+../../../core/html/track/AudioTrack.idl
+../../../core/html/track/AudioTrackList.idl
 ../../../core/html/track/TextTrack.idl
 ../../../core/html/track/TextTrackCue.idl
 ../../../core/html/track/TextTrackCueList.idl
 ../../../core/html/track/TextTrackList.idl
 ../../../core/html/track/TrackEvent.idl
+../../../core/html/track/VideoTrack.idl
+../../../core/html/track/VideoTrackList.idl
 ../../../core/html/track/vtt/VTTCue.idl
 ../../../core/html/track/vtt/VTTRegion.idl
 ../../../core/html/track/vtt/VTTRegionList.idl
@@ -303,7 +307,6 @@
 ../../../core/svg/SVGDescElement.idl
 ../../../core/svg/SVGDiscardElement.idl
 ../../../core/svg/SVGElement.idl
-../../../core/svg/SVGElementInstance.idl
 ../../../core/svg/SVGEllipseElement.idl
 ../../../core/svg/SVGFEBlendElement.idl
 ../../../core/svg/SVGFEColorMatrixElement.idl

@@ -31,9 +31,9 @@
 #include "config.h"
 #include "core/inspector/InspectorResourceAgent.h"
 
-#include "FetchInitiatorTypeNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptCallStackFactory.h"
+#include "core/FetchInitiatorTypeNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/ScriptableDocumentParser.h"
 #include "core/fetch/FetchInitiatorInfo.h"
@@ -82,6 +82,7 @@ namespace {
 
 // Keep in sync with kDevToolsRequestInitiator defined in devtools_network_controller.cc
 const char kDevToolsRequestInitiator[] = "X-DevTools-Request-Initiator";
+const char kDevToolsEmulateNetworkConditionsClientId[] = "X-DevTools-Emulate-Network-Conditions-Client-Id";
 
 static PassRefPtr<JSONObject> buildObjectForHeaders(const HTTPHeaderMap& headers)
 {
@@ -298,6 +299,10 @@ void InspectorResourceAgent::willSendRequest(unsigned long identifier, DocumentL
     // Ignore the request initiated internally.
     if (initiatorInfo.name == FetchInitiatorTypeNames::internal)
         return;
+
+    if (!m_hostId.isEmpty())
+        request.addHTTPHeaderField(kDevToolsEmulateNetworkConditionsClientId, AtomicString(m_hostId));
+
     String requestId = IdentifiersFactory::requestId(identifier);
     m_resourcesData->resourceCreated(requestId, m_pageAgent->loaderId(loader));
 
@@ -312,7 +317,6 @@ void InspectorResourceAgent::willSendRequest(unsigned long identifier, DocumentL
         }
     }
 
-    request.setReportLoadTiming(true);
     request.setReportRawHeaders(true);
 
     if (m_state->getBoolean(ResourceAgentState::cacheDisabled))
@@ -521,7 +525,7 @@ void InspectorResourceAgent::didScheduleStyleRecalculation(Document* document)
 
 PassRefPtr<TypeBuilder::Network::Initiator> InspectorResourceAgent::buildInitiatorObject(Document* document, const FetchInitiatorInfo& initiatorInfo)
 {
-    RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
+    RefPtrWillBeRawPtr<ScriptCallStack> stackTrace = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
     if (stackTrace && stackTrace->size() > 0) {
         RefPtr<TypeBuilder::Network::Initiator> initiatorObject = TypeBuilder::Network::Initiator::create()
             .setType(TypeBuilder::Network::Initiator::Type::Script);
@@ -792,6 +796,11 @@ void InspectorResourceAgent::frameScheduledNavigation(LocalFrame* frame, double)
 void InspectorResourceAgent::frameClearedScheduledNavigation(LocalFrame* frame)
 {
     m_frameNavigationInitiatorMap.remove(m_pageAgent->frameId(frame));
+}
+
+void InspectorResourceAgent::setHostId(const String& hostId)
+{
+    m_hostId = hostId;
 }
 
 bool InspectorResourceAgent::fetchResourceContent(LocalFrame* frame, const KURL& url, String* content, bool* base64Encoded)

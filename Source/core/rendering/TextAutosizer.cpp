@@ -177,7 +177,7 @@ bool TextAutosizer::isApplicable() const
         && m_document->settings()->textAutosizingEnabled()
         && m_document->page()
         && m_document->page()->mainFrame()
-        && m_document->page()->mainFrame()->loader().stateMachine()->committedFirstRealDocumentLoad();
+        && m_document->page()->deprecatedLocalMainFrame()->loader().stateMachine()->committedFirstRealDocumentLoad();
 }
 
 void TextAutosizer::recalculateMultipliers()
@@ -201,7 +201,7 @@ bool TextAutosizer::processSubtree(RenderObject* layoutRoot)
     if (!isApplicable() || layoutRoot->view()->document().printing())
         return false;
 
-    LocalFrame* mainFrame = m_document->page()->mainFrame();
+    LocalFrame* mainFrame = m_document->page()->deprecatedLocalMainFrame();
     TextAutosizingWindowInfo windowInfo;
 
     // Window area, in logical (density-independent) pixels.
@@ -212,8 +212,9 @@ bool TextAutosizer::processSubtree(RenderObject* layoutRoot)
     // Largest area of block that can be visible at once (assuming the main
     // frame doesn't get scaled to less than overview scale), in CSS pixels.
     windowInfo.minLayoutSize = mainFrame->view()->layoutSize();
-    for (LocalFrame* frame = m_document->frame(); frame; frame = frame->tree().parent())
-        windowInfo.minLayoutSize = windowInfo.minLayoutSize.shrunkTo(frame->view()->layoutSize());
+    for (Frame* frame = m_document->frame(); frame; frame = frame->tree().parent()) {
+        windowInfo.minLayoutSize = windowInfo.minLayoutSize.shrunkTo(toLocalFrame(frame)->view()->layoutSize());
+    }
 
     // The layoutRoot could be neither a container nor a cluster, so walk up the tree till we find each of these.
     RenderBlock* container = layoutRoot->isRenderBlock() ? toRenderBlock(layoutRoot) : layoutRoot->containingBlock();
@@ -260,7 +261,7 @@ float TextAutosizer::clusterMultiplier(WritingMode writingMode, const TextAutosi
     multiplier *= m_document->settings()->accessibilityFontScaleFactor();
 
     // If the page has a meta viewport or @viewport, don't apply the device scale adjustment.
-    const ViewportDescription& viewportDescription = m_document->page()->mainFrame()->document()->viewportDescription();
+    const ViewportDescription& viewportDescription = m_document->page()->deprecatedLocalMainFrame()->document()->viewportDescription();
     if (!viewportDescription.isSpecifiedByAuthor()) {
         float deviceScaleAdjustment = m_document->settings()->deviceScaleAdjustment();
         multiplier *= deviceScaleAdjustment;

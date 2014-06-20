@@ -43,7 +43,6 @@
 #include "core/page/Chrome.h"
 #include "core/page/ChromeClient.h"
 #include "core/rendering/RenderImage.h"
-#include "core/svg/graphics/SVGImage.h"
 #include "platform/PlatformMouseEvent.h"
 #include "platform/network/DNS.h"
 #include "platform/network/ResourceRequest.h"
@@ -119,7 +118,7 @@ HTMLAnchorElement::HTMLAnchorElement(const QualifiedName& tagName, Document& doc
 
 PassRefPtrWillBeRawPtr<HTMLAnchorElement> HTMLAnchorElement::create(Document& document)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLAnchorElement(aTag, document));
+    return adoptRefWillBeNoop(new HTMLAnchorElement(aTag, document));
 }
 
 HTMLAnchorElement::~HTMLAnchorElement()
@@ -384,7 +383,7 @@ void HTMLAnchorElement::handleClick(Event* event)
                 request.setHTTPReferrer(Referrer(referrer, document().referrerPolicy()));
         }
 
-        bool isSameOrigin = document().securityOrigin()->canRequest(completedURL);
+        bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin()->canRequest(completedURL);
         const AtomicString& suggestedName = (isSameOrigin ? fastGetAttribute(downloadAttr) : nullAtom);
 
         frame->loader().client()->loadURLExternally(request, NavigationPolicyDownload, suggestedName);

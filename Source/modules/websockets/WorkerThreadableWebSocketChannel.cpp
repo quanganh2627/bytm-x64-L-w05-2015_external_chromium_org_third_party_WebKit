@@ -143,16 +143,6 @@ bool WorkerThreadableWebSocketChannel::connect(const KURL& url, const String& pr
     return false;
 }
 
-String WorkerThreadableWebSocketChannel::subprotocol()
-{
-    return m_workerClientWrapper->subprotocol();
-}
-
-String WorkerThreadableWebSocketChannel::extensions()
-{
-    return m_workerClientWrapper->extensions();
-}
-
 WebSocketChannel::SendResult WorkerThreadableWebSocketChannel::send(const String& message)
 {
     if (!m_bridge)
@@ -192,7 +182,7 @@ void WorkerThreadableWebSocketChannel::fail(const String& reason, MessageLevel l
     if (!m_bridge)
         return;
 
-    RefPtr<ScriptCallStack> callStack = createScriptCallStack(1, true);
+    RefPtrWillBeRawPtr<ScriptCallStack> callStack = createScriptCallStack(1, true);
     if (callStack && callStack->size())  {
         // In order to emulate the ConsoleMessage behavior,
         // we should ignore the specified url and line number if
@@ -214,21 +204,13 @@ void WorkerThreadableWebSocketChannel::disconnect()
     m_bridge.clear();
 }
 
-void WorkerThreadableWebSocketChannel::suspend()
+void WorkerThreadableWebSocketChannel::trace(Visitor* visitor)
 {
-    m_workerClientWrapper->suspend();
-    if (m_bridge)
-        m_bridge->suspend();
+    visitor->trace(m_workerClientWrapper);
+    WebSocketChannel::trace(visitor);
 }
 
-void WorkerThreadableWebSocketChannel::resume()
-{
-    m_workerClientWrapper->resume();
-    if (m_bridge)
-        m_bridge->resume();
-}
-
-WorkerThreadableWebSocketChannel::Peer::Peer(PassRefPtr<WeakReference<Peer> > reference, PassRefPtr<ThreadableWebSocketChannelClientWrapper> clientWrapper, WorkerLoaderProxy& loaderProxy, ExecutionContext* context, const String& sourceURL, unsigned lineNumber, PassOwnPtr<ThreadableWebSocketChannelSyncHelper> syncHelper)
+WorkerThreadableWebSocketChannel::Peer::Peer(PassRefPtr<WeakReference<Peer> > reference, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> clientWrapper, WorkerLoaderProxy& loaderProxy, ExecutionContext* context, const String& sourceURL, unsigned lineNumber, PassOwnPtr<ThreadableWebSocketChannelSyncHelper> syncHelper)
     : m_workerClientWrapper(clientWrapper)
     , m_loaderProxy(loaderProxy)
     , m_mainWebSocketChannel(nullptr)
@@ -255,7 +237,7 @@ WorkerThreadableWebSocketChannel::Peer::~Peer()
         m_mainWebSocketChannel->disconnect();
 }
 
-void WorkerThreadableWebSocketChannel::Peer::initialize(ExecutionContext* context, PassRefPtr<WeakReference<Peer> > reference, WorkerLoaderProxy* loaderProxy, PassRefPtr<ThreadableWebSocketChannelClientWrapper> clientWrapper, const String& sourceURLAtConnection, unsigned lineNumberAtConnection, PassOwnPtr<ThreadableWebSocketChannelSyncHelper> syncHelper)
+void WorkerThreadableWebSocketChannel::Peer::initialize(ExecutionContext* context, PassRefPtr<WeakReference<Peer> > reference, WorkerLoaderProxy* loaderProxy, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> clientWrapper, const String& sourceURLAtConnection, unsigned lineNumberAtConnection, PassOwnPtr<ThreadableWebSocketChannelSyncHelper> syncHelper)
 {
     // The caller must call destroy() to free the peer.
     new Peer(reference, clientWrapper, *loaderProxy, context, sourceURLAtConnection, lineNumberAtConnection, syncHelper);
@@ -352,37 +334,19 @@ void WorkerThreadableWebSocketChannel::Peer::disconnect()
     m_mainWebSocketChannel = nullptr;
 }
 
-void WorkerThreadableWebSocketChannel::Peer::suspend()
-{
-    ASSERT(isMainThread());
-    if (!m_mainWebSocketChannel)
-        return;
-    m_mainWebSocketChannel->suspend();
-}
-
-void WorkerThreadableWebSocketChannel::Peer::resume()
-{
-    ASSERT(isMainThread());
-    if (!m_mainWebSocketChannel)
-        return;
-    m_mainWebSocketChannel->resume();
-}
-
-static void workerGlobalScopeDidConnect(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, const String& subprotocol, const String& extensions)
+static void workerGlobalScopeDidConnect(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, const String& subprotocol, const String& extensions)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
-    workerClientWrapper->setSubprotocol(subprotocol);
-    workerClientWrapper->setExtensions(extensions);
-    workerClientWrapper->didConnect();
+    workerClientWrapper->didConnect(subprotocol, extensions);
 }
 
-void WorkerThreadableWebSocketChannel::Peer::didConnect()
+void WorkerThreadableWebSocketChannel::Peer::didConnect(const String& subprotocol, const String& extensions)
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidConnect, m_workerClientWrapper, m_mainWebSocketChannel->subprotocol(), m_mainWebSocketChannel->extensions()));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidConnect, m_workerClientWrapper.get(), subprotocol, extensions));
 }
 
-static void workerGlobalScopeDidReceiveMessage(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, const String& message)
+static void workerGlobalScopeDidReceiveMessage(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, const String& message)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didReceiveMessage(message);
@@ -391,10 +355,10 @@ static void workerGlobalScopeDidReceiveMessage(ExecutionContext* context, PassRe
 void WorkerThreadableWebSocketChannel::Peer::didReceiveMessage(const String& message)
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveMessage, m_workerClientWrapper, message));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveMessage, m_workerClientWrapper.get(), message));
 }
 
-static void workerGlobalScopeDidReceiveBinaryData(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, PassOwnPtr<Vector<char> > binaryData)
+static void workerGlobalScopeDidReceiveBinaryData(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, PassOwnPtr<Vector<char> > binaryData)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didReceiveBinaryData(binaryData);
@@ -403,10 +367,10 @@ static void workerGlobalScopeDidReceiveBinaryData(ExecutionContext* context, Pas
 void WorkerThreadableWebSocketChannel::Peer::didReceiveBinaryData(PassOwnPtr<Vector<char> > binaryData)
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveBinaryData, m_workerClientWrapper, binaryData));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveBinaryData, m_workerClientWrapper.get(), binaryData));
 }
 
-static void workerGlobalScopeDidUpdateBufferedAmount(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, unsigned long bufferedAmount)
+static void workerGlobalScopeDidUpdateBufferedAmount(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, unsigned long bufferedAmount)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didUpdateBufferedAmount(bufferedAmount);
@@ -415,10 +379,10 @@ static void workerGlobalScopeDidUpdateBufferedAmount(ExecutionContext* context, 
 void WorkerThreadableWebSocketChannel::Peer::didUpdateBufferedAmount(unsigned long bufferedAmount)
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidUpdateBufferedAmount, m_workerClientWrapper, bufferedAmount));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidUpdateBufferedAmount, m_workerClientWrapper.get(), bufferedAmount));
 }
 
-static void workerGlobalScopeDidStartClosingHandshake(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper)
+static void workerGlobalScopeDidStartClosingHandshake(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didStartClosingHandshake();
@@ -427,10 +391,10 @@ static void workerGlobalScopeDidStartClosingHandshake(ExecutionContext* context,
 void WorkerThreadableWebSocketChannel::Peer::didStartClosingHandshake()
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidStartClosingHandshake, m_workerClientWrapper));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidStartClosingHandshake, m_workerClientWrapper.get()));
 }
 
-static void workerGlobalScopeDidClose(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, unsigned long unhandledBufferedAmount, WebSocketChannelClient::ClosingHandshakeCompletionStatus closingHandshakeCompletion, unsigned short code, const String& reason)
+static void workerGlobalScopeDidClose(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, unsigned long unhandledBufferedAmount, WebSocketChannelClient::ClosingHandshakeCompletionStatus closingHandshakeCompletion, unsigned short code, const String& reason)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didClose(unhandledBufferedAmount, closingHandshakeCompletion, code, reason);
@@ -440,10 +404,10 @@ void WorkerThreadableWebSocketChannel::Peer::didClose(unsigned long unhandledBuf
 {
     ASSERT(isMainThread());
     m_mainWebSocketChannel = nullptr;
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidClose, m_workerClientWrapper, unhandledBufferedAmount, closingHandshakeCompletion, code, reason));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidClose, m_workerClientWrapper.get(), unhandledBufferedAmount, closingHandshakeCompletion, code, reason));
 }
 
-static void workerGlobalScopeDidReceiveMessageError(ExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper)
+static void workerGlobalScopeDidReceiveMessageError(ExecutionContext* context, PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper)
 {
     ASSERT_UNUSED(context, context->isWorkerGlobalScope());
     workerClientWrapper->didReceiveMessageError();
@@ -452,10 +416,10 @@ static void workerGlobalScopeDidReceiveMessageError(ExecutionContext* context, P
 void WorkerThreadableWebSocketChannel::Peer::didReceiveMessageError()
 {
     ASSERT(isMainThread());
-    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveMessageError, m_workerClientWrapper));
+    m_loaderProxy.postTaskToWorkerGlobalScope(createCallbackTask(&workerGlobalScopeDidReceiveMessageError, m_workerClientWrapper.get()));
 }
 
-WorkerThreadableWebSocketChannel::Bridge::Bridge(PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, WorkerGlobalScope& workerGlobalScope)
+WorkerThreadableWebSocketChannel::Bridge::Bridge(PassRefPtrWillBeRawPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, WorkerGlobalScope& workerGlobalScope)
     : m_workerClientWrapper(workerClientWrapper)
     , m_workerGlobalScope(workerGlobalScope)
     , m_loaderProxy(m_workerGlobalScope->thread()->workerLoaderProxy())
@@ -479,7 +443,7 @@ void WorkerThreadableWebSocketChannel::Bridge::initialize(const String& sourceUR
     m_syncHelper = syncHelper.get();
 
     RefPtr<Bridge> protect(this);
-    if (!waitForMethodCompletion(createCallbackTask(&Peer::initialize, reference.release(), AllowCrossThreadAccess(&m_loaderProxy), m_workerClientWrapper, sourceURL, lineNumber, syncHelper.release()))) {
+    if (!waitForMethodCompletion(createCallbackTask(&Peer::initialize, reference.release(), AllowCrossThreadAccess(&m_loaderProxy), m_workerClientWrapper.get(), sourceURL, lineNumber, syncHelper.release()))) {
         // The worker thread has been signalled to shutdown before method completion.
         terminatePeer();
     }
@@ -572,22 +536,6 @@ void WorkerThreadableWebSocketChannel::Bridge::disconnect()
     terminatePeer();
 }
 
-void WorkerThreadableWebSocketChannel::Bridge::suspend()
-{
-    if (hasTerminatedPeer())
-        return;
-
-    m_loaderProxy.postTaskToLoader(CallClosureTask::create(bind(&Peer::suspend, m_peer)));
-}
-
-void WorkerThreadableWebSocketChannel::Bridge::resume()
-{
-    if (hasTerminatedPeer())
-        return;
-
-    m_loaderProxy.postTaskToLoader(CallClosureTask::create(bind(&Peer::resume, m_peer)));
-}
-
 void WorkerThreadableWebSocketChannel::Bridge::clearClientWrapper()
 {
     m_workerClientWrapper->clearClient();
@@ -602,14 +550,14 @@ bool WorkerThreadableWebSocketChannel::Bridge::waitForMethodCompletion(PassOwnPt
 
     m_loaderProxy.postTaskToLoader(task);
 
-    blink::WebWaitableEvent* shutdownEvent = m_workerGlobalScope->thread()->shutdownEvent();
+    // We wait for the syncHelper event even if a shutdown event is fired.
+    // See https://codereview.chromium.org/267323004/#msg43 for why we need to wait this.
     Vector<blink::WebWaitableEvent*> events;
-    events.append(shutdownEvent);
     events.append(m_syncHelper->event());
-
     ThreadState::SafePointScope scope(ThreadState::HeapPointersOnStack);
-    blink::WebWaitableEvent* signalled = blink::Platform::current()->waitMultipleEvents(events);
-    return signalled != shutdownEvent;
+    blink::Platform::current()->waitMultipleEvents(events);
+    // This is checking whether a shutdown event is fired or not.
+    return !m_workerGlobalScope->thread()->runLoop().terminated();
 }
 
 void WorkerThreadableWebSocketChannel::Bridge::terminatePeer()

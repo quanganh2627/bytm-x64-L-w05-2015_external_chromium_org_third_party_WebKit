@@ -1165,8 +1165,11 @@
                 "description": "Activates emulation of network conditions.",
                 "parameters": [
                     { "name": "domains", "type": "array", "items": { "type": "string" }, "description": "List of affected domains." },
-                    { "name": "maximalThroughput", "type": "number", "description": "Maximal aggregated network throughput." },
-                    { "name": "offline", "type": "boolean", "description": "True to emulate internet disconnection." }
+                    { "name": "maximalThroughput", "type": "number", "description": "Deprecated." },
+                    { "name": "offline", "type": "boolean", "description": "True to emulate internet disconnection." },
+                    { "name": "latency", "type": "number", "description": "Additional latency (ms)." },
+                    { "name": "downloadThroughput", "type": "number", "description": "Maximal aggregated download throughput." },
+                    { "name": "uploadThroughput", "type": "number", "description": "Maximal aggregated upload throughput." }
                 ],
                 "hidden": true,
                 "handlers": ["browser"]
@@ -2959,6 +2962,18 @@
                 "description": "Scope description."
             },
             {
+                "id": "ExceptionDetails",
+                "type": "object",
+                "description": "Detailed information on exception (or error) that was thrown during script compilation or execution.",
+                "properties": [
+                    { "name": "text", "type": "string", "description": "Exception text." },
+                    { "name": "url", "type": "string", "optional": true, "description": "URL of the message origin." },
+                    { "name": "line", "type": "integer", "optional": true, "description": "Line number in the resource that generated this message." },
+                    { "name": "column", "type": "integer", "optional": true, "description": "Column number in the resource that generated this message." },
+                    { "name": "stackTrace", "$ref": "Console.StackTrace", "optional": true, "description": "JavaScript stack trace for assertions and error messages." }
+                ]
+            },
+            {
                 "id": "SetScriptSourceError",
                 "type": "object",
                 "properties": [
@@ -3173,7 +3188,7 @@
                 ],
                 "returns": [
                     { "name": "scriptId", "$ref": "ScriptId", "optional": true, "description": "Id of the script." },
-                    { "name": "syntaxErrorMessage", "type": "string", "optional": true, "description": "Syntax error message if compilation failed." }
+                    { "name": "exceptionDetails", "$ref": "ExceptionDetails", "optional": true, "description": "Exception details."}
                 ],
                 "description": "Compiles expression."
             },
@@ -3188,7 +3203,7 @@
                 ],
                 "returns": [
                     { "name": "result", "$ref": "Runtime.RemoteObject", "description": "Run result." },
-                    { "name": "wasThrown", "type": "boolean", "optional": true, "description": "True if the result was thrown during the script run." }
+                    { "name": "exceptionDetails", "$ref": "ExceptionDetails", "optional": true, "description": "Exception details."}
                 ],
                 "description": "Runs script with given id in a given context."
             },
@@ -3336,14 +3351,16 @@
             {
                 "name": "setEventListenerBreakpoint",
                 "parameters": [
-                    { "name": "eventName", "type": "string", "description": "DOM Event name to stop on (any DOM event will do)." }
+                    { "name": "eventName", "type": "string", "description": "DOM Event name to stop on (any DOM event will do)." },
+                    { "name": "targetName", "type": "string", "optional": true, "description": "EventTarget interface name to stop on. If equal to <code>\"*\"</code> or not provided, will stop on any EventTarget.", "hidden": true }
                 ],
                 "description": "Sets breakpoint on particular DOM event."
             },
             {
                 "name": "removeEventListenerBreakpoint",
                 "parameters": [
-                    { "name": "eventName", "type": "string", "description": "Event name." }
+                    { "name": "eventName", "type": "string", "description": "Event name." },
+                    { "name": "targetName", "type": "string", "optional": true, "description": "EventTarget interface name.", "hidden": true }
                 ],
                 "description": "Removes breakpoint on particular DOM event."
             },

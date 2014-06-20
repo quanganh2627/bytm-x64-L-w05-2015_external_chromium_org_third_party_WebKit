@@ -24,7 +24,7 @@
 #include "config.h"
 #include "core/rendering/RenderListItem.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/NodeRenderingTraversal.h"
 #include "core/html/HTMLOListElement.h"
 #include "core/rendering/FastTextAutosizer.h"
@@ -257,7 +257,7 @@ void RenderListItem::updateValue()
     if (!m_hasExplicitValue) {
         m_isValueUpToDate = false;
         if (m_marker)
-            m_marker->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+            m_marker->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     }
 }
 
@@ -293,7 +293,7 @@ void RenderListItem::updateMarkerLocation()
 
             // Removing and adding the marker can trigger repainting in
             // containers other than ourselves, so we need to disable LayoutState.
-            LayoutStateDisabler layoutStateDisabler(*this);
+            ForceHorriblySlowRectMapping slowRectMapping(*this);
             updateFirstLetter();
             m_marker->remove();
             if (markerParent)
@@ -448,7 +448,7 @@ const String& RenderListItem::markerText() const
 void RenderListItem::explicitValueChanged()
 {
     if (m_marker)
-        m_marker->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        m_marker->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     Node* listNode = enclosingList(this);
     for (RenderListItem* item = this; item; item = nextListItem(listNode, item))
         item->updateValue();

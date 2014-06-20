@@ -24,7 +24,6 @@
 #include "config.h"
 #include "core/rendering/RenderReplaced.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "core/rendering/GraphicsContextAnnotator.h"
 #include "core/rendering/LayoutRepainter.h"
 #include "core/rendering/RenderBlock.h"
@@ -32,6 +31,7 @@
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderView.h"
 #include "platform/LengthFunctions.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/graphics/GraphicsContext.h"
 
 using namespace std;
@@ -81,7 +81,7 @@ void RenderReplaced::layout()
 {
     ASSERT(needsLayout());
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this, checkForPaintInvalidationDuringLayout());
 
     setHeight(minimumReplacedHeight());
 
@@ -102,7 +102,7 @@ void RenderReplaced::intrinsicSizeChanged()
     int scaledWidth = static_cast<int>(cDefaultWidth * style()->effectiveZoom());
     int scaledHeight = static_cast<int>(cDefaultHeight * style()->effectiveZoom());
     m_intrinsicSize = IntSize(scaledWidth, scaledHeight);
-    setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+    setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -228,17 +228,6 @@ static inline RenderBlock* firstContainingBlockWithLogicalWidth(const RenderRepl
     }
 
     return 0;
-}
-
-bool RenderReplaced::hasReplacedLogicalWidth() const
-{
-    if (style()->logicalWidth().isSpecified())
-        return true;
-
-    if (style()->logicalWidth().isAuto())
-        return false;
-
-    return firstContainingBlockWithLogicalWidth(this);
 }
 
 bool RenderReplaced::hasReplacedLogicalHeight() const
@@ -538,7 +527,7 @@ PositionWithAffinity RenderReplaced::positionForPoint(const LayoutPoint& point)
     return RenderBox::positionForPoint(point);
 }
 
-LayoutRect RenderReplaced::selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent)
+LayoutRect RenderReplaced::selectionRectForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer, bool clipToVisibleContent)
 {
     ASSERT(!needsLayout());
 
@@ -547,9 +536,9 @@ LayoutRect RenderReplaced::selectionRectForRepaint(const RenderLayerModelObject*
 
     LayoutRect rect = localSelectionRect();
     if (clipToVisibleContent)
-        mapRectToRepaintBacking(repaintContainer, rect);
+        mapRectToPaintInvalidationBacking(paintInvalidationContainer, rect);
     else
-        rect = localToContainerQuad(FloatRect(rect), repaintContainer).enclosingBoundingBox();
+        rect = localToContainerQuad(FloatRect(rect), paintInvalidationContainer).enclosingBoundingBox();
 
     return rect;
 }
@@ -609,7 +598,7 @@ bool RenderReplaced::isSelected() const
     ASSERT(0);
     return false;
 }
-LayoutRect RenderReplaced::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
+LayoutRect RenderReplaced::clippedOverflowRectForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer) const
 {
     if (style()->visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
         return LayoutRect();
@@ -625,7 +614,7 @@ LayoutRect RenderReplaced::clippedOverflowRectForRepaint(const RenderLayerModelO
         r.move(v->layoutDelta());
     }
 
-    mapRectToRepaintBacking(repaintContainer, r);
+    mapRectToPaintInvalidationBacking(paintInvalidationContainer, r);
     return r;
 }
 

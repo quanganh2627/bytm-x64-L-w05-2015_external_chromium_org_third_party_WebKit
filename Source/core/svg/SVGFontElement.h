@@ -23,7 +23,7 @@
 #define SVGFontElement_h
 
 #if ENABLE(SVG_FONTS)
-#include "SVGNames.h"
+#include "core/SVGNames.h"
 #include "core/svg/SVGAnimatedBoolean.h"
 #include "core/svg/SVGElement.h"
 #include "core/svg/SVGGlyphMap.h"
@@ -55,7 +55,7 @@ class SVGMissingGlyphElement;
 
 class SVGFontElement FINAL : public SVGElement {
 public:
-    DEFINE_NODE_FACTORY(SVGFontElement);
+    DECLARE_NODE_FACTORY(SVGFontElement);
 
     void invalidateGlyphCache();
     void collectGlyphsForString(const String&, Vector<SVGGlyph>&);

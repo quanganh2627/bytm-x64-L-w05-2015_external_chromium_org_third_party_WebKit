@@ -28,9 +28,7 @@
 
 #include "core/page/ChromeClient.h"
 #include "core/rendering/RenderLayer.h"
-#include "core/rendering/compositing/CompositingPropertyUpdater.h"
 #include "core/rendering/compositing/CompositingReasonFinder.h"
-#include "core/rendering/compositing/GraphicsLayerUpdater.h"
 #include "platform/graphics/GraphicsLayerClient.h"
 #include "wtf/HashMap.h"
 
@@ -47,11 +45,9 @@ class StickyPositionViewportConstraints;
 
 enum CompositingUpdateType {
     CompositingUpdateNone,
-    CompositingUpdateOnCompositedScroll,
+    CompositingUpdateAfterGeometryChange,
     CompositingUpdateAfterCompositingInputChange,
-    CompositingUpdateAfterStyleChange,
-    CompositingUpdateAfterLayout,
-    CompositingUpdateOnScroll,
+    CompositingUpdateRebuildTree,
 };
 
 enum CompositingStateTransitionType {
@@ -97,12 +93,10 @@ public:
     // Copy the accelerated compositing related flags from Settings
     void updateAcceleratedCompositingSettings();
 
-    // Called when the layer hierarchy needs to be updated (compositing layers have been
-    // created, destroyed or re-parented).
-    void setCompositingLayersNeedRebuild();
-
     // Used to indicate that a compositing update will be needed for the next frame that gets drawn.
     void setNeedsCompositingUpdate(CompositingUpdateType);
+
+    void didLayout();
 
     enum UpdateLayerCompositingStateOptions {
         Normal,
@@ -129,11 +123,6 @@ public:
     void repaintOnCompositingChange(RenderLayer*);
 
     void repaintInCompositedAncestor(RenderLayer*, const LayoutRect&);
-
-    // Notify us that a layer has been added or removed
-    void layerWasAdded(RenderLayer* parent, RenderLayer* child);
-    void layerWillBeRemoved(RenderLayer* parent, RenderLayer* child);
-
     void repaintCompositedLayers();
 
     RenderLayer* rootRenderLayer() const;
@@ -194,6 +183,8 @@ public:
 
     void setOverlayLayer(GraphicsLayer*);
 
+    bool inOverlayFullscreenVideo() const { return m_inOverlayFullscreenVideo; }
+
 private:
     class OverlapMap;
 
@@ -235,16 +226,11 @@ private:
     GraphicsLayerFactory* graphicsLayerFactory() const;
     ScrollingCoordinator* scrollingCoordinator() const;
 
-    bool compositingLayersNeedRebuild();
-
     void enableCompositingModeIfNeeded();
 
     bool requiresHorizontalScrollbarLayer() const;
     bool requiresVerticalScrollbarLayer() const;
     bool requiresScrollCornerLayer() const;
-#if USE(RUBBER_BANDING)
-    bool requiresOverhangLayers() const;
-#endif
 
     void applyUpdateLayerCompositingStateChickenEggHacks(RenderLayer*, CompositingStateTransitionType compositedLayerUpdate);
 
@@ -262,7 +248,6 @@ private:
 
     bool m_hasAcceleratedCompositing;
     bool m_compositing;
-    bool m_compositingLayersNeedRebuild;
 
     // The root layer doesn't composite if it's a non-scrollable frame.
     // So, after a layout we set this dirty bit to know that we need
@@ -291,6 +276,8 @@ private:
 #if USE(RUBBER_BANDING)
     OwnPtr<GraphicsLayer> m_layerForOverhangShadow;
 #endif
+
+    bool m_inOverlayFullscreenVideo;
 };
 
 } // namespace WebCore

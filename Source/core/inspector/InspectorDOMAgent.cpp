@@ -177,7 +177,7 @@ static Node* hoveredNodeForEvent(LocalFrame* frame, const PlatformTouchEvent& ev
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
     if (!points.size())
         return 0;
-    return hoveredNodeForPoint(frame, points[0].pos(), ignorePointerEventsNone);
+    return hoveredNodeForPoint(frame, roundedIntPoint(points[0].pos()), ignorePointerEventsNone);
 }
 
 class RevalidateStyleAttributeTask {
@@ -249,8 +249,8 @@ InspectorDOMAgent::~InspectorDOMAgent()
 void InspectorDOMAgent::setFrontend(InspectorFrontend* frontend)
 {
     ASSERT(!m_frontend);
-    m_history = adoptPtr(new InspectorHistory());
-    m_domEditor = adoptPtr(new DOMEditor(m_history.get()));
+    m_history = adoptPtrWillBeNoop(new InspectorHistory());
+    m_domEditor = adoptPtrWillBeNoop(new DOMEditor(m_history.get()));
 
     m_frontend = frontend->dom();
     m_instrumentingAgents->setInspectorDOMAgent(this);
@@ -1777,7 +1777,9 @@ void InspectorDOMAgent::didCommitLoad(LocalFrame* frame, DocumentLoader* loader)
     // FIXME: If "frame" is always guarenteed to be in the same Page as loader->frame()
     // then all we need to check here is loader->frame()->isMainFrame()
     // and we don't need "frame" at all.
-    LocalFrame* mainFrame = frame->page()->mainFrame();
+    if (!frame->page()->mainFrame()->isLocalFrame())
+        return;
+    LocalFrame* mainFrame = frame->page()->deprecatedLocalMainFrame();
     if (loader->frame() != mainFrame) {
         invalidateFrameOwnerElement(loader->frame());
         return;

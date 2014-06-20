@@ -26,9 +26,7 @@
 #include "config.h"
 #include "core/rendering/RenderBox.h"
 
-#include <math.h>
-#include <algorithm>
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/editing/htmlediting.h"
 #include "core/frame/FrameHost.h"
@@ -60,6 +58,8 @@
 #include "platform/geometry/FloatQuad.h"
 #include "platform/geometry/TransformState.h"
 #include "platform/graphics/GraphicsContextStateSaver.h"
+#include <algorithm>
+#include <math.h>
 
 using namespace std;
 
@@ -148,7 +148,7 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
         // the canvas.  Just dirty the entire canvas when our style changes substantially.
         if ((diff.needsRepaint() || diff.needsLayout()) && node()
             && (isHTMLHtmlElement(*node()) || isHTMLBodyElement(*node()))) {
-            view()->repaint();
+            view()->paintInvalidationForWholeRenderer();
 
             if (oldStyle->hasEntirelyFixedBackground() != newStyle.hasEntirelyFixedBackground())
                 view()->compositor()->setNeedsUpdateFixedBackground();
@@ -159,7 +159,7 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
         if (diff.needsFullLayout() && parent() && oldStyle->position() != newStyle.position()) {
             markContainingBlocksForLayout();
             if (oldStyle->position() == StaticPosition)
-                repaint();
+                paintInvalidationForWholeRenderer();
             else if (newStyle.hasOutOfFlowPosition())
                 parent()->setChildNeedsLayout();
             if (isFloating() && !isOutOfFlowPositioned() && newStyle.hasOutOfFlowPosition())
@@ -167,8 +167,9 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
         }
     // FIXME: This branch runs when !oldStyle, which means that layout was never called
     // so what's the point in invalidating the whole view that we never painted?
-    } else if (isBody())
-        view()->repaint();
+    } else if (isBody()) {
+        view()->paintInvalidationForWholeRenderer();
+    }
 
     RenderBoxModelObject::styleWillChange(diff, newStyle);
 }
@@ -292,7 +293,7 @@ void RenderBox::updateFromStyle()
                 // If we are getting an overflow clip, preemptively erase any overflowing content.
                 // FIXME: This should probably consult RenderOverflow.
                 if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-                    repaint();
+                    paintInvalidationForWholeRenderer();
             }
         }
     }
@@ -320,7 +321,7 @@ void RenderBox::layout()
         return;
     }
 
-    LayoutStateMaintainer statePusher(*this, locationOffset());
+    LayoutState state(*this, locationOffset());
     while (child) {
         child->layoutIfNeeded();
         ASSERT(!child->needsLayout());
@@ -1127,6 +1128,8 @@ BackgroundBleedAvoidance RenderBox::determineBackgroundBleedAvoidance(GraphicsCo
     if (!style->hasBackground() || !style->hasBorder() || !style->hasBorderRadius() || canRenderBorderImage())
         return BackgroundBleedNone;
 
+    // FIXME: See crbug.com/382491. getCTM does not accurately reflect the scale at the time content is
+    // rasterized, and should not be relied on to make decisions about bleeding.
     AffineTransform ctm = context->getCTM();
     FloatSize contextScaling(static_cast<float>(ctm.xScale()), static_cast<float>(ctm.yScale()));
 
@@ -1482,16 +1485,6 @@ void RenderBox::paintFillLayer(const PaintInfo& paintInfo, const Color& c, const
     paintFillLayerExtended(paintInfo, c, fillLayer, rect, bleedAvoidance, 0, LayoutSize(), op, backgroundObject);
 }
 
-static bool layersUseImage(WrappedImagePtr image, const FillLayer* layers)
-{
-    for (const FillLayer* curLayer = layers; curLayer; curLayer = curLayer->next()) {
-        if (curLayer->image() && image == curLayer->image()->data())
-            return true;
-    }
-
-    return false;
-}
-
 void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
 {
     if (!parent())
@@ -1501,7 +1494,7 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
 
     if ((style()->borderImage().image() && style()->borderImage().image()->data() == image) ||
         (style()->maskBoxImage().image() && style()->maskBoxImage().image()->data() == image)) {
-        repaint();
+        paintInvalidationForWholeRenderer();
         return;
     }
 
@@ -1514,9 +1507,6 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
     bool didFullRepaint = repaintLayerRectsForImage(image, style()->backgroundLayers(), true);
     if (!didFullRepaint)
         repaintLayerRectsForImage(image, style()->maskLayers(), false);
-
-    if (hasLayer() && layer()->hasCompositedMask() && layersUseImage(image, style()->maskLayers()))
-        layer()->contentChanged(MaskImageChanged);
 }
 
 bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground)
@@ -1557,11 +1547,11 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
             if (geometry.hasNonLocalGeometry()) {
                 // Rather than incur the costs of computing the paintContainer for renderers with fixed backgrounds
                 // in order to get the right destRect, just repaint the entire renderer.
-                layerRenderer->repaint();
+                layerRenderer->paintInvalidationForWholeRenderer();
                 return true;
             }
 
-            layerRenderer->repaintRectangle(geometry.destRect());
+            layerRenderer->invalidatePaintRectangle(geometry.destRect());
             if (geometry.destRect() == rendererRect)
                 return true;
         }
@@ -1584,21 +1574,21 @@ void RenderBox::invalidateTreeAfterLayout(const RenderLayerModelObject& paintInv
     if (!shouldCheckForPaintInvalidationAfterLayout())
         return;
 
-    bool establishesNewPaintInvalidationContainer = isRepaintContainer();
+    bool establishesNewPaintInvalidationContainer = isPaintInvalidationContainer();
     const RenderLayerModelObject& newPaintInvalidationContainer = *adjustCompositedContainerForSpecialAncestors(establishesNewPaintInvalidationContainer ? this : &paintInvalidationContainer);
     // FIXME: This assert should be re-enabled when we move paint invalidation to after compositing update. crbug.com/360286
-    // ASSERT(&newPaintInvalidationContainer == containerForRepaint());
+    // ASSERT(&newPaintInvalidationContainer == containerForPaintInvalidation());
 
     const LayoutRect oldPaintInvalidationRect = previousPaintInvalidationRect();
     const LayoutPoint oldPositionFromPaintInvalidationContainer = previousPositionFromPaintInvalidationContainer();
-    setPreviousPaintInvalidationRect(boundsRectForRepaint(&newPaintInvalidationContainer));
-    setPreviousPositionFromPaintInvalidationContainer(positionFromRepaintContainer(&newPaintInvalidationContainer));
+    setPreviousPaintInvalidationRect(boundsRectForPaintInvalidation(&newPaintInvalidationContainer));
+    setPreviousPositionFromPaintInvalidationContainer(positionFromPaintInvalidationContainer(&newPaintInvalidationContainer));
 
     // If we are set to do a full paint invalidation that means the RenderView will be
     // issue paint invalidations. We can then skip issuing of paint invalidations for the child
     // renderers as they'll be covered by the RenderView.
     if (view()->doingFullRepaint()) {
-        LayoutStateMaintainer statePusher(*this, isTableRow() ? LayoutSize() : locationOffset());
+        LayoutState state(*this, isTableRow() ? LayoutSize() : locationOffset());
         RenderObject::invalidateTreeAfterLayout(newPaintInvalidationContainer);
         return;
     }
@@ -1612,33 +1602,33 @@ void RenderBox::invalidateTreeAfterLayout(const RenderLayerModelObject& paintInv
 
     const LayoutRect& newPaintInvalidationRect = previousPaintInvalidationRect();
     const LayoutPoint& newPositionFromPaintInvalidationContainer = previousPositionFromPaintInvalidationContainer();
-    bool didFullPaintInvalidation = repaintAfterLayoutIfNeeded(&newPaintInvalidationContainer,
+    bool didFullPaintInvalidation = invalidatePaintAfterLayoutIfNeeded(&newPaintInvalidationContainer,
         shouldDoFullPaintInvalidationAfterLayout(), oldPaintInvalidationRect, oldPositionFromPaintInvalidationContainer,
         &newPaintInvalidationRect, &newPositionFromPaintInvalidationContainer);
 
     if (!didFullPaintInvalidation)
-        repaintOverflowIfNeeded();
+        invalidatePaintForOverflowIfNeeded();
 
     // Issue paint invalidations for any scrollbars if there is a scrollable area for this renderer.
     if (enclosingLayer()) {
         if (RenderLayerScrollableArea* area = enclosingLayer()->scrollableArea()) {
             if (area->hasVerticalBarDamage())
-                repaintRectangle(area->verticalBarDamage());
+                invalidatePaintRectangle(area->verticalBarDamage());
             if (area->hasHorizontalBarDamage())
-                repaintRectangle(area->horizontalBarDamage());
+                invalidatePaintRectangle(area->horizontalBarDamage());
             area->resetScrollbarDamage();
         }
     }
 
     // FIXME: LayoutState should be enabled for other paint invalidation containers than the RenderView. crbug.com/363834
-    if (establishesNewPaintInvalidationContainer) {
-        LayoutStateDisabler disabler(*this);
+    if (establishesNewPaintInvalidationContainer && !isRenderView()) {
+        ForceHorriblySlowRectMapping slowRectMapping(*this);
         RenderObject::invalidateTreeAfterLayout(newPaintInvalidationContainer);
     } else {
         // FIXME: This concept of a tree walking state for fast lookups should be generalized away from
         // just layout.
         // FIXME: Table rows shouldn't be special-cased.
-        LayoutStateMaintainer statePusher(*this, isTableRow() ? LayoutSize() : locationOffset());
+        LayoutState state(*this, isTableRow() ? LayoutSize() : locationOffset());
         RenderObject::invalidateTreeAfterLayout(newPaintInvalidationContainer);
     }
 }
@@ -1827,7 +1817,7 @@ void RenderBox::mapLocalToContainer(const RenderLayerModelObject* repaintContain
         return;
 
     if (RenderView* v = view()) {
-        if (v->canUseLayoutStateForContainer(repaintContainer)) {
+        if (v->canMapUsingLayoutStateForContainer(repaintContainer)) {
             LayoutState* layoutState = v->layoutState();
             LayoutSize offset = layoutState->paintOffset() + locationOffset();
             if (style()->hasInFlowPosition() && layer())
@@ -1880,7 +1870,7 @@ void RenderBox::mapLocalToContainer(const RenderLayerModelObject* repaintContain
 void RenderBox::mapAbsoluteToLocalPoint(MapCoordinatesFlags mode, TransformState& transformState) const
 {
     // We don't expect to be called during layout.
-    ASSERT(!view() || !view()->layoutStateEnabled());
+    ASSERT(!view() || !view()->layoutStateCachedOffsetsEnabled());
 
     bool isFixedPos = style()->position() == FixedPosition;
     bool hasTransform = hasLayer() && layer()->transform();
@@ -1999,9 +1989,9 @@ void RenderBox::deleteLineBoxWrapper()
     }
 }
 
-LayoutRect RenderBox::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
+LayoutRect RenderBox::clippedOverflowRectForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer) const
 {
-    if (style()->visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+    if (style()->visibility() != VISIBLE && enclosingLayer()->subtreeIsInvisible())
         return LayoutRect();
 
     LayoutRect r = visualOverflowRect();
@@ -2013,11 +2003,11 @@ LayoutRect RenderBox::clippedOverflowRectForRepaint(const RenderLayerModelObject
         r.move(v->layoutDelta());
     }
 
-    mapRectToRepaintBacking(repaintContainer, r);
+    mapRectToPaintInvalidationBacking(paintInvalidationContainer, r);
     return r;
 }
 
-void RenderBox::mapRectToRepaintBacking(const RenderLayerModelObject* repaintContainer, LayoutRect& rect, bool fixed) const
+void RenderBox::mapRectToPaintInvalidationBacking(const RenderLayerModelObject* paintInvalidationContainer, LayoutRect& rect, bool fixed) const
 {
     // The rect we compute at each step is shifted by our x/y offset in the parent container's coordinate space.
     // Only when we cross a writing mode boundary will we have to possibly flipForWritingMode (to convert into a more appropriate
@@ -2025,12 +2015,12 @@ void RenderBox::mapRectToRepaintBacking(const RenderLayerModelObject* repaintCon
     // properly even during layout, since the rect remains flipped all the way until the end.
     //
     // RenderView::computeRectForRepaint then converts the rect to physical coordinates.  We also convert to
-    // physical when we hit a repaintContainer boundary.  Therefore the final rect returned is always in the
-    // physical coordinate space of the repaintContainer.
+    // physical when we hit a paintInvalidationContainer boundary. Therefore the final rect returned is always in the
+    // physical coordinate space of the paintInvalidationContainer.
     RenderStyle* styleToUse = style();
     if (RenderView* v = view()) {
         // LayoutState is only valid for root-relative, non-fixed position repainting
-        if (v->canUseLayoutStateForContainer(repaintContainer) && styleToUse->position() != FixedPosition) {
+        if (v->canMapUsingLayoutStateForContainer(paintInvalidationContainer) && styleToUse->position() != FixedPosition) {
             LayoutState* layoutState = v->layoutState();
 
             if (layer() && layer()->transform())
@@ -2051,14 +2041,14 @@ void RenderBox::mapRectToRepaintBacking(const RenderLayerModelObject* repaintCon
     if (hasReflection())
         rect.unite(reflectedRect(rect));
 
-    if (repaintContainer == this) {
-        if (repaintContainer->style()->isFlippedBlocksWritingMode())
+    if (paintInvalidationContainer == this) {
+        if (paintInvalidationContainer->style()->isFlippedBlocksWritingMode())
             flipForWritingMode(rect);
         return;
     }
 
     bool containerSkipped;
-    RenderObject* o = container(repaintContainer, &containerSkipped);
+    RenderObject* o = container(paintInvalidationContainer, &containerSkipped);
     if (!o)
         return;
 
@@ -2108,13 +2098,13 @@ void RenderBox::mapRectToRepaintBacking(const RenderLayerModelObject* repaintCon
     }
 
     if (containerSkipped) {
-        // If the repaintContainer is below o, then we need to map the rect into repaintContainer's coordinates.
-        LayoutSize containerOffset = repaintContainer->offsetFromAncestorContainer(o);
+        // If the paintInvalidationContainer is below o, then we need to map the rect into paintInvalidationContainer's coordinates.
+        LayoutSize containerOffset = paintInvalidationContainer->offsetFromAncestorContainer(o);
         rect.move(-containerOffset);
         return;
     }
 
-    o->mapRectToRepaintBacking(repaintContainer, rect, fixed);
+    o->mapRectToPaintInvalidationBacking(paintInvalidationContainer, rect, fixed);
 }
 
 void RenderBox::repaintDuringLayoutIfMoved(const LayoutRect& oldRect)
@@ -2124,10 +2114,10 @@ void RenderBox::repaintDuringLayoutIfMoved(const LayoutRect& oldRect)
         // The child moved.  Invalidate the object's old and new positions.  We have to do this
         // since the object may not have gotten a layout.
         m_frameRect = oldRect;
-        repaint();
+        paintInvalidationForWholeRenderer();
         repaintOverhangingFloats(true);
         m_frameRect = newRect;
-        repaint();
+        paintInvalidationForWholeRenderer();
         repaintOverhangingFloats(true);
     }
 }
@@ -2237,15 +2227,8 @@ void RenderBox::computeLogicalWidth(LogicalExtentComputedValues& computedValues)
     }
 
     // Margin calculations.
-    if (hasPerpendicularContainingBlock || isFloating() || isInline()) {
-        computedValues.m_margins.m_start = minimumValueForLength(styleToUse->marginStart(), containerLogicalWidth);
-        computedValues.m_margins.m_end = minimumValueForLength(styleToUse->marginEnd(), containerLogicalWidth);
-    } else {
-        bool hasInvertedDirection = cb->style()->isLeftToRightDirection() != style()->isLeftToRightDirection();
-        computeInlineDirectionMargins(cb, containerLogicalWidth, computedValues.m_extent,
-            hasInvertedDirection ? computedValues.m_margins.m_end : computedValues.m_margins.m_start,
-            hasInvertedDirection ? computedValues.m_margins.m_start : computedValues.m_margins.m_end);
-    }
+    computeMarginsForDirection(InlineDirection, cb, containerLogicalWidth, computedValues.m_extent, computedValues.m_margins.m_start,
+        computedValues.m_margins.m_end, style()->marginStart(), style()->marginEnd());
 
     if (!hasPerpendicularContainingBlock && containerLogicalWidth && containerLogicalWidth != (computedValues.m_extent + computedValues.m_margins.m_start + computedValues.m_margins.m_end)
         && !isFloating() && !isInline() && !cb->isFlexibleBoxIncludingDeprecated() && !cb->isRenderGrid()) {
@@ -2413,13 +2396,19 @@ bool RenderBox::autoWidthShouldFitContent() const
         || isHTMLTextAreaElement(*node()) || (isHTMLLegendElement(*node()) && !style()->hasOutOfFlowPosition()));
 }
 
-void RenderBox::computeInlineDirectionMargins(RenderBlock* containingBlock, LayoutUnit containerWidth, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd) const
+void RenderBox::computeMarginsForDirection(MarginDirection flowDirection, const RenderBlock* containingBlock, LayoutUnit containerWidth, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd, Length marginStartLength, Length marginEndLength) const
 {
-    const RenderStyle* containingBlockStyle = containingBlock->style();
-    Length marginStartLength = style()->marginStartUsing(containingBlockStyle);
-    Length marginEndLength = style()->marginEndUsing(containingBlockStyle);
+    if (flowDirection == BlockDirection || isFloating() || isInline()) {
+        if (isTableCell() && flowDirection == BlockDirection) {
+            // FIXME: Not right if we allow cells to have different directionality than the table. If we do allow this, though,
+            // we may just do it with an extra anonymous block inside the cell.
+            marginStart = 0;
+            marginEnd = 0;
+            return;
+        }
 
-    if (isFloating() || isInline()) {
+        // Margins are calculated with respect to the logical width of
+        // the containing block (8.3)
         // Inline blocks/tables and floats don't have their margins increased.
         marginStart = minimumValueForLength(marginStartLength, containerWidth);
         marginEnd = minimumValueForLength(marginEndLength, containerWidth);
@@ -2455,8 +2444,9 @@ void RenderBox::computeInlineDirectionMargins(RenderBlock* containingBlock, Layo
 
     // CSS 2.1: "If both 'margin-left' and 'margin-right' are 'auto', their used values are equal. This horizontally centers the element
     // with respect to the edges of the containing block."
+    const RenderStyle* containingBlockStyle = containingBlock->style();
     if ((marginStartLength.isAuto() && marginEndLength.isAuto() && marginBoxWidth < availableWidth)
-        || (!marginStartLength.isAuto() && !marginEndLength.isAuto() && containingBlock->style()->textAlign() == WEBKIT_CENTER)) {
+        || (!marginStartLength.isAuto() && !marginEndLength.isAuto() && containingBlockStyle->textAlign() == WEBKIT_CENTER)) {
         // Other browsers center the margin box for align=center elements so we match them here.
         LayoutUnit centeredMarginBoxStart = max<LayoutUnit>(0, (availableWidth - childWidth - marginStartWidth - marginEndWidth) / 2);
         marginStart = centeredMarginBoxStart + marginStartWidth;
@@ -2482,32 +2472,6 @@ void RenderBox::computeInlineDirectionMargins(RenderBlock* containingBlock, Layo
     // Either no auto margins, or our margin box width is >= the container width, auto margins will just turn into 0.
     marginStart = marginStartWidth;
     marginEnd = marginEndWidth;
-}
-
-static bool shouldFlipBeforeAfterMargins(const RenderStyle* containingBlockStyle, const RenderStyle* childStyle)
-{
-    ASSERT(containingBlockStyle->isHorizontalWritingMode() != childStyle->isHorizontalWritingMode());
-    WritingMode childWritingMode = childStyle->writingMode();
-    bool shouldFlip = false;
-    switch (containingBlockStyle->writingMode()) {
-    case TopToBottomWritingMode:
-        shouldFlip = (childWritingMode == RightToLeftWritingMode);
-        break;
-    case BottomToTopWritingMode:
-        shouldFlip = (childWritingMode == RightToLeftWritingMode);
-        break;
-    case RightToLeftWritingMode:
-        shouldFlip = (childWritingMode == BottomToTopWritingMode);
-        break;
-    case LeftToRightWritingMode:
-        shouldFlip = (childWritingMode == BottomToTopWritingMode);
-        break;
-    }
-
-    if (!containingBlockStyle->isLeftToRightDirection())
-        shouldFlip = !shouldFlip;
-
-    return shouldFlip;
 }
 
 void RenderBox::updateLogicalHeight()
@@ -2537,23 +2501,20 @@ void RenderBox::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logica
         computePositionedLogicalHeight(computedValues);
     else {
         RenderBlock* cb = containingBlock();
-        bool hasPerpendicularContainingBlock = cb->isHorizontalWritingMode() != isHorizontalWritingMode();
 
-        if (!hasPerpendicularContainingBlock) {
-            bool shouldFlipBeforeAfter = cb->style()->writingMode() != style()->writingMode();
-            computeBlockDirectionMargins(cb,
-                shouldFlipBeforeAfter ? computedValues.m_margins.m_after : computedValues.m_margins.m_before,
-                shouldFlipBeforeAfter ? computedValues.m_margins.m_before : computedValues.m_margins.m_after);
-        }
+        // If we are perpendicular to our containing block then we need to resolve our block-start and block-end margins so that if they
+        // are 'auto' we are centred or aligned within the inline flow containing block: this is done by computing the margins as though they are inline.
+        // Note that as this is the 'sizing phase' we are using our own writing mode rather than the containing block's. We use the containing block's
+        // writing mode when figuring out the block-direction margins for positioning in |computeAndSetBlockDirectionMargins| (i.e. margin collapsing etc.).
+        // See http://www.w3.org/TR/2014/CR-css-writing-modes-3-20140320/#orthogonal-flows
+        MarginDirection flowDirection = isHorizontalWritingMode() != cb->isHorizontalWritingMode() ? InlineDirection : BlockDirection;
 
         // For tables, calculate margins only.
         if (isTable()) {
-            if (hasPerpendicularContainingBlock) {
-                bool shouldFlipBeforeAfter = shouldFlipBeforeAfterMargins(cb->style(), style());
-                computeInlineDirectionMargins(cb, containingBlockLogicalWidthForContent(), computedValues.m_extent,
-                    shouldFlipBeforeAfter ? computedValues.m_margins.m_after : computedValues.m_margins.m_before,
-                    shouldFlipBeforeAfter ? computedValues.m_margins.m_before : computedValues.m_margins.m_after);
-            }
+            // FIXME: RenderTable::layout() calls updateLogicalHeight() when an empty table has no height yet, so auto margins can come out wrong here when
+            // we are perpendicular to our containing block.
+            computeMarginsForDirection(flowDirection, cb, containingBlockLogicalWidthForContent(), computedValues.m_extent, computedValues.m_margins.m_before,
+                computedValues.m_margins.m_after, style()->marginBefore(), style()->marginAfter());
             return;
         }
 
@@ -2600,13 +2561,8 @@ void RenderBox::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logica
         }
 
         computedValues.m_extent = heightResult;
-
-        if (hasPerpendicularContainingBlock) {
-            bool shouldFlipBeforeAfter = shouldFlipBeforeAfterMargins(cb->style(), style());
-            computeInlineDirectionMargins(cb, containingBlockLogicalWidthForContent(), heightResult,
-                shouldFlipBeforeAfter ? computedValues.m_margins.m_after : computedValues.m_margins.m_before,
-                shouldFlipBeforeAfter ? computedValues.m_margins.m_before : computedValues.m_margins.m_after);
-        }
+        computeMarginsForDirection(flowDirection, cb, containingBlockLogicalWidthForContent(), computedValues.m_extent, computedValues.m_margins.m_before,
+            computedValues.m_margins.m_after, style()->marginBefore(), style()->marginAfter());
     }
 
     // WinIE quirk: The <html> block always fills the entire canvas in quirks mode.  The <body> always fills the
@@ -2959,29 +2915,15 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
     return availableHeight;
 }
 
-void RenderBox::computeBlockDirectionMargins(const RenderBlock* containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const
-{
-    if (isTableCell()) {
-        // FIXME: Not right if we allow cells to have different directionality than the table. If we do allow this, though,
-        // we may just do it with an extra anonymous block inside the cell.
-        marginBefore = 0;
-        marginAfter = 0;
-        return;
-    }
-
-    // Margins are calculated with respect to the logical width of
-    // the containing block (8.3)
-    LayoutUnit cw = containingBlockLogicalWidthForContent();
-    RenderStyle* containingBlockStyle = containingBlock->style();
-    marginBefore = minimumValueForLength(style()->marginBeforeUsing(containingBlockStyle), cw);
-    marginAfter = minimumValueForLength(style()->marginAfterUsing(containingBlockStyle), cw);
-}
-
 void RenderBox::computeAndSetBlockDirectionMargins(const RenderBlock* containingBlock)
 {
     LayoutUnit marginBefore;
     LayoutUnit marginAfter;
-    computeBlockDirectionMargins(containingBlock, marginBefore, marginAfter);
+    computeMarginsForDirection(BlockDirection, containingBlock, containingBlockLogicalWidthForContent(), logicalHeight(), marginBefore, marginAfter,
+        style()->marginBeforeUsing(containingBlock->style()),
+        style()->marginAfterUsing(containingBlock->style()));
+    // Note that in this 'positioning phase' of the layout we are using the containing block's writing mode rather than our own when calculating margins.
+    // See http://www.w3.org/TR/2014/CR-css-writing-modes-3-20140320/#orthogonal-flows
     containingBlock->setMarginBeforeForChild(this, marginBefore);
     containingBlock->setMarginAfterForChild(this, marginAfter);
 }
@@ -4649,7 +4591,7 @@ static void markBoxForRelayoutAfterSplit(RenderBox* box)
     } else if (box->isTableSection())
         toRenderTableSection(box)->setNeedsCellRecalc();
 
-    box->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+    box->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 RenderObject* RenderBox::splitAnonymousBoxesAroundChild(RenderObject* beforeChild)
@@ -4668,7 +4610,7 @@ RenderObject* RenderBox::splitAnonymousBoxesAroundChild(RenderObject* beforeChil
             RenderBox* parentBox = toRenderBox(boxToSplit->parent());
             // We need to invalidate the |parentBox| before inserting the new node
             // so that the table repainting logic knows the structure is dirty.
-            // See for example RenderTableCell:clippedOverflowRectForRepaint.
+            // See for example RenderTableCell:clippedOverflowRectForPaintInvalidation.
             markBoxForRelayoutAfterSplit(parentBox);
             parentBox->virtualChildren()->insertChildNode(parentBox, postBox, boxToSplit->nextSibling());
             boxToSplit->moveChildrenTo(postBox, beforeChild, 0, true);

@@ -144,7 +144,7 @@ public:
     virtual void enumerateChosenDirectory(FileChooser*) OVERRIDE { }
 
     virtual PassOwnPtr<ColorChooser> createColorChooser(LocalFrame*, ColorChooserClient*, const Color&) OVERRIDE;
-    virtual PassRefPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&) OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&) OVERRIDE;
     virtual void openTextDataListChooser(HTMLInputElement&) OVERRIDE;
 
     virtual void runOpenPanel(LocalFrame*, PassRefPtr<FileChooser>) OVERRIDE;
@@ -161,6 +161,9 @@ public:
     virtual void annotatedRegionsChanged() OVERRIDE { }
     virtual bool paintCustomOverhangArea(GraphicsContext*, const IntRect&, const IntRect&, const IntRect&) OVERRIDE { return false; }
     virtual String acceptLanguages() OVERRIDE;
+
+    virtual bool usesGpuRasterization() OVERRIDE { return false; }
+
 };
 
 class EmptyFrameLoaderClient FINAL : public FrameLoaderClient {
@@ -199,6 +202,7 @@ public:
     virtual void dispatchDidFinishDocumentLoad() OVERRIDE { }
     virtual void dispatchDidFinishLoad() OVERRIDE { }
     virtual void dispatchDidFirstVisuallyNonEmptyLayout() OVERRIDE { }
+    virtual void dispatchDidChangeBrandColor() OVERRIDE { };
 
     virtual NavigationPolicy decidePolicyForNavigation(const ResourceRequest&, DocumentLoader*, NavigationPolicy) OVERRIDE;
 

@@ -308,7 +308,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren)
     // number of columns.
     bool done = false;
     LayoutUnit pageLogicalHeight = 0;
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this, checkForPaintInvalidationDuringLayout());
     while (!done)
         done = layoutBlockFlow(relayoutChildren, pageLogicalHeight, layoutScope);
 
@@ -330,7 +330,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren)
         if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
             setShouldInvalidateOverflowForPaint(true);
         else
-            repaintOverflow();
+            invalidatePaintForOverflow();
     }
     clearNeedsLayout();
 }
@@ -349,7 +349,7 @@ inline bool RenderBlockFlow::layoutBlockFlow(bool relayoutChildren, LayoutUnit &
     if (pageLogicalHeightChanged)
         relayoutChildren = true;
 
-    LayoutStateMaintainer statePusher(*this, locationOffset(), pageLogicalHeight, pageLogicalHeightChanged, columnInfo());
+    LayoutState state(*this, locationOffset(), pageLogicalHeight, pageLogicalHeightChanged, columnInfo());
 
     // We use four values, maxTopPos, maxTopNeg, maxBottomPos, and maxBottomNeg, to track
     // our current maximal positive and negative margins. These values are used when we
@@ -511,7 +511,7 @@ void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo,
     LayoutRect oldRect = child->frameRect();
     LayoutUnit oldLogicalTop = logicalTopForChild(child);
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     LayoutSize oldLayoutDelta = RuntimeEnabledFeatures::repaintAfterLayoutEnabled() ? LayoutSize() : view()->layoutDelta();
 #endif
     // Go ahead and position the child as though it didn't collapse with the top.
@@ -632,13 +632,13 @@ void RenderBlockFlow::layoutBlockChild(RenderBox* child, MarginInfo& marginInfo,
         // repaint ourselves (and the child) anyway.
         if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled() && childHadLayout && !selfNeedsLayout())
             child->repaintOverhangingFloats(true);
-        else if (childHadLayout && !selfNeedsLayout() && child->checkForRepaintDuringLayout())
+        else if (childHadLayout && !selfNeedsLayout() && child->checkForPaintInvalidationDuringLayout())
             child->repaintDuringLayoutIfMoved(oldRect);
     }
 
-    if (!childHadLayout && child->checkForRepaint()) {
+    if (!childHadLayout && child->checkForPaintInvalidation()) {
         if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
-            child->repaint();
+            child->paintInvalidationForWholeRenderer();
         child->repaintOverhangingFloats(true);
     }
 
@@ -1181,7 +1181,7 @@ LayoutUnit RenderBlockFlow::collapseMargins(RenderBox* child, MarginInfo& margin
         // floats in the parent that overhang |child|'s new logical top.
         bool logicalTopIntrudesIntoFloat = clearanceForSelfCollapsingBlock > 0 && logicalTop < beforeCollapseLogicalTop;
         if (logicalTopIntrudesIntoFloat && containsFloats() && !child->avoidsFloats() && lowestFloatLogicalBottom() > logicalTop)
-            child->setNeedsLayoutAndFullRepaint();
+            child->setNeedsLayoutAndFullPaintInvalidation();
     }
 
     return logicalTop;
@@ -1937,7 +1937,7 @@ void RenderBlockFlow::repaintOverhangingFloats(bool paintAllDescendants)
 
     // FIXME: Avoid disabling LayoutState. At the very least, don't disable it for floats originating
     // in this block. Better yet would be to push extra state for the containers of other floats.
-    LayoutStateDisabler layoutStateDisabler(*this);
+    ForceHorriblySlowRectMapping slowRectMapping(*this);
     const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
     FloatingObjectSetIterator end = floatingObjectSet.end();
     for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
@@ -1953,14 +1953,14 @@ void RenderBlockFlow::repaintOverhangingFloats(bool paintAllDescendants)
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                 floatingRenderer->setShouldDoFullPaintInvalidationAfterLayout(true);
             else
-                floatingRenderer->repaint();
+                floatingRenderer->paintInvalidationForWholeRenderer();
 
             floatingRenderer->repaintOverhangingFloats(false);
         }
     }
 }
 
-void RenderBlockFlow::repaintOverflow()
+void RenderBlockFlow::invalidatePaintForOverflow()
 {
     // FIXME: We could tighten up the left and right invalidation points if we let layoutInlineChildren fill them in based off the particular lines
     // it had to lay out. We wouldn't need the hasOverflowClip() hack in that case either.
@@ -1996,9 +1996,9 @@ void RenderBlockFlow::repaintOverflow()
         // Hits in media/event-attributes.html
         DisableCompositingQueryAsserts disabler;
 
-        repaintRectangle(repaintRect); // We need to do a partial repaint of our content.
+        invalidatePaintRectangle(repaintRect); // We need to do a partial repaint of our content.
         if (hasReflection())
-            repaintRectangle(reflectedRect(repaintRect));
+            invalidatePaintRectangle(reflectedRect(repaintRect));
     }
 
     m_repaintLogicalTop = 0;
@@ -2251,7 +2251,7 @@ void RenderBlockFlow::removeFloatingObject(RenderBox* floatBox)
                         ASSERT(floatingObject->originatingLine()->renderer() == this);
                         floatingObject->originatingLine()->markDirty();
                     }
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
                     floatingObject->setOriginatingLine(0);
 #endif
                 }
@@ -2389,7 +2389,7 @@ bool RenderBlockFlow::positionNewFloats()
 
         // If the child moved, we have to repaint it.
         if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()
-            && childBox->checkForRepaintDuringLayout())
+            && childBox->checkForPaintInvalidationDuringLayout())
             childBox->repaintDuringLayoutIfMoved(oldRect);
     }
     return true;

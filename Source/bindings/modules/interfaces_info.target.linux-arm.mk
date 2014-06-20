@@ -16,14 +16,14 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_core_interfaces_info_individual_core_gyp,,,$(GYP_VAR_PREFIX))/interfaces_info_individual_core.stamp \
 	$(call intermediates-dir-for,GYP,third_party_WebKit_Source_bindings_modules_interfaces_info_individual_modules_gyp,,,$(GYP_VAR_PREFIX))/interfaces_info_individual_modules.stamp
 
-### Rules for action "compute_interfaces_info_overall":
+### Rules for action "compute_interfaces_info":
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: gyp_local_path := $(LOCAL_PATH)
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
 $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle: $(LOCAL_PATH)/third_party/WebKit/Source/bindings/scripts/compute_interfaces_info_overall.py $(gyp_shared_intermediate_dir)/blink/bindings/core/InterfacesInfoCoreIndividual.pickle $(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModulesIndividual.pickle $(GYP_TARGET_DEPENDENCIES)
-	@echo "Gyp action: Computing overall global information about IDL files ($@)"
+	@echo "Gyp action: Computing overall global information about IDL files for interfaces_info ($@)"
 	$(hide)cd $(gyp_local_path)/third_party/WebKit/Source/bindings/modules; mkdir -p $(gyp_shared_intermediate_dir)/blink/bindings/modules; python ../scripts/compute_interfaces_info_overall.py --write-file-only-if-changed 0 -- "$(gyp_shared_intermediate_dir)/blink/bindings/core/InterfacesInfoCoreIndividual.pickle" "$(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModulesIndividual.pickle" "$(gyp_shared_intermediate_dir)/blink/bindings/modules/InterfacesInfoModules.pickle"
 
 

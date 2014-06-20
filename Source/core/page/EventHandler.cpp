@@ -28,10 +28,9 @@
 #include "config.h"
 #include "core/page/EventHandler.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include "SVGNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
 #include "core/clipboard/Clipboard.h"
 #include "core/clipboard/DataObject.h"
 #include "core/dom/Document.h"
@@ -84,11 +83,12 @@
 #include "core/rendering/RenderWidget.h"
 #include "core/rendering/style/RenderStyle.h"
 #include "core/svg/SVGDocumentExtensions.h"
-#include "core/svg/SVGUseElement.h"
 #include "platform/PlatformGestureEvent.h"
 #include "platform/PlatformKeyboardEvent.h"
 #include "platform/PlatformTouchEvent.h"
 #include "platform/PlatformWheelEvent.h"
+#include "platform/RuntimeEnabledFeatures.h"
+#include "platform/TraceEvent.h"
 #include "platform/WindowsKeyboardCodes.h"
 #include "platform/geometry/FloatPoint.h"
 #include "platform/graphics/Image.h"
@@ -103,7 +103,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace SVGNames;
 
 // The link drag hysteresis is much larger than the others because there
 // needs to be enough space to cancel the link press without starting a link drag,
@@ -294,6 +293,7 @@ void EventHandler::clear()
     m_previousWheelScrolledNode = nullptr;
     m_targetForTouchID.clear();
     m_touchSequenceDocument.clear();
+    m_touchSequenceUserGestureToken.clear();
     m_scrollGestureHandlingNode = nullptr;
     m_lastHitTestResultOverWidget = false;
     m_previousGestureScrolledNode = nullptr;
@@ -846,8 +846,8 @@ HitTestResult EventHandler::hitTestResultAtPoint(const LayoutPoint& point, HitTe
     // We always send hitTestResultAtPoint to the main frame if we have one,
     // otherwise we might hit areas that are obscured by higher frames.
     if (Page* page = m_frame->page()) {
-        LocalFrame* mainFrame = page->mainFrame();
-        if (m_frame != mainFrame) {
+        LocalFrame* mainFrame = page->mainFrame()->isLocalFrame() ? page->deprecatedLocalMainFrame() : 0;
+        if (mainFrame && m_frame != mainFrame) {
             FrameView* frameView = m_frame->view();
             FrameView* mainView = mainFrame->view();
             if (frameView && mainView) {
@@ -1307,26 +1307,14 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
 
     if (swallowEvent) {
         // scrollbars should get events anyway, even disabled controls might be scrollable
-        Scrollbar* scrollbar = mev.scrollbar();
-
-        updateLastScrollbarUnderMouse(scrollbar, true);
-
-        if (scrollbar)
-            passMousePressEventToScrollbar(mev, scrollbar);
+        passMousePressEventToScrollbar(mev);
     } else {
         if (shouldRefetchEventTarget(mev)) {
             HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::ConfusingAndOftenMisusedDisallowShadowContent);
             mev = m_frame->document()->prepareMouseEvent(request, documentPoint, mouseEvent);
         }
 
-        FrameView* view = m_frame->view();
-        Scrollbar* scrollbar = view ? view->scrollbarAtPoint(mouseEvent.position()) : 0;
-        if (!scrollbar)
-            scrollbar = mev.scrollbar();
-
-        updateLastScrollbarUnderMouse(scrollbar, true);
-
-        if (scrollbar && passMousePressEventToScrollbar(mev, scrollbar))
+        if (passMousePressEventToScrollbar(mev))
             swallowEvent = true;
         else
             swallowEvent = handleMousePressEvent(mev);
@@ -3021,18 +3009,17 @@ void EventHandler::defaultKeyboardEventHandler(KeyboardEvent* event)
     }
 }
 
-bool EventHandler::dragHysteresisExceeded(const IntPoint& floatDragViewportLocation) const
+bool EventHandler::dragHysteresisExceeded(const FloatPoint& floatDragViewportLocation) const
 {
-    FloatPoint dragViewportLocation(floatDragViewportLocation.x(), floatDragViewportLocation.y());
-    return dragHysteresisExceeded(dragViewportLocation);
+    return dragHysteresisExceeded(flooredIntPoint(floatDragViewportLocation));
 }
 
-bool EventHandler::dragHysteresisExceeded(const FloatPoint& dragViewportLocation) const
+bool EventHandler::dragHysteresisExceeded(const IntPoint& dragViewportLocation) const
 {
     FrameView* view = m_frame->view();
     if (!view)
         return false;
-    IntPoint dragLocation = view->windowToContents(flooredIntPoint(dragViewportLocation));
+    IntPoint dragLocation = view->windowToContents(dragViewportLocation);
     IntSize delta = dragLocation - m_mouseDownPos;
 
     int threshold = GeneralDragHysteresis;
@@ -3262,9 +3249,9 @@ void EventHandler::defaultBackspaceEventHandler(KeyboardEvent* event)
         return;
 
     Page* page = m_frame->page();
-    if (!page)
+    if (!page || !page->mainFrame()->isLocalFrame())
         return;
-    bool handledEvent = page->mainFrame()->loader().client()->navigateBackForward(event->shiftKey() ? 1 : -1);
+    bool handledEvent = page->deprecatedLocalMainFrame()->loader().client()->navigateBackForward(event->shiftKey() ? 1 : -1);
     if (handledEvent)
         event->setDefaultHandled();
 }
@@ -3338,8 +3325,18 @@ void EventHandler::setFrameWasScrolledByUser()
         view->setWasScrolledByUser(true);
 }
 
-bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& mev, Scrollbar* scrollbar)
+bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& mev)
 {
+    // First try to use the frame scrollbar.
+    FrameView* view = m_frame->view();
+    Scrollbar* scrollbar = view ? view->scrollbarAtPoint(mev.event().position()) : 0;
+
+    // Then try the scrollbar in the hit test.
+    if (!scrollbar)
+        scrollbar = mev.scrollbar();
+
+    updateLastScrollbarUnderMouse(scrollbar, true);
+
     if (!scrollbar || !scrollbar->enabled())
         return false;
     setFrameWasScrolledByUser();
@@ -3404,8 +3401,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
 
-    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
-
     unsigned i;
     bool freshTouchEvents = true;
     bool allTouchReleased = true;
@@ -3423,24 +3418,41 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // there may be cases where the browser doesn't reliably release all
         // touches. http://crbug.com/345372 tracks this.
         m_touchSequenceDocument.clear();
+        m_touchSequenceUserGestureToken.clear();
+    }
+
+    OwnPtr<UserGestureIndicator> gestureIndicator;
+
+    if (m_touchSequenceUserGestureToken)
+        gestureIndicator = adoptPtr(new UserGestureIndicator(m_touchSequenceUserGestureToken.release()));
+    else
+        gestureIndicator = adoptPtr(new UserGestureIndicator(DefinitelyProcessingUserGesture));
+
+    m_touchSequenceUserGestureToken = gestureIndicator->currentToken();
+
+    ASSERT(m_frame->view());
+    if (m_touchSequenceDocument && (!m_touchSequenceDocument->frame() || !m_touchSequenceDocument->frame()->view())) {
+        // If the active touch document has no frame or view, it's probably being destroyed
+        // so we can't dispatch events.
+        return false;
     }
 
     // First do hit tests for any new touch points.
     for (i = 0; i < points.size(); ++i) {
         const PlatformTouchPoint& point = points[i];
-        LayoutPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
 
         // Touch events implicitly capture to the touched node, and don't change
         // active/hover states themselves (Gesture events do). So we only need
         // to hit-test on touchstart, and it can be read-only.
         if (point.state() == PlatformTouchPoint::TouchPressed) {
             HitTestRequest::HitTestRequestType hitType = HitTestRequest::TouchEvent | HitTestRequest::ReadOnly | HitTestRequest::Active;
+            LayoutPoint pagePoint = roundedLayoutPoint(m_frame->view()->windowToContents(point.pos()));
             HitTestResult result;
             if (!m_touchSequenceDocument) {
                 result = hitTestResultAtPoint(pagePoint, hitType);
             } else if (m_touchSequenceDocument->frame()) {
-                LayoutPoint pagePointInOriginatingDocument = documentPointForWindowPoint(m_touchSequenceDocument->frame(), point.pos());
-                result = hitTestResultInFrame(m_touchSequenceDocument->frame(), pagePointInOriginatingDocument, hitType);
+                LayoutPoint framePoint = roundedLayoutPoint(m_touchSequenceDocument->frame()->view()->windowToContents(point.pos()));
+                result = hitTestResultInFrame(m_touchSequenceDocument->frame(), framePoint, hitType);
             } else
                 continue;
 
@@ -3457,6 +3469,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                 // in the active sequence. This must be a single document to
                 // ensure we don't leak Nodes between documents.
                 m_touchSequenceDocument = &(result.innerNode()->document());
+                ASSERT(m_touchSequenceDocument->frame()->view());
             }
 
             // Ideally we'd ASSERT(!m_targetForTouchID.contains(point.id())
@@ -3467,7 +3480,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             // See http://crbug.com/345372.
             m_targetForTouchID.set(point.id(), node);
 
-            TouchAction effectiveTouchAction = computeEffectiveTouchAction(pagePoint);
+            TouchAction effectiveTouchAction = computeEffectiveTouchAction(*node);
             if (effectiveTouchAction != TouchActionAuto)
                 m_frame->page()->chrome().client().setTouchAction(effectiveTouchAction);
         }
@@ -3479,8 +3492,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     // document set to receive the events, then we can skip all the rest of
     // this work.
     if (!m_touchSequenceDocument || !m_touchSequenceDocument->hasTouchEventHandlers() || !m_touchSequenceDocument->frame()) {
-        if (allTouchReleased)
+        if (allTouchReleased) {
             m_touchSequenceDocument.clear();
+            m_touchSequenceUserGestureToken.clear();
+        }
         return false;
     }
 
@@ -3509,7 +3524,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     for (i = 0; i < points.size(); ++i) {
         const PlatformTouchPoint& point = points[i];
-        LayoutPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
         PlatformTouchPoint::State pointState = point.state();
         RefPtrWillBeRawPtr<EventTarget> touchTarget = nullptr;
 
@@ -3553,24 +3567,17 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         }
         ASSERT(targetFrame);
 
-        if (m_frame != targetFrame) {
-            // pagePoint should always be relative to the target elements
-            // containing frame.
-            pagePoint = documentPointForWindowPoint(targetFrame, point.pos());
-        }
+        // pagePoint should always be relative to the target elements
+        // containing frame.
+        FloatPoint pagePoint = targetFrame->view()->windowToContents(point.pos());
 
-        float scaleFactor = targetFrame->pageZoomFactor();
+        float scaleFactor = 1.0f / targetFrame->pageZoomFactor();
 
-        int adjustedPageX = lroundf(pagePoint.x() / scaleFactor);
-        int adjustedPageY = lroundf(pagePoint.y() / scaleFactor);
-        int adjustedRadiusX = lroundf(point.radiusX() / scaleFactor);
-        int adjustedRadiusY = lroundf(point.radiusY() / scaleFactor);
+        FloatPoint adjustedPagePoint = pagePoint.scaledBy(scaleFactor);
+        FloatSize adjustedRadius = point.radius().scaledBy(scaleFactor);
 
-        RefPtrWillBeRawPtr<Touch> touch = Touch::create(targetFrame, touchTarget.get(), point.id(),
-                                            point.screenPos().x(), point.screenPos().y(),
-                                            adjustedPageX, adjustedPageY,
-                                            adjustedRadiusX, adjustedRadiusY,
-                                            point.rotationAngle(), point.force());
+        RefPtrWillBeRawPtr<Touch> touch = Touch::create(
+            targetFrame, touchTarget.get(), point.id(), point.screenPos(), adjustedPagePoint, adjustedRadius, point.rotationAngle(), point.force());
 
         // Ensure this target's touch list exists, even if it ends up empty, so
         // it can always be passed to TouchEvent::Create below.
@@ -3602,8 +3609,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             changedTouches[pointState].m_targets.add(touchTarget);
         }
     }
-    if (allTouchReleased)
+    if (allTouchReleased) {
         m_touchSequenceDocument.clear();
+        m_touchSequenceUserGestureToken.clear();
+    }
 
     // Now iterate the changedTouches list and m_targets within it, sending
     // events to the targets as required.
@@ -3641,25 +3650,20 @@ TouchAction EventHandler::intersectTouchAction(TouchAction action1, TouchAction 
     return action1 & action2;
 }
 
-TouchAction EventHandler::computeEffectiveTouchAction(const LayoutPoint& point)
+TouchAction EventHandler::computeEffectiveTouchAction(const Node& node)
 {
     // Optimization to minimize risk of this new feature (behavior should be identical
     // since there's no way to get non-default touch-action values).
     if (!RuntimeEnabledFeatures::cssTouchActionEnabled())
         return TouchActionAuto;
 
-    HitTestResult taResult = hitTestResultAtPoint(point, HitTestRequest::TouchEvent | HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::TouchAction);
-    Node* node = taResult.innerNode();
-    if (!node)
-        return TouchActionAuto;
-
     // Start by permitting all actions, then walk the elements supporting
     // touch-action from the target node up to the nearest scrollable ancestor
     // and exclude any prohibited actions.
     TouchAction effectiveTouchAction = TouchActionAuto;
-    for (const Node* curNode = node; curNode; curNode = NodeRenderingTraversal::parent(curNode)) {
+    for (const Node* curNode = &node; curNode; curNode = NodeRenderingTraversal::parent(curNode)) {
         if (RenderObject* renderer = curNode->renderer()) {
-            if (renderer->visibleForTouchAction()) {
+            if (renderer->supportsTouchAction()) {
                 TouchAction action = renderer->style()->touchAction();
                 effectiveTouchAction = intersectTouchAction(action, effectiveTouchAction);
                 if (effectiveTouchAction == TouchActionNone)

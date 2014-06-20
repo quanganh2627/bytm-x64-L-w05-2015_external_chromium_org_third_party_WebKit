@@ -22,13 +22,13 @@
 
 #include "core/svg/SVGCursorElement.h"
 
-#include "SVGNames.h"
-#include "XLinkNames.h"
+#include "core/SVGNames.h"
+#include "core/XLinkNames.h"
 #include "core/dom/Document.h"
 
 namespace WebCore {
 
-SVGCursorElement::SVGCursorElement(Document& document)
+inline SVGCursorElement::SVGCursorElement(Document& document)
     : SVGElement(SVGNames::cursorTag, document)
     , SVGTests(this)
     , SVGURIReference(this)
@@ -40,6 +40,8 @@ SVGCursorElement::SVGCursorElement(Document& document)
     addToPropertyMap(m_x);
     addToPropertyMap(m_y);
 }
+
+DEFINE_NODE_FACTORY(SVGCursorElement)
 
 SVGCursorElement::~SVGCursorElement()
 {

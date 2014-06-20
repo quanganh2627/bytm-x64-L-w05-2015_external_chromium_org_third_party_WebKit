@@ -32,9 +32,9 @@
 #include "config.h"
 #include "platform/fonts/harfbuzz/HarfBuzzShaper.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "hb.h"
 #include "platform/LayoutUnit.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/fonts/Character.h"
 #include "platform/fonts/Font.h"
 #include "platform/fonts/harfbuzz/HarfBuzzFace.h"
@@ -946,12 +946,12 @@ void HarfBuzzShaper::fillGlyphBufferFromHarfBuzzRun(GlyphBuffer* glyphBuffer, Ha
             if (currentCharacterIndex >= m_toIndex)
                 m_startOffset.move(glyphAdvanceX, glyphAdvanceY);
             else if (currentCharacterIndex >= m_fromIndex)
-                glyphBuffer->add(glyphs[i], currentRun->fontData(), createGlyphBufferAdvance(glyphAdvanceX, glyphAdvanceY));
+                glyphBuffer->add(glyphs[i], currentRun->fontData(), FloatSize(glyphAdvanceX, glyphAdvanceY));
         } else {
             if (currentCharacterIndex < m_fromIndex)
                 m_startOffset.move(glyphAdvanceX, glyphAdvanceY);
             else if (currentCharacterIndex < m_toIndex)
-                glyphBuffer->add(glyphs[i], currentRun->fontData(), createGlyphBufferAdvance(glyphAdvanceX, glyphAdvanceY));
+                glyphBuffer->add(glyphs[i], currentRun->fontData(), FloatSize(glyphAdvanceX, glyphAdvanceY));
         }
     }
 }
@@ -1001,8 +1001,8 @@ void HarfBuzzShaper::fillGlyphBufferForTextEmphasis(GlyphBuffer* glyphBuffer, Ha
             float glyphAdvanceX = clusterAdvance / graphemesInCluster;
             for (unsigned j = 0; j < graphemesInCluster; ++j) {
                 // Do not put emphasis marks on space, separator, and control characters.
-                GlyphBufferGlyph glyphToAdd = Character::canReceiveTextEmphasis(m_run[currentCharacterIndex]) ? 1 : 0;
-                glyphBuffer->add(glyphToAdd, currentRun->fontData(), createGlyphBufferAdvance(glyphAdvanceX, 0));
+                Glyph glyphToAdd = Character::canReceiveTextEmphasis(m_run[currentCharacterIndex]) ? 1 : 0;
+                glyphBuffer->add(glyphToAdd, currentRun->fontData(), glyphAdvanceX);
             }
             clusterStart = clusterEnd;
             clusterAdvance = 0;

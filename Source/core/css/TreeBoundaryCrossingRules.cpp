@@ -32,7 +32,6 @@
 #include "core/css/ElementRuleCollector.h"
 #include "core/css/RuleFeature.h"
 #include "core/dom/StyleEngine.h"
-#include "core/dom/shadow/InsertionPoint.h"
 #include "core/dom/shadow/ShadowRoot.h"
 
 namespace WebCore {
@@ -74,31 +73,15 @@ void TreeBoundaryCrossingRules::collectTreeBoundaryCrossingRules(Element* elemen
     // When comparing rules declared in inner treescopes, inner's rules win.
     CascadeOrder innerCascadeOrder = size();
 
-    // FIXME: This is n^2 across the number of scoping nodes in the entire document! We need to walk the
-    // ancestors of |element| instead.
     for (DocumentOrderedList::iterator it = m_scopingNodes.begin(); it != m_scopingNodes.end(); ++it) {
         const ContainerNode* scopingNode = toContainerNode(*it);
         CSSStyleSheetRuleSubSet* ruleSubSet = m_treeBoundaryCrossingRuleSetMap.get(scopingNode);
         unsigned boundaryBehavior = SelectorChecker::ScopeContainsLastMatchedElement;
         bool isInnerTreeScope = element->treeScope().isInclusiveAncestorOf(scopingNode->treeScope());
 
-        // If a given scoping node is a shadow root,
-        // we should use ScopeIsShadowHost.
-        if (scopingNode && scopingNode->isShadowRoot()) {
-            boundaryBehavior |= SelectorChecker::ScopeIsShadowHost;
-            scopingNode = toShadowRoot(scopingNode)->host();
-        }
-
-        // FIXME: This is a terrible hack to avoid doing most of the work in this n^2 loop.
-        // Instead we should just fix the loop to collect the proper scopes up the tree instead
-        // of iterating all possible scopes.
-        const InsertionPoint* insertionPoint = resolveReprojection(element);
-        if ((insertionPoint && !scopingNode->containsIncludingShadowDOM(insertionPoint))
-            || (!insertionPoint && !scopingNode->containsIncludingShadowDOM(element))) {
-            ++innerCascadeOrder;
-            --outerCascadeOrder;
-            continue;
-        }
+        // If a given scoping node is a shadow root, we should use ScopeIsShadowRoot.
+        if (scopingNode && scopingNode->isShadowRoot())
+            boundaryBehavior |= SelectorChecker::ScopeIsShadowRoot;
 
         CascadeOrder cascadeOrder = isInnerTreeScope ? innerCascadeOrder : outerCascadeOrder;
         for (CSSStyleSheetRuleSubSet::iterator it = ruleSubSet->begin(); it != ruleSubSet->end(); ++it) {
@@ -106,7 +89,6 @@ void TreeBoundaryCrossingRules::collectTreeBoundaryCrossingRules(Element* elemen
             RuleSet* ruleSet = it->second.get();
             collector.collectMatchingRules(MatchRequest(ruleSet, includeEmptyRules, scopingNode, parentStyleSheet), ruleRange, static_cast<SelectorChecker::BehaviorAtBoundary>(boundaryBehavior), ignoreCascadeScope, cascadeOrder);
         }
-
         ++innerCascadeOrder;
         --outerCascadeOrder;
     }

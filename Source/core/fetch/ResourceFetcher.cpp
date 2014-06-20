@@ -27,7 +27,6 @@
 #include "config.h"
 #include "core/fetch/ResourceFetcher.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptController.h"
 #include "core/dom/Document.h"
 #include "core/fetch/CSSStyleSheetResource.h"
@@ -59,7 +58,9 @@
 #include "core/timing/Performance.h"
 #include "core/timing/ResourceTimingInfo.h"
 #include "core/frame/Settings.h"
+#include "core/svg/graphics/SVGImageChromeClient.h"
 #include "platform/Logging.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
 #include "platform/weborigin/SecurityOrigin.h"
 #include "platform/weborigin/SecurityPolicy.h"
@@ -218,14 +219,6 @@ static ResourceRequest::TargetType requestTargetType(const ResourceFetcher* fetc
     }
     ASSERT_NOT_REACHED();
     return ResourceRequest::TargetIsSubresource;
-}
-
-static void reportFontResourceCORSFailed(Resource* resource, const KURL& url, LocalFrame* frame)
-{
-    FontResource* fontResource = toFontResource(resource);
-    fontResource->setCORSFailed();
-    if (frame && frame->document())
-        frame->document()->addConsoleMessage(JSMessageSource, WarningMessageLevel, "Blink is considering rejecting non spec-compliant cross-origin web font requests: " + url.string() + ". Please use Access-Control-Allow-Origin to make these requests spec-compliant.");
 }
 
 ResourceFetcher::ResourceFetcher(DocumentLoader* documentLoader)
@@ -588,6 +581,13 @@ bool ResourceFetcher::canRequest(Resource::Type type, const KURL& url, const Res
         break;
     }
 
+    // SVG Images have unique security rules that prevent all subresource requests
+    // except for data urls.
+    if (type != Resource::MainResource) {
+        if (frame() && frame()->chromeClient().isSVGImageChromeClient() && !url.protocolIsData())
+            return false;
+    }
+
     // Last of all, check for insecure content. We do this last so that when
     // folks block insecure content with a CSP policy, they don't get a warning.
     // They'll still get a warning in the console about CSP blocking the load.
@@ -613,12 +613,6 @@ bool ResourceFetcher::canAccessResource(Resource* resource, SecurityOrigin* sour
 
     String errorDescription;
     if (!resource->passesAccessControlCheck(sourceOrigin, errorDescription)) {
-        // FIXME: Remove later, http://crbug.com/286681
-        if (resource->type() == Resource::Font) {
-            reportFontResourceCORSFailed(resource, url, frame());
-            return false;
-        }
-
         if (frame() && frame()->document()) {
             String resourceType = Resource::resourceTypeToString(resource->type(), resource->options().initiatorInfo);
             frame()->document()->addConsoleMessage(JSMessageSource, ErrorMessageLevel, resourceType + " from origin '" + SecurityOrigin::create(url)->toString() + "' has been blocked from loading by Cross-Origin Resource Sharing policy: " + errorDescription);
@@ -701,10 +695,10 @@ ResourcePtr<Resource> ResourceFetcher::requestResource(Resource::Type type, Fetc
         memoryCache()->remove(resource.get());
         // Fall through
     case Load:
-        resource = loadResource(type, request, request.charset());
+        resource = createResourceForLoading(type, request, request.charset());
         break;
     case Revalidate:
-        resource = revalidateResource(request, resource.get());
+        resource = createResourceForRevalidation(request, resource.get());
         break;
     case Use:
         memoryCache()->updateForAccess(resource.get());
@@ -755,15 +749,11 @@ ResourcePtr<Resource> ResourceFetcher::requestResource(Resource::Type type, Fetc
     // see https://bugs.webkit.org/show_bug.cgi?id=107962. Before caching main
     // resources, we should be sure to understand the implications for memory
     // use.
-    //
-    // Ensure main resources aren't preloaded, and other main resource loads
-    // are removed from cache to prevent reuse.
+    // Remove main resource from cache to prevent reuse.
     if (type == Resource::MainResource) {
         ASSERT(policy != Use || m_documentLoader->substituteData().isValid());
         ASSERT(policy != Revalidate);
         memoryCache()->remove(resource.get());
-        if (request.forPreload())
-            return 0;
     }
 
     requestLoadStarted(resource.get(), request, policy == Use ? ResourceLoadingFromCache : ResourceLoadingFromNetwork);
@@ -839,7 +829,7 @@ void ResourceFetcher::addAdditionalRequestHeaders(ResourceRequest& request, Reso
     context().addAdditionalRequestHeaders(document(), request, (type == Resource::MainResource) ? FetchMainResource : FetchSubresource);
 }
 
-ResourcePtr<Resource> ResourceFetcher::revalidateResource(const FetchRequest& request, Resource* resource)
+ResourcePtr<Resource> ResourceFetcher::createResourceForRevalidation(const FetchRequest& request, Resource* resource)
 {
     ASSERT(resource);
     ASSERT(memoryCache()->contains(resource));
@@ -857,15 +847,15 @@ ResourcePtr<Resource> ResourceFetcher::revalidateResource(const FetchRequest& re
         ASSERT(context().cachePolicy(document()) != CachePolicyReload);
         if (context().cachePolicy(document()) == CachePolicyRevalidate)
             revalidatingRequest.setHTTPHeaderField("Cache-Control", "max-age=0");
-        if (!lastModified.isEmpty())
-            revalidatingRequest.setHTTPHeaderField("If-Modified-Since", lastModified);
-        if (!eTag.isEmpty())
-            revalidatingRequest.setHTTPHeaderField("If-None-Match", eTag);
     }
+    if (!lastModified.isEmpty())
+        revalidatingRequest.setHTTPHeaderField("If-Modified-Since", lastModified);
+    if (!eTag.isEmpty())
+        revalidatingRequest.setHTTPHeaderField("If-None-Match", eTag);
 
     ResourcePtr<Resource> newResource = createResource(resource->type(), revalidatingRequest, resource->encoding());
-
     WTF_LOG(ResourceLoading, "Resource %p created to revalidate %p", newResource.get(), resource);
+
     newResource->setResourceToRevalidate(resource);
 
     memoryCache()->remove(resource);
@@ -873,14 +863,14 @@ ResourcePtr<Resource> ResourceFetcher::revalidateResource(const FetchRequest& re
     return newResource;
 }
 
-ResourcePtr<Resource> ResourceFetcher::loadResource(Resource::Type type, FetchRequest& request, const String& charset)
+ResourcePtr<Resource> ResourceFetcher::createResourceForLoading(Resource::Type type, FetchRequest& request, const String& charset)
 {
     ASSERT(!memoryCache()->resourceForURL(request.resourceRequest().url()));
 
     WTF_LOG(ResourceLoading, "Loading Resource for '%s'.", request.resourceRequest().url().elidedString().latin1().data());
 
     addAdditionalRequestHeaders(request.mutableResourceRequest(), type);
-    ResourcePtr<Resource> resource = createResource(type, request.mutableResourceRequest(), charset);
+    ResourcePtr<Resource> resource = createResource(type, request.resourceRequest(), charset);
 
     memoryCache()->add(resource.get());
     return resource;
@@ -1197,6 +1187,10 @@ void ResourceFetcher::preload(Resource::Type type, FetchRequest& request, const 
 
 void ResourceFetcher::requestPreload(Resource::Type type, FetchRequest& request, const String& charset)
 {
+    // Ensure main resources aren't preloaded, since the cache can't actually reuse the preload.
+    if (type == Resource::MainResource)
+        return;
+
     String encoding;
     if (type == Resource::Script || type == Resource::CSSStyleSheet)
         encoding = charset.isEmpty() ? m_document->charset().string() : charset;
@@ -1373,12 +1367,6 @@ bool ResourceFetcher::canAccessRedirect(Resource* resource, ResourceRequest& req
 
         String errorMessage;
         if (!CrossOriginAccessControl::handleRedirect(resource, sourceOrigin, request, redirectResponse, options, errorMessage)) {
-            // FIXME: Remove later, http://crbug.com/286681
-            if (resource->type() == Resource::Font) {
-                reportFontResourceCORSFailed(resource, request.url(), frame());
-                return false;
-            }
-
             if (frame() && frame()->document())
                 frame()->document()->addConsoleMessage(JSMessageSource, ErrorMessageLevel, errorMessage);
             return false;

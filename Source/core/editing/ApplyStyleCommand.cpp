@@ -26,9 +26,9 @@
 #include "config.h"
 #include "core/editing/ApplyStyleCommand.h"
 
-#include "CSSPropertyNames.h"
-#include "CSSValueKeywords.h"
-#include "HTMLNames.h"
+#include "core/CSSPropertyNames.h"
+#include "core/CSSValueKeywords.h"
+#include "core/HTMLNames.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/css/CSSValuePool.h"
 #include "core/css/StylePropertySet.h"
@@ -43,6 +43,7 @@
 #include "core/editing/TextIterator.h"
 #include "core/editing/VisibleUnits.h"
 #include "core/editing/htmlediting.h"
+#include "core/frame/UseCounter.h"
 #include "core/rendering/RenderObject.h"
 #include "core/rendering/RenderText.h"
 #include "platform/heap/Handle.h"
@@ -65,7 +66,10 @@ bool isLegacyAppleStyleSpan(const Node *node)
         return false;
 
     const HTMLElement* elem = toHTMLElement(node);
-    return elem->hasLocalName(spanAttr) && elem->getAttribute(classAttr) == styleSpanClassString();
+    if (!elem->hasLocalName(spanAttr) || elem->getAttribute(classAttr) != styleSpanClassString())
+        return false;
+    UseCounter::count(elem->document(), UseCounter::EditingAppleStyleSpanClass);
+    return true;
 }
 
 static bool hasNoAttributeOrOnlyStyleAttribute(const Element* element, ShouldStyleAttributeBeEmpty shouldStyleAttributeBeEmpty)
@@ -265,8 +269,9 @@ void ApplyStyleCommand::applyBlockStyle(EditingStyle *style)
         StyleChange styleChange(style, paragraphStart.deepEquivalent());
         if (styleChange.cssStyle().length() || m_removeOnly) {
             RefPtrWillBeRawPtr<Node> block = enclosingBlock(paragraphStart.deepEquivalent().deprecatedNode());
-            if (!m_removeOnly) {
-                RefPtrWillBeRawPtr<Element> newBlock = moveParagraphContentsToNewBlockIfNecessary(paragraphStart.deepEquivalent());
+            const Position& paragraphStartToMove = paragraphStart.deepEquivalent();
+            if (!m_removeOnly && isEditablePosition(paragraphStartToMove)) {
+                RefPtrWillBeRawPtr<Element> newBlock = moveParagraphContentsToNewBlockIfNecessary(paragraphStartToMove);
                 if (newBlock)
                     block = newBlock;
             }

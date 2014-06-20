@@ -57,28 +57,26 @@ bool FontPlatformFeatures::canExpandAroundIdeographsInComplexText()
 }
 
 static void paintGlyphs(GraphicsContext* gc, const SimpleFontData* font,
-    const GlyphBufferGlyph* glyphs, unsigned numGlyphs,
+    const Glyph* glyphs, unsigned numGlyphs,
     SkPoint* pos, const FloatRect& textRect)
 {
     TextDrawingModeFlags textMode = gc->textDrawingMode();
 
     // We draw text up to two times (once for fill, once for stroke).
     if (textMode & TextModeFill) {
-        SkPaint paint;
-        gc->setupPaintForFilling(&paint);
+        SkPaint paint = gc->fillPaint();
         font->platformData().setupPaint(&paint, gc);
         gc->adjustTextRenderMode(&paint);
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 
-        gc->drawPosText(glyphs, numGlyphs << 1, pos, textRect, paint);
+        gc->drawPosText(glyphs, numGlyphs * sizeof(Glyph), pos, textRect, paint);
     }
 
     if ((textMode & TextModeStroke)
         && gc->strokeStyle() != NoStroke
         && gc->strokeThickness() > 0) {
 
-        SkPaint paint;
-        gc->setupPaintForStroking(&paint);
+        SkPaint paint = gc->strokePaint();
         font->platformData().setupPaint(&paint, gc);
         gc->adjustTextRenderMode(&paint);
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
@@ -96,7 +94,7 @@ static void paintGlyphs(GraphicsContext* gc, const SimpleFontData* font,
             paint.setLooper(0);
         }
 
-        gc->drawPosText(glyphs, numGlyphs << 1, pos, textRect, paint);
+        gc->drawPosText(glyphs, numGlyphs * sizeof(Glyph), pos, textRect, paint);
     }
 }
 
@@ -104,8 +102,6 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     const GlyphBuffer& glyphBuffer, unsigned from, unsigned numGlyphs,
     const FloatPoint& point, const FloatRect& textRect) const
 {
-    SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t)); // compile-time assert
-
     SkScalar x = SkFloatToScalar(point.x());
     SkScalar y = SkFloatToScalar(point.y());
 
@@ -129,7 +125,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         while (glyphIndex < numGlyphs) {
             unsigned chunkLength = std::min(kMaxBufferLength, numGlyphs - glyphIndex);
 
-            const GlyphBufferGlyph* glyphs = glyphBuffer.glyphs(from + glyphIndex);
+            const Glyph* glyphs = glyphBuffer.glyphs(from + glyphIndex);
             translations.resize(chunkLength);
             verticalData->getVerticalTranslationsForGlyphs(font, &glyphs[0], chunkLength, reinterpret_cast<float*>(&translations[0]));
 
@@ -157,14 +153,14 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     // text drawing can proceed faster. However, it's unclear when those
     // patches may be upstreamed to WebKit so we always use the slower path
     // here.
-    const GlyphBufferAdvance* adv = glyphBuffer.advances(from);
+    const FloatSize* adv = glyphBuffer.advances(from);
     for (unsigned i = 0; i < numGlyphs; i++) {
         pos[i].set(x, y);
         x += SkFloatToScalar(adv[i].width());
         y += SkFloatToScalar(adv[i].height());
     }
 
-    const GlyphBufferGlyph* glyphs = glyphBuffer.glyphs(from);
+    const Glyph* glyphs = glyphBuffer.glyphs(from);
     paintGlyphs(gc, font, glyphs, numGlyphs, pos, textRect);
 }
 

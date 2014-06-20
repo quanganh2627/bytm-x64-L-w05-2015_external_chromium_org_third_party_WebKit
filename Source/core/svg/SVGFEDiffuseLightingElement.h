@@ -22,7 +22,7 @@
 #ifndef SVGFEDiffuseLightingElement_h
 #define SVGFEDiffuseLightingElement_h
 
-#include "SVGNames.h"
+#include "core/SVGNames.h"
 #include "core/svg/SVGAnimatedNumberOptionalNumber.h"
 #include "core/svg/SVGFELightElement.h"
 #include "core/svg/SVGFilterPrimitiveStandardAttributes.h"
@@ -33,7 +33,7 @@ class FEDiffuseLighting;
 
 class SVGFEDiffuseLightingElement FINAL : public SVGFilterPrimitiveStandardAttributes {
 public:
-    DEFINE_NODE_FACTORY(SVGFEDiffuseLightingElement);
+    DECLARE_NODE_FACTORY(SVGFEDiffuseLightingElement);
     void lightElementAttributeChanged(const SVGFELightElement*, const QualifiedName&);
 
     SVGAnimatedNumber* diffuseConstant() { return m_diffuseConstant.get(); }

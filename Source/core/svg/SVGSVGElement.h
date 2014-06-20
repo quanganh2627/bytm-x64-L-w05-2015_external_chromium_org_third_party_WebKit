@@ -44,10 +44,12 @@ class SVGSVGElement FINAL : public SVGGraphicsElement,
                             public SVGFitToViewBox,
                             public SVGZoomAndPan {
 public:
-    DEFINE_NODE_FACTORY(SVGSVGElement);
+    DECLARE_NODE_FACTORY(SVGSVGElement);
 
+#if !ENABLE(OILPAN)
     using SVGGraphicsElement::ref;
     using SVGGraphicsElement::deref;
+#endif
 
     // 'SVGSVGElement' functions
     PassRefPtr<SVGRectTearOff> viewport() const;

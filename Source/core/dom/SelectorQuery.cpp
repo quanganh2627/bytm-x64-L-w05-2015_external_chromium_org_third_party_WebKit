@@ -209,7 +209,7 @@ void SelectorDataList::findTraverseRootsAndExecute(ContainerNode& rootNode, type
     bool startFromParent = false;
 
     for (const CSSSelector* selector = m_selectors[0]; selector; selector = selector->tagHistory()) {
-        if (selector->m_match == CSSSelector::Id && !rootNode.document().containsMultipleElementsWithId(selector->value())) {
+        if (selector->match() == CSSSelector::Id && !rootNode.document().containsMultipleElementsWithId(selector->value())) {
             Element* element = rootNode.treeScope().getElementById(selector->value());
             ContainerNode* adjustedNode = &rootNode;
             if (element && (isTreeScopeRoot(rootNode) || element->isDescendantOf(&rootNode)))
@@ -230,7 +230,7 @@ void SelectorDataList::findTraverseRootsAndExecute(ContainerNode& rootNode, type
 
         // If we have both CSSSelector::Id and CSSSelector::Class at the same time, we should use Id
         // to find traverse root.
-        if (!SelectorQueryTrait::shouldOnlyMatchFirstElement && !startFromParent && selector->m_match == CSSSelector::Class) {
+        if (!SelectorQueryTrait::shouldOnlyMatchFirstElement && !startFromParent && selector->match() == CSSSelector::Class) {
             if (isRightmostSelector) {
                 ClassElementList<AllElements> traverseRoots(rootNode, selector->value());
                 executeForTraverseRoots<SelectorQueryTrait>(*m_selectors[0], traverseRoots, MatchesTraverseRoots, rootNode, output);
@@ -396,7 +396,7 @@ void SelectorDataList::executeSlowTraversingShadowTree(ContainerNode& rootNode, 
 const CSSSelector* SelectorDataList::selectorForIdLookup(const CSSSelector& firstSelector) const
 {
     for (const CSSSelector* selector = &firstSelector; selector; selector = selector->tagHistory()) {
-        if (selector->m_match == CSSSelector::Id)
+        if (selector->match() == CSSSelector::Id)
             return selector;
         if (selector->relation() != CSSSelector::SubSelector)
             break;
@@ -450,7 +450,7 @@ void SelectorDataList::execute(ContainerNode& rootNode, typename SelectorQueryTr
 
     if (!firstSelector.tagHistory()) {
         // Fast path for querySelector*('.foo'), and querySelector*('div').
-        switch (firstSelector.m_match) {
+        switch (firstSelector.match()) {
         case CSSSelector::Class:
             collectElementsByClassName<SelectorQueryTrait>(rootNode, firstSelector.value(), output);
             return;
@@ -465,9 +465,14 @@ void SelectorDataList::execute(ContainerNode& rootNode, typename SelectorQueryTr
     findTraverseRootsAndExecute<SelectorQueryTrait>(rootNode, output);
 }
 
-SelectorQuery::SelectorQuery(const CSSSelectorList& selectorList)
-    : m_selectorList(selectorList)
+PassOwnPtr<SelectorQuery> SelectorQuery::adopt(CSSSelectorList& selectorList)
 {
+    return adoptPtr(new SelectorQuery(selectorList));
+}
+
+SelectorQuery::SelectorQuery(CSSSelectorList& selectorList)
+{
+    m_selectorList.adopt(selectorList);
     m_selectors.initialize(m_selectorList);
 }
 
@@ -511,10 +516,7 @@ SelectorQuery* SelectorQueryCache::add(const AtomicString& selectors, const Docu
     if (m_entries.size() == maximumSelectorQueryCacheSize)
         m_entries.remove(m_entries.begin());
 
-    OwnPtr<SelectorQuery> selectorQuery = adoptPtr(new SelectorQuery(selectorList));
-    SelectorQuery* rawSelectorQuery = selectorQuery.get();
-    m_entries.add(selectors, selectorQuery.release());
-    return rawSelectorQuery;
+    return m_entries.add(selectors, SelectorQuery::adopt(selectorList)).storedValue->value.get();
 }
 
 void SelectorQueryCache::invalidate()

@@ -25,7 +25,7 @@
 #ifndef RenderStyle_h
 #define RenderStyle_h
 
-#include "CSSPropertyNames.h"
+#include "core/CSSPropertyNames.h"
 #include "core/animation/css/CSSAnimationData.h"
 #include "core/animation/css/CSSTransitionData.h"
 #include "core/css/CSSLineBoxContainValue.h"
@@ -47,6 +47,7 @@
 #include "core/rendering/style/StyleFlexibleBoxData.h"
 #include "core/rendering/style/StyleGridData.h"
 #include "core/rendering/style/StyleGridItemData.h"
+#include "core/rendering/style/StyleInheritedData.h"
 #include "core/rendering/style/StyleMarqueeData.h"
 #include "core/rendering/style/StyleMultiColData.h"
 #include "core/rendering/style/StyleRareInheritedData.h"
@@ -573,7 +574,7 @@ public:
     int fontSize() const;
     FontWeight fontWeight() const;
 
-    float textAutosizingMultiplier() const { return visual->m_textAutosizingMultiplier; }
+    float textAutosizingMultiplier() const { return inherited->textAutosizingMultiplier; }
 
     const Length& textIndent() const { return rareInheritedData->indent; }
     TextIndentLine textIndentLine() const { return static_cast<TextIndentLine>(rareInheritedData->m_textIndentLine); }
@@ -1010,13 +1011,23 @@ public:
     DraggableRegionMode getDraggableRegionMode() const { return rareNonInheritedData->m_draggableRegionMode; }
     void setDraggableRegionMode(DraggableRegionMode v) { SET_VAR(rareNonInheritedData, m_draggableRegionMode, v); }
 
-    void resetBorder() { resetBorderImage(); resetBorderTop(); resetBorderRight(); resetBorderBottom(); resetBorderLeft(); resetBorderRadius(); }
+    void resetBorder()
+    {
+        resetBorderImage();
+        resetBorderTop();
+        resetBorderRight();
+        resetBorderBottom();
+        resetBorderLeft();
+        resetBorderTopLeftRadius();
+        resetBorderTopRightRadius();
+        resetBorderBottomLeftRadius();
+        resetBorderBottomRightRadius();
+    }
     void resetBorderTop() { SET_VAR(surround, border.m_top, BorderValue()); }
     void resetBorderRight() { SET_VAR(surround, border.m_right, BorderValue()); }
     void resetBorderBottom() { SET_VAR(surround, border.m_bottom, BorderValue()); }
     void resetBorderLeft() { SET_VAR(surround, border.m_left, BorderValue()); }
     void resetBorderImage() { SET_VAR(surround, border.m_image, NinePieceImage()); }
-    void resetBorderRadius() { resetBorderTopLeftRadius(); resetBorderTopRightRadius(); resetBorderBottomLeftRadius(); resetBorderBottomRightRadius(); }
     void resetBorderTopLeftRadius() { SET_VAR(surround, border.m_topLeft, initialBorderRadius()); }
     void resetBorderTopRightRadius() { SET_VAR(surround, border.m_topRight, initialBorderRadius()); }
     void resetBorderBottomLeftRadius() { SET_VAR(surround, border.m_bottomLeft, initialBorderRadius()); }
@@ -1102,7 +1113,7 @@ public:
 
     void setTextAutosizingMultiplier(float v)
     {
-        SET_VAR(visual, m_textAutosizingMultiplier, v);
+        SET_VAR(inherited, textAutosizingMultiplier, v);
         setFontSize(fontDescription().specifiedSize());
     }
 
@@ -1122,7 +1133,6 @@ public:
     void setDirection(TextDirection v) { inherited_flags._direction = v; }
     void setLineHeight(const Length& specifiedLineHeight);
     bool setZoom(float);
-    void setZoomWithoutReturnValue(float f) { setZoom(f); }
     bool setEffectiveZoom(float);
 
     void setImageRendering(EImageRendering v) { SET_VAR(rareInheritedData, m_imageRendering, v); }
@@ -1187,7 +1197,6 @@ public:
     void setListStyleImage(PassRefPtr<StyleImage>);
     void setListStylePosition(EListStylePosition v) { inherited_flags._list_style_position = v; }
 
-    void resetMargin() { SET_VAR(surround, margin, LengthBox(Fixed)); }
     void setMarginTop(const Length& v) { SET_VAR(surround, margin.m_top, v); }
     void setMarginBottom(const Length& v) { SET_VAR(surround, margin.m_bottom, v); }
     void setMarginLeft(const Length& v) { SET_VAR(surround, margin.m_left, v); }
@@ -1392,6 +1401,9 @@ public:
     void setWillChangeContents(bool b) { SET_VAR(rareNonInheritedData.access()->m_willChange, m_contents, b); }
     void setWillChangeScrollPosition(bool b) { SET_VAR(rareNonInheritedData.access()->m_willChange, m_scrollPosition, b); }
     void setSubtreeWillChangeContents(bool b) { SET_VAR(rareInheritedData, m_subtreeWillChangeContents, b); }
+
+    bool requiresAcceleratedCompositingForExternalReasons(bool b) { return rareNonInheritedData->m_requiresAcceleratedCompositingForExternalReasons; }
+    void setRequiresAcceleratedCompositingForExternalReasons(bool b) { SET_VAR(rareNonInheritedData, m_requiresAcceleratedCompositingForExternalReasons, b); }
 
     const SVGRenderStyle* svgStyle() const { return m_svgStyle.get(); }
     SVGRenderStyle* accessSVGStyle() { return m_svgStyle.access(); }

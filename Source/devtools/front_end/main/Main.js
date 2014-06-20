@@ -66,6 +66,16 @@ WebInspector.Main.prototype = {
     _createGlobalStatusBarItems: function()
     {
         var extensions = WebInspector.moduleManager.extensions(WebInspector.StatusBarButton.Provider);
+
+        /**
+         * @param {!WebInspector.ModuleManager.Extension} left
+         * @param {!WebInspector.ModuleManager.Extension} right
+         */
+        function orderComparator(left, right)
+        {
+            return left.descriptor()["order"] - right.descriptor()["order"];
+        }
+        extensions.sort(orderComparator);
         extensions.forEach(function(extension) {
             var button;
             switch (extension.descriptor()["location"]) {
@@ -272,6 +282,7 @@ WebInspector.Main.prototype = {
     _doLoadedDoneWithCapabilities: function(mainTarget)
     {
         WebInspector.dockController = new WebInspector.DockController(!!WebInspector.queryParam("can_dock"));
+        WebInspector.overridesSupport = new WebInspector.OverridesSupport(WebInspector.experimentsSettings.responsiveDesign.isEnabled() && WebInspector.dockController.canDock());
 
         if (mainTarget.canScreencast)
             WebInspector.app = new WebInspector.ScreencastApp();
@@ -336,8 +347,6 @@ WebInspector.Main.prototype = {
         WebInspector.Linkifier.setLinkHandler(new WebInspector.HandlerRegistry.LinkHandler());
 
         new WebInspector.WorkspaceController(WebInspector.workspace);
-
-        WebInspector.overridesSupport = new WebInspector.OverridesSupport(WebInspector.experimentsSettings.responsiveDesign.isEnabled() && WebInspector.dockController.canDock());
 
         WebInspector.liveEditSupport = new WebInspector.LiveEditSupport(WebInspector.workspace);
         new WebInspector.CSSStyleSheetMapping(WebInspector.cssModel, WebInspector.workspace, WebInspector.networkWorkspaceBinding);
@@ -811,6 +820,10 @@ WebInspector.__defineGetter__("inspectedPageURL", function()
     return WebInspector.resourceTreeModel.inspectedPageURL();
 });
 
+/**
+ * @param {string} name
+ * @return {?WebInspector.Panel}
+ */
 WebInspector.panel = function(name)
 {
     return WebInspector.inspectorView.panel(name);

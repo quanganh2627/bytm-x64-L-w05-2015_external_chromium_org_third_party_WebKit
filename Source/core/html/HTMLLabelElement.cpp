@@ -25,7 +25,7 @@
 #include "config.h"
 #include "core/html/HTMLLabelElement.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/editing/FrameSelection.h"
 #include "core/events/MouseEvent.h"
@@ -51,10 +51,7 @@ inline HTMLLabelElement::HTMLLabelElement(Document& document)
     ScriptWrappable::init(this);
 }
 
-PassRefPtrWillBeRawPtr<HTMLLabelElement> HTMLLabelElement::create(Document& document)
-{
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLLabelElement(document));
-}
+DEFINE_NODE_FACTORY(HTMLLabelElement)
 
 bool HTMLLabelElement::rendererIsFocusable() const
 {

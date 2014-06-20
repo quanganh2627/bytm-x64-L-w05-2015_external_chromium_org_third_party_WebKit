@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,15 +24,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-[
-    DependentLifetime,
-] interface SVGElementInstance
-{
-    readonly attribute SVGElement correspondingElement;
-    readonly attribute SVGUseElement correspondingUseElement;
-    readonly attribute SVGElementInstance parentNode;
-    readonly attribute SVGElementInstance firstChild;
-    readonly attribute SVGElementInstance lastChild;
-    readonly attribute SVGElementInstance previousSibling;
-    readonly attribute SVGElementInstance nextSibling;
+#ifndef GraphicsLayerTreeBuilder_h
+#define GraphicsLayerTreeBuilder_h
+
+#include "platform/graphics/GraphicsLayer.h"
+#include "wtf/Vector.h"
+
+namespace WebCore {
+
+class RenderLayer;
+
+class GraphicsLayerTreeBuilder {
+public:
+    GraphicsLayerTreeBuilder();
+    ~GraphicsLayerTreeBuilder();
+
+    void rebuild(RenderLayer&, GraphicsLayerVector& childLayersOfEnclosingLayer);
 };
+
+} // namespace WebCore
+
+#endif // GraphicsLayerTreeBuilder_h

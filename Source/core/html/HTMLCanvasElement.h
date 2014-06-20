@@ -28,6 +28,7 @@
 #ifndef HTMLCanvasElement_h
 #define HTMLCanvasElement_h
 
+#include "core/dom/Document.h"
 #include "core/html/HTMLElement.h"
 #include "core/html/canvas/CanvasImageSource.h"
 #include "platform/geometry/FloatRect.h"
@@ -69,7 +70,7 @@ public:
 class HTMLCanvasElement FINAL : public HTMLElement, public DocumentVisibilityObserver, public CanvasImageSource, public ImageBufferClient {
     WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(HTMLCanvasElement);
 public:
-    static PassRefPtrWillBeRawPtr<HTMLCanvasElement> create(Document&);
+    DECLARE_NODE_FACTORY(HTMLCanvasElement);
     virtual ~HTMLCanvasElement();
 
     void addObserver(CanvasObserver*);
@@ -176,7 +177,7 @@ private:
 
     void updateExternallyAllocatedMemory() const;
 
-    String toDataURLInternal(const String& mimeType, const double* quality) const;
+    String toDataURLInternal(const String& mimeType, const double* quality, bool isSaving = false) const;
 
     WillBeHeapHashSet<RawPtrWillBeWeakMember<CanvasObserver> > m_observers;
 

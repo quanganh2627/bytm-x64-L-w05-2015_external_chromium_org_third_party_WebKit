@@ -25,11 +25,11 @@
 
 #include "core/svg/SVGElement.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
-#include "XLinkNames.h"
-#include "XMLNames.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
+#include "core/XLinkNames.h"
+#include "core/XMLNames.h"
 #include "core/css/CSSCursorImageValue.h"
 #include "core/css/parser/BisonCSSParser.h"
 #include "core/dom/Document.h"
@@ -71,7 +71,7 @@ void mapAttributeToCSSProperty(HashMap<StringImpl*, CSSPropertyID>* propertyName
 
 SVGElement::SVGElement(const QualifiedName& tagName, Document& document, ConstructionType constructionType)
     : Element(tagName, &document, constructionType)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     , m_inRelativeLengthClientsInvalidation(false)
 #endif
     // |m_isContextElement| must be initialized before |m_className|, as SVGAnimatedString tear-off c-tor currently set this to true.
@@ -101,10 +101,24 @@ SVGElement::~SVGElement()
     }
 
     // With Oilpan, either removedFrom has been called or the document is dead
-    // as well and there is no reason to clear out the extensions.
+    // as well and there is no reason to clear out the references.
     document().accessSVGExtensions().rebuildAllElementReferencesForTarget(this);
     document().accessSVGExtensions().removeAllElementReferencesForTarget(this);
 #endif
+}
+
+void SVGElement::detach(const AttachContext& context)
+{
+    Element::detach(context);
+    if (SVGElement* element = correspondingElement())
+        element->removeInstanceMapping(this);
+}
+
+void SVGElement::attach(const AttachContext& context)
+{
+    Element::attach(context);
+    if (SVGElement* element = correspondingElement())
+        element->mapInstanceToElement(this);
 }
 
 short SVGElement::tabIndex() const
@@ -330,7 +344,7 @@ void SVGElement::childrenChanged(bool changedByParser, Node* beforeChange, Node*
 {
     Element::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
-    // Invalidate all SVGElementInstances associated with us.
+    // Invalidate all instances associated with us.
     if (!changedByParser)
         invalidateInstances();
 }
@@ -455,7 +469,7 @@ void SVGElement::invalidateRelativeLengthClients(SubtreeLayoutScope* layoutScope
         return;
 
     ASSERT(!m_inRelativeLengthClientsInvalidation);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     TemporaryChange<bool> inRelativeLengthClientsInvalidationChange(m_inRelativeLengthClientsInvalidation, true);
 #endif
 
@@ -464,7 +478,7 @@ void SVGElement::invalidateRelativeLengthClients(SubtreeLayoutScope* layoutScope
         if (renderer->isSVGResourceContainer())
             toRenderSVGResourceContainer(renderer)->invalidateCacheAndMarkForLayout(layoutScope);
         else
-            renderer->setNeedsLayoutAndFullRepaint(MarkContainingBlockChain, layoutScope);
+            renderer->setNeedsLayoutAndFullPaintInvalidation(MarkContainingBlockChain, layoutScope);
     }
 
     WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >::iterator end = m_elementsWithRelativeLengths.end();
@@ -524,6 +538,9 @@ void SVGElement::removeInstanceMapping(SVGElement* instance)
 {
     ASSERT(instance);
     ASSERT(instance->inUseShadowTree());
+
+    if (!hasSVGRareData())
+        return;
 
     WillBeHeapHashSet<RawPtrWillBeWeakMember<SVGElement> >& instances = svgRareData()->elementInstances();
     ASSERT(instances.contains(instance));
@@ -658,7 +675,7 @@ void SVGElement::parseAttribute(const QualifiedName& name, const AtomicString& v
         // standard events
         const AtomicString& eventName = HTMLElement::eventNameForAttributeName(name);
         if (!eventName.isNull())
-            setAttributeEventListener(eventName, createAttributeEventListener(this, name, value));
+            setAttributeEventListener(eventName, createAttributeEventListener(this, name, value, eventParameterName()));
         else
             Element::parseAttribute(name, value);
     }
@@ -826,22 +843,7 @@ bool SVGElement::removeEventListener(const AtomicString& eventType, EventListene
         SVGElement* shadowTreeElement = *it;
         ASSERT(shadowTreeElement);
 
-        if (shadowTreeElement->Node::removeEventListener(eventType, listener, useCapture))
-            continue;
-
-        // This case can only be hit for event listeners created from markup
-        ASSERT(listener->wasCreatedFromMarkup());
-
-        // If the event listener 'listener' has been created from markup and has been fired before
-        // then JSLazyEventListener::parseCode() has been called and m_jsFunction of that listener
-        // has been created (read: it's not 0 anymore). During shadow tree creation, the event
-        // listener DOM attribute has been cloned, and another event listener has been setup in
-        // the shadow tree. If that event listener has not been used yet, m_jsFunction is still 0,
-        // and tryRemoveEventListener() above will fail. Work around that very seldom problem.
-        EventTargetData* data = shadowTreeElement->eventTargetData();
-        ASSERT(data);
-
-        data->eventListenerMap.removeFirstEventListenerCreatedFromMarkup(eventType);
+        shadowTreeElement->Node::removeEventListener(eventType, listener, useCapture);
     }
 
     return true;
@@ -1042,6 +1044,8 @@ void SVGElement::invalidateInstances()
         }
     }
 
+    svgRareData()->elementInstances().clear();
+
     document().updateRenderTreeIfNeeded();
 }
 
@@ -1170,6 +1174,12 @@ void SVGElement::trace(Visitor* visitor)
     visitor->trace(m_elementsWithRelativeLengths);
     visitor->trace(m_SVGRareData);
     Element::trace(visitor);
+}
+
+const AtomicString& SVGElement::eventParameterName()
+{
+    DEFINE_STATIC_LOCAL(const AtomicString, evtString, ("evt", AtomicString::ConstructFromLiteral));
+    return evtString;
 }
 
 }

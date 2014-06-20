@@ -51,8 +51,6 @@
 #include "core/rendering/RenderTheme.h"
 #include "core/rendering/RenderView.h"
 
-using namespace std;
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -271,6 +269,20 @@ void ContainerNode::insertBeforeCommon(Node& nextChild, Node& newChild)
     newChild.setNextSibling(&nextChild);
 }
 
+void ContainerNode::appendChildCommon(Node& child)
+{
+    child.setParentOrShadowHostNode(this);
+
+    if (m_lastChild) {
+        child.setPreviousSibling(m_lastChild);
+        m_lastChild->setNextSibling(&child);
+    } else {
+        setFirstChild(&child);
+    }
+
+    setLastChild(&child);
+}
+
 void ContainerNode::parserInsertBefore(PassRefPtrWillBeRawPtr<Node> newChild, Node& nextChild)
 {
     ASSERT(newChild);
@@ -374,7 +386,7 @@ void ContainerNode::replaceChild(PassRefPtrWillBeRawPtr<Node> newChild, Node* ol
             if (next)
                 insertBeforeCommon(*next, child);
             else
-                appendChildToContainer(child, *this);
+                appendChildCommon(child);
         }
 
         updateTreeAfterInsertion(child);
@@ -622,7 +634,7 @@ void ContainerNode::appendChild(PassRefPtrWillBeRawPtr<Node> newChild, Exception
             ScriptForbiddenScope forbidScript;
 
             treeScope().adoptIfNeeded(child);
-            appendChildToContainer(child, *this);
+            appendChildCommon(child);
         }
 
         updateTreeAfterInsertion(child);
@@ -648,8 +660,7 @@ void ContainerNode::parserAppendChild(PassRefPtrWillBeRawPtr<Node> newChild)
         ScriptForbiddenScope forbidScript;
 
         treeScope().adoptIfNeeded(*newChild);
-        // FIXME: This method should take a PassRefPtr.
-        appendChildToContainer(*newChild, *this);
+        appendChildCommon(*newChild);
         newChild->updateAncestorConnectedSubframeCountForInsertion();
         ChildListMutationScope(*this).childAdded(*newChild);
     }
@@ -1116,20 +1127,16 @@ void ContainerNode::checkForChildrenAdjacentRuleChanges()
     bool forceCheckOfAnyElementSibling = false;
     Document& document = this->document();
 
-    for (Node* child = firstChild(); child; child = child->nextSibling()) {
-        if (!child->isElementNode())
-            continue;
-        Element* element = toElement(child);
-        bool childRulesChanged = element->needsStyleRecalc() && element->styleChangeType() >= SubtreeStyleChange;
+    for (Element* child = ElementTraversal::firstChild(*this); child; child = ElementTraversal::nextSibling(*child)) {
+        bool childRulesChanged = child->needsStyleRecalc() && child->styleChangeType() >= SubtreeStyleChange;
 
         if (forceCheckOfNextElementCount || forceCheckOfAnyElementSibling)
-            element->setNeedsStyleRecalc(SubtreeStyleChange);
-
-        if (forceCheckOfNextElementCount)
-            forceCheckOfNextElementCount--;
+            child->setNeedsStyleRecalc(SubtreeStyleChange);
 
         if (childRulesChanged && hasDirectAdjacentRules)
             forceCheckOfNextElementCount = document.styleEngine()->maxDirectAdjacentSelectors();
+        else if (forceCheckOfNextElementCount)
+            --forceCheckOfNextElementCount;
 
         forceCheckOfAnyElementSibling = forceCheckOfAnyElementSibling || (childRulesChanged && hasIndirectAdjacentRules);
     }

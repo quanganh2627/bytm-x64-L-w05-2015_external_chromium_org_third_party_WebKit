@@ -25,7 +25,7 @@
 #include "config.h"
 #include "core/rendering/RenderTableCell.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/css/StylePropertySet.h"
 #include "core/html/HTMLTableCellElement.h"
 #include "core/rendering/PaintInfo.h"
@@ -104,7 +104,7 @@ void RenderTableCell::colSpanOrRowSpanChanged()
 
     // FIXME: I suspect that we could return early here if !m_hasColSpan && !m_hasRowSpan.
 
-    setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+    setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     if (parent() && section())
         section()->setNeedsCellRecalc();
 }
@@ -225,8 +225,8 @@ void RenderTableCell::setCellLogicalWidth(int tableLayoutLogicalWidth, SubtreeLa
 
     layouter.setNeedsLayout(this);
 
-    if (!table()->selfNeedsLayout() && checkForRepaintDuringLayout())
-        repaint();
+    if (!table()->selfNeedsLayout() && checkForPaintInvalidationDuringLayout())
+        paintInvalidationForWholeRenderer();
 
     setLogicalWidth(tableLayoutLogicalWidth);
     setCellWidthChanged(true);
@@ -319,14 +319,14 @@ LayoutSize RenderTableCell::offsetFromContainer(const RenderObject* o, const Lay
     return offset;
 }
 
-LayoutRect RenderTableCell::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
+LayoutRect RenderTableCell::clippedOverflowRectForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer) const
 {
     // If the table grid is dirty, we cannot get reliable information about adjoining cells,
     // so we ignore outside borders. This should not be a problem because it means that
     // the table is going to recalculate the grid, relayout and repaint its current rect, which
     // includes any outside borders of this cell.
     if (!table()->collapseBorders() || table()->needsSectionRecalc())
-        return RenderBlockFlow::clippedOverflowRectForRepaint(repaintContainer);
+        return RenderBlockFlow::clippedOverflowRectForPaintInvalidation(paintInvalidationContainer);
 
     bool rtl = !styleForCellFlow()->isLeftToRightDirection();
     int outlineSize = style()->outlineSize();
@@ -368,19 +368,19 @@ LayoutRect RenderTableCell::clippedOverflowRectForRepaint(const RenderLayerModel
             r.move(v->layoutDelta());
         }
     }
-    mapRectToRepaintBacking(repaintContainer, r);
+    mapRectToPaintInvalidationBacking(paintInvalidationContainer, r);
     return r;
 }
 
-void RenderTableCell::mapRectToRepaintBacking(const RenderLayerModelObject* repaintContainer, LayoutRect& r, bool fixed) const
+void RenderTableCell::mapRectToPaintInvalidationBacking(const RenderLayerModelObject* paintInvalidationContainer, LayoutRect& r, bool fixed) const
 {
-    if (repaintContainer == this)
+    if (paintInvalidationContainer == this)
         return;
     r.setY(r.y());
     RenderView* v = view();
-    if ((!v || !v->canUseLayoutStateForContainer(repaintContainer)) && parent())
+    if ((!v || !v->canMapUsingLayoutStateForContainer(paintInvalidationContainer)) && parent())
         r.moveBy(-parentBox()->location()); // Rows are in the same coordinate space, so don't add their offset in.
-    RenderBlockFlow::mapRectToRepaintBacking(repaintContainer, r, fixed);
+    RenderBlockFlow::mapRectToPaintInvalidationBacking(paintInvalidationContainer, r, fixed);
 }
 
 LayoutUnit RenderTableCell::cellBaselinePosition() const

@@ -23,7 +23,7 @@
 
 #include "core/svg/SVGFEImageElement.h"
 
-#include "XLinkNames.h"
+#include "core/XLinkNames.h"
 #include "core/dom/Document.h"
 #include "core/fetch/FetchRequest.h"
 #include "core/fetch/ResourceFetcher.h"
@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-SVGFEImageElement::SVGFEImageElement(Document& document)
+inline SVGFEImageElement::SVGFEImageElement(Document& document)
     : SVGFilterPrimitiveStandardAttributes(SVGNames::feImageTag, document)
     , SVGURIReference(this)
     , m_preserveAspectRatio(SVGAnimatedPreserveAspectRatio::create(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create()))
@@ -41,6 +41,8 @@ SVGFEImageElement::SVGFEImageElement(Document& document)
     ScriptWrappable::init(this);
     addToPropertyMap(m_preserveAspectRatio);
 }
+
+DEFINE_NODE_FACTORY(SVGFEImageElement)
 
 SVGFEImageElement::~SVGFEImageElement()
 {

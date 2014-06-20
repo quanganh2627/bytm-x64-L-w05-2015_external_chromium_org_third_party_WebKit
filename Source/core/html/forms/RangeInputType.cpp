@@ -32,9 +32,9 @@
 #include "config.h"
 #include "core/html/forms/RangeInputType.h"
 
-#include "HTMLNames.h"
-#include "InputTypeNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLNames.h"
+#include "core/InputTypeNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/events/MouseEvent.h"
@@ -61,7 +61,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace std;
 
 static const int rangeDefaultMinimum = 0;
 static const int rangeDefaultMaximum = 100;
@@ -193,7 +192,7 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
     // FIXME: We can't use stepUp() for the step value "any". So, we increase
     // or decrease the value by 1/100 of the value range. Is it reasonable?
     const Decimal step = equalIgnoringCase(element().fastGetAttribute(stepAttr), "any") ? (stepRange.maximum() - stepRange.minimum()) / 100 : stepRange.step();
-    const Decimal bigStep = max((stepRange.maximum() - stepRange.minimum()) / 10, step);
+    const Decimal bigStep = std::max((stepRange.maximum() - stepRange.minimum()) / 10, step);
 
     bool isVertical = false;
     if (element().renderer()) {
@@ -330,7 +329,7 @@ void RangeInputType::listAttributeTargetChanged()
     m_tickMarkValuesDirty = true;
     Element* sliderTrackElement = this->sliderTrackElement();
     if (sliderTrackElement->renderer())
-        sliderTrackElement->renderer()->setNeedsLayoutAndFullRepaint();
+        sliderTrackElement->renderer()->setNeedsLayoutAndFullPaintInvalidation();
 }
 
 static bool decimalCompare(const Decimal& a, const Decimal& b)

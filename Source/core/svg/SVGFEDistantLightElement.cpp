@@ -20,16 +20,18 @@
 #include "config.h"
 #include "core/svg/SVGFEDistantLightElement.h"
 
-#include "SVGNames.h"
+#include "core/SVGNames.h"
 #include "platform/graphics/filters/DistantLightSource.h"
 
 namespace WebCore {
 
-SVGFEDistantLightElement::SVGFEDistantLightElement(Document& document)
+inline SVGFEDistantLightElement::SVGFEDistantLightElement(Document& document)
     : SVGFELightElement(SVGNames::feDistantLightTag, document)
 {
     ScriptWrappable::init(this);
 }
+
+DEFINE_NODE_FACTORY(SVGFEDistantLightElement)
 
 PassRefPtr<LightSource> SVGFEDistantLightElement::lightSource() const
 {

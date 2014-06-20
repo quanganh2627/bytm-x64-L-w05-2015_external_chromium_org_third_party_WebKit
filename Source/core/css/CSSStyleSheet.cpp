@@ -21,11 +21,11 @@
 #include "config.h"
 #include "core/css/CSSStyleSheet.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/V8Binding.h"
 #include "bindings/v8/V8PerIsolateData.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
 #include "core/css/CSSCharsetRule.h"
 #include "core/css/CSSImportRule.h"
 #include "core/css/parser/BisonCSSParser.h"
@@ -74,7 +74,7 @@ private:
     RawPtrWillBeMember<CSSStyleSheet> m_styleSheet;
 };
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 static bool isAcceptableCSSStyleSheetParent(Node* parentNode)
 {
     // Only these nodes can be parents of StyleSheets, and they need to call

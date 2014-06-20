@@ -153,9 +153,6 @@ public:
     void paintOverflowControls(GraphicsContext*, const IntPoint& paintOffset, const IntRect& damageRect, bool paintingOverlayControls);
     void paintScrollCorner(GraphicsContext*, const IntPoint&, const IntRect& damageRect);
 
-    // If IntSize is not given, then we must incur additional overhead to instantiate a RenderGeometryMap
-    // and compute the correct offset ourselves.
-    void positionOverflowControls();
     void positionOverflowControls(const IntSize& offsetFromRoot);
 
     // isPointInResizeControl() is used for testing if a pointer/touch position is in the resize control
@@ -206,7 +203,6 @@ private:
     void setHasVerticalScrollbar(bool hasScrollbar);
 
     void updateScrollCornerStyle();
-    IntSize minimumSizeForResizing();
 
     // See comments on isPointInResizeControl.
     IntRect resizerCornerRect(const IntRect&, ResizerHitTestType) const;

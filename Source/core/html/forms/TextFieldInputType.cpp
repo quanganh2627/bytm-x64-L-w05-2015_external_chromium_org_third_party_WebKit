@@ -32,8 +32,8 @@
 #include "config.h"
 #include "core/html/forms/TextFieldInputType.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLNames.h"
 #include "core/dom/NodeRenderStyle.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/editing/FrameSelection.h"
@@ -100,7 +100,7 @@ private:
 public:
     static PassRefPtrWillBeRawPtr<DataListIndicatorElement> create(Document& document)
     {
-        RefPtrWillBeRawPtr<DataListIndicatorElement> element = adoptRefWillBeRefCountedGarbageCollected(new DataListIndicatorElement(document));
+        RefPtrWillBeRawPtr<DataListIndicatorElement> element = adoptRefWillBeNoop(new DataListIndicatorElement(document));
         element->setShadowPseudoId(AtomicString("-webkit-calendar-picker-indicator", AtomicString::ConstructFromLiteral));
         element->setAttribute(idAttr, ShadowElementNames::pickerIndicator());
         return element.release();

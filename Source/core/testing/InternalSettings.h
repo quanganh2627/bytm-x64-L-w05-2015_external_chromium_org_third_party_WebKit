@@ -27,7 +27,7 @@
 #ifndef InternalSettings_h
 #define InternalSettings_h
 
-#include "InternalSettingsGenerated.h"
+#include "core/InternalSettingsGenerated.h"
 #include "core/editing/EditingBehaviorTypes.h"
 #include "platform/geometry/IntSize.h"
 #include "platform/heap/Handle.h"
@@ -57,7 +57,6 @@ public:
 
         bool m_originalCSSExclusionsEnabled;
         bool m_originalAuthorShadowDOMForAnyElementEnabled;
-        bool m_originalStyleScoped;
         bool m_originalCSP;
         bool m_originalOverlayScrollbarsEnabled;
         EditingBehaviorType m_originalEditingBehavior;
@@ -115,7 +114,6 @@ public:
     void setCSSExclusionsEnabled(bool);
     void setLangAttributeAwareFormControlUIEnabled(bool);
     void setOverlayScrollbarsEnabled(bool);
-    void setStyleScopedEnabled(bool);
     void setExperimentalContentSecurityPolicyFeaturesEnabled(bool);
     void setPseudoClassesInMatchingCriteriaInAuthorShadowTreesEnabled(bool);
 

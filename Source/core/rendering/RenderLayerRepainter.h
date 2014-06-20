@@ -65,7 +65,7 @@ class RenderLayerRepainter {
 public:
     RenderLayerRepainter(RenderLayerModelObject&);
 
-    // Return a cached repaint rect, computed relative to the layer renderer's containerForRepaint.
+    // Return a cached repaint rect, computed relative to the layer renderer's containerForPaintInvalidation.
     LayoutRect repaintRect() const { return m_repaintRect; }
     LayoutRect repaintRectIncludingNonCompositingDescendants() const;
 
@@ -75,11 +75,10 @@ public:
     void setRepaintStatus(RepaintStatus status) { m_repaintStatus = status; }
 
     void computeRepaintRects();
-    void computeRepaintRectsIncludingDescendants();
+    void computeRepaintRectsIncludingNonCompositingDescendants();
 
     // Indicate that the layer contents need to be repainted. Only has an effect
     // if layer compositing is being used,
-    void setBackingNeedsRepaint();
     void setBackingNeedsRepaintInRect(const LayoutRect&); // r is in the coordinate space of the layer's render object
 
     void setFilterBackendNeedsRepaintingInRect(const LayoutRect&);

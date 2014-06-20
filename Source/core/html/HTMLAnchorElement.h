@@ -24,8 +24,9 @@
 #ifndef HTMLAnchorElement_h
 #define HTMLAnchorElement_h
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/DOMURLUtils.h"
+#include "core/dom/Document.h"
 #include "core/html/HTMLElement.h"
 #include "platform/LinkHash.h"
 

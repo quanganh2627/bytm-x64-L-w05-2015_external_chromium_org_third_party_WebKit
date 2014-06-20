@@ -27,8 +27,8 @@
 #include "core/editing/FrameSelection.h"
 
 #include <stdio.h>
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/css/StylePropertySet.h"
 #include "core/dom/CharacterData.h"
@@ -1323,7 +1323,7 @@ bool FrameSelection::contains(const LayoutPoint& point)
 void FrameSelection::selectFrameElementInParentIfFullySelected()
 {
     // Find the parent frame; if there is none, then we have nothing to do.
-    LocalFrame* parent = m_frame->tree().parent();
+    Frame* parent = m_frame->tree().parent();
     if (!parent)
         return;
     Page* page = m_frame->page();
@@ -1336,6 +1336,10 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
     if (!isStartOfDocument(selection().visibleStart()))
         return;
     if (!isEndOfDocument(selection().visibleEnd()))
+        return;
+
+    // FIXME: This is not yet implemented for cross-process frame relationships.
+    if (!parent->isLocalFrame())
         return;
 
     // Get to the <iframe> or <frame> (or even <object>) element in the parent frame.
@@ -1359,7 +1363,7 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
     // Focus on the parent frame, and then select from before this element to after.
     VisibleSelection newSelection(beforeOwnerElement, afterOwnerElement);
     page->focusController().setFocusedFrame(parent);
-    parent->selection().setSelection(newSelection);
+    toLocalFrame(parent)->selection().setSelection(newSelection);
 }
 
 void FrameSelection::selectAll()
@@ -1403,7 +1407,7 @@ void FrameSelection::selectAll()
     notifyRendererOfSelectionChange(UserTriggered);
 }
 
-bool FrameSelection::setSelectedRange(Range* range, EAffinity affinity, SetSelectionOptions options)
+bool FrameSelection::setSelectedRange(Range* range, EAffinity affinity, DirectoinalOption directional, SetSelectionOptions options)
 {
     if (!range || !range->startContainer() || !range->endContainer())
         return false;
@@ -1414,7 +1418,7 @@ bool FrameSelection::setSelectedRange(Range* range, EAffinity affinity, SetSelec
     m_logicalRange = nullptr;
     stopObservingVisibleSelectionChangeIfNecessary();
 
-    VisibleSelection newSelection(range, affinity);
+    VisibleSelection newSelection(range, affinity, directional == Directional);
     setSelection(newSelection, options);
 
     m_logicalRange = range->cloneRange();

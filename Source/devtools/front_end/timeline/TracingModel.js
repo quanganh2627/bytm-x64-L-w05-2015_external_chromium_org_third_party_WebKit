@@ -120,19 +120,23 @@ WebInspector.TracingModel.prototype = {
     },
 
     /**
-     * @param {string} sessionId
-     */
-    setSessionIdForTest: function(sessionId)
-    {
-        this._sessionId = sessionId;
-    },
-
-    /**
      * @return {?string}
      */
     sessionId: function()
     {
         return this._sessionId;
+    },
+
+    /**
+     * @param {string} sessionId
+     * @param {!Array.<!WebInspector.TracingModel.EventPayload>} events
+     */
+    setEventsForTest: function(sessionId, events)
+    {
+        this.reset();
+        this._sessionId = sessionId;
+        this._eventsCollected(events);
+        this._tracingComplete();
     },
 
     /**
@@ -164,8 +168,8 @@ WebInspector.TracingModel.prototype = {
     reset: function()
     {
         this._processById = {};
-        this._minimumRecordTime = null;
-        this._maximumRecordTime = null;
+        this._minimumRecordTime = 0;
+        this._maximumRecordTime = 0;
         this._sessionId = null;
         this._devtoolsMetadataEvents = [];
     },
@@ -181,13 +185,8 @@ WebInspector.TracingModel.prototype = {
             this._processById[payload.pid] = process;
         }
         var thread = process.threadById(payload.tid);
-        if (payload.ph === WebInspector.TracingModel.Phase.SnapshotObject) {
-            var event = thread.addEvent(payload);
-            process.addObject(event);
-            return;
-        }
         if (payload.ph !== WebInspector.TracingModel.Phase.Metadata) {
-            var timestamp = payload.ts;
+            var timestamp = payload.ts / 1000;
             // We do allow records for unrelated threads to arrive out-of-order,
             // so there's a chance we're getting records from the past.
             if (timestamp && (!this._minimumRecordTime || timestamp < this._minimumRecordTime))
@@ -195,6 +194,8 @@ WebInspector.TracingModel.prototype = {
             if (!this._maximumRecordTime || timestamp > this._maximumRecordTime)
                 this._maximumRecordTime = timestamp;
             var event = thread.addEvent(payload);
+            if (payload.ph === WebInspector.TracingModel.Phase.SnapshotObject)
+                process.addObject(event);
             if (event && event.name === WebInspector.TracingModel.DevToolsMetadataEvent.TracingStartedInPage &&
                 event.category === WebInspector.TracingModel.DevToolsMetadataEventCategory &&
                 event.args["sessionId"] === this._sessionId)
@@ -218,7 +219,7 @@ WebInspector.TracingModel.prototype = {
     },
 
     /**
-     * @return {?number}
+     * @return {number}
      */
     minimumRecordTime: function()
     {
@@ -226,7 +227,7 @@ WebInspector.TracingModel.prototype = {
     },
 
     /**
-     * @return {?number}
+     * @return {number}
      */
     maximumRecordTime: function()
     {
@@ -254,10 +255,13 @@ WebInspector.TracingModel.Event = function(payload, level, thread)
 {
     this.name = payload.name;
     this.category = payload.cat;
-    this.startTime = payload.ts;
+    this.startTime = payload.ts / 1000;
     this.args = payload.args;
     this.phase = payload.ph;
     this.level = level;
+
+    if (payload.dur)
+        this._setEndTime((payload.ts + payload.dur) / 1000);
 
     if (payload.id)
         this.id = payload.id;
@@ -283,12 +287,16 @@ WebInspector.TracingModel.Event = function(payload, level, thread)
 
 WebInspector.TracingModel.Event.prototype = {
     /**
-     * @param {number} duration
+     * @param {number} endTime
      */
-    _setDuration: function(duration)
+    _setEndTime: function(endTime)
     {
-        this.endTime = this.startTime + duration;
-        this.duration = duration;
+        if (endTime < this.startTime) {
+            console.assert(false, "Event out of order: " + this.name);
+            return;
+        }
+        this.endTime = endTime;
+        this.duration = endTime - this.startTime;
     },
 
     /**
@@ -307,12 +315,7 @@ WebInspector.TracingModel.Event.prototype = {
                 this.args[name] = payload.args[name];
             }
         }
-        var duration = payload.ts - this.startTime;
-        if (duration < 0) {
-            console.assert(false, "Event out of order: " + this.name);
-            return;
-        }
-        this._setDuration(duration);
+        this._setEndTime(payload.ts / 1000);
     }
 }
 
@@ -468,7 +471,7 @@ WebInspector.TracingModel.Thread.prototype = {
      */
     addEvent: function(payload)
     {
-        for (var top = this._stack.peekLast(); top && top.endTime && top.endTime <= payload.ts;) {
+        for (var top = this._stack.peekLast(); top && top.endTime && top.endTime <= payload.ts / 1000;) {
             this._stack.pop();
             top = this._stack.peekLast();
         }
@@ -482,8 +485,6 @@ WebInspector.TracingModel.Thread.prototype = {
 
         var event = new WebInspector.TracingModel.Event(payload, this._stack.length, this);
         if (payload.ph === WebInspector.TracingModel.Phase.Begin || payload.ph === WebInspector.TracingModel.Phase.Complete) {
-            if (payload.ph === WebInspector.TracingModel.Phase.Complete)
-                event._setDuration(payload.dur);
             this._stack.push(event);
             if (this._maxStackDepth < this._stack.length)
                 this._maxStackDepth = this._stack.length;

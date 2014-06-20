@@ -61,12 +61,10 @@ class WebHitTestResult;
 class WebImage;
 class WebInputElement;
 class WebKeyboardEvent;
-class WebMIDIClient;
 class WebNode;
 class WebPushClient;
 class WebRange;
 class WebSpeechRecognizer;
-class WebScreenOrientationClient;
 class WebStorageNamespace;
 class WebURL;
 class WebURLRequest;
@@ -286,21 +284,9 @@ public:
     }
 
 
-    // Web MIDI -------------------------------------------------------------
-
-    virtual WebMIDIClient* webMIDIClient() { return 0; }
-
-
     // Push Messaging -------------------------------------------------------
 
     virtual WebPushClient* webPushClient() { return 0; }
-
-    // Screen Orientation ---------------------------------------------------
-
-    virtual WebScreenOrientationClient* webScreenOrientationClient()
-    {
-        return 0;
-    }
 
 
     // Content detection ----------------------------------------------------

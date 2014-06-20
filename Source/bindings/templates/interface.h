@@ -153,7 +153,7 @@ public:
     static void installPerContextEnabledProperties(v8::Handle<v8::Object>, {{cpp_class}}*, v8::Isolate*){% if has_per_context_enabled_attributes %};
     {% else %} { }
     {% endif %}
-    static void installPerContextEnabledMethods(v8::Handle<v8::Object>, v8::Isolate*){% if has_per_context_enabled_methods %};
+    static void installPerContextEnabledMethods(v8::Handle<v8::Object>, v8::Isolate*){% if per_context_enabled_methods %};
     {% else %} { }
     {% endif %}
     {# Element wrappers #}
@@ -200,16 +200,7 @@ inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo, {{cpp_class}}
      v8SetReturnValue(callbackInfo, toV8(impl, callbackInfo.Holder(), callbackInfo.GetIsolate()));
 }
 {% else %}{# has_custom_to_v8 #}
-{% if has_custom_wrap or special_wrap_for or is_document %}
 v8::Handle<v8::Object> wrap({{cpp_class}}* impl, v8::Handle<v8::Object> creationContext, v8::Isolate*);
-{% else %}
-inline v8::Handle<v8::Object> wrap({{cpp_class}}* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
-{
-    ASSERT(impl);
-    ASSERT(!DOMDataStore::containsWrapper<{{v8_class}}>(impl, isolate));
-    return {{v8_class}}::createWrapper(impl, creationContext, isolate);
-}
-{% endif %}
 
 inline v8::Handle<v8::Value> toV8({{cpp_class}}* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
 {

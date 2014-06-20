@@ -27,11 +27,11 @@
 #include "config.h"
 #include "core/editing/Editor.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
-#include "SVGNames.h"
-#include "XLinkNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/CSSPropertyNames.h"
+#include "core/EventNames.h"
+#include "core/HTMLNames.h"
+#include "core/XLinkNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/clipboard/Clipboard.h"
 #include "core/clipboard/DataObject.h"
@@ -68,6 +68,7 @@
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
+#include "core/frame/UseCounter.h"
 #include "core/html/HTMLImageElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLTextAreaElement.h"
@@ -86,7 +87,6 @@
 
 namespace WebCore {
 
-using namespace std;
 using namespace HTMLNames;
 using namespace WTF;
 using namespace Unicode;
@@ -719,7 +719,8 @@ void Editor::unappliedEditing(PassRefPtrWillBeRawPtr<EditCommandComposition> cmd
 
     VisibleSelection newSelection(cmd->startingSelection());
     newSelection.validatePositionsIfNeeded();
-    changeSelectionAfterCommand(newSelection, FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle);
+    if (newSelection.start().document() == m_frame.document() && newSelection.end().document() == m_frame.document())
+        changeSelectionAfterCommand(newSelection, FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle);
 
     m_lastEditCommand = nullptr;
     if (UndoStack* undoStack = this->undoStack())
@@ -920,6 +921,71 @@ void Editor::performDelete()
     setStartNewKillRingSequence(false);
 }
 
+static void countEditingEvent(ExecutionContext* executionContext, const Event* event, UseCounter::Feature featureOnInput, UseCounter::Feature featureOnTextArea, UseCounter::Feature featureOnContentEditable, UseCounter::Feature featureOnNonNode)
+{
+    EventTarget* eventTarget = event->target();
+    Node* node = eventTarget->toNode();
+    if (!node) {
+        UseCounter::count(executionContext, featureOnNonNode);
+        return;
+    }
+
+    if (isHTMLInputElement(node)) {
+        UseCounter::count(executionContext, featureOnInput);
+        return;
+    }
+
+    if (isHTMLTextAreaElement(node)) {
+        UseCounter::count(executionContext, featureOnTextArea);
+        return;
+    }
+
+    HTMLTextFormControlElement* control = enclosingTextFormControl(node);
+    if (isHTMLInputElement(control)) {
+        UseCounter::count(executionContext, featureOnInput);
+        return;
+    }
+
+    if (isHTMLTextAreaElement(control)) {
+        UseCounter::count(executionContext, featureOnTextArea);
+        return;
+    }
+
+    UseCounter::count(executionContext, featureOnContentEditable);
+}
+
+void Editor::countEvent(ExecutionContext* executionContext, const Event* event)
+{
+    if (!executionContext)
+        return;
+
+    if (event->type() == EventTypeNames::textInput) {
+        countEditingEvent(executionContext, event,
+            UseCounter::TextInputEventOnInput,
+            UseCounter::TextInputEventOnTextArea,
+            UseCounter::TextInputEventOnContentEditable,
+            UseCounter::TextInputEventOnNotNode);
+        return;
+    }
+
+    if (event->type() == EventTypeNames::webkitBeforeTextInserted) {
+        countEditingEvent(executionContext, event,
+            UseCounter::WebkitBeforeTextInsertedOnInput,
+            UseCounter::WebkitBeforeTextInsertedOnTextArea,
+            UseCounter::WebkitBeforeTextInsertedOnContentEditable,
+            UseCounter::WebkitBeforeTextInsertedOnNotNode);
+        return;
+    }
+
+    if (event->type() == EventTypeNames::webkitEditableContentChanged) {
+        countEditingEvent(executionContext, event,
+            UseCounter::WebkitEditableContentChangedOnInput,
+            UseCounter::WebkitEditableContentChangedOnTextArea,
+            UseCounter::WebkitEditableContentChangedOnContentEditable,
+            UseCounter::WebkitEditableContentChangedOnNotNode);
+    }
+}
+
 void Editor::copyImage(const HitTestResult& result)
 {
     writeImageNodeToPasteboard(Pasteboard::generalPasteboard(), result.innerNonSharedNode(), result.altDisplayString());
@@ -1063,10 +1129,10 @@ IntRect Editor::firstRectForRange(Range* range) const
 
     if (startCaretRect.y() == endCaretRect.y()) {
         // start and end are on the same line
-        return IntRect(min(startCaretRect.x(), endCaretRect.x()),
+        return IntRect(std::min(startCaretRect.x(), endCaretRect.x()),
             startCaretRect.y(),
             abs(endCaretRect.x() - startCaretRect.x()),
-            max(startCaretRect.height(), endCaretRect.height()));
+            std::max(startCaretRect.height(), endCaretRect.height()));
     }
 
     // start and end aren't on the same line, so go from start to the end of its line

@@ -235,10 +235,10 @@ if (!{{argument.name}}.isUndefinedOrNull() && !{{argument.name}}.isObject()) {
 ScriptState* scriptState = ScriptState::current(info.GetIsolate());
 {% endif %}
 {% if method.is_call_with_execution_context %}
-ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
+ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
 {% endif %}
 {% if method.is_call_with_script_arguments %}
-RefPtr<ScriptArguments> scriptArguments(createScriptArguments(scriptState, info, {{method.number_of_arguments}}));
+RefPtrWillBeRawPtr<ScriptArguments> scriptArguments(createScriptArguments(scriptState, info, {{method.number_of_arguments}}));
 {% endif %}
 {# Call #}
 {% if method.idl_type == 'void' %}
@@ -347,10 +347,12 @@ static void {{overloads.name}}Method{{world_suffix}}(const v8::FunctionCallbackI
     switch (std::min({{overloads.maxarg}}, info.Length())) {
     {# 3. Remove from S all entries whose type list is not of length argcount. #}
     {% for length, tests_methods in overloads.length_tests_methods %}
+    {# 10. If i = d, then: #}
     case {{length}}:
         {# Then resolve by testing argument #}
         {% for test, method in tests_methods %}
-        {# 10. If i = d, then: #}
+        {% filter runtime_enabled(not overloads.runtime_enabled_function_all and
+                                  method.runtime_enabled_function) %}
         if ({{test}}) {
             {% if method.measure_as and not overloads.measure_all_as %}
             UseCounter::count(callingExecutionContext(isolate), UseCounter::{{method.measure_as}});
@@ -361,6 +363,7 @@ static void {{overloads.name}}Method{{world_suffix}}(const v8::FunctionCallbackI
             {{method.name}}{{method.overload_index}}Method{{world_suffix}}(info);
             return;
         }
+        {% endfilter %}
         {% endfor %}
         break;
     {% endfor %}
@@ -400,8 +403,13 @@ static void {{method.name}}MethodCallback{{world_suffix}}(const v8::FunctionCall
     {% endif %}
     {% endif %}{# not method.overloads #}
     {% if world_suffix in method.activity_logging_world_list %}
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
+    ScriptState* scriptState = ScriptState::from(info.GetIsolate()->GetCurrentContext());
+    V8PerContextData* contextData = scriptState->perContextData();
+    {% if method.activity_logging_world_check %}
+    if (scriptState->world().isIsolatedWorld() && contextData && contextData->activityLogger())
+    {% else %}
     if (contextData && contextData->activityLogger()) {
+    {% endif %}
         {# FIXME: replace toVectorOfArguments with toNativeArguments(info, 0)
            and delete toVectorOfArguments #}
         Vector<v8::Handle<v8::Value> > loggerArgs = toNativeArguments<v8::Handle<v8::Value> >(info, 0);
@@ -486,12 +494,12 @@ static void constructor{{constructor.overload_index}}(const v8::FunctionCallback
     {{generate_arguments(constructor) | indent}}
     {% endif %}
     {% if is_constructor_call_with_execution_context %}
-    ExecutionContext* context = currentExecutionContext(isolate);
+    ExecutionContext* executionContext = currentExecutionContext(isolate);
     {% endif %}
     {% if is_constructor_call_with_document %}
     Document& document = *toDocument(currentExecutionContext(isolate));
     {% endif %}
-    {{constructor.cpp_type}} impl = {{cpp_class}}::create({{constructor.argument_list | join(', ')}});
+    {{constructor.cpp_type}} impl = {{constructor.cpp_value}};
     {% if is_constructor_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;
@@ -532,12 +540,13 @@ static void {{v8_class}}ConstructorCallback(const v8::FunctionCallbackInfo<v8::V
         return;
     }
 
-    Document* document = currentDOMWindow(isolate)->document();
-    ASSERT(document);
+    Document* documentPtr = currentDOMWindow(isolate)->document();
+    ASSERT(documentPtr);
+    Document& document = *documentPtr;
 
     // Make sure the document is added to the DOM Node map. Otherwise, the {{cpp_class}} instance
     // may end up being the only node in the map and get garbage-collected prematurely.
-    toV8(document, info.Holder(), isolate);
+    toV8(documentPtr, info.Holder(), isolate);
 
     {% if constructor.has_exception_state %}
     ExceptionState exceptionState(ExceptionState::ConstructionContext, "{{interface_name}}", info.Holder(), isolate);
@@ -551,7 +560,7 @@ static void {{v8_class}}ConstructorCallback(const v8::FunctionCallbackInfo<v8::V
     {% if constructor.arguments %}
     {{generate_arguments(constructor) | indent}}
     {% endif %}
-    {{constructor.cpp_type}} impl = {{cpp_class}}::createForJSConstructor({{constructor.argument_list | join(', ')}});
+    {{constructor.cpp_type}} impl = {{constructor.cpp_value}};
     {% if is_constructor_raises_exception %}
     if (exceptionState.throwIfNeeded())
         return;

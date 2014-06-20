@@ -53,6 +53,15 @@ ScriptedAnimationController::~ScriptedAnimationController()
 {
 }
 
+void ScriptedAnimationController::trace(Visitor* visitor)
+{
+    visitor->trace(m_document);
+    visitor->trace(m_eventQueue);
+#if ENABLE(OILPAN)
+    visitor->trace(m_perFrameEvents);
+#endif
+}
+
 void ScriptedAnimationController::suspend()
 {
     ++m_suspendCount;
@@ -123,6 +132,8 @@ void ScriptedAnimationController::dispatchEvents()
             window->dispatchEvent(events[i], nullptr);
         else
             eventTarget->dispatchEvent(events[i]);
+
+        InspectorInstrumentation::didRemoveEvent(eventTarget, events[i].get());
     }
 }
 
@@ -166,7 +177,7 @@ void ScriptedAnimationController::serviceScriptedAnimations(double monotonicTime
     if (m_suspendCount)
         return;
 
-    RefPtr<ScriptedAnimationController> protect(this);
+    RefPtrWillBeRawPtr<ScriptedAnimationController> protect(this);
 
     dispatchEvents();
     executeCallbacks(monotonicTimeNow);
@@ -176,6 +187,7 @@ void ScriptedAnimationController::serviceScriptedAnimations(double monotonicTime
 
 void ScriptedAnimationController::enqueueEvent(PassRefPtrWillBeRawPtr<Event> event)
 {
+    InspectorInstrumentation::didEnqueueEvent(event->target(), event.get());
     m_eventQueue.append(event);
     scheduleAnimationIfNeeded();
 }

@@ -27,7 +27,6 @@
 #include "config.h"
 #include "core/frame/DOMWindow.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
@@ -96,6 +95,7 @@
 #include "core/storage/StorageNamespace.h"
 #include "core/timing/Performance.h"
 #include "platform/PlatformScreen.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/geometry/FloatRect.h"
 #include "platform/graphics/media/MediaPlayer.h"
@@ -115,7 +115,7 @@ namespace WebCore {
 
 class PostMessageTimer FINAL : public SuspendableTimer {
 public:
-    PostMessageTimer(DOMWindow& window, PassRefPtr<SerializedScriptValue> message, const String& sourceOrigin, PassRefPtrWillBeRawPtr<DOMWindow> source, PassOwnPtr<MessagePortChannelArray> channels, SecurityOrigin* targetOrigin, PassRefPtr<ScriptCallStack> stackTrace, UserGestureToken* userGestureToken)
+    PostMessageTimer(DOMWindow& window, PassRefPtr<SerializedScriptValue> message, const String& sourceOrigin, PassRefPtrWillBeRawPtr<DOMWindow> source, PassOwnPtr<MessagePortChannelArray> channels, SecurityOrigin* targetOrigin, PassRefPtrWillBeRawPtr<ScriptCallStack> stackTrace, UserGestureToken* userGestureToken)
         : SuspendableTimer(window.document())
         , m_window(window)
         , m_message(message)
@@ -150,7 +150,7 @@ private:
     RefPtrWillBePersistent<DOMWindow> m_source;
     OwnPtr<MessagePortChannelArray> m_channels;
     RefPtr<SecurityOrigin> m_targetOrigin;
-    RefPtr<ScriptCallStack> m_stackTrace;
+    RefPtrWillBePersistent<ScriptCallStack> m_stackTrace;
     RefPtr<UserGestureToken> m_userGestureToken;
 };
 
@@ -859,7 +859,7 @@ void DOMWindow::postMessage(PassRefPtr<SerializedScriptValue> message, const Mes
         UseCounter::count(document(), UseCounter::PostMessageFromInsecureToSecure);
 
     // Capture stack trace only when inspector front-end is loaded as it may be time consuming.
-    RefPtr<ScriptCallStack> stackTrace;
+    RefPtrWillBeRawPtr<ScriptCallStack> stackTrace = nullptr;
     if (InspectorInstrumentation::consoleAgentEnabled(sourceDocument))
         stackTrace = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
 
@@ -890,7 +890,7 @@ void DOMWindow::postMessageTimerFired(PassOwnPtr<PostMessageTimer> t)
     dispatchMessageEventWithOriginCheck(timer->targetOrigin(), event, timer->stackTrace());
 }
 
-void DOMWindow::dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, PassRefPtrWillBeRawPtr<Event> event, PassRefPtr<ScriptCallStack> stackTrace)
+void DOMWindow::dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, PassRefPtrWillBeRawPtr<Event> event, PassRefPtrWillBeRawPtr<ScriptCallStack> stackTrace)
 {
     if (intendedTargetOrigin) {
         // Check target origin now since the target document may have changed since the timer was scheduled.
@@ -1112,8 +1112,10 @@ int DOMWindow::innerHeight() const
         return 0;
 
     // FIXME: This is potentially too much work. We really only need to know the dimensions of the parent frame's renderer.
-    if (LocalFrame* parent = m_frame->tree().parent())
-        parent->document()->updateLayoutIgnorePendingStylesheets();
+    if (Frame* parent = m_frame->tree().parent()) {
+        if (parent && parent->isLocalFrame())
+            toLocalFrame(parent)->document()->updateLayoutIgnorePendingStylesheets();
+    }
 
     return adjustForAbsoluteZoom(view->visibleContentRect(IncludeScrollbars).height(), m_frame->pageZoomFactor());
 }
@@ -1128,8 +1130,10 @@ int DOMWindow::innerWidth() const
         return 0;
 
     // FIXME: This is potentially too much work. We really only need to know the dimensions of the parent frame's renderer.
-    if (LocalFrame* parent = m_frame->tree().parent())
-        parent->document()->updateLayoutIgnorePendingStylesheets();
+    if (Frame* parent = m_frame->tree().parent()) {
+        if (parent && parent->isLocalFrame())
+            toLocalFrame(parent)->document()->updateLayoutIgnorePendingStylesheets();
+    }
 
     return adjustForAbsoluteZoom(view->visibleContentRect(IncludeScrollbars).width(), m_frame->pageZoomFactor());
 }
@@ -1276,7 +1280,7 @@ DOMWindow* DOMWindow::parent() const
     if (!m_frame)
         return 0;
 
-    LocalFrame* parent = m_frame->tree().parent();
+    Frame* parent = m_frame->tree().parent();
     if (parent)
         return parent->domWindow();
 
@@ -1382,12 +1386,8 @@ static bool scrollBehaviorFromScrollOptions(const Dictionary& scrollOptions, Scr
     return false;
 }
 
-void DOMWindow::scrollBy(int x, int y, const Dictionary& scrollOptions, ExceptionState &exceptionState) const
+void DOMWindow::scrollBy(int x, int y) const
 {
-    ScrollBehavior scrollBehavior = ScrollBehaviorAuto;
-    if (RuntimeEnabledFeatures::cssomSmoothScrollEnabled() && !scrollBehaviorFromScrollOptions(scrollOptions, scrollBehavior, exceptionState))
-        return;
-
     if (!isCurrentlyDisplayedInFrame())
         return;
 
@@ -1402,12 +1402,16 @@ void DOMWindow::scrollBy(int x, int y, const Dictionary& scrollOptions, Exceptio
     view->scrollBy(scaledOffset);
 }
 
-void DOMWindow::scrollTo(int x, int y, const Dictionary& scrollOptions, ExceptionState& exceptionState) const
+void DOMWindow::scrollBy(int x, int y, const Dictionary& scrollOptions, ExceptionState &exceptionState) const
 {
     ScrollBehavior scrollBehavior = ScrollBehaviorAuto;
-    if (RuntimeEnabledFeatures::cssomSmoothScrollEnabled() && !scrollBehaviorFromScrollOptions(scrollOptions, scrollBehavior, exceptionState))
+    if (!scrollBehaviorFromScrollOptions(scrollOptions, scrollBehavior, exceptionState))
         return;
+    scrollBy(x, y);
+}
 
+void DOMWindow::scrollTo(int x, int y) const
+{
     if (!isCurrentlyDisplayedInFrame())
         return;
 
@@ -1420,6 +1424,14 @@ void DOMWindow::scrollTo(int x, int y, const Dictionary& scrollOptions, Exceptio
     IntPoint layoutPos(x * m_frame->pageZoomFactor(), y * m_frame->pageZoomFactor());
     // FIXME: Use scrollBehavior to decide whether to scroll smoothly or instantly.
     view->setScrollPosition(layoutPos);
+}
+
+void DOMWindow::scrollTo(int x, int y, const Dictionary& scrollOptions, ExceptionState& exceptionState) const
+{
+    ScrollBehavior scrollBehavior = ScrollBehaviorAuto;
+    if (!scrollBehaviorFromScrollOptions(scrollOptions, scrollBehavior, exceptionState))
+        return;
+    scrollTo(x, y);
 }
 
 void DOMWindow::moveBy(float x, float y) const
@@ -1813,16 +1825,17 @@ PassRefPtrWillBeRawPtr<DOMWindow> DOMWindow::open(const String& urlString, const
 
     // Get the target frame for the special cases of _top and _parent.
     // In those cases, we schedule a location change right now and return early.
-    LocalFrame* targetFrame = 0;
+    Frame* targetFrame = 0;
     if (frameName == "_top")
         targetFrame = m_frame->tree().top();
     else if (frameName == "_parent") {
-        if (LocalFrame* parent = m_frame->tree().parent())
+        if (Frame* parent = m_frame->tree().parent())
             targetFrame = parent;
         else
             targetFrame = m_frame;
     }
-    if (targetFrame) {
+    // FIXME: Navigating RemoteFrames is not yet supported.
+    if (targetFrame && targetFrame->isLocalFrame()) {
         if (!activeDocument->canNavigate(*targetFrame))
             return nullptr;
 
@@ -1836,7 +1849,7 @@ PassRefPtrWillBeRawPtr<DOMWindow> DOMWindow::open(const String& urlString, const
 
         // For whatever reason, Firefox uses the first window rather than the active window to
         // determine the outgoing referrer. We replicate that behavior here.
-        targetFrame->navigationScheduler().scheduleLocationChange(
+        toLocalFrame(targetFrame)->navigationScheduler().scheduleLocationChange(
             activeDocument,
             completedURL,
             Referrer(firstFrame->document()->outgoingReferrer(), firstFrame->document()->referrerPolicy()),
@@ -1881,7 +1894,7 @@ DOMWindow* DOMWindow::anonymousIndexedGetter(uint32_t index)
     if (!frame)
         return 0;
 
-    LocalFrame* child = frame->tree().scopedChild(index);
+    Frame* child = frame->tree().scopedChild(index);
     if (child)
         return child->domWindow();
 
@@ -1918,6 +1931,7 @@ void DOMWindow::trace(Visitor* visitor)
     visitor->trace(m_applicationCache);
     visitor->trace(m_performance);
     visitor->trace(m_css);
+    visitor->trace(m_eventQueue);
     WillBeHeapSupplementable<DOMWindow>::trace(visitor);
     EventTargetWithInlineData::trace(visitor);
 }

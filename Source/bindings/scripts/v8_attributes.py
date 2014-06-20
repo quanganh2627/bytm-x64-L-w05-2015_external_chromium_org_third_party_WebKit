@@ -94,6 +94,7 @@ def generate_attribute(interface, attribute):
         'activity_logging_world_list_for_getter': v8_utilities.activity_logging_world_list(attribute, 'Getter'),  # [ActivityLogging]
         'activity_logging_world_list_for_setter': v8_utilities.activity_logging_world_list(attribute, 'Setter'),  # [ActivityLogging]
         'activity_logging_include_old_value_for_setter': 'LogPreviousValue' in extended_attributes,  # [ActivityLogging]
+        'activity_logging_world_check': v8_utilities.activity_logging_world_check(attribute),  # [ActivityLogging]
         'cached_attribute_validation_method': extended_attributes.get('CachedAttribute'),
         'conditional_string': v8_utilities.conditional_string(attribute),
         'constructor_type': idl_type.constructor_type_name
@@ -108,7 +109,7 @@ def generate_attribute(interface, attribute):
         'has_setter_exception_state':
             is_setter_raises_exception or has_type_checking_interface or
             has_type_checking_nullable or has_type_checking_unrestricted or
-            idl_type.is_integer_type,
+            idl_type.is_integer_type or idl_type.name == 'ByteString',
         'has_type_checking_interface': has_type_checking_interface,
         'has_type_checking_nullable': has_type_checking_nullable,
         'has_type_checking_unrestricted': has_type_checking_unrestricted,
@@ -212,7 +213,8 @@ def getter_expression(interface, attribute, contents):
     this_getter_base_name = getter_base_name(interface, attribute, arguments)
     getter_name = scoped_name(interface, attribute, this_getter_base_name)
 
-    arguments.extend(v8_utilities.call_with_arguments(attribute))
+    arguments.extend(v8_utilities.call_with_arguments(
+        attribute.extended_attributes.get('CallWith')))
     # Members of IDL partial interface definitions are implemented in C++ as
     # static member functions, which for instance members (non-static members)
     # take *impl as their first argument
@@ -307,7 +309,9 @@ def generate_setter(interface, attribute, contents):
 
 def setter_expression(interface, attribute, contents):
     extended_attributes = attribute.extended_attributes
-    arguments = v8_utilities.call_with_arguments(attribute, extended_attributes.get('SetterCallWith'))
+    arguments = v8_utilities.call_with_arguments(
+        extended_attributes.get('SetterCallWith') or
+        extended_attributes.get('CallWith'))
 
     this_setter_base_name = setter_base_name(interface, attribute, arguments)
     setter_name = scoped_name(interface, attribute, this_setter_base_name)

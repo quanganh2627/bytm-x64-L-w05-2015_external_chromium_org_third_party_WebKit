@@ -195,7 +195,7 @@ TEST_F(PinchViewportTest, TestResize)
     EXPECT_SIZE_EQ(newViewportSize, pinchViewport.size());
 }
 
-static void turnOffForceCompositingMode(WebSettings* settings)
+static void disableAcceleratedCompositing(WebSettings* settings)
 {
     PinchViewportTest::configureSettings(settings);
     // FIXME: This setting is being removed, so this test needs to be rewritten to
@@ -207,7 +207,7 @@ static void turnOffForceCompositingMode(WebSettings* settings)
 // prior to the PinchViewport being attached to the layer tree.
 TEST_F(PinchViewportTest, TestWebViewResizedBeforeAttachment)
 {
-    initializeWithDesktopSettings(turnOffForceCompositingMode);
+    initializeWithDesktopSettings(disableAcceleratedCompositing);
     webViewImpl()->resize(IntSize(320, 240));
 
     navigateTo("about:blank");
@@ -535,17 +535,17 @@ TEST_F(PinchViewportTest, TestSavedToHistoryItem)
     navigateTo(m_baseURL + "200-by-300.html");
 
     EXPECT_FLOAT_POINT_EQ(FloatPoint(0, 0),
-        webViewImpl()->page()->mainFrame()->loader().currentItem()->pinchViewportScrollPoint());
+        toLocalFrame(webViewImpl()->page()->mainFrame())->loader().currentItem()->pinchViewportScrollPoint());
 
     PinchViewport& pinchViewport = frame()->page()->frameHost().pinchViewport();
     pinchViewport.setScale(2);
 
-    EXPECT_EQ(2, webViewImpl()->page()->mainFrame()->loader().currentItem()->pageScaleFactor());
+    EXPECT_EQ(2, toLocalFrame(webViewImpl()->page()->mainFrame())->loader().currentItem()->pageScaleFactor());
 
     pinchViewport.setLocation(FloatPoint(10, 20));
 
     EXPECT_FLOAT_POINT_EQ(FloatPoint(10, 20),
-        webViewImpl()->page()->mainFrame()->loader().currentItem()->pinchViewportScrollPoint());
+        toLocalFrame(webViewImpl()->page()->mainFrame())->loader().currentItem()->pinchViewportScrollPoint());
 }
 
 // Test restoring a HistoryItem properly restores the pinch viewport's state.
@@ -596,6 +596,41 @@ TEST_F(PinchViewportTest, TestRestoredFromLegacyHistoryItem)
     EXPECT_EQ(2, pinchViewport.scale());
     EXPECT_POINT_EQ(IntPoint(100, 150), frame()->view()->scrollPosition());
     EXPECT_FLOAT_POINT_EQ(FloatPoint(20, 30), pinchViewport.visibleRect().location());
+}
+
+// Test that the coordinates sent into moveRangeSelection are offset by the
+// pinch viewport's location.
+TEST_F(PinchViewportTest, TestWebFrameRangeAccountsForPinchViewportScroll)
+{
+    initializeWithDesktopSettings();
+    webViewImpl()->settings()->setDefaultFontSize(12);
+    webViewImpl()->resize(WebSize(640, 480));
+    registerMockedHttpURLLoad("move_range.html");
+    navigateTo(m_baseURL + "move_range.html");
+
+    WebRect baseRect;
+    WebRect extentRect;
+
+    webViewImpl()->setPageScaleFactor(2);
+    WebFrame* mainFrame = webViewImpl()->mainFrame();
+
+    // Select some text and get the base and extent rects (that's the start of
+    // the range and its end). Do a sanity check that the expected text is
+    // selected
+    mainFrame->executeScript(WebScriptSource("selectRange();"));
+    EXPECT_EQ("ir", mainFrame->selectionAsText().utf8());
+
+    webViewImpl()->selectionBounds(baseRect, extentRect);
+    WebPoint initialPoint(baseRect.x, baseRect.y);
+    WebPoint endPoint(extentRect.x, extentRect.y);
+
+    // Move the pinch viewport over and make the selection in the same
+    // screen-space location. The selection should change to two characters to
+    // the right and down one line.
+    PinchViewport& pinchViewport = frame()->page()->frameHost().pinchViewport();
+    pinchViewport.move(FloatPoint(60, 25));
+    mainFrame->moveRangeSelection(initialPoint, endPoint);
+    EXPECT_EQ("t ", mainFrame->selectionAsText().utf8());
 }
 
 // Test that the scrollFocusedNodeIntoRect method works with the pinch viewport.

@@ -26,10 +26,10 @@
 #include "config.h"
 #include "core/editing/htmlediting.h"
 
-#include "HTMLElementFactory.h"
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLElementFactory.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/NodeTraversal.h"
 #include "core/dom/PositionIterator.h"
@@ -44,6 +44,7 @@
 #include "core/editing/VisibleSelection.h"
 #include "core/editing/VisibleUnits.h"
 #include "core/frame/LocalFrame.h"
+#include "core/frame/UseCounter.h"
 #include "core/html/HTMLBRElement.h"
 #include "core/html/HTMLDivElement.h"
 #include "core/html/HTMLLIElement.h"
@@ -56,8 +57,6 @@
 #include "wtf/Assertions.h"
 #include "wtf/StdLibExtras.h"
 #include "wtf/text/StringBuilder.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -824,7 +823,10 @@ PassRefPtrWillBeRawPtr<HTMLElement> createHTMLElement(Document& document, const 
 
 bool isTabSpanNode(const Node* node)
 {
-    return isHTMLSpanElement(node) && toElement(node)->getAttribute(classAttr) == AppleTabSpanClass;
+    if (!isHTMLSpanElement(node) || toElement(node)->getAttribute(classAttr) != AppleTabSpanClass)
+        return false;
+    UseCounter::count(node->document(), UseCounter::EditingAppleTabSpanClass);
+    return true;
 }
 
 bool isTabSpanTextNode(const Node* node)

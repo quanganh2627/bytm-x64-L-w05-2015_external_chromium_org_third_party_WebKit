@@ -26,21 +26,22 @@
 #include "config.h"
 #include "core/css/FontFaceSet.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/Dictionary.h"
 #include "bindings/v8/ScriptPromiseResolverWithContext.h"
 #include "bindings/v8/ScriptState.h"
 #include "core/css/CSSFontFaceLoadEvent.h"
 #include "core/css/CSSFontSelector.h"
-#include "core/css/parser/BisonCSSParser.h"
 #include "core/css/CSSSegmentedFontFace.h"
 #include "core/css/FontFaceCache.h"
 #include "core/css/StylePropertySet.h"
+#include "core/css/parser/BisonCSSParser.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/Document.h"
 #include "core/dom/StyleEngine.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
+#include "core/rendering/style/StyleInheritedData.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "public/platform/Platform.h"
 
 namespace WebCore {
@@ -479,13 +480,25 @@ bool FontFaceSet::check(const String& fontString, const String& text, ExceptionS
         return false;
     }
 
-    FontFaceCache* fontFaceCache = document()->styleEngine()->fontSelector()->fontFaceCache();
+    CSSFontSelector* fontSelector = document()->styleEngine()->fontSelector();
+    FontFaceCache* fontFaceCache = fontSelector->fontFaceCache();
+
+    bool hasLoadedFaces = false;
     for (const FontFamily* f = &font.fontDescription().family(); f; f = f->next()) {
         CSSSegmentedFontFace* face = fontFaceCache->get(font.fontDescription(), f->family());
-        if (face && !face->checkFont(nullToSpace(text)))
-            return false;
+        if (face) {
+            if (!face->checkFont(nullToSpace(text)))
+                return false;
+            hasLoadedFaces = true;
+        }
     }
-    return true;
+    if (hasLoadedFaces)
+        return true;
+    for (const FontFamily* f = &font.fontDescription().family(); f; f = f->next()) {
+        if (fontSelector->isPlatformFontAvailable(font.fontDescription(), f->family()))
+            return true;
+    }
+    return false;
 }
 
 bool FontFaceSet::resolveFontStyle(const String& fontString, Font& font)

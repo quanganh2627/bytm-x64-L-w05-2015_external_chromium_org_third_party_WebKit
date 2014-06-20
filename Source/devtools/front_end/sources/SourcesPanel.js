@@ -198,6 +198,7 @@ WebInspector.SourcesPanel.prototype = {
 
     wasShown: function()
     {
+        WebInspector.context.setFlavor(WebInspector.SourcesPanel, this);
         if (WebInspector.experimentsSettings.editorInDrawer.isEnabled()) {
             this._drawerEditor()._panelWasShown();
             this._sourcesView.show(this.editorView.mainElement());
@@ -212,6 +213,7 @@ WebInspector.SourcesPanel.prototype = {
             this._drawerEditor()._panelWillHide();
             this._sourcesView.show(this._drawerEditorView.element);
         }
+        WebInspector.context.setFlavor(WebInspector.SourcesPanel, null);
     },
 
     /**
@@ -275,15 +277,16 @@ WebInspector.SourcesPanel.prototype = {
             WebInspector.domBreakpointsSidebarPane.highlightBreakpoint(details.auxData);
             WebInspector.domBreakpointsSidebarPane.createBreakpointHitStatusMessage(details, didCreateBreakpointHitStatusMessage.bind(this));
         } else if (details.reason === WebInspector.DebuggerModel.BreakReason.EventListener) {
-            var eventName = details.auxData.eventName;
-            this.sidebarPanes.eventListenerBreakpoints.highlightBreakpoint(details.auxData.eventName);
+            var eventName = details.auxData["eventName"];
+            var targetName = details.auxData["targetName"];
+            this.sidebarPanes.eventListenerBreakpoints.highlightBreakpoint(eventName, targetName);
             var eventNameForUI = WebInspector.EventListenerBreakpointsSidebarPane.eventNameForUI(eventName, details.auxData);
             this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on a \"%s\" Event Listener.", eventNameForUI));
         } else if (details.reason === WebInspector.DebuggerModel.BreakReason.XHR) {
             this.sidebarPanes.xhrBreakpoints.highlightBreakpoint(details.auxData["breakpointURL"]);
             this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on a XMLHttpRequest."));
         } else if (details.reason === WebInspector.DebuggerModel.BreakReason.Exception)
-            this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on exception: '%s'.", details.auxData.description));
+            this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on exception: '%s'.", details.auxData["description"]));
         else if (details.reason === WebInspector.DebuggerModel.BreakReason.Assert)
             this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on assertion."));
         else if (details.reason === WebInspector.DebuggerModel.BreakReason.CSPViolation)
@@ -671,8 +674,8 @@ WebInspector.SourcesPanel.prototype = {
         this._runSnippetButton.element.classList.add("hidden");
 
         // Continue.
-        handler = this.togglePause.bind(this);
-        this._pauseButton = this._createButtonAndRegisterShortcuts("scripts-pause", "", handler, WebInspector.ShortcutsScreen.SourcesPanelShortcuts.PauseContinue);
+        handler = function() { return WebInspector.actionRegistry.execute("debugger.toggle-pause"); };
+        this._pauseButton = this._createButtonAndRegisterShortcuts("scripts-pause", "", handler, []);
         debugToolbar.appendChild(this._pauseButton.element);
 
         // Long resume.
@@ -888,7 +891,9 @@ WebInspector.SourcesPanel.prototype = {
             return;
 
         var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (target);
-        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Local modifications\u2026" : "Local Modifications\u2026"), this._showLocalHistory.bind(this, uiSourceCode));
+        var project = uiSourceCode.project();
+        if (project.type() !== WebInspector.projectTypes.FileSystem)
+            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Local modifications\u2026" : "Local Modifications\u2026"), this._showLocalHistory.bind(this, uiSourceCode));
         this._appendUISourceCodeMappingItems(contextMenu, uiSourceCode);
 
         if (!event.target.isSelfOrDescendant(this.editorView.sidebarElement())) {
@@ -1394,4 +1399,23 @@ WebInspector.SourcesPanel.DisableJavaScriptSettingDelegate.prototype = {
     },
 
     __proto__: WebInspector.UISettingDelegate.prototype
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.ActionDelegate}
+ */
+WebInspector.SourcesPanel.TogglePauseActionDelegate = function()
+{
+}
+
+WebInspector.SourcesPanel.TogglePauseActionDelegate.prototype = {
+    /**
+     * @return {boolean}
+     */
+    handleAction: function()
+    {
+        /** @type {!WebInspector.SourcesPanel} */ (WebInspector.inspectorView.showPanel("sources")).togglePause();
+        return true;
+    }
 }

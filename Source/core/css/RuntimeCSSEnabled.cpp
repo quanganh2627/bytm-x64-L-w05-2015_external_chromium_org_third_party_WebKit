@@ -30,7 +30,7 @@
 #include "config.h"
 #include "core/css/RuntimeCSSEnabled.h"
 
-#include "RuntimeEnabledFeatures.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "wtf/BitArray.h"
 
 namespace WebCore {
@@ -120,7 +120,6 @@ static void setPropertySwitchesFromRuntimeFeatures()
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyIsolation, RuntimeEnabledFeatures::cssCompositingEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyTouchAction, RuntimeEnabledFeatures::cssTouchActionEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyTouchActionDelay, RuntimeEnabledFeatures::cssTouchActionDelayEnabled());
-    RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyPaintOrder, RuntimeEnabledFeatures::svgPaintOrderEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyMaskSourceType, RuntimeEnabledFeatures::cssMaskSourceTypeEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyColumnFill, RuntimeEnabledFeatures::regionBasedColumnsEnabled());
     RuntimeCSSEnabled::setCSSPropertyEnabled(CSSPropertyScrollBehavior, RuntimeEnabledFeatures::cssomSmoothScrollEnabled());

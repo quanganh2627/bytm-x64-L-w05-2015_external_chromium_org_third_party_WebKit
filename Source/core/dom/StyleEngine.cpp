@@ -28,8 +28,7 @@
 #include "config.h"
 #include "core/dom/StyleEngine.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
+#include "core/HTMLNames.h"
 #include "core/css/CSSFontSelector.h"
 #include "core/css/CSSStyleSheet.h"
 #include "core/css/FontFaceCache.h"
@@ -46,7 +45,6 @@
 #include "core/page/InjectedStyleSheets.h"
 #include "core/page/Page.h"
 #include "core/frame/Settings.h"
-#include "core/svg/SVGStyleElement.h"
 #include "platform/URLPatternMatcher.h"
 
 namespace WebCore {
@@ -75,6 +73,7 @@ StyleEngine::StyleEngine(Document& document)
     // We don't need to create CSSFontSelector for imported document or
     // HTMLTemplateElement's document, because those documents have no frame.
     , m_fontSelector(document.frame() ? CSSFontSelector::create(&document) : nullptr)
+    , m_xslStyleSheet(nullptr)
 {
     if (m_fontSelector)
         m_fontSelector->registerForInvalidationCallbacks(this);
@@ -286,7 +285,7 @@ void StyleEngine::addStyleSheetCandidateNode(Node* node, bool createdByParser)
 
     TreeScope& treeScope = isHTMLStyleElement(*node) ? node->treeScope() : *m_document;
     ASSERT(isHTMLStyleElement(node) || treeScope == m_document);
-
+    ASSERT(!isXSLStyleSheet(*node));
     TreeScopeStyleSheetCollection* collection = ensureStyleSheetCollectionFor(treeScope);
     ASSERT(collection);
     collection->addStyleSheetCandidateNode(node, createdByParser);
@@ -304,6 +303,7 @@ void StyleEngine::removeStyleSheetCandidateNode(Node* node)
 void StyleEngine::removeStyleSheetCandidateNode(Node* node, ContainerNode* scopingNode, TreeScope& treeScope)
 {
     ASSERT(isHTMLStyleElement(node) || treeScope == m_document);
+    ASSERT(!isXSLStyleSheet(*node));
 
     TreeScopeStyleSheetCollection* collection = styleSheetCollectionFor(treeScope);
     ASSERT(collection);
@@ -311,6 +311,37 @@ void StyleEngine::removeStyleSheetCandidateNode(Node* node, ContainerNode* scopi
 
     markTreeScopeDirty(treeScope);
     m_activeTreeScopes.remove(&treeScope);
+}
+
+void StyleEngine::addXSLStyleSheet(ProcessingInstruction* node, bool createdByParser)
+{
+    if (!node->inDocument())
+        return;
+
+    ASSERT(isXSLStyleSheet(*node));
+    bool needToUpdate = false;
+    if (createdByParser || !m_xslStyleSheet) {
+        needToUpdate = !m_xslStyleSheet;
+    } else {
+        unsigned position = m_xslStyleSheet->compareDocumentPositionInternal(node, Node::TreatShadowTreesAsDisconnected);
+        needToUpdate = position & Node::DOCUMENT_POSITION_FOLLOWING;
+    }
+
+    if (!needToUpdate)
+        return;
+
+    markTreeScopeDirty(*m_document);
+    m_xslStyleSheet = node;
+}
+
+void StyleEngine::removeXSLStyleSheet(ProcessingInstruction* node)
+{
+    ASSERT(isXSLStyleSheet(*node));
+    if (m_xslStyleSheet != node)
+        return;
+
+    markTreeScopeDirty(*m_document);
+    m_xslStyleSheet = nullptr;
 }
 
 void StyleEngine::modifiedStyleSheetCandidateNode(Node* node)
@@ -329,7 +360,12 @@ void StyleEngine::enableExitTransitionStylesheets()
     collection->enableExitTransitionStylesheets();
 }
 
-bool StyleEngine::shouldUpdateShadowTreeStyleSheetCollection(StyleResolverUpdateMode updateMode)
+bool StyleEngine::shouldUpdateDocumentStyleSheetCollection(StyleResolverUpdateMode updateMode) const
+{
+    return m_documentScopeDirty || updateMode == FullStyleUpdate;
+}
+
+bool StyleEngine::shouldUpdateShadowTreeStyleSheetCollection(StyleResolverUpdateMode updateMode) const
 {
     return !m_dirtyTreeScopes.isEmpty() || updateMode == FullStyleUpdate;
 }
@@ -361,17 +397,16 @@ void StyleEngine::updateStyleSheetsInImport(DocumentStyleSheetCollector& parentC
     documentStyleSheetCollection()->swapSheetsForSheetList(sheetsForList);
 }
 
-bool StyleEngine::updateActiveStyleSheets(StyleResolverUpdateMode updateMode)
+void StyleEngine::updateActiveStyleSheets(StyleResolverUpdateMode updateMode)
 {
     ASSERT(isMaster());
     ASSERT(!document().inStyleRecalc());
 
     if (!document().isActive())
-        return false;
+        return;
 
-    bool requiresFullStyleRecalc = false;
-    if (m_documentScopeDirty || updateMode == FullStyleUpdate)
-        requiresFullStyleRecalc = documentStyleSheetCollection()->updateActiveStyleSheets(this, updateMode);
+    if (shouldUpdateDocumentStyleSheetCollection(updateMode))
+        documentStyleSheetCollection()->updateActiveStyleSheets(this, updateMode);
 
     if (shouldUpdateShadowTreeStyleSheetCollection(updateMode)) {
         TreeScopeSet treeScopes = updateMode == FullStyleUpdate ? m_activeTreeScopes : m_dirtyTreeScopes;
@@ -394,8 +429,6 @@ bool StyleEngine::updateActiveStyleSheets(StyleResolverUpdateMode updateMode)
 
     m_dirtyTreeScopes.clear();
     m_documentScopeDirty = false;
-
-    return requiresFullStyleRecalc;
 }
 
 const WillBeHeapVector<RefPtrWillBeMember<CSSStyleSheet> > StyleEngine::activeStyleSheetsForInspector() const
@@ -487,31 +520,39 @@ bool StyleEngine::shouldClearResolver() const
     return !m_didCalculateResolver && !haveStylesheetsLoaded();
 }
 
-StyleResolverChange StyleEngine::resolverChanged(StyleResolverUpdateMode mode)
+bool StyleEngine::shouldApplyXSLTransform() const
 {
-    StyleResolverChange change;
+    if (!RuntimeEnabledFeatures::xsltEnabled())
+        return false;
+    return m_xslStyleSheet && !m_document->transformSourceDocument();
+}
 
+void StyleEngine::resolverChanged(StyleResolverUpdateMode mode)
+{
     if (!isMaster()) {
         if (Document* master = this->master())
             master->styleResolverChanged(mode);
-        return change;
+        return;
     }
 
     // Don't bother updating, since we haven't loaded all our style info yet
     // and haven't calculated the style selector for the first time.
     if (!document().isActive() || shouldClearResolver()) {
         clearResolver();
-        return change;
+        return;
+    }
+
+    if (shouldApplyXSLTransform()) {
+        // Processing instruction (XML documents only).
+        // We don't support linking to embedded CSS stylesheets, see <https://bugs.webkit.org/show_bug.cgi?id=49281> for discussion.
+        // Don't apply XSL transforms to already transformed documents -- <rdar://problem/4132806>
+        if (!m_document->parsing() && !m_xslStyleSheet->isLoading())
+            m_document->applyXSLTransform(m_xslStyleSheet.get());
+        return;
     }
 
     m_didCalculateResolver = true;
-    if (document().didLayoutWithPendingStylesheets() && !hasPendingSheets())
-        change.setNeedsRepaint();
-
-    if (updateActiveStyleSheets(mode))
-        change.setNeedsStyleRecalc();
-
-    return change;
+    updateActiveStyleSheets(mode);
 }
 
 void StyleEngine::clearFontCache()
@@ -525,6 +566,10 @@ void StyleEngine::clearFontCache()
 
 void StyleEngine::updateGenericFontFamilySettings()
 {
+    // FIXME: we should not update generic font family settings when
+    // document is inactive.
+    ASSERT(document().isActive());
+
     if (!m_fontSelector)
         return;
 
@@ -649,6 +694,7 @@ void StyleEngine::trace(Visitor* visitor)
     visitor->trace(m_fontSelector);
     visitor->trace(m_textToSheetCache);
     visitor->trace(m_sheetToTextCache);
+    visitor->trace(m_xslStyleSheet);
     CSSFontSelectorClient::trace(visitor);
 }
 

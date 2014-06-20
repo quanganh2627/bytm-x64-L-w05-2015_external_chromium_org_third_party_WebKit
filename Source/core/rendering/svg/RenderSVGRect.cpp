@@ -28,8 +28,7 @@
 #include "config.h"
 
 #include "core/rendering/svg/RenderSVGRect.h"
-
-#include "SVGNames.h"
+#include "platform/graphics/GraphicsContext.h"
 
 namespace WebCore {
 

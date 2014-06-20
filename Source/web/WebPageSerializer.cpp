@@ -66,7 +66,7 @@ KURL getSubResourceURLFromElement(Element* element)
 {
     ASSERT(element);
     const QualifiedName& attributeName = element->subResourceAttributeName();
-    if (attributeName == nullQName())
+    if (attributeName == QualifiedName::null())
         return KURL();
 
     String value = element->getAttribute(attributeName);
@@ -176,7 +176,7 @@ static PassRefPtr<SharedBuffer> serializePageToMHTML(Page* page, MHTMLArchive::E
     Vector<SerializedResource> resources;
     PageSerializer serializer(&resources);
     serializer.serialize(page);
-    Document* document = page->mainFrame()->document();
+    Document* document = page->deprecatedLocalMainFrame()->document();
     return MHTMLArchive::generateMHTMLData(resources, encodingPolicy, document->title(), document->suggestedMIMEType());
 }
 

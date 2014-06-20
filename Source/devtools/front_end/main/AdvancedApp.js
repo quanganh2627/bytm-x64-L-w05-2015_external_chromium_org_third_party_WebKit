@@ -11,24 +11,23 @@ WebInspector.AdvancedApp = function()
     WebInspector.App.call(this);
     WebInspector.dockController.addEventListener(WebInspector.DockController.Events.BeforeDockSideChanged, this._openToolboxWindow, this);
 
-    if (!WebInspector.experimentsSettings.responsiveDesign.isEnabled())
-        return;
-
-    this._toggleResponsiveDesignButton = new WebInspector.StatusBarButton(WebInspector.UIString("Responsive design mode."), "responsive-design-status-bar-item");
-    this._toggleResponsiveDesignButton.toggled = WebInspector.settings.responsiveDesign.enabled.get();
-    this._toggleResponsiveDesignButton.addEventListener("click", this._toggleResponsiveDesign, this);
-    WebInspector.settings.responsiveDesign.enabled.addChangeListener(this._responsiveDesignEnabledChanged, this);
+    this._toggleEmulationButton = new WebInspector.StatusBarButton(WebInspector.UIString("Toggle emulation enabled."), "responsive-design-status-bar-item");
+    this._toggleEmulationButton.toggled = WebInspector.overridesSupport.settings.emulationEnabled.get();
+    this._toggleEmulationButton.addEventListener("click", this._toggleEmulationEnabled, this);
+    WebInspector.overridesSupport.settings.emulationEnabled.addChangeListener(this._emulationEnabledChanged, this);
 };
 
 WebInspector.AdvancedApp.prototype = {
-    _toggleResponsiveDesign: function()
+    _toggleEmulationEnabled: function()
     {
-        WebInspector.settings.responsiveDesign.enabled.set(!this._toggleResponsiveDesignButton.toggled);
+        WebInspector.overridesSupport.settings.emulationEnabled.set(!this._toggleEmulationButton.toggled);
     },
 
-    _responsiveDesignEnabledChanged: function()
+    _emulationEnabledChanged: function()
     {
-        this._toggleResponsiveDesignButton.toggled = WebInspector.settings.responsiveDesign.enabled.get();
+        this._toggleEmulationButton.toggled = WebInspector.overridesSupport.settings.emulationEnabled.get();
+        if (!WebInspector.experimentsSettings.responsiveDesign.isEnabled() && WebInspector.overridesSupport.settings.emulationEnabled.get())
+            WebInspector.inspectorView.showViewInDrawer("emulation", true);
     },
 
     createRootView: function()
@@ -192,7 +191,7 @@ WebInspector.AdvancedApp.ResponsiveDesignButtonProvider.prototype = {
     {
         if (!(WebInspector.app instanceof WebInspector.AdvancedApp))
             return null;
-        return /** @type {!WebInspector.AdvancedApp} */ (WebInspector.app)._toggleResponsiveDesignButton || null;
+        return /** @type {!WebInspector.AdvancedApp} */ (WebInspector.app)._toggleEmulationButton || null;
     }
 }
 

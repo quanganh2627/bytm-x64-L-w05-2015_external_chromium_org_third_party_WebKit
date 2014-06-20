@@ -24,9 +24,10 @@
 
 #include "core/svg/SVGAnimateElement.h"
 
-#include "CSSPropertyNames.h"
+#include "core/CSSPropertyNames.h"
 #include "core/css/parser/BisonCSSParser.h"
 #include "core/css/StylePropertySet.h"
+#include "core/dom/Document.h"
 #include "core/dom/QualifiedName.h"
 #include "core/svg/SVGAnimatedTypeAnimator.h"
 #include "core/svg/SVGDocumentExtensions.h"
@@ -42,16 +43,11 @@ SVGAnimateElement::SVGAnimateElement(const QualifiedName& tagName, Document& doc
 
 PassRefPtrWillBeRawPtr<SVGAnimateElement> SVGAnimateElement::create(Document& document)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new SVGAnimateElement(SVGNames::animateTag, document));
+    return adoptRefWillBeNoop(new SVGAnimateElement(SVGNames::animateTag, document));
 }
 
 SVGAnimateElement::~SVGAnimateElement()
 {
-    // FIXME: Oilpan: Below prevent stopAnimValAnimation being called on |targetElement|. This should be moved to |removeFrom| equivalent.
-#if !ENABLE(OILPAN)
-    if (targetElement())
-        clearAnimatedType(targetElement());
-#endif
 }
 
 AnimatedPropertyType SVGAnimateElement::animatedPropertyType()

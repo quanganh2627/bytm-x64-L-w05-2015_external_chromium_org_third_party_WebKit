@@ -32,9 +32,7 @@
 
 #include "core/page/TouchDisambiguation.h"
 
-#include <algorithm>
-#include <cmath>
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/dom/NodeTraversal.h"
@@ -44,8 +42,8 @@
 #include "core/page/EventHandler.h"
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderBlock.h"
-
-using namespace std;
+#include <algorithm>
+#include <cmath>
 
 namespace WebCore {
 
@@ -77,8 +75,8 @@ static float scoreTouchTarget(IntPoint touchPoint, int padding, IntRect bounding
     float score = 1;
 
     IntSize distance = boundingBox.differenceToPoint(touchPoint);
-    score *= max((padding - abs(distance.width())) * reciprocalPadding, 0.f);
-    score *= max((padding - abs(distance.height())) * reciprocalPadding, 0.f);
+    score *= std::max((padding - abs(distance.width())) * reciprocalPadding, 0.f);
+    score *= std::max((padding - abs(distance.height())) * reciprocalPadding, 0.f);
 
     return score;
 }
@@ -92,7 +90,7 @@ void findGoodTouchTargets(const IntRect& touchBox, LocalFrame* mainFrame, Vector
 {
     goodTargets.clear();
 
-    int touchPointPadding = ceil(max(touchBox.width(), touchBox.height()) * 0.5);
+    int touchPointPadding = ceil(std::max(touchBox.width(), touchBox.height()) * 0.5);
 
     IntPoint touchPoint = touchBox.center();
     IntPoint contentsPoint = mainFrame->view()->windowToContents(touchPoint);
@@ -132,7 +130,7 @@ void findGoodTouchTargets(const IntRect& touchBox, LocalFrame* mainFrame, Vector
                 TouchTargetData& targetData = touchTargets.add(node, TouchTargetData()).storedValue->value;
                 targetData.windowBoundingBox = boundingBoxForEventNodes(node);
                 targetData.score = scoreTouchTarget(touchPoint, touchPointPadding, targetData.windowBoundingBox);
-                bestScore = max(bestScore, targetData.score);
+                bestScore = std::max(bestScore, targetData.score);
                 break;
             }
         }

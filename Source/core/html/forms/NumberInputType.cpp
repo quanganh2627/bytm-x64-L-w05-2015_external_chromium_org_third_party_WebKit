@@ -32,9 +32,9 @@
 #include "config.h"
 #include "core/html/forms/NumberInputType.h"
 
-#include "HTMLNames.h"
-#include "InputTypeNames.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/HTMLNames.h"
+#include "core/InputTypeNames.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/events/KeyboardEvent.h"
 #include "core/html/HTMLInputElement.h"
@@ -49,7 +49,6 @@ namespace WebCore {
 
 using blink::WebLocalizedString;
 using namespace HTMLNames;
-using namespace std;
 
 static const int numberDefaultStep = 1;
 static const int numberDefaultStepBase = 0;
@@ -145,7 +144,7 @@ bool NumberInputType::typeMismatch() const
 StepRange NumberInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
     DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (numberDefaultStep, numberDefaultStepBase, numberStepScaleFactor));
-    const Decimal doubleMax = Decimal::fromDouble(numeric_limits<double>::max());
+    const Decimal doubleMax = Decimal::fromDouble(std::numeric_limits<double>::max());
     return InputType::createStepRange(anyStepHandling, numberDefaultStepBase, -doubleMax, doubleMax, stepDescription);
 }
 
@@ -277,7 +276,7 @@ void NumberInputType::minOrMaxAttributeChanged()
     InputType::minOrMaxAttributeChanged();
 
     if (element().renderer())
-        element().renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        element().renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 void NumberInputType::stepAttributeChanged()
@@ -285,7 +284,7 @@ void NumberInputType::stepAttributeChanged()
     InputType::stepAttributeChanged();
 
     if (element().renderer())
-        element().renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        element().renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 bool NumberInputType::supportsSelectionAPI() const

@@ -134,7 +134,7 @@ public:
     virtual void annotatedRegionsChanged() OVERRIDE;
     virtual bool paintCustomOverhangArea(WebCore::GraphicsContext*, const WebCore::IntRect&, const WebCore::IntRect&, const WebCore::IntRect&) OVERRIDE;
     virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::LocalFrame*, WebCore::ColorChooserClient*, const WebCore::Color&) OVERRIDE;
-    virtual PassRefPtr<WebCore::DateTimeChooser> openDateTimeChooser(WebCore::DateTimeChooserClient*, const WebCore::DateTimeChooserParameters&) OVERRIDE;
+    virtual PassRefPtrWillBeRawPtr<WebCore::DateTimeChooser> openDateTimeChooser(WebCore::DateTimeChooserClient*, const WebCore::DateTimeChooserParameters&) OVERRIDE;
     virtual void openTextDataListChooser(WebCore::HTMLInputElement&) OVERRIDE;
     virtual void runOpenPanel(WebCore::LocalFrame*, PassRefPtr<WebCore::FileChooser>) OVERRIDE;
     virtual void enumerateChosenDirectory(WebCore::FileChooser*) OVERRIDE;
@@ -183,6 +183,8 @@ public:
     virtual void willSetInputMethodState() OVERRIDE;
     virtual void didUpdateTextOfFocusedElementByNonUserInput() OVERRIDE;
 
+    virtual bool usesGpuRasterization() OVERRIDE;
+
 private:
     virtual bool isChromeClientImpl() const OVERRIDE { return true; }
 
@@ -197,21 +199,6 @@ private:
     bool m_resizable;
 
     WebCore::PagePopupDriver* m_pagePopupDriver;
-};
-
-class NavigatorContentUtilsClientImpl FINAL : public WebCore::NavigatorContentUtilsClient {
-public:
-    static PassOwnPtr<NavigatorContentUtilsClientImpl> create(WebViewImpl*);
-    virtual ~NavigatorContentUtilsClientImpl() { }
-
-    virtual void registerProtocolHandler(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL&, const String& title) OVERRIDE;
-    virtual CustomHandlersState isProtocolHandlerRegistered(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL&) OVERRIDE;
-    virtual void unregisterProtocolHandler(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL&) OVERRIDE;
-
-private:
-    explicit NavigatorContentUtilsClientImpl(WebViewImpl*);
-
-    WebViewImpl* m_webView;
 };
 
 DEFINE_TYPE_CASTS(ChromeClientImpl, WebCore::ChromeClient, client, client->isChromeClientImpl(), client.isChromeClientImpl());

@@ -33,10 +33,10 @@
 #include "config.h"
 #include "core/html/canvas/CanvasRenderingContext2D.h"
 
-#include "CSSPropertyNames.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/CSSPropertyNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/css/CSSFontSelector.h"
 #include "core/css/parser/BisonCSSParser.h"
@@ -68,8 +68,6 @@
 #include "wtf/OwnPtr.h"
 #include "wtf/Uint8ClampedArray.h"
 #include "wtf/text/StringBuilder.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -116,7 +114,7 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D()
 
 void CanvasRenderingContext2D::validateStateStack()
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     GraphicsContext* context = canvas()->existingDrawingContext();
     if (context && !context->contextDisabled())
         ASSERT(context->saveCount() == m_stateStack.size());
@@ -726,7 +724,7 @@ void CanvasRenderingContext2D::scale(float sx, float sy)
     }
 
     modifiableState().m_transform = newTransform;
-    c->scale(FloatSize(sx, sy));
+    c->scale(sx, sy);
     m_path.transform(AffineTransform().scaleNonUniform(1.0 / sx, 1.0 / sy));
 }
 
@@ -1415,10 +1413,10 @@ bool CanvasRenderingContext2D::shouldDrawShadows() const
 
 static inline FloatRect normalizeRect(const FloatRect& rect)
 {
-    return FloatRect(min(rect.x(), rect.maxX()),
-        min(rect.y(), rect.maxY()),
-        max(rect.width(), -rect.width()),
-        max(rect.height(), -rect.height()));
+    return FloatRect(std::min(rect.x(), rect.maxX()),
+        std::min(rect.y(), rect.maxY()),
+        std::max(rect.width(), -rect.width()),
+        std::max(rect.height(), -rect.height()));
 }
 
 static inline void clipRectsToImageRect(const FloatRect& imageRect, FloatRect* srcRect, FloatRect* dstRect)
@@ -1539,7 +1537,7 @@ void CanvasRenderingContext2D::drawVideo(HTMLVideoElement* video, FloatRect srcR
     GraphicsContextStateSaver stateSaver(*c);
     c->clip(dstRect);
     c->translate(dstRect.x(), dstRect.y());
-    c->scale(FloatSize(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height()));
+    c->scale(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height());
     c->translate(-srcRect.x(), -srcRect.y());
     video->paintCurrentFrameInContext(c, IntRect(IntPoint(), IntSize(video->videoWidth(), video->videoHeight())));
     stateSaver.restore();
@@ -1944,9 +1942,12 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     // Map the <canvas> font into the text style. If the font uses keywords like larger/smaller, these will work
     // relative to the canvas.
     RefPtr<RenderStyle> newStyle = RenderStyle::create();
-    if (RenderStyle* computedStyle = canvas()->computedStyle())
-        newStyle->setFontDescription(computedStyle->fontDescription());
-    else {
+    if (RenderStyle* computedStyle = canvas()->computedStyle()) {
+        FontDescription elementFontDescription(computedStyle->fontDescription());
+        // Reset the computed size to avoid inheriting the zoom factor from the <canvas> element.
+        elementFontDescription.setComputedSize(elementFontDescription.specifiedSize());
+        newStyle->setFontDescription(elementFontDescription);
+    } else {
         FontFamily fontFamily;
         fontFamily.setFamily(defaultFontFamily);
 
@@ -2187,7 +2188,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     if (useMaxWidth) {
         c->translate(location.x(), location.y());
         // We draw when fontWidth is 0 so compositing operations (eg, a "copy" op) still work.
-        c->scale(FloatSize((fontWidth > 0 ? (width / fontWidth) : 0), 1));
+        c->scale((fontWidth > 0 ? (width / fontWidth) : 0), 1);
         location = FloatPoint();
     }
 

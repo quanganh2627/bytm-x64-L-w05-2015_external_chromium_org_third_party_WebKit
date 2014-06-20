@@ -27,11 +27,9 @@
 
 #include "core/rendering/compositing/CompositedLayerMapping.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include "core/animation/ActiveAnimations.h"
+#include "core/HTMLNames.h"
 #include "core/fetch/ImageResource.h"
+#include "core/html/HTMLCanvasElement.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/canvas/CanvasRenderingContext.h"
@@ -40,21 +38,17 @@
 #include "core/inspector/InspectorTraceEvents.h"
 #include "core/page/Chrome.h"
 #include "core/frame/FrameView.h"
-#include "core/frame/Settings.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
 #include "core/plugins/PluginView.h"
 #include "core/rendering/FilterEffectRenderer.h"
-#include "core/rendering/RenderApplet.h"
-#include "core/rendering/RenderEmbeddedObject.h"
-#include "core/rendering/RenderIFrame.h"
 #include "core/rendering/RenderImage.h"
 #include "core/rendering/RenderLayerStackingNodeIterator.h"
 #include "core/rendering/RenderVideo.h"
 #include "core/rendering/RenderView.h"
-#include "core/rendering/compositing/GraphicsLayerUpdater.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/rendering/style/KeyframeList.h"
 #include "platform/LengthFunctions.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/fonts/FontCache.h"
 #include "platform/graphics/GraphicsContext.h"
 #include "wtf/CurrentTime.h"
@@ -168,7 +162,6 @@ static ScrollingCoordinator* scrollingCoordinatorFromLayer(RenderLayer& layer)
 
 CompositedLayerMapping::CompositedLayerMapping(RenderLayer& layer)
     : m_owningLayer(layer)
-    , m_artificiallyInflatedBounds(false)
     , m_isMainFrameRenderViewLayer(false)
     , m_requiresOwnBackingStoreForIntrinsicReasons(true)
     , m_requiresOwnBackingStoreForAncestorReasons(true)
@@ -176,6 +169,7 @@ CompositedLayerMapping::CompositedLayerMapping(RenderLayer& layer)
     , m_backgroundLayerPaintsFixedRootBackground(false)
     , m_needToUpdateGraphicsLayer(false)
     , m_needToUpdateGraphicsLayerOfAllDecendants(false)
+    , m_scrollingContentsAreEmpty(false)
 {
     if (layer.isRootLayer() && renderer()->frame()->isMainFrame())
         m_isMainFrameRenderViewLayer = true;
@@ -259,6 +253,7 @@ void CompositedLayerMapping::destroyGraphicsLayers()
 
     m_scrollingLayer = nullptr;
     m_scrollingContentsLayer = nullptr;
+    m_scrollingBlockSelectionLayer = nullptr;
 }
 
 void CompositedLayerMapping::updateOpacity(const RenderStyle* style)
@@ -325,35 +320,13 @@ void CompositedLayerMapping::updateContentsOpaque()
     }
 }
 
-static bool hasNonZeroTransformOrigin(const RenderObject* renderer)
-{
-    RenderStyle* style = renderer->style();
-    return (style->transformOriginX().type() == Fixed && style->transformOriginX().value())
-        || (style->transformOriginY().type() == Fixed && style->transformOriginY().value());
-}
-
 void CompositedLayerMapping::updateCompositedBounds(GraphicsLayerUpdater::UpdateType updateType)
 {
     if (!shouldUpdateGraphicsLayer(updateType))
         return;
 
-    LayoutRect layerBounds = m_owningLayer.boundingBoxForCompositing();
-
-    // FIXME: either move this hack to RenderLayer or find a way to get rid of it. Removing it from here
-    // will alow us to get rid of m_compositedBounds.
-
-    // If the element has a transform-origin that has fixed lengths, and the renderer has zero size,
-    // then we need to ensure that the compositing layer has non-zero size so that we can apply
-    // the transform-origin via the GraphicsLayer anchorPoint (which is expressed as a fractional value).
-    if (layerBounds.isEmpty() && hasNonZeroTransformOrigin(renderer())) {
-        layerBounds.setWidth(1);
-        layerBounds.setHeight(1);
-        m_artificiallyInflatedBounds = true;
-    } else {
-        m_artificiallyInflatedBounds = false;
-    }
-
-    m_compositedBounds = layerBounds;
+    // FIXME: if this is really needed for performance, it would be better to store it on RenderLayer.
+    m_compositedBounds = m_owningLayer.boundingBoxForCompositing();
 }
 
 void CompositedLayerMapping::updateAfterWidgetResize()
@@ -606,7 +579,13 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const LayoutPoint& off
     for (size_t i = 0; i < layers.size(); ++i) {
         LayoutPoint offsetFromTransformedAncestorForSquashedLayer = layers[i].renderLayer->computeOffsetFromTransformedAncestor();
         LayoutSize offsetFromSquashLayerOrigin = (offsetFromTransformedAncestorForSquashedLayer - referenceOffsetFromTransformedAncestor) - squashLayerOriginInOwningLayerSpace;
-        layers[i].offsetFromRenderer = -flooredIntSize(offsetFromSquashLayerOrigin);
+
+        // It is ok to repaint here, because all of the geometry needed to correctly repaint is computed by this point.
+        IntSize newOffsetFromRenderer = -flooredIntSize(offsetFromSquashLayerOrigin);
+        if (layers[i].offsetFromRendererSet && layers[i].offsetFromRenderer != newOffsetFromRenderer)
+            layers[i].renderLayer->repainter().repaintIncludingNonCompositingDescendants();
+        layers[i].offsetFromRenderer = newOffsetFromRenderer;
+        layers[i].offsetFromRendererSet = true;
 
         layers[i].renderLayer->setSubpixelAccumulation(offsetFromSquashLayerOrigin.fraction());
         ASSERT(layers[i].renderLayer->subpixelAccumulation() ==
@@ -615,7 +594,6 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const LayoutPoint& off
         // FIXME: find a better design to avoid this redundant value - most likely it will make
         // sense to move the paint task info into RenderLayer's m_compositingProperties.
         layers[i].renderLayer->setOffsetFromSquashingLayerOrigin(layers[i].offsetFromRenderer);
-
     }
 
     for (size_t i = 0; i < layers.size(); ++i)
@@ -624,10 +602,6 @@ void CompositedLayerMapping::updateSquashingLayerGeometry(const LayoutPoint& off
 
 void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType updateType, const RenderLayer* compositingContainer)
 {
-    // If we haven't built z-order lists yet, wait until later.
-    if (m_owningLayer.stackingNode()->isStackingContext() && m_owningLayer.stackingNode()->zOrderListsDirty())
-        return;
-
     if (!shouldUpdateGraphicsLayer(updateType))
         return;
 
@@ -683,7 +657,7 @@ void CompositedLayerMapping::updateGraphicsLayerGeometry(GraphicsLayerUpdater::U
     updateChildClippingMaskLayerGeometry();
 
     if (m_owningLayer.scrollableArea() && m_owningLayer.scrollableArea()->scrollsOverflow())
-        m_owningLayer.scrollableArea()->positionOverflowControls();
+        m_owningLayer.scrollableArea()->positionOverflowControls(IntSize());
 
     if (RuntimeEnabledFeatures::cssCompositingEnabled()) {
         updateLayerBlendMode(renderer()->style());
@@ -829,21 +803,12 @@ void CompositedLayerMapping::updateTransformGeometry(const IntPoint& snappedOffs
             layerBounds.y() - relativeCompositingBounds.y() + transformOrigin.y(),
             transformOrigin.z());
         m_graphicsLayer->setTransformOrigin(compositedTransformOrigin);
-
-        // Compute the anchor point, which is in the center of the renderer box unless transform-origin is set.
-        // FIXME: get rid of anchor once transformOrigin is plumbed.
-        FloatPoint3D anchor(
-            relativeCompositingBounds.width() ? compositedTransformOrigin.x() / relativeCompositingBounds.width()  : 0.5f,
-            relativeCompositingBounds.height() ? compositedTransformOrigin.y() / relativeCompositingBounds.height() : 0.5f,
-            transformOrigin.z());
-        m_graphicsLayer->setAnchorPoint(anchor);
     } else {
         FloatPoint3D compositedTransformOrigin(
             relativeCompositingBounds.width() * 0.5f,
             relativeCompositingBounds.height() * 0.5f,
             0.f);
         m_graphicsLayer->setTransformOrigin(compositedTransformOrigin);
-        m_graphicsLayer->setAnchorPoint(FloatPoint3D(0.5f, 0.5f, 0));
     }
 }
 
@@ -900,6 +865,8 @@ void CompositedLayerMapping::updateScrollingLayerGeometry(const IntRect& localCo
         m_foregroundLayer->setNeedsDisplay();
         m_foregroundLayer->setOffsetFromRenderer(m_scrollingContentsLayer->offsetFromRenderer());
     }
+
+    updateScrollingBlockSelection();
 }
 
 void CompositedLayerMapping::updateChildClippingMaskLayerGeometry()
@@ -1048,12 +1015,39 @@ void CompositedLayerMapping::updatePaintingPhases()
         if (!m_foregroundLayer)
             paintPhase |= GraphicsLayerPaintForeground;
         m_scrollingContentsLayer->setPaintingPhase(paintPhase);
+        m_scrollingBlockSelectionLayer->setPaintingPhase(paintPhase);
     }
 }
 
 void CompositedLayerMapping::updateContentsRect()
 {
     m_graphicsLayer->setContentsRect(pixelSnappedIntRect(contentsBox()));
+}
+
+void CompositedLayerMapping::updateScrollingBlockSelection()
+{
+    if (!m_scrollingBlockSelectionLayer)
+        return;
+
+    if (!m_scrollingContentsAreEmpty) {
+        // In this case, the selection will be painted directly into m_scrollingContentsLayer.
+        m_scrollingBlockSelectionLayer->setDrawsContent(false);
+        return;
+    }
+
+    const IntRect blockSelectionGapsBounds = m_owningLayer.blockSelectionGapsBounds();
+    const bool shouldDrawContent = !blockSelectionGapsBounds.isEmpty();
+    m_scrollingBlockSelectionLayer->setDrawsContent(shouldDrawContent);
+    if (!shouldDrawContent)
+        return;
+
+    const IntPoint position = blockSelectionGapsBounds.location() + m_owningLayer.scrollableArea()->adjustedScrollOffset();
+    if (m_scrollingBlockSelectionLayer->size() == blockSelectionGapsBounds.size() && m_scrollingBlockSelectionLayer->position() == position)
+        return;
+
+    m_scrollingBlockSelectionLayer->setPosition(position);
+    m_scrollingBlockSelectionLayer->setSize(blockSelectionGapsBounds.size());
+    m_scrollingBlockSelectionLayer->setOffsetFromRenderer(toIntSize(blockSelectionGapsBounds.location()), GraphicsLayer::SetNeedsDisplay);
 }
 
 void CompositedLayerMapping::updateDrawsContent()
@@ -1066,8 +1060,10 @@ void CompositedLayerMapping::updateDrawsContent()
         bool hasNonScrollingPaintedContent = m_owningLayer.hasVisibleContent() && m_owningLayer.hasBoxDecorationsOrBackground();
         m_graphicsLayer->setDrawsContent(hasNonScrollingPaintedContent);
 
-        bool hasScrollingPaintedContent = m_owningLayer.hasVisibleContent() && (renderer()->hasBackground() || paintsChildren());
-        m_scrollingContentsLayer->setDrawsContent(hasScrollingPaintedContent);
+        m_scrollingContentsAreEmpty = !m_owningLayer.hasVisibleContent() || !(renderer()->hasBackground() || paintsChildren());
+        m_scrollingContentsLayer->setDrawsContent(!m_scrollingContentsAreEmpty);
+
+        updateScrollingBlockSelection();
         return;
     }
 
@@ -1374,7 +1370,6 @@ bool CompositedLayerMapping::updateBackgroundLayer(bool needsBackgroundLayer)
         if (!m_backgroundLayer) {
             m_backgroundLayer = createGraphicsLayer(CompositingReasonLayerForBackground);
             m_backgroundLayer->setDrawsContent(true);
-            m_backgroundLayer->setAnchorPoint(FloatPoint3D());
             m_backgroundLayer->setTransformOrigin(FloatPoint3D());
             m_backgroundLayer->setPaintingPhase(GraphicsLayerPaintBackground);
 #if !OS(ANDROID)
@@ -1452,6 +1447,10 @@ bool CompositedLayerMapping::updateScrollingLayers(bool needsScrollingLayers)
             m_scrollingContentsLayer->setDrawsContent(true);
             m_scrollingLayer->addChild(m_scrollingContentsLayer.get());
 
+            m_scrollingBlockSelectionLayer = createGraphicsLayer(CompositingReasonLayerForScrollingBlockSelection);
+            m_scrollingBlockSelectionLayer->setDrawsContent(true);
+            m_scrollingContentsLayer->addChild(m_scrollingBlockSelectionLayer.get());
+
             layerChanged = true;
             if (scrollingCoordinator)
                 scrollingCoordinator->scrollableAreaScrollLayerDidChange(m_owningLayer.scrollableArea());
@@ -1459,6 +1458,7 @@ bool CompositedLayerMapping::updateScrollingLayers(bool needsScrollingLayers)
     } else if (m_scrollingLayer) {
         m_scrollingLayer = nullptr;
         m_scrollingContentsLayer = nullptr;
+        m_scrollingBlockSelectionLayer = nullptr;
         layerChanged = true;
         if (scrollingCoordinator)
             scrollingCoordinator->scrollableAreaScrollLayerDidChange(m_owningLayer.scrollableArea());
@@ -1624,7 +1624,7 @@ bool CompositedLayerMapping::hasVisibleNonCompositingDescendant(RenderLayer* par
     // FIXME: We shouldn't be called with a stale z-order lists. See bug 85512.
     parent->stackingNode()->updateLayerListsIfNeeded();
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     LayerListMutationDetector mutationChecker(parent->stackingNode());
 #endif
 
@@ -1642,7 +1642,7 @@ bool CompositedLayerMapping::hasVisibleNonCompositingDescendant(RenderLayer* par
 
 bool CompositedLayerMapping::containsPaintedContent() const
 {
-    if (paintsIntoCompositedAncestor() || m_artificiallyInflatedBounds || m_owningLayer.isReflection())
+    if (paintsIntoCompositedAncestor() || m_owningLayer.isReflection())
         return false;
 
     if (isDirectlyCompositedImage())
@@ -1773,6 +1773,9 @@ LayoutRect CompositedLayerMapping::contentsBox() const
 
 GraphicsLayer* CompositedLayerMapping::parentForSublayers() const
 {
+    if (m_scrollingBlockSelectionLayer)
+        return m_scrollingBlockSelectionLayer.get();
+
     if (m_scrollingContentsLayer)
         return m_scrollingContentsLayer.get();
 
@@ -1848,7 +1851,7 @@ void CompositedLayerMapping::paintsIntoCompositedAncestorChanged()
     // The answer to paintsIntoCompositedAncestor() affects cached clip rects, so when
     // it changes we have to clear clip rects on descendants.
     m_owningLayer.clipper().clearClipRectsIncludingDescendants(PaintingClipRects);
-    m_owningLayer.repainter().computeRepaintRectsIncludingDescendants();
+    m_owningLayer.repainter().computeRepaintRectsIncludingNonCompositingDescendants();
 
     compositor()->repaintInCompositedAncestor(&m_owningLayer, compositedBounds());
 }
@@ -1889,7 +1892,7 @@ void CompositedLayerMapping::clearNeedsGraphicsLayerUpdate()
     m_needToUpdateGraphicsLayerOfAllDecendants = false;
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 
 void CompositedLayerMapping::assertNeedsToUpdateGraphicsLayerBitsCleared()
 {
@@ -1906,6 +1909,11 @@ struct SetContentsNeedsDisplayFunctor {
             layer->setNeedsDisplay();
     }
 };
+
+void CompositedLayerMapping::setSquashingContentsNeedDisplay()
+{
+    ApplyToGraphicsLayers(this, SetContentsNeedsDisplayFunctor(), ApplyToSquashingLayer);
+}
 
 void CompositedLayerMapping::setContentsNeedDisplay()
 {
@@ -2011,7 +2019,7 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
     // painting code.
 
     IntSize offset = paintInfo.offsetFromRenderer;
-    context->translate(-offset);
+    context->translate(-offset.width(), -offset.height());
 
     // The dirtyRect is in the coords of the painting root.
     IntRect dirtyRect(clip);
@@ -2055,7 +2063,7 @@ void CompositedLayerMapping::doPaintTask(GraphicsLayerPaintInfo& paintInfo, Grap
     ASSERT(!paintInfo.renderLayer->usedTransparency());
 
     // Manually restore the context to its original state by applying the opposite translation.
-    context->translate(offset);
+    context->translate(offset.width(), offset.height());
 }
 
 static void paintScrollbar(Scrollbar* scrollbar, GraphicsContext& context, const IntRect& clip)
@@ -2092,7 +2100,8 @@ void CompositedLayerMapping::paintContents(const GraphicsLayer* graphicsLayer, G
         || graphicsLayer == m_backgroundLayer.get()
         || graphicsLayer == m_maskLayer.get()
         || graphicsLayer == m_childClippingMaskLayer.get()
-        || graphicsLayer == m_scrollingContentsLayer.get()) {
+        || graphicsLayer == m_scrollingContentsLayer.get()
+        || graphicsLayer == m_scrollingBlockSelectionLayer.get()) {
 
         GraphicsLayerPaintInfo paintInfo;
         paintInfo.renderLayer = &m_owningLayer;
@@ -2254,6 +2263,8 @@ String CompositedLayerMapping::debugName(const GraphicsLayer* graphicsLayer)
         name = "Scrolling Layer";
     } else if (graphicsLayer == m_scrollingContentsLayer.get()) {
         name = "Scrolling Contents Layer";
+    } else if (graphicsLayer == m_scrollingBlockSelectionLayer.get()) {
+        name = "Scrolling Block Selection Layer";
     } else {
         ASSERT_NOT_REACHED();
     }

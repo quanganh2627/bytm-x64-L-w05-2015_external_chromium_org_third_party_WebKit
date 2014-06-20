@@ -31,9 +31,9 @@
 #include "config.h"
 #include "core/dom/custom/CustomElementRegistry.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
 #include "bindings/v8/CustomElementConstructorBuilder.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
 #include "core/dom/DocumentLifecycleObserver.h"
 #include "core/dom/custom/CustomElementException.h"
 #include "core/dom/custom/CustomElementRegistrationContext.h"
@@ -81,7 +81,7 @@ CustomElementDefinition* CustomElementRegistry::registerElement(Document* docume
         return 0;
     }
 
-    QualifiedName tagName = nullQName();
+    QualifiedName tagName = QualifiedName::null();
     if (!constructorBuilder->validateOptions(type, tagName, exceptionState))
         return 0;
 

@@ -40,6 +40,7 @@
 
 namespace WebCore {
 
+class ScriptPromiseResolverWithContext;
 ExceptionCode webCryptoErrorToExceptionCode(blink::WebCryptoErrorType);
 
 // Wrapper around a Promise to notify completion of the crypto operation.
@@ -51,7 +52,7 @@ ExceptionCode webCryptoErrorToExceptionCode(blink::WebCryptoErrorType);
 //  * The CryptoResult interface must only be called from the origin thread.
 //  * addref() and deref() can be called from any thread.
 //  * One of the completeWith***() functions must be called, or the
-//    PromiseState will be leaked until the ExecutionContext is destroyed.
+//    m_resolver will be leaked until the ExecutionContext is destroyed.
 class CryptoResultImpl FINAL : public CryptoResult {
 public:
     ~CryptoResultImpl();
@@ -60,6 +61,7 @@ public:
 
     virtual void completeWithError(blink::WebCryptoErrorType, const blink::WebString&) OVERRIDE;
     virtual void completeWithBuffer(const blink::WebArrayBuffer&) OVERRIDE;
+    virtual void completeWithJson(const char* utf8Data, unsigned length) OVERRIDE;
     virtual void completeWithBoolean(bool) OVERRIDE;
     virtual void completeWithKey(const blink::WebCryptoKey&) OVERRIDE;
     virtual void completeWithKeyPair(const blink::WebCryptoKey& publicKey, const blink::WebCryptoKey& privateKey) OVERRIDE;
@@ -70,8 +72,7 @@ public:
 private:
     explicit CryptoResultImpl(ScriptState*);
 
-    class PromiseState;
-    WeakPtr<PromiseState> m_promiseState;
+    WeakPtr<ScriptPromiseResolverWithContext> m_resolver;
 };
 
 } // namespace WebCore

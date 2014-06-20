@@ -26,16 +26,23 @@
 #include "config.h"
 #include "modules/indexeddb/IDBRequest.h"
 
+#include "bindings/v8/ScriptState.h"
+#include "bindings/v8/V8Binding.h"
 #include "core/dom/DOMError.h"
-#include "core/dom/Document.h"
-#include "core/events/EventQueue.h"
+#include "core/dom/ExecutionContext.h"
+#include "core/testing/NullExecutionContext.h"
 #include "modules/indexeddb/IDBDatabaseCallbacks.h"
+#include "modules/indexeddb/IDBKey.h"
 #include "modules/indexeddb/IDBKeyRange.h"
 #include "modules/indexeddb/IDBOpenDBRequest.h"
 #include "platform/SharedBuffer.h"
 #include "public/platform/WebBlobInfo.h"
 #include "public/platform/WebIDBDatabase.h"
+#include "wtf/OwnPtr.h"
 #include "wtf/PassOwnPtr.h"
+#include "wtf/PassRefPtr.h"
+#include "wtf/Vector.h"
+#include "wtf/dtoa/utils.h"
 #include <gtest/gtest.h>
 #include <v8.h>
 
@@ -44,39 +51,11 @@ using namespace WebCore;
 
 namespace {
 
-class NullEventQueue FINAL : public EventQueue {
-public:
-    NullEventQueue() { }
-    virtual ~NullEventQueue() { }
-    virtual bool enqueueEvent(PassRefPtrWillBeRawPtr<Event>) OVERRIDE { return true; }
-    virtual bool cancelEvent(Event*) OVERRIDE { return true; }
-    virtual void close() OVERRIDE { }
-};
-
-class NullExecutionContext FINAL : public ExecutionContext, public RefCounted<NullExecutionContext> {
-public:
-    using RefCounted<NullExecutionContext>::ref;
-    using RefCounted<NullExecutionContext>::deref;
-
-    virtual void refExecutionContext() OVERRIDE { ref(); }
-    virtual void derefExecutionContext() OVERRIDE { deref(); }
-    virtual EventQueue* eventQueue() const OVERRIDE { return m_queue.get(); }
-
-    NullExecutionContext();
-private:
-    OwnPtr<EventQueue> m_queue;
-};
-
-NullExecutionContext::NullExecutionContext()
-    : m_queue(adoptPtr(new NullEventQueue()))
-{
-}
-
 class IDBRequestTest : public testing::Test {
 public:
     IDBRequestTest()
         : m_scope(v8::Isolate::GetCurrent())
-        , m_executionContext(adoptRef(new NullExecutionContext()))
+        , m_executionContext(adoptRefWillBeNoop(new NullExecutionContext()))
     {
         m_scope.scriptState()->setExecutionContext(m_executionContext.get());
     }
@@ -92,7 +71,7 @@ public:
 
 private:
     V8TestingScope m_scope;
-    RefPtr<ExecutionContext> m_executionContext;
+    RefPtrWillBePersistent<ExecutionContext> m_executionContext;
 };
 
 TEST_F(IDBRequestTest, EventsAfterStopping)

@@ -25,15 +25,14 @@
  */
 
 #include "config.h"
-#include "InternalSettings.h"
+#include "core/testing/InternalSettings.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/frame/Settings.h"
 #include "core/inspector/InspectorController.h"
 #include "core/page/Page.h"
-#include "platform/ColorChooser.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/Supplementable.h"
 #include "platform/text/LocaleToScriptMapping.h"
 
@@ -60,7 +59,6 @@ namespace WebCore {
 InternalSettings::Backup::Backup(Settings* settings)
     : m_originalCSSExclusionsEnabled(RuntimeEnabledFeatures::cssExclusionsEnabled())
     , m_originalAuthorShadowDOMForAnyElementEnabled(RuntimeEnabledFeatures::authorShadowDOMForAnyElementEnabled())
-    , m_originalStyleScoped(RuntimeEnabledFeatures::styleScopedEnabled())
     , m_originalCSP(RuntimeEnabledFeatures::experimentalContentSecurityPolicyFeaturesEnabled())
     , m_originalOverlayScrollbarsEnabled(RuntimeEnabledFeatures::overlayScrollbarsEnabled())
     , m_originalEditingBehavior(settings->editingBehaviorType())
@@ -81,7 +79,6 @@ void InternalSettings::Backup::restoreTo(Settings* settings)
 {
     RuntimeEnabledFeatures::setCSSExclusionsEnabled(m_originalCSSExclusionsEnabled);
     RuntimeEnabledFeatures::setAuthorShadowDOMForAnyElementEnabled(m_originalAuthorShadowDOMForAnyElementEnabled);
-    RuntimeEnabledFeatures::setStyleScopedEnabled(m_originalStyleScoped);
     RuntimeEnabledFeatures::setExperimentalContentSecurityPolicyFeaturesEnabled(m_originalCSP);
     RuntimeEnabledFeatures::setOverlayScrollbarsEnabled(m_originalOverlayScrollbarsEnabled);
     settings->setEditingBehaviorType(m_originalEditingBehavior);
@@ -114,7 +111,7 @@ public:
     explicit InternalSettingsWrapper(Page& page)
         : m_internalSettings(InternalSettings::create(page)) { }
     virtual ~InternalSettingsWrapper() { m_internalSettings->hostDestroyed(); }
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     virtual bool isRefCountedWrapper() const OVERRIDE { return true; }
 #endif
     InternalSettings* internalSettings() const { return m_internalSettings.get(); }
@@ -174,11 +171,6 @@ void InternalSettings::setMockScrollbarsEnabled(bool enabled, ExceptionState& ex
 void InternalSettings::setAuthorShadowDOMForAnyElementEnabled(bool isEnabled)
 {
     RuntimeEnabledFeatures::setAuthorShadowDOMForAnyElementEnabled(isEnabled);
-}
-
-void InternalSettings::setStyleScopedEnabled(bool enabled)
-{
-    RuntimeEnabledFeatures::setStyleScopedEnabled(enabled);
 }
 
 void InternalSettings::setExperimentalContentSecurityPolicyFeaturesEnabled(bool enabled)

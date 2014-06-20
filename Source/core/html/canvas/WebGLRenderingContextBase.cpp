@@ -26,7 +26,6 @@
 #include "config.h"
 #include "core/html/canvas/WebGLRenderingContextBase.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/ExceptionCode.h"
@@ -76,7 +75,9 @@
 #include "core/rendering/RenderBox.h"
 #include "platform/CheckedInt.h"
 #include "platform/NotImplemented.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/geometry/IntSize.h"
+#include "platform/graphics/GraphicsContext.h"
 #include "platform/graphics/UnacceleratedImageBufferSurface.h"
 #include "platform/graphics/gpu/DrawingBuffer.h"
 #include "public/platform/Platform.h"
@@ -518,6 +519,7 @@ WebGLRenderingContextBase::WebGLRenderingContextBase(HTMLCanvasElement* passedCa
     , m_multisamplingObserverRegistered(false)
     , m_onePlusMaxEnabledAttribIndex(0)
     , m_onePlusMaxNonDefaultTextureUnit(0)
+    , m_savingImage(false)
 {
     ASSERT(context);
 
@@ -841,6 +843,7 @@ void WebGLRenderingContextBase::paintRenderingResultsToCanvas()
         canvas()->makePresentationCopy();
     } else
         canvas()->clearPresentationCopy();
+
     clearIfComposited();
 
     if (!m_markedCanvasDirty && !m_layerCleared)
@@ -852,7 +855,7 @@ void WebGLRenderingContextBase::paintRenderingResultsToCanvas()
     ScopedTexture2DRestorer restorer(this);
 
     m_drawingBuffer->commit();
-    if (!(canvas()->buffer())->copyRenderingResultsFromDrawingBuffer(m_drawingBuffer.get())) {
+    if (!(canvas()->buffer())->copyRenderingResultsFromDrawingBuffer(m_drawingBuffer.get(), m_savingImage)) {
         canvas()->ensureUnacceleratedImageBuffer();
         if (canvas()->hasImageBuffer())
             m_drawingBuffer->paintRenderingResultsToCanvas(canvas()->buffer());

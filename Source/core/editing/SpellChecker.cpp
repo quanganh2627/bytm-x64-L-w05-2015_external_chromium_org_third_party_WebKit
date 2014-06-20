@@ -27,7 +27,7 @@
 #include "config.h"
 #include "core/editing/SpellChecker.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/DocumentMarkerController.h"
 #include "core/dom/Element.h"
@@ -103,8 +103,10 @@ void SpellChecker::toggleContinuousSpellChecking()
     spellCheckerClient().toggleContinuousSpellChecking();
     if (isContinuousSpellCheckingEnabled())
         return;
-    for (LocalFrame* frame = m_frame.page()->mainFrame(); frame && frame->document(); frame = frame->tree().traverseNext()) {
-        for (Node* node = &frame->document()->rootNode(); node; node = NodeTraversal::next(*node)) {
+    for (Frame* frame = m_frame.page()->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->isLocalFrame())
+            continue;
+        for (Node* node = &toLocalFrame(frame)->document()->rootNode(); node; node = NodeTraversal::next(*node)) {
             node->setAlreadySpellChecked(false);
         }
     }

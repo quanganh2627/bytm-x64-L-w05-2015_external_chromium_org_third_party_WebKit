@@ -34,6 +34,7 @@
 #include "core/dom/Document.h"
 #include "core/fetch/ResourceFetcher.h"
 #include "core/frame/LocalFrame.h"
+#include "core/frame/UseCounter.h"
 #include "core/html/imports/HTMLImportChild.h"
 #include "core/html/imports/HTMLImportChildClient.h"
 #include "core/html/imports/HTMLImportLoader.h"
@@ -52,6 +53,7 @@ void HTMLImportsController::provideTo(Document& master)
 HTMLImportsController::HTMLImportsController(Document& master)
     : m_root(HTMLImportTreeRoot::create(&master))
 {
+    UseCounter::count(master, UseCounter::HTMLImports);
 }
 
 HTMLImportsController::~HTMLImportsController()
@@ -89,6 +91,9 @@ static bool makesCycle(HTMLImport* parent, const KURL& url)
 HTMLImportChild* HTMLImportsController::createChild(const KURL& url, HTMLImportLoader* loader, HTMLImport* parent, HTMLImportChildClient* client)
 {
     HTMLImport::SyncMode mode = client->isSync() && !makesCycle(parent, url) ? HTMLImport::Sync : HTMLImport::Async;
+    if (mode == HTMLImport::Async)
+        UseCounter::count(root()->document(), UseCounter::HTMLImportsAsyncAttribute);
+
     OwnPtrWillBeRawPtr<HTMLImportChild> child = adoptPtrWillBeNoop(new HTMLImportChild(url, loader, mode));
     child->setClient(client);
     parent->appendImport(child.get());

@@ -124,15 +124,12 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
     // This variant does not work in worker threads.
     ASSERT(eventTarget.toDOMWindow());
 
-    if (!video->player()) {
-        exceptionState.throwDOMException(InvalidStateError, "No player can be retrieved from the provided video element.");
-        return ScriptPromise();
-    }
     if (video->networkState() == HTMLMediaElement::NETWORK_EMPTY) {
         exceptionState.throwDOMException(InvalidStateError, "The provided element has not retrieved data.");
         return ScriptPromise();
     }
-    if (video->player()->readyState() <= MediaPlayer::HaveMetadata) {
+    // FIXME: Remove the below null check once we fix the bug 382721
+    if (video->readyState() <= HTMLMediaElement::HAVE_METADATA || !video->webMediaPlayer()) {
         exceptionState.throwDOMException(InvalidStateError, "The provided element's player has no current data.");
         return ScriptPromise();
     }
@@ -144,7 +141,7 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
         exceptionState.throwSecurityError("The source video contains image data from multiple origins.");
         return ScriptPromise();
     }
-    if (!(video->webMediaPlayer() && video->webMediaPlayer()->didPassCORSAccessCheck())
+    if (!video->webMediaPlayer()->didPassCORSAccessCheck()
         && eventTarget.toDOMWindow()->document()->securityOrigin()->taintsCanvas(video->currentSrc())) {
         exceptionState.throwSecurityError("Cross-origin access to the source video is denied.");
         return ScriptPromise();
@@ -188,7 +185,7 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
 
 ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, EventTarget& eventTarget, Blob* blob, ExceptionState& exceptionState)
 {
-    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(), scriptState);
+    ImageBitmapLoader* loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(), scriptState);
     ScriptPromise promise = loader->promise();
     from(eventTarget).addLoader(loader);
     loader->loadBlobAsync(eventTarget.executionContext(), blob);
@@ -201,7 +198,7 @@ ScriptPromise ImageBitmapFactories::createImageBitmap(ScriptState* scriptState, 
         exceptionState.throwDOMException(IndexSizeError, String::format("The source %s provided is 0.", sw ? "height" : "width"));
         return ScriptPromise();
     }
-    RefPtrWillBeRawPtr<ImageBitmapLoader> loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(sx, sy, sw, sh), scriptState);
+    ImageBitmapLoader* loader = ImageBitmapFactories::ImageBitmapLoader::create(from(eventTarget), IntRect(sx, sy, sw, sh), scriptState);
     ScriptPromise promise = loader->promise();
     from(eventTarget).addLoader(loader);
     loader->loadBlobAsync(eventTarget.executionContext(), blob);
@@ -263,7 +260,7 @@ ImageBitmapFactories& ImageBitmapFactories::fromInternal(GlobalObject& object)
     return *supplement;
 }
 
-void ImageBitmapFactories::addLoader(PassRefPtrWillBeRawPtr<ImageBitmapLoader> loader)
+void ImageBitmapFactories::addLoader(ImageBitmapLoader* loader)
 {
     m_pendingLoaders.add(loader);
 }

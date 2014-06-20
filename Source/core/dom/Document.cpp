@@ -28,19 +28,18 @@
 #include "config.h"
 #include "core/dom/Document.h"
 
-#include "HTMLElementFactory.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include "SVGElementFactory.h"
-#include "SVGNames.h"
-#include "XMLNSNames.h"
-#include "XMLNames.h"
 #include "bindings/v8/CustomElementConstructorBuilder.h"
 #include "bindings/v8/Dictionary.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptController.h"
+#include "core/HTMLElementFactory.h"
+#include "core/HTMLNames.h"
+#include "core/SVGElementFactory.h"
+#include "core/SVGNames.h"
+#include "core/XMLNSNames.h"
+#include "core/XMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/animation/AnimationTimeline.h"
 #include "core/animation/DocumentAnimations.h"
@@ -52,6 +51,7 @@
 #include "core/css/StyleSheetContents.h"
 #include "core/css/StyleSheetList.h"
 #include "core/css/invalidation/StyleInvalidator.h"
+#include "core/css/parser/CSSPropertyParser.h"
 #include "core/css/resolver/FontBuilder.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/css/resolver/StyleResolverStats.h"
@@ -170,15 +170,16 @@
 #include "core/rendering/HitTestResult.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/TextAutosizer.h"
+#include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGFontFaceElement.h"
-#include "core/svg/SVGStyleElement.h"
 #include "core/svg/SVGUseElement.h"
 #include "core/workers/SharedWorkerRepositoryClient.h"
 #include "core/xml/XSLTProcessor.h"
 #include "core/xml/parser/XMLDocumentParser.h"
 #include "platform/DateComponents.h"
 #include "platform/Language.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
 #include "platform/network/ContentSecurityPolicyParsers.h"
 #include "platform/network/HTTPParsers.h"
@@ -197,7 +198,6 @@
 #include "wtf/text/StringBuffer.h"
 #include "wtf/text/TextEncodingRegistry.h"
 
-using namespace std;
 using namespace WTF;
 using namespace Unicode;
 
@@ -378,7 +378,7 @@ private:
 };
 
 DocumentVisibilityObserver::DocumentVisibilityObserver(Document& document)
-    : m_document(0)
+    : m_document(nullptr)
 {
     registerObserver(document);
 }
@@ -390,11 +390,16 @@ DocumentVisibilityObserver::~DocumentVisibilityObserver()
 #endif
 }
 
+void DocumentVisibilityObserver::trace(Visitor* visitor)
+{
+    visitor->trace(m_document);
+}
+
 void DocumentVisibilityObserver::unregisterObserver()
 {
     if (m_document) {
         m_document->unregisterVisibilityObserver(this);
-        m_document = 0;
+        m_document = nullptr;
     }
 }
 
@@ -675,6 +680,7 @@ MediaQueryMatcher& Document::mediaQueryMatcher()
 
 void Document::mediaQueryAffectingValueChanged()
 {
+    m_evaluateMediaQueriesOnStyleRecalc = true;
     styleEngine()->clearMediaQueryRuleSetStyleSheets();
 }
 
@@ -776,12 +782,12 @@ static inline QualifiedName createQualifiedName(const AtomicString& namespaceURI
 {
     AtomicString prefix, localName;
     if (!Document::parseQualifiedName(qualifiedName, prefix, localName, exceptionState))
-        return nullQName();
+        return QualifiedName::null();
 
     QualifiedName qName(prefix, localName, namespaceURI);
     if (!Document::hasValidNamespaceForElements(qName)) {
         exceptionState.throwDOMException(NamespaceError, "The namespace URI provided ('" + namespaceURI + "') is not valid for the qualified name provided ('" + qualifiedName + "').");
-        return nullQName();
+        return QualifiedName::null();
     }
 
     return qName;
@@ -790,7 +796,7 @@ static inline QualifiedName createQualifiedName(const AtomicString& namespaceURI
 PassRefPtrWillBeRawPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, ExceptionState& exceptionState)
 {
     QualifiedName qName(createQualifiedName(namespaceURI, qualifiedName, exceptionState));
-    if (qName == nullQName())
+    if (qName == QualifiedName::null())
         return nullptr;
 
     return createElement(qName, false);
@@ -799,7 +805,7 @@ PassRefPtrWillBeRawPtr<Element> Document::createElementNS(const AtomicString& na
 PassRefPtrWillBeRawPtr<Element> Document::createElementNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& typeExtension, ExceptionState& exceptionState)
 {
     QualifiedName qName(createQualifiedName(namespaceURI, qualifiedName, exceptionState));
-    if (qName == nullQName())
+    if (qName == QualifiedName::null())
         return nullptr;
 
     RefPtrWillBeRawPtr<Element> element;
@@ -1919,7 +1925,7 @@ void Document::updateStyle(StyleRecalcChange change)
     ensureStyleResolver().printStats();
 
     view()->recalcOverflowAfterStyleChange();
-    view()->updateCompositingLayersAfterStyleChange();
+    renderView()->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
 
     clearChildNeedsStyleRecalc();
 
@@ -2098,8 +2104,8 @@ bool Document::dirtyElementsForLayerUpdate()
 {
     if (m_layerUpdateSVGFilterElements.isEmpty())
         return false;
-    HashSet<Element*>::iterator end = m_layerUpdateSVGFilterElements.end();
-    for (HashSet<Element*>::iterator it = m_layerUpdateSVGFilterElements.begin(); it != end; ++it)
+
+    for (WillBeHeapHashSet<RawPtrWillBeMember<Element> >::iterator it = m_layerUpdateSVGFilterElements.begin(), end = m_layerUpdateSVGFilterElements.end(); it != end; ++it)
         (*it)->setNeedsStyleRecalc(LocalStyleChange);
     m_layerUpdateSVGFilterElements.clear();
     return true;
@@ -2138,12 +2144,11 @@ void Document::updateUseShadowTreesIfNeeded()
     if (m_useElementsNeedingUpdate.isEmpty())
         return;
 
-    Vector<SVGUseElement*> elements;
+    WillBeHeapVector<RawPtrWillBeMember<SVGUseElement> > elements;
     copyToVector(m_useElementsNeedingUpdate, elements);
     m_useElementsNeedingUpdate.clear();
 
-    Vector<SVGUseElement*>::iterator end = elements.end();
-    for (Vector<SVGUseElement*>::iterator it = elements.begin(); it != end; ++it)
+    for (WillBeHeapVector<RawPtrWillBeMember<SVGUseElement> >::iterator it = elements.begin(), end = elements.end(); it != end; ++it)
         (*it)->buildPendingResource();
 }
 
@@ -2172,7 +2177,7 @@ void Document::attach(const AttachContext& context)
 
     m_renderView->setIsInWindow(true);
     m_renderView->setStyle(StyleResolver::styleForDocument(*this));
-    view()->updateCompositingLayersAfterStyleChange();
+    m_renderView->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
 
     ContainerNode::attach(context);
 
@@ -2813,7 +2818,7 @@ EventTarget* Document::errorEventTarget()
     return domWindow();
 }
 
-void Document::logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, PassRefPtr<ScriptCallStack> callStack)
+void Document::logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, PassRefPtrWillBeRawPtr<ScriptCallStack> callStack)
 {
     internalAddMessage(JSMessageSource, ErrorMessageLevel, errorMessage, sourceURL, lineNumber, callStack, 0);
 }
@@ -3228,7 +3233,7 @@ String Document::outgoingReferrer()
     if (LocalFrame* frame = m_frame) {
         while (frame->document()->isSrcdocDocument()) {
             // Srcdoc documents must be local within the containing frame.
-            frame = frame->tree().parent();
+            frame = toLocalFrame(frame->tree().parent());
             // Srcdoc documents cannot be top-level documents, by definition,
             // because they need to be contained in iframes with the srcdoc.
             ASSERT(frame);
@@ -3444,19 +3449,14 @@ void Document::styleResolverChanged(StyleResolverUpdateMode updateMode)
     if (!m_styleEngine)
         return;
 
-    StyleResolverChange change = m_styleEngine->resolverChanged(updateMode);
-    if (change.needsRepaint()) {
+    m_styleEngine->resolverChanged(updateMode);
+
+    if (didLayoutWithPendingStylesheets() && !m_styleEngine->hasPendingSheets()) {
         // We need to manually repaint because we avoid doing all repaints in layout or style
         // recalc while sheets are still loading to avoid FOUC.
         m_pendingSheetLayout = IgnoreLayoutWithPendingSheets;
         renderView()->repaintViewAndCompositedLayers();
     }
-
-    if (!change.needsStyleRecalc())
-        return;
-
-    m_evaluateMediaQueriesOnStyleRecalc = true;
-    setNeedsStyleRecalc(SubtreeStyleChange);
 }
 
 void Document::styleResolverMayHaveChanged()
@@ -3768,6 +3768,17 @@ void Document::updateRangesAfterChildrenChanged(ContainerNode* container)
     }
 }
 
+void Document::updateRangesAfterNodeMovedToAnotherDocument(const Node& node)
+{
+    ASSERT(node.document() != this);
+    if (m_ranges.isEmpty())
+        return;
+    AttachedRangeSet ranges = m_ranges;
+    AttachedRangeSet::const_iterator end = ranges.end();
+    for (AttachedRangeSet::const_iterator it = ranges.begin(); it != end; ++it)
+        (*it)->updateOwnerDocumentIfNeeded();
+}
+
 void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 {
     NoEventDispatchAssertion assertNoEventDispatch;
@@ -3914,9 +3925,9 @@ Document::EventFactorySet& Document::eventFactories()
     return s_eventFactory;
 }
 
-void Document::registerEventFactory(EventFactoryBase* eventFactory)
+void Document::registerEventFactory(PassOwnPtr<EventFactoryBase> eventFactory)
 {
-    ASSERT(!eventFactories().contains(eventFactory));
+    ASSERT(!eventFactories().contains(eventFactory.get()));
     eventFactories().add(eventFactory);
 }
 
@@ -4448,8 +4459,13 @@ void Document::setTransformSource(PassOwnPtr<TransformSource> source)
 void Document::setDesignMode(InheritedBool value)
 {
     m_designMode = value;
-    for (LocalFrame* frame = m_frame; frame && frame->document(); frame = frame->tree().traverseNext(m_frame))
-        frame->document()->setNeedsStyleRecalc(SubtreeStyleChange);
+    for (Frame* frame = m_frame; frame; frame = frame->tree().traverseNext(m_frame)) {
+        if (!frame->isLocalFrame())
+            continue;
+        if (!toLocalFrame(frame)->document())
+            break;
+        toLocalFrame(frame)->document()->setNeedsStyleRecalc(SubtreeStyleChange);
+    }
 }
 
 Document::InheritedBool Document::getDesignMode() const
@@ -4487,10 +4503,10 @@ Document* Document::parentDocument() const
 {
     if (!m_frame)
         return 0;
-    LocalFrame* parent = m_frame->tree().parent();
-    if (!parent)
+    Frame* parent = m_frame->tree().parent();
+    if (!parent || !parent->isLocalFrame())
         return 0;
-    return parent->document();
+    return toLocalFrame(parent)->document();
 }
 
 Document& Document::topDocument() const
@@ -4734,6 +4750,19 @@ Vector<IconURL> Document::iconURLs(int iconTypesMask)
     return iconURLs;
 }
 
+Color Document::brandColor() const
+{
+    if (!RuntimeEnabledFeatures::brandColorEnabled())
+        return Color();
+
+    for (HTMLMetaElement* metaElement = head() ? Traversal<HTMLMetaElement>::firstChild(*head()) : 0; metaElement; metaElement = Traversal<HTMLMetaElement>::nextSibling(*metaElement)) {
+        RGBA32 rgb;
+        if (equalIgnoringCase(metaElement->name(), "brand-color") && CSSPropertyParser::fastParseColor(rgb, metaElement->content().string().stripWhiteSpace(), true))
+            return Color(rgb);
+    }
+    return Color();
+}
+
 HTMLLinkElement* Document::linkManifest() const
 {
     HTMLHeadElement* head = this->head();
@@ -4852,7 +4881,7 @@ void Document::initSecurityContext(const DocumentInit& initializer)
 void Document::initContentSecurityPolicy(const ContentSecurityPolicyResponseHeaders& headers)
 {
     if (m_frame && m_frame->tree().parent() && m_frame->tree().parent()->isLocalFrame() && (shouldInheritSecurityOriginFromOwner(m_url) || isPluginDocument()))
-        contentSecurityPolicy()->copyStateFrom(m_frame->tree().parent()->document()->contentSecurityPolicy());
+        contentSecurityPolicy()->copyStateFrom(toLocalFrame(m_frame->tree().parent())->document()->contentSecurityPolicy());
     contentSecurityPolicy()->didReceiveHeaders(headers);
 }
 
@@ -5006,7 +5035,7 @@ void Document::addMessage(MessageSource source, MessageLevel level, const String
     internalAddMessage(source, level, message, sourceURL, lineNumber, nullptr, scriptState);
 }
 
-void Document::internalAddMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack> callStack, ScriptState* scriptState)
+void Document::internalAddMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtrWillBeRawPtr<ScriptCallStack> callStack, ScriptState* scriptState)
 {
     if (!isContextThread()) {
         m_taskRunner->postTask(AddConsoleMessageTask::create(source, level, message));
@@ -5222,14 +5251,33 @@ void Document::serviceScriptedAnimations(double monotonicAnimationStartTime)
     m_scriptedAnimationController->serviceScriptedAnimations(monotonicAnimationStartTime);
 }
 
-PassRefPtrWillBeRawPtr<Touch> Document::createTouch(DOMWindow* window, EventTarget* target, int identifier, int pageX, int pageY, int screenX, int screenY, int radiusX, int radiusY, float rotationAngle, float force) const
+PassRefPtrWillBeRawPtr<Touch> Document::createTouch(DOMWindow* window, EventTarget* target, int identifier, double pageX, double pageY, double screenX, double screenY, double radiusX, double radiusY, float rotationAngle, float force) const
 {
+    // Match behavior from when these types were integers, and avoid surprises from someone explicitly
+    // passing Infinity/NaN.
+    if (!std::isfinite(pageX))
+        pageX = 0;
+    if (!std::isfinite(pageY))
+        pageY = 0;
+    if (!std::isfinite(screenX))
+        screenX = 0;
+    if (!std::isfinite(screenY))
+        screenY = 0;
+    if (!std::isfinite(radiusX))
+        radiusX = 0;
+    if (!std::isfinite(radiusY))
+        radiusY = 0;
+    if (!std::isfinite(rotationAngle))
+        rotationAngle = 0;
+    if (!std::isfinite(force))
+        force = 0;
+
     // FIXME: It's not clear from the documentation at
     // http://developer.apple.com/library/safari/#documentation/UserExperience/Reference/DocumentAdditionsReference/DocumentAdditions/DocumentAdditions.html
     // when this method should throw and nor is it by inspection of iOS behavior. It would be nice to verify any cases where it throws under iOS
     // and implement them here. See https://bugs.webkit.org/show_bug.cgi?id=47819
     LocalFrame* frame = window ? window->frame() : this->frame();
-    return Touch::create(frame, target, identifier, screenX, screenY, pageX, pageY, radiusX, radiusY, rotationAngle, force);
+    return Touch::create(frame, target, identifier, FloatPoint(screenX, screenY), FloatPoint(pageX, pageY), FloatSize(radiusX, radiusY), rotationAngle, force);
 }
 
 PassRefPtrWillBeRawPtr<TouchList> Document::createTouchList(WillBeHeapVector<RefPtrWillBeMember<Touch> >& touches) const
@@ -5802,8 +5850,11 @@ void Document::trace(Visitor* visitor)
     visitor->trace(m_contextFeatures);
     visitor->trace(m_styleSheetList);
     visitor->trace(m_mediaQueryMatcher);
+    visitor->trace(m_scriptedAnimationController);
     visitor->trace(m_registrationContext);
     visitor->trace(m_associatedFormControls);
+    visitor->trace(m_useElementsNeedingUpdate);
+    visitor->trace(m_layerUpdateSVGFilterElements);
     visitor->trace(m_templateDocument);
     visitor->trace(m_templateDocumentHost);
     visitor->trace(m_visibilityObservers);

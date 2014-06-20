@@ -531,8 +531,6 @@ void ChromeClientImpl::contentsSizeChanged(LocalFrame* frame, const IntSize& siz
 
     WebLocalFrameImpl* webframe = WebLocalFrameImpl::fromFrame(frame);
     webframe->didChangeContentsSize(size);
-    if (webframe->client())
-        webframe->client()->didChangeContentsSize(webframe, size);
 
     frame->loader().restoreScrollPositionAndViewState();
 }
@@ -606,7 +604,7 @@ PassOwnPtr<ColorChooser> ChromeClientImpl::createColorChooser(LocalFrame* frame,
     return controller.release();
 }
 
-PassRefPtr<DateTimeChooser> ChromeClientImpl::openDateTimeChooser(DateTimeChooserClient* pickerClient, const DateTimeChooserParameters& parameters)
+PassRefPtrWillBeRawPtr<DateTimeChooser> ChromeClientImpl::openDateTimeChooser(DateTimeChooserClient* pickerClient, const DateTimeChooserParameters& parameters)
 {
 #if ENABLE(INPUT_MULTIPLE_FIELDS_UI)
     return DateTimeChooserImpl::create(this, pickerClient, parameters);
@@ -884,29 +882,9 @@ void ChromeClientImpl::openTextDataListChooser(HTMLInputElement& input)
         m_webView->autofillClient()->openTextDataListChooser(WebInputElement(&input));
 }
 
-PassOwnPtr<NavigatorContentUtilsClientImpl> NavigatorContentUtilsClientImpl::create(WebViewImpl* webView)
+bool ChromeClientImpl::usesGpuRasterization()
 {
-    return adoptPtr(new NavigatorContentUtilsClientImpl(webView));
-}
-
-NavigatorContentUtilsClientImpl::NavigatorContentUtilsClientImpl(WebViewImpl* webView)
-    : m_webView(webView)
-{
-}
-
-void NavigatorContentUtilsClientImpl::registerProtocolHandler(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL& url, const String& title)
-{
-    m_webView->client()->registerProtocolHandler(scheme, baseURL, url, title);
-}
-
-NavigatorContentUtilsClient::CustomHandlersState NavigatorContentUtilsClientImpl::isProtocolHandlerRegistered(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL& url)
-{
-    return static_cast<NavigatorContentUtilsClient::CustomHandlersState>(m_webView->client()->isProtocolHandlerRegistered(scheme, baseURL, url));
-}
-
-void NavigatorContentUtilsClientImpl::unregisterProtocolHandler(const String& scheme, const WebCore::KURL& baseURL, const WebCore::KURL& url)
-{
-    m_webView->client()->unregisterProtocolHandler(scheme, baseURL, url);
+    return m_webView->layerTreeView()->usesGpuRasterization();
 }
 
 } // namespace blink

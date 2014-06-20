@@ -27,31 +27,28 @@
 #include "config.h"
 #include "core/html/HTMLContentElement.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
+#include "core/HTMLNames.h"
 #include "core/css/SelectorChecker.h"
 #include "core/css/SiblingTraversalStrategies.h"
 #include "core/css/parser/BisonCSSParser.h"
 #include "core/dom/QualifiedName.h"
 #include "core/dom/shadow/ElementShadow.h"
 #include "core/dom/shadow/ShadowRoot.h"
+#include "platform/RuntimeEnabledFeatures.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-PassRefPtrWillBeRawPtr<HTMLContentElement> HTMLContentElement::create(Document& document)
-{
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLContentElement(document));
-}
-
-HTMLContentElement::HTMLContentElement(Document& document)
+inline HTMLContentElement::HTMLContentElement(Document& document)
     : InsertionPoint(contentTag, document)
     , m_shouldParseSelect(false)
     , m_isValidSelector(true)
 {
     ScriptWrappable::init(this);
 }
+
+DEFINE_NODE_FACTORY(HTMLContentElement)
 
 HTMLContentElement::~HTMLContentElement()
 {
@@ -85,7 +82,7 @@ void HTMLContentElement::parseAttribute(const QualifiedName& name, const AtomicS
 
 static inline bool includesDisallowedPseudoClass(const CSSSelector& selector)
 {
-    return selector.m_match == CSSSelector::PseudoClass && selector.m_pseudoType != CSSSelector::PseudoNot;
+    return selector.match() == CSSSelector::PseudoClass && selector.pseudoType() != CSSSelector::PseudoNot;
 }
 
 bool HTMLContentElement::validateSelect() const

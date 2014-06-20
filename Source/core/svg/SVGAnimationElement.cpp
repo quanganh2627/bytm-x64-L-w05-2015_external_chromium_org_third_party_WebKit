@@ -26,8 +26,8 @@
 
 #include "core/svg/SVGAnimationElement.h"
 
-#include "CSSPropertyNames.h"
-#include "SVGNames.h"
+#include "core/CSSPropertyNames.h"
+#include "core/SVGNames.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/css/parser/BisonCSSParser.h"
 #include "core/frame/UseCounter.h"
@@ -50,8 +50,6 @@ SVGAnimationElement::SVGAnimationElement(const QualifiedName& tagName, Document&
     , m_calcMode(CalcModeLinear)
     , m_animationMode(NoAnimation)
 {
-    ScriptWrappable::init(this);
-
     UseCounter::count(document, UseCounter::SVGAnimationElement);
 }
 
@@ -110,7 +108,7 @@ static void parseKeySplinesInternal(const String& string, Vector<UnitBezier>& re
         }
 
         float posD = 0;
-        if (!parseNumber(ptr, end, posD, false)) {
+        if (!parseNumber(ptr, end, posD, DisallowWhitespace)) {
             result.clear();
             return;
         }

@@ -32,13 +32,14 @@
 #include "config.h"
 #include "core/events/EventTarget.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionState.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/NoEventDispatchAssertion.h"
+#include "core/editing/Editor.h"
 #include "core/events/Event.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/frame/DOMWindow.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "wtf/StdLibExtras.h"
 #include "wtf/Vector.h"
 
@@ -277,6 +278,7 @@ bool EventTarget::fireEventListeners(Event* event)
         event->setType(unprefixedTypeName);
     }
 
+    Editor::countEvent(executionContext(), event);
     countLegacyEvents(legacyTypeName, listenersVector, legacyListenersVector);
     return !event->defaultPrevented();
 }
@@ -329,7 +331,7 @@ void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventList
         if (!context)
             break;
 
-        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willHandleEvent(this, event->type(), registeredListener.listener.get(), registeredListener.useCapture);
+        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willHandleEvent(this, event, registeredListener.listener.get(), registeredListener.useCapture);
         // To match Mozilla, the AT_TARGET phase fires both capturing and bubbling
         // event listeners, even though that violates some versions of the DOM spec.
         registeredListener.listener->handleEvent(context, event);

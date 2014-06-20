@@ -25,8 +25,8 @@
 #include "config.h"
 #include "core/html/HTMLTableSectionElement.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/HTMLNames.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/html/HTMLCollection.h"
@@ -43,10 +43,7 @@ inline HTMLTableSectionElement::HTMLTableSectionElement(const QualifiedName& tag
     ScriptWrappable::init(this);
 }
 
-PassRefPtrWillBeRawPtr<HTMLTableSectionElement> HTMLTableSectionElement::create(const QualifiedName& tagName, Document& document)
-{
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLTableSectionElement(tagName, document));
-}
+DEFINE_ELEMENT_FACTORY_WITH_TAGNAME(HTMLTableSectionElement)
 
 const StylePropertySet* HTMLTableSectionElement::additionalPresentationAttributeStyle()
 {

@@ -31,8 +31,8 @@
 #import "platform/fonts/FontCache.h"
 
 #import <AppKit/AppKit.h>
-#import "RuntimeEnabledFeatures.h"
 #import "platform/LayoutTestSupport.h"
+#import "platform/RuntimeEnabledFeatures.h"
 #import "platform/fonts/FontDescription.h"
 #import "platform/fonts/FontPlatformData.h"
 #import "platform/fonts/SimpleFontData.h"
@@ -100,7 +100,7 @@ static inline bool isAppKitFontWeightBold(NSInteger appKitFontWeight)
     return appKitFontWeight >= 7;
 }
 
-PassRefPtr<SimpleFontData> FontCache::platformFallbackForCharacter(const FontDescription& fontDescription, UChar32 character, const SimpleFontData* fontDataToSubstitute)
+PassRefPtr<SimpleFontData> FontCache::fallbackFontForCharacter(const FontDescription& fontDescription, UChar32 character, const SimpleFontData* fontDataToSubstitute)
 {
     // FIXME: We should fix getFallbackFamily to take a UChar32
     // and remove this split-to-UChar16 code.

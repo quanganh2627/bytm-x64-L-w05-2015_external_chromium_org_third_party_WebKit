@@ -158,9 +158,6 @@ static bool isPotentialClusterRoot(const RenderObject* renderer)
         return false;
     if (renderer->isListItem())
         return (renderer->isFloating() || renderer->isOutOfFlowPositioned());
-    // Avoid creating containers for text within form input.
-    if (isNonTextAreaFormControl(renderer->parent()))
-        return false;
 
     return true;
 }
@@ -415,7 +412,7 @@ void FastTextAutosizer::inflateAutoTable(RenderTable* table)
                     continue;
 
                 beginLayout(cell);
-                inflate(cell);
+                inflate(cell, DescendToInnerBlocks);
                 endLayout(cell);
             }
         }
@@ -441,13 +438,13 @@ void FastTextAutosizer::endLayout(RenderBlock* block)
     }
 }
 
-float FastTextAutosizer::inflate(RenderObject* parent, float multiplier)
+float FastTextAutosizer::inflate(RenderObject* parent, InflateBehavior behavior, float multiplier)
 {
     Cluster* cluster = currentCluster();
     bool hasTextChild = false;
 
     RenderObject* child = 0;
-    if (parent->isRenderBlock() && parent->childrenInline())
+    if (parent->isRenderBlock() && (parent->childrenInline() || behavior == DescendToInnerBlocks))
         child = toRenderBlock(parent)->firstChild();
     else if (parent->isRenderInline())
         child = toRenderInline(parent)->firstChild();
@@ -464,7 +461,10 @@ float FastTextAutosizer::inflate(RenderObject* parent, float multiplier)
             if (parent->isRenderInline())
                 child->setPreferredLogicalWidthsDirty(MarkOnlyThis);
         } else if (child->isRenderInline()) {
-            multiplier = inflate(child, multiplier);
+            multiplier = inflate(child, behavior, multiplier);
+        } else if (child->isRenderBlock() && behavior == DescendToInnerBlocks
+            && !classifyBlock(child, INDEPENDENT | EXPLICIT_WIDTH | SUPPRESSING)) {
+            multiplier = inflate(child, behavior, multiplier);
         }
         child = child->nextSibling();
     }
@@ -488,8 +488,10 @@ void FastTextAutosizer::updatePageInfoInAllFrames()
 {
     ASSERT(!m_document->frame() || m_document->frame()->isMainFrame());
 
-    for (LocalFrame* frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
-        if (FastTextAutosizer* textAutosizer = frame->document()->fastTextAutosizer())
+    for (Frame* frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->isLocalFrame())
+            continue;
+        if (FastTextAutosizer* textAutosizer = toLocalFrame(frame)->document()->fastTextAutosizer())
             textAutosizer->updatePageInfo();
     }
 }
@@ -508,7 +510,7 @@ void FastTextAutosizer::updatePageInfo()
         RenderView* renderView = m_document->renderView();
         bool horizontalWritingMode = isHorizontalWritingMode(renderView->style()->writingMode());
 
-        LocalFrame* mainFrame = m_document->page()->mainFrame();
+        LocalFrame* mainFrame = m_document->page()->deprecatedLocalMainFrame();
         IntSize frameSize = m_document->settings()->textAutosizingWindowSizeOverride();
         if (frameSize.isEmpty())
             frameSize = mainFrame->view()->unscaledVisibleContentSize(IncludeScrollbars);
@@ -562,7 +564,7 @@ void FastTextAutosizer::setAllTextNeedsLayout()
     RenderObject* renderer = m_document->renderView();
     while (renderer) {
         if (renderer->isText())
-            renderer->setNeedsLayoutAndFullRepaint();
+            renderer->setNeedsLayoutAndFullPaintInvalidation();
         renderer = renderer->nextInPreOrder();
     }
 }
@@ -964,9 +966,7 @@ void FastTextAutosizer::applyMultiplier(RenderObject* renderer, float multiplier
         m_stylesRetainedDuringLayout.append(currentStyle);
 
         renderer->setStyleInternal(style.release());
-        renderer->setNeedsLayoutAndFullRepaint();
-        if (renderer->isRenderBlock())
-            toRenderBlock(renderer)->invalidateLineHeight();
+        renderer->setNeedsLayoutAndFullPaintInvalidation();
         break;
 
     case LayoutNeeded:
@@ -1111,7 +1111,7 @@ FastTextAutosizer::TableLayoutScope::TableLayoutScope(RenderTable* table)
 }
 
 FastTextAutosizer::DeferUpdatePageInfo::DeferUpdatePageInfo(Page* page)
-    : m_mainFrame(page->mainFrame())
+    : m_mainFrame(page->deprecatedLocalMainFrame())
 {
     if (FastTextAutosizer* textAutosizer = m_mainFrame->document()->fastTextAutosizer()) {
         ASSERT(!textAutosizer->m_updatePageInfoDeferred);

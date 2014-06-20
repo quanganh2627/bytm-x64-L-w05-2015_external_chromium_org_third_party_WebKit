@@ -92,7 +92,6 @@ public:
 
     bool isSharingStyle(Element*, Element*, ExceptionState&) const;
 
-    size_t numberOfScopedHTMLStyleChildren(const Node*, ExceptionState&) const;
     PassRefPtrWillBeRawPtr<CSSComputedStyleDeclaration> computedStyleIncludingVisitedInfo(Node*, ExceptionState&) const;
 
     ShadowRoot* shadowRoot(Element* host, ExceptionState&);
@@ -278,6 +277,7 @@ public:
     void stopTrackingRepaints(Document*, ExceptionState&);
     void updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(ExceptionState&);
     void updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(Node*, ExceptionState&);
+    void forceFullRepaint(Document*, ExceptionState&);
 
     PassRefPtrWillBeRawPtr<ClientRectList> draggableRegions(Document*, ExceptionState&);
     PassRefPtrWillBeRawPtr<ClientRectList> nonDraggableRegions(Document*, ExceptionState&);
@@ -318,6 +318,8 @@ public:
     String textSurroundingNode(Node*, int x, int y, unsigned long maxLength);
 
     void setFocused(bool);
+
+    bool ignoreLayoutWithPendingStylesheets(Document*, ExceptionState&);
 
     void setNetworkStateNotifierTestOnly(bool);
     // Test must call setNetworkStateNotifierTestOnly(true) before calling setNetworkConnectionInfo.

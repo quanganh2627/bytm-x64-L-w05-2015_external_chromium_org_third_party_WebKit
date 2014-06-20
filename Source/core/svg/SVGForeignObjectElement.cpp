@@ -21,7 +21,7 @@
 #include "config.h"
 #include "core/svg/SVGForeignObjectElement.h"
 
-#include "XLinkNames.h"
+#include "core/XLinkNames.h"
 #include "core/frame/UseCounter.h"
 #include "core/rendering/svg/RenderSVGForeignObject.h"
 #include "core/rendering/svg/RenderSVGResource.h"
@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-SVGForeignObjectElement::SVGForeignObjectElement(Document& document)
+inline SVGForeignObjectElement::SVGForeignObjectElement(Document& document)
     : SVGGraphicsElement(SVGNames::foreignObjectTag, document)
     , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
     , m_y(SVGAnimatedLength::create(this, SVGNames::yAttr, SVGLength::create(LengthModeHeight), AllowNegativeLengths))
@@ -46,6 +46,8 @@ SVGForeignObjectElement::SVGForeignObjectElement(Document& document)
 
     UseCounter::count(document, UseCounter::SVGForeignObjectElement);
 }
+
+DEFINE_NODE_FACTORY(SVGForeignObjectElement)
 
 bool SVGForeignObjectElement::isSupportedAttribute(const QualifiedName& attrName)
 {

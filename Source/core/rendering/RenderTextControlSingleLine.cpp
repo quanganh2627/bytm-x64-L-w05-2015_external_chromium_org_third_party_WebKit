@@ -24,7 +24,7 @@
 #include "config.h"
 #include "core/rendering/RenderTextControlSingleLine.h"
 
-#include "CSSValueKeywords.h"
+#include "core/CSSValueKeywords.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/editing/FrameSelection.h"
 #include "core/frame/LocalFrame.h"
@@ -188,10 +188,10 @@ void RenderTextControlSingleLine::layout()
             textOffset += toLayoutSize(containerRenderer->location());
         placeholderBox->setLocation(textOffset);
 
-        if (!placeholderBoxHadLayout && placeholderBox->checkForRepaintDuringLayout()) {
+        if (!placeholderBoxHadLayout && placeholderBox->checkForPaintInvalidationDuringLayout()) {
             // This assumes a shadow tree without floats. If floats are added, the
             // logic should be shared with RenderBlockFlow::layoutBlockChild.
-            placeholderBox->repaint();
+            placeholderBox->paintInvalidationForWholeRenderer();
         }
         // The placeholder gets layout last, after the parent text control and its other children,
         // so in order to get the correct overflow from the placeholder we need to recompute it now.
@@ -242,7 +242,7 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
     }
     RenderObject* innerTextRenderer = innerTextElement()->renderer();
     if (innerTextRenderer && diff.needsFullLayout())
-        innerTextRenderer->setNeedsLayoutAndFullRepaint();
+        innerTextRenderer->setNeedsLayoutAndFullPaintInvalidation();
     if (HTMLElement* placeholder = inputElement()->placeholderElement())
         placeholder->setInlineStyleProperty(CSSPropertyTextOverflow, textShouldBeTruncated() ? CSSValueEllipsis : CSSValueClip);
     setHasOverflowClip(false);
@@ -265,7 +265,7 @@ void RenderTextControlSingleLine::capsLockStateMayHaveChanged()
 
     if (shouldDrawCapsLockIndicator != m_shouldDrawCapsLockIndicator) {
         m_shouldDrawCapsLockIndicator = shouldDrawCapsLockIndicator;
-        repaint();
+        paintInvalidationForWholeRenderer();
     }
 }
 

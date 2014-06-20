@@ -90,9 +90,6 @@ WebInspector.Settings = function()
     this.pauseOnExceptionEnabled = this.createSetting("pauseOnExceptionEnabled", false);
     this.pauseOnCaughtException = this.createSetting("pauseOnCaughtException", false);
     this.enableAsyncStackTraces = this.createSetting("enableAsyncStackTraces", false);
-
-    this.responsiveDesign = {};
-    this.responsiveDesign.enabled = this.createSetting("responsiveDesign.enabled", false);
 }
 
 WebInspector.Settings.prototype = {
@@ -312,6 +309,7 @@ WebInspector.ExperimentsSettings = function(experimentsEnabled)
     this.applyCustomStylesheet = this._createExperiment("applyCustomStylesheet", "Allow custom UI themes");
     this.canvasInspection = this._createExperiment("canvasInspection ", "Canvas inspection");
     this.devicesPanel = this._createExperiment("devicesPanel", "Devices panel", true);
+    this.disableAgentsWhenProfile = this._createExperiment("disableAgentsWhenProfile", "Disable other agents and UI when profiler is active", true);
     this.dockToLeft = this._createExperiment("dockToLeft", "Dock to left", true);
     this.editorInDrawer = this._createExperiment("showEditorInDrawer", "Editor in drawer", true);
     this.fileSystemInspection = this._createExperiment("fileSystemInspection", "FileSystem inspection");
@@ -320,7 +318,8 @@ WebInspector.ExperimentsSettings = function(experimentsEnabled)
     this.heapAllocationProfiler = this._createExperiment("allocationProfiler", "Heap allocation profiler");
     this.heapSnapshotStatistics = this._createExperiment("heapSnapshotStatistics", "Heap snapshot statistics", true);
     this.layersPanel = this._createExperiment("layersPanel", "Layers panel", true);
-    this.responsiveDesign = this._createExperiment("responsiveDesign", "Responsive design", true);
+    this.networkConditions = this._createExperiment("networkConditions", "Network conditions", true);
+    this.responsiveDesign = this._createExperiment("responsiveDesign", "Responsive design");
     this.timelineFlameChart = this._createExperiment("timelineFlameChart", "Timeline flame chart");
     this.timelineOnTraceEvents = this._createExperiment("timelineOnTraceEvents", "Timeline on trace events", true);
     this.timelinePowerProfiler = this._createExperiment("timelinePowerProfiler", "Timeline power profiler");

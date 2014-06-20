@@ -27,7 +27,6 @@
 
 #include "core/page/scrolling/ScrollingCoordinator.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "core/dom/Document.h"
 #include "core/dom/FullscreenElementStack.h"
 #include "core/dom/Node.h"
@@ -42,6 +41,7 @@
 #include "core/rendering/RenderView.h"
 #include "core/rendering/compositing/CompositedLayerMapping.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
 #include "platform/exported/WebScrollbarImpl.h"
 #include "platform/exported/WebScrollbarThemeGeometryNative.h"
@@ -99,14 +99,18 @@ ScrollingCoordinator::~ScrollingCoordinator()
 
 bool ScrollingCoordinator::touchHitTestingEnabled() const
 {
-    RenderView* contentRenderer = m_page->mainFrame()->contentRenderer();
-    Settings* settings = m_page->mainFrame()->document()->settings();
+    if (!m_page->mainFrame()->isLocalFrame())
+        return false;
+    RenderView* contentRenderer = m_page->deprecatedLocalMainFrame()->contentRenderer();
+    Settings* settings = m_page->mainFrame()->settings();
     return RuntimeEnabledFeatures::touchEnabled() && settings->compositorTouchHitTesting() && contentRenderer && contentRenderer->usesCompositing();
 }
 
 void ScrollingCoordinator::setShouldHandleScrollGestureOnMainThreadRegion(const Region& region)
 {
-    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+    if (!m_page->mainFrame()->isLocalFrame())
+        return;
+    if (WebLayer* scrollLayer = toWebLayer(m_page->deprecatedLocalMainFrame()->view()->layerForScrolling())) {
         Vector<IntRect> rects = region.rects();
         WebVector<WebRect> webRects(rects.size());
         for (size_t i = 0; i < rects.size(); ++i)
@@ -122,9 +126,15 @@ void ScrollingCoordinator::notifyLayoutUpdated()
     m_shouldScrollOnMainThreadDirty = true;
 }
 
-void ScrollingCoordinator::updateAfterCompositingChange()
+void ScrollingCoordinator::updateAfterCompositingChangeIfNeeded()
 {
-    TRACE_EVENT0("input", "ScrollingCoordinator::updateAfterCompositingChange");
+    if (!m_page->mainFrame()->isLocalFrame())
+        return;
+
+    if (!shouldUpdateAfterCompositingChange())
+        return;
+
+    TRACE_EVENT0("input", "ScrollingCoordinator::updateAfterCompositingChangeIfNeeded");
 
     if (m_scrollGestureRegionIsDirty) {
         // Compute the region of the page where we can't handle scroll gestures and mousewheel events
@@ -135,7 +145,7 @@ void ScrollingCoordinator::updateAfterCompositingChange()
         // 2. Resize control areas, e.g. the small rect at the right bottom of div/textarea/iframe when
         // CSS property "resize" is enabled.
         // 3. Plugin areas.
-        Region shouldHandleScrollGestureOnMainThreadRegion = computeShouldHandleScrollGestureOnMainThreadRegion(m_page->mainFrame(), IntPoint());
+        Region shouldHandleScrollGestureOnMainThreadRegion = computeShouldHandleScrollGestureOnMainThreadRegion(m_page->deprecatedLocalMainFrame(), IntPoint());
         setShouldHandleScrollGestureOnMainThreadRegion(shouldHandleScrollGestureOnMainThreadRegion);
         m_scrollGestureRegionIsDirty = false;
     }
@@ -145,7 +155,7 @@ void ScrollingCoordinator::updateAfterCompositingChange()
         m_touchEventTargetRectsAreDirty = false;
     }
 
-    FrameView* frameView = m_page->mainFrame()->view();
+    FrameView* frameView = m_page->deprecatedLocalMainFrame()->view();
     bool frameIsScrollable = frameView && frameView->isScrollable();
     if (m_shouldScrollOnMainThreadDirty || m_wasFrameScrollable != frameIsScrollable) {
         setShouldUpdateScrollLayerPositionOnMainThread(mainThreadScrollingReasons());
@@ -158,7 +168,7 @@ void ScrollingCoordinator::updateAfterCompositingChange()
     if (WebLayer* scrollingWebLayer = frameView ? toWebLayer(frameView->layerForScrolling()) : 0) {
         scrollingWebLayer->setBounds(frameView->contentsSize());
         // If there is a fullscreen element, set the scroll clip layer to 0 so main frame won't scroll.
-        Document* mainFrameDocument = m_page->mainFrame()->document();
+        Document* mainFrameDocument = m_page->deprecatedLocalMainFrame()->document();
         Element* fullscreenElement = FullscreenElementStack::fullscreenElementFrom(*mainFrameDocument);
         if (fullscreenElement && fullscreenElement != mainFrameDocument->documentElement())
             scrollingWebLayer->setScrollClipLayer(0);
@@ -320,7 +330,7 @@ void ScrollingCoordinator::scrollableAreaScrollbarLayerDidChange(ScrollableArea*
 
         WebScrollbarLayer* scrollbarLayer = getWebScrollbarLayer(scrollableArea, orientation);
         if (!scrollbarLayer) {
-            Settings* settings = m_page->mainFrame()->document()->settings();
+            Settings* settings = m_page->mainFrame()->settings();
 
             OwnPtr<WebScrollbarLayer> webScrollbarLayer;
             if (settings->useSolidColorScrollbars()) {
@@ -607,7 +617,7 @@ void ScrollingCoordinator::setTouchEventTargetRects(LayerHitTestRects& layerRect
     }
 
     GraphicsLayerHitTestRects graphicsLayerRects;
-    projectRectsToGraphicsLayerSpace(m_page->mainFrame(), layerRects, graphicsLayerRects);
+    projectRectsToGraphicsLayerSpace(m_page->deprecatedLocalMainFrame(), layerRects, graphicsLayerRects);
 
     for (GraphicsLayerHitTestRects::const_iterator iter = graphicsLayerRects.begin(); iter != graphicsLayerRects.end(); ++iter) {
         const GraphicsLayer* graphicsLayer = iter->key;
@@ -624,14 +634,14 @@ void ScrollingCoordinator::touchEventTargetRectsDidChange()
         return;
 
     // Wait until after layout to update.
-    if (!m_page->mainFrame()->view() || m_page->mainFrame()->view()->needsLayout())
+    if (!m_page->deprecatedLocalMainFrame()->view() || m_page->deprecatedLocalMainFrame()->view()->needsLayout())
         return;
 
     // FIXME: scheduleAnimation() is just a method of forcing the compositor to realize that it
     // needs to commit here. We should expose a cleaner API for this.
-    RenderView* renderView = m_page->mainFrame()->contentRenderer();
+    RenderView* renderView = m_page->deprecatedLocalMainFrame()->contentRenderer();
     if (renderView && renderView->compositor() && renderView->compositor()->staleInCompositingMode())
-        m_page->mainFrame()->view()->scheduleAnimation();
+        m_page->deprecatedLocalMainFrame()->view()->scheduleAnimation();
 
     m_touchEventTargetRectsAreDirty = true;
 }
@@ -640,7 +650,7 @@ void ScrollingCoordinator::updateScrollParentForGraphicsLayer(GraphicsLayer* chi
 {
     WebLayer* scrollParentWebLayer = 0;
     if (parent && parent->hasCompositedLayerMapping())
-        scrollParentWebLayer = toWebLayer(parent->compositedLayerMapping()->parentForSublayers());
+        scrollParentWebLayer = toWebLayer(parent->compositedLayerMapping()->scrollingContentsLayer());
 
     child->setScrollParent(scrollParentWebLayer);
 }
@@ -663,10 +673,10 @@ void ScrollingCoordinator::updateHaveWheelEventHandlers()
 {
     ASSERT(isMainThread());
     ASSERT(m_page);
-    if (!m_page->mainFrame()->view())
+    if (!m_page->mainFrame()->isLocalFrame() || !m_page->deprecatedLocalMainFrame()->view())
         return;
 
-    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+    if (WebLayer* scrollLayer = toWebLayer(m_page->deprecatedLocalMainFrame()->view()->layerForScrolling())) {
         bool haveHandlers = m_page->frameHost().eventHandlerRegistry().hasEventHandlers(EventHandlerRegistry::WheelEvent);
         scrollLayer->setHaveWheelEventHandlers(haveHandlers);
     }
@@ -676,13 +686,13 @@ void ScrollingCoordinator::updateHaveScrollEventHandlers()
 {
     ASSERT(isMainThread());
     ASSERT(m_page);
-    if (!m_page->mainFrame()->view())
+    if (!m_page->mainFrame()->isLocalFrame() || !m_page->deprecatedLocalMainFrame()->view())
         return;
 
     // Currently the compositor only cares whether there are scroll handlers anywhere on the page
     // instead on a per-layer basis. We therefore only update this information for the root
     // scrolling layer.
-    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+    if (WebLayer* scrollLayer = toWebLayer(m_page->deprecatedLocalMainFrame()->view()->layerForScrolling())) {
         bool haveHandlers = m_page->frameHost().eventHandlerRegistry().hasEventHandlers(EventHandlerRegistry::ScrollEvent);
         scrollLayer->setHaveScrollEventHandlers(haveHandlers);
     }
@@ -690,7 +700,9 @@ void ScrollingCoordinator::updateHaveScrollEventHandlers()
 
 void ScrollingCoordinator::setShouldUpdateScrollLayerPositionOnMainThread(MainThreadScrollingReasons reasons)
 {
-    if (WebLayer* scrollLayer = toWebLayer(m_page->mainFrame()->view()->layerForScrolling())) {
+    if (!m_page->mainFrame()->isLocalFrame())
+        return;
+    if (WebLayer* scrollLayer = toWebLayer(m_page->deprecatedLocalMainFrame()->view()->layerForScrolling())) {
         m_lastMainThreadScrollingReasons = reasons;
         scrollLayer->setShouldScrollOnMainThread(reasons);
     }
@@ -715,8 +727,11 @@ bool ScrollingCoordinator::coordinatesScrollingForFrameView(FrameView* frameView
     if (&frameView->frame() != m_page->mainFrame())
         return false;
 
+    if (!m_page->mainFrame()->isLocalFrame())
+        return false;
+
     // We currently only support composited mode.
-    RenderView* renderView = m_page->mainFrame()->contentRenderer();
+    RenderView* renderView = m_page->deprecatedLocalMainFrame()->contentRenderer();
     if (!renderView)
         return false;
     return renderView->usesCompositing();
@@ -790,13 +805,19 @@ static void accumulateDocumentTouchEventTargetRects(LayerHitTestRects& rects, co
     // then we can quickly mark the entire document and skip looking at any other handlers.
     // Note that technically a handler on the body doesn't cover the whole document, but it's
     // reasonable to be conservative and report the whole document anyway.
-    for (TouchEventTargetSet::const_iterator iter = targets->begin(); iter != targets->end(); ++iter) {
-        Node* target = iter->key;
-        if (target == document || target == document->documentElement() || target == document->body()) {
-            if (RenderView* rendererView = document->renderView()) {
-                rendererView->computeLayerHitTestRects(rects);
+    //
+    // Fullscreen HTML5 video when OverlayFullscreenVideo is enabled is implemented by replacing the
+    // root cc::layer with the video layer so doing this optimization causes the compositor to think
+    // that there are no handlers, therefore skip it.
+    if (!document->renderView()->compositor()->inOverlayFullscreenVideo()) {
+        for (TouchEventTargetSet::const_iterator iter = targets->begin(); iter != targets->end(); ++iter) {
+            Node* target = iter->key;
+            if (target == document || target == document->documentElement() || target == document->body()) {
+                if (RenderView* rendererView = document->renderView()) {
+                    rendererView->computeLayerHitTestRects(rects);
+                }
+                return;
             }
-            return;
         }
     }
 
@@ -805,8 +826,7 @@ static void accumulateDocumentTouchEventTargetRects(LayerHitTestRects& rects, co
         if (!target->inDocument())
             continue;
 
-        if (target->isDocumentNode()) {
-            ASSERT(target != document);
+        if (target->isDocumentNode() && target != document) {
             accumulateDocumentTouchEventTargetRects(rects, toDocument(target));
         } else if (RenderObject* renderer = target->renderer()) {
             // If the set also contains one of our ancestor nodes then processing
@@ -844,7 +864,7 @@ void ScrollingCoordinator::computeTouchEventTargetRects(LayerHitTestRects& rects
     TRACE_EVENT0("input", "ScrollingCoordinator::computeTouchEventTargetRects");
     ASSERT(touchHitTestingEnabled());
 
-    Document* document = m_page->mainFrame()->document();
+    Document* document = m_page->deprecatedLocalMainFrame()->document();
     if (!document || !document->view())
         return;
 
@@ -875,7 +895,7 @@ void ScrollingCoordinator::frameViewFixedObjectsDidChange(FrameView* frameView)
 
 bool ScrollingCoordinator::isForMainFrame(ScrollableArea* scrollableArea) const
 {
-    return scrollableArea == m_page->mainFrame()->view();
+    return m_page->mainFrame()->isLocalFrame() ? scrollableArea == m_page->deprecatedLocalMainFrame()->view() : false;
 }
 
 void ScrollingCoordinator::frameViewRootLayerDidChange(FrameView* frameView)
@@ -899,7 +919,7 @@ void ScrollingCoordinator::handleWheelEventPhase(PlatformWheelEventPhase phase)
     if (!m_page)
         return;
 
-    FrameView* frameView = m_page->mainFrame()->view();
+    FrameView* frameView = m_page->deprecatedLocalMainFrame()->view();
     if (!frameView)
         return;
 
@@ -935,7 +955,9 @@ MainThreadScrollingReasons ScrollingCoordinator::mainThreadScrollingReasons() co
     // The main thread scrolling reasons are applicable to scrolls of the main
     // frame. If it does not exist or if it is not scrollable, there is no
     // reason to force main thread scrolling.
-    FrameView* frameView = m_page->mainFrame()->view();
+    if (!m_page->mainFrame()->isLocalFrame())
+        return static_cast<MainThreadScrollingReasons>(0);
+    FrameView* frameView = m_page->deprecatedLocalMainFrame()->view();
     if (!frameView)
         return static_cast<MainThreadScrollingReasons>(0);
 
@@ -967,13 +989,13 @@ String ScrollingCoordinator::mainThreadScrollingReasonsAsText(MainThreadScrollin
 
 String ScrollingCoordinator::mainThreadScrollingReasonsAsText() const
 {
-    ASSERT(m_page->mainFrame()->document()->lifecycle().state() >= DocumentLifecycle::CompositingClean);
+    ASSERT(m_page->deprecatedLocalMainFrame()->document()->lifecycle().state() >= DocumentLifecycle::CompositingClean);
     return mainThreadScrollingReasonsAsText(m_lastMainThreadScrollingReasons);
 }
 
 bool ScrollingCoordinator::frameViewIsDirty() const
 {
-    FrameView* frameView = m_page->mainFrame()->view();
+    FrameView* frameView = m_page->mainFrame()->isLocalFrame() ? m_page->deprecatedLocalMainFrame()->view() : 0;
     bool frameIsScrollable = frameView && frameView->isScrollable();
     if (frameIsScrollable != m_wasFrameScrollable)
         return true;

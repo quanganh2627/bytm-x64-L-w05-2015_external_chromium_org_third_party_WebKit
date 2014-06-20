@@ -34,7 +34,6 @@
 #include "core/css/resolver/ScopedStyleResolver.h"
 #include "core/css/resolver/ScopedStyleTree.h"
 #include "core/css/resolver/StyleBuilder.h"
-#include "core/css/resolver/StyleResolverState.h"
 #include "core/css/resolver/StyleResourceLoader.h"
 #include "platform/heap/Handle.h"
 #include "wtf/Deque.h"
@@ -264,6 +263,10 @@ private:
         LowPriorityProperties
     };
     template <StyleResolver::StyleApplicationPass pass>
+    static inline CSSPropertyID firstCSSPropertyId();
+    template <StyleResolver::StyleApplicationPass pass>
+    static inline CSSPropertyID lastCSSPropertyId();
+    template <StyleResolver::StyleApplicationPass pass>
     static inline bool isPropertyForPass(CSSPropertyID);
     template <StyleApplicationPass pass>
     void applyMatchedProperties(StyleResolverState&, const MatchResult&, bool important, int startIndex, int endIndex, bool inheritedOnly);
@@ -271,6 +274,9 @@ private:
     void applyProperties(StyleResolverState&, const StylePropertySet* properties, StyleRule*, bool isImportant, bool inheritedOnly, PropertyWhitelistType = PropertyWhitelistNone);
     template <StyleApplicationPass pass>
     void applyAnimatedProperties(StyleResolverState&, const WillBeHeapHashMap<CSSPropertyID, RefPtrWillBeMember<Interpolation> >&);
+    template <StyleResolver::StyleApplicationPass pass>
+    void applyAllProperty(StyleResolverState&, CSSValue*);
+
     void matchPageRules(MatchResult&, RuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
     void matchPageRulesForList(WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >& matchedRules, const WillBeHeapVector<RawPtrWillBeMember<StyleRulePage> >&, bool isLeftPage, bool isFirstPage, const String& pageName);
     void collectViewportRules();

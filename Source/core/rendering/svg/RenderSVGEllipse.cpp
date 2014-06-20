@@ -28,9 +28,9 @@
 
 #include "core/rendering/svg/RenderSVGEllipse.h"
 
-#include "SVGNames.h"
 #include "core/svg/SVGCircleElement.h"
 #include "core/svg/SVGEllipseElement.h"
+#include "platform/graphics/GraphicsContext.h"
 
 namespace WebCore {
 

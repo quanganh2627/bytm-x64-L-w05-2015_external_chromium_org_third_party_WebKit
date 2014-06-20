@@ -30,14 +30,13 @@
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <libxslt/xslt.h>
-#include "FetchInitiatorTypeNames.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include "XMLNSNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/ScriptSourceCode.h"
+#include "core/FetchInitiatorTypeNames.h"
+#include "core/HTMLNames.h"
+#include "core/XMLNSNames.h"
 #include "core/dom/CDATASection.h"
 #include "core/dom/Comment.h"
 #include "core/dom/Document.h"
@@ -61,6 +60,7 @@
 #include "core/xml/parser/SharedBufferReader.h"
 #include "core/xml/parser/XMLDocumentParserScope.h"
 #include "core/xml/parser/XMLParserInput.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/SharedBuffer.h"
 #include "platform/network/ResourceError.h"
 #include "platform/network/ResourceRequest.h"
@@ -71,8 +71,6 @@
 #include "wtf/Threading.h"
 #include "wtf/Vector.h"
 #include "wtf/unicode/UTF8.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -299,8 +297,10 @@ void XMLDocumentParser::pushCurrentNode(ContainerNode* n)
 {
     ASSERT(n);
     ASSERT(m_currentNode);
+#if !ENABLE(OILPAN)
     if (n != document())
         n->ref();
+#endif
     m_currentNodeStack.append(m_currentNode);
     m_currentNode = n;
     if (m_currentNodeStack.size() > maxXMLTreeDepth)
@@ -312,26 +312,30 @@ void XMLDocumentParser::popCurrentNode()
     if (!m_currentNode)
         return;
     ASSERT(m_currentNodeStack.size());
-
+#if !ENABLE(OILPAN)
     if (m_currentNode != document())
         m_currentNode->deref();
-
+#endif
     m_currentNode = m_currentNodeStack.last();
     m_currentNodeStack.removeLast();
 }
 
 void XMLDocumentParser::clearCurrentNodeStack()
 {
+#if !ENABLE(OILPAN)
     if (m_currentNode && m_currentNode != document())
         m_currentNode->deref();
+#endif
     m_currentNode = nullptr;
     m_leafTextNode = nullptr;
 
     if (m_currentNodeStack.size()) { // Aborted parsing.
+#if !ENABLE(OILPAN)
         for (size_t i = m_currentNodeStack.size() - 1; i != 0; --i)
             m_currentNodeStack[i]->deref();
         if (m_currentNodeStack[0] && m_currentNodeStack[0] != document())
             m_currentNodeStack[0]->deref();
+#endif
         m_currentNodeStack.clear();
     }
 }
@@ -782,10 +786,12 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parent
     , m_scriptStartPosition(TextPosition::belowRangePosition())
     , m_parsingFragment(true)
 {
+#if !ENABLE(OILPAN)
     fragment->ref();
+#endif
 
     // Add namespaces based on the parent node
-    Vector<Element*> elemStack;
+    WillBeHeapVector<RawPtrWillBeMember<Element> > elemStack;
     while (parentElement) {
         elemStack.append(parentElement);
 

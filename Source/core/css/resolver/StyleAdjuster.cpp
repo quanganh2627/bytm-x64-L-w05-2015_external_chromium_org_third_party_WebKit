@@ -29,14 +29,15 @@
 #include "config.h"
 #include "core/css/resolver/StyleAdjuster.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
 #include "core/dom/ContainerNode.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/dom/NodeRenderStyle.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
+#include "core/html/HTMLPlugInElement.h"
 #include "core/html/HTMLTableCellElement.h"
 #include "core/html/HTMLTextAreaElement.h"
 #include "core/frame/FrameView.h"
@@ -193,7 +194,7 @@ static bool hasWillChangeThatCreatesStackingContext(const RenderStyle* style)
     return false;
 }
 
-void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentStyle, Element *e)
+void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentStyle, Element *e, const CachedUAStyle* cachedUAStyle)
 {
     ASSERT(parentStyle);
 
@@ -258,7 +259,7 @@ void StyleAdjuster::adjustRenderStyle(RenderStyle* style, RenderStyle* parentSty
 
     // Let the theme also have a crack at adjusting the style.
     if (style->hasAppearance())
-        RenderTheme::theme().adjustStyle(style, e, m_cachedUAStyle);
+        RenderTheme::theme().adjustStyle(style, e, cachedUAStyle);
 
     // If we have first-letter pseudo style, transitions, or animations, do not share this style.
     if (style->hasPseudoStyle(FIRST_LETTER) || style->transitions() || style->animations())
@@ -369,6 +370,11 @@ void StyleAdjuster::adjustStyleForTagName(RenderStyle* style, RenderStyle* paren
         // so we have to treat all image buttons as though they were explicitly sized.
         if (style->fontSize() >= 11 && (!isHTMLInputElement(element) || !toHTMLInputElement(element).isImageButton()))
             addIntrinsicMargins(style);
+        return;
+    }
+
+    if (isHTMLPlugInElement(element)) {
+        style->setRequiresAcceleratedCompositingForExternalReasons(toHTMLPlugInElement(element).shouldAccelerate());
         return;
     }
 }

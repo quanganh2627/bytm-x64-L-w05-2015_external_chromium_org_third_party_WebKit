@@ -107,12 +107,20 @@ private:
     RenderObject* m_renderer;
 };
 
-class Node : public TreeSharedWillBeRefCountedGarbageCollected<Node>, public EventTarget, public ScriptWrappable {
+#if ENABLE(OILPAN)
+#define NODE_BASE_CLASSES public GarbageCollectedFinalized<Node>, public EventTarget, public ScriptWrappable
+#else
+// TreeShared should be the last to pack TreeShared::m_refCount and
+// Node::m_nodeFlags on 64bit platforms.
+#define NODE_BASE_CLASSES public EventTarget, public ScriptWrappable, public TreeShared<Node>
+#endif
+
+class Node : NODE_BASE_CLASSES {
     friend class Document;
     friend class TreeScope;
     friend class TreeScopeAdopter;
 
-    DEFINE_EVENT_TARGET_REFCOUNTING(TreeSharedWillBeRefCountedGarbageCollected<Node>);
+    DEFINE_EVENT_TARGET_REFCOUNTING_WILL_BE_REMOVED(TreeShared<Node>);
     WILL_BE_USING_GARBAGE_COLLECTED_MIXIN(Node);
 public:
     enum NodeType {
@@ -378,9 +386,6 @@ public:
 
     void setIsLink(bool f);
 
-    bool hasScopedHTMLStyleChild() const { return getFlag(HasScopedHTMLStyleChildFlag); }
-    void setHasScopedHTMLStyleChild(bool flag) { setFlag(flag, HasScopedHTMLStyleChildFlag); }
-
     bool hasEventTargetData() const { return getFlag(HasEventTargetDataFlag); }
     void setHasEventTargetData(bool flag) { setFlag(flag, HasEventTargetDataFlag); }
 
@@ -608,7 +613,7 @@ public:
     virtual Node* toNode() OVERRIDE FINAL;
 
     virtual const AtomicString& interfaceName() const OVERRIDE;
-    virtual ExecutionContext* executionContext() const OVERRIDE;
+    virtual ExecutionContext* executionContext() const OVERRIDE FINAL;
 
     virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture = false) OVERRIDE;
     virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture = false) OVERRIDE;
@@ -624,7 +629,7 @@ public:
     virtual bool dispatchEvent(PassRefPtrWillBeRawPtr<Event>) OVERRIDE;
 
     void dispatchScopedEvent(PassRefPtrWillBeRawPtr<Event>);
-    void dispatchScopedEventDispatchMediator(PassRefPtr<EventDispatchMediator>);
+    void dispatchScopedEventDispatchMediator(PassRefPtrWillBeRawPtr<EventDispatchMediator>);
 
     virtual void handleLocalEvents(Event*);
 
@@ -654,10 +659,6 @@ public:
     void registerTransientMutationObserver(MutationObserverRegistration*);
     void unregisterTransientMutationObserver(MutationObserverRegistration*);
     void notifyMutationObserversNodeWillDetach();
-
-    virtual void registerScopedHTMLStyleChild();
-    virtual void unregisterScopedHTMLStyleChild();
-    size_t numberOfScopedHTMLStyleChildren() const;
 
     unsigned connectedSubframeCount() const;
     void incrementConnectedSubframeCount(unsigned amount = 1);
@@ -726,18 +727,15 @@ private:
         // HTML dir=auto.
         SelfOrAncestorHasDirAutoFlag = 1 << 29,
 
-        // FIXME: Remove <style scoped> support.
-        HasScopedHTMLStyleChildFlag = 1 << 30,
-
         DefaultNodeFlags = IsFinishedParsingChildrenFlag | ChildNeedsStyleRecalcFlag | NeedsReattachStyleChange
     };
 
-    // 1 bits remaining.
+    // 2 bits remaining.
 
     bool getFlag(NodeFlags mask) const { return m_nodeFlags & mask; }
-    void setFlag(bool f, NodeFlags mask) const { m_nodeFlags = (m_nodeFlags & ~mask) | (-(int32_t)f & mask); }
-    void setFlag(NodeFlags mask) const { m_nodeFlags |= mask; }
-    void clearFlag(NodeFlags mask) const { m_nodeFlags &= ~mask; }
+    void setFlag(bool f, NodeFlags mask) { m_nodeFlags = (m_nodeFlags & ~mask) | (-(int32_t)f & mask); }
+    void setFlag(NodeFlags mask) { m_nodeFlags |= mask; }
+    void clearFlag(NodeFlags mask) { m_nodeFlags &= ~mask; }
 
 protected:
     enum ConstructionType {
@@ -826,7 +824,7 @@ private:
     WillBeHeapVector<OwnPtrWillBeMember<MutationObserverRegistration> >* mutationObserverRegistry();
     WillBeHeapHashSet<RawPtrWillBeMember<MutationObserverRegistration> >* transientMutationObserverRegistry();
 
-    mutable uint32_t m_nodeFlags;
+    uint32_t m_nodeFlags;
     RawPtrWillBeMember<ContainerNode> m_parentOrShadowHostNode;
     RawPtrWillBeMember<TreeScope> m_treeScope;
     RawPtrWillBeMember<Node> m_previous;
@@ -898,11 +896,13 @@ DEFINE_COMPARISON_OPERATORS_WITH_REFERENCES_REFCOUNTED(Node)
     template<typename T> inline thisType* to##thisType(const RefPtr<T>& node) { return to##thisType(node.get()); } \
     DEFINE_TYPE_CASTS(thisType, Node, node, is##thisType(*node), is##thisType(node))
 
+#define DECLARE_NODE_FACTORY(T) \
+    static PassRefPtrWillBeRawPtr<T> create(Document&)
 #define DEFINE_NODE_FACTORY(T) \
-    inline static PassRefPtrWillBeRawPtr<T> create(Document& document) \
-    { \
-        return adoptRefWillBeRefCountedGarbageCollected(new T(document)); \
-    }
+PassRefPtrWillBeRawPtr<T> T::create(Document& document) \
+{ \
+    return adoptRefWillBeNoop(new T(document)); \
+}
 
 } // namespace WebCore
 

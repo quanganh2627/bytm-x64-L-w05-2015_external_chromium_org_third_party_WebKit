@@ -54,7 +54,7 @@ inline PickerIndicatorElement::PickerIndicatorElement(Document& document, Picker
 
 PassRefPtrWillBeRawPtr<PickerIndicatorElement> PickerIndicatorElement::create(Document& document, PickerIndicatorOwner& pickerIndicatorOwner)
 {
-    RefPtrWillBeRawPtr<PickerIndicatorElement> element = adoptRefWillBeRefCountedGarbageCollected(new PickerIndicatorElement(document, pickerIndicatorOwner));
+    RefPtrWillBeRawPtr<PickerIndicatorElement> element = adoptRefWillBeNoop(new PickerIndicatorElement(document, pickerIndicatorOwner));
     element->setShadowPseudoId(AtomicString("-webkit-calendar-picker-indicator", AtomicString::ConstructFromLiteral));
     element->setAttribute(idAttr, ShadowElementNames::pickerIndicator());
     return element.release();
@@ -62,8 +62,6 @@ PassRefPtrWillBeRawPtr<PickerIndicatorElement> PickerIndicatorElement::create(Do
 
 PickerIndicatorElement::~PickerIndicatorElement()
 {
-    closePopup();
-    ASSERT(!m_chooser);
 }
 
 RenderObject* PickerIndicatorElement::createRenderer(RenderStyle*)
@@ -154,7 +152,9 @@ bool PickerIndicatorElement::isPickerIndicatorElement() const
 void PickerIndicatorElement::trace(Visitor* visitor)
 {
     visitor->trace(m_pickerIndicatorOwner);
+    visitor->trace(m_chooser);
     HTMLDivElement::trace(visitor);
+    DateTimeChooserClient::trace(visitor);
 }
 
 }

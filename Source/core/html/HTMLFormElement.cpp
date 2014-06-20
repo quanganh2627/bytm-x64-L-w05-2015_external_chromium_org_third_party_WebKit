@@ -26,9 +26,9 @@
 #include "core/html/HTMLFormElement.h"
 
 #include <limits>
-#include "HTMLNames.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/Document.h"
 #include "core/dom/ElementTraversal.h"
@@ -37,6 +37,10 @@
 #include "core/events/Event.h"
 #include "core/events/GenericEventQueue.h"
 #include "core/events/ScopedEventQueue.h"
+#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalFrame.h"
+#include "core/frame/UseCounter.h"
+#include "core/frame/csp/ContentSecurityPolicy.h"
 #include "core/html/HTMLCollection.h"
 #include "core/html/HTMLDialogElement.h"
 #include "core/html/HTMLImageElement.h"
@@ -46,14 +50,10 @@
 #include "core/html/forms/FormController.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/FrameLoaderClient.h"
-#include "core/frame/DOMWindow.h"
-#include "core/frame/LocalFrame.h"
-#include "core/frame/UseCounter.h"
-#include "core/frame/csp/ContentSecurityPolicy.h"
+#include "core/loader/MixedContentChecker.h"
 #include "core/rendering/RenderTextControl.h"
 #include "platform/UserGestureIndicator.h"
-
-using namespace std;
+#include "wtf/text/AtomicString.h"
 
 namespace WebCore {
 
@@ -79,7 +79,7 @@ HTMLFormElement::HTMLFormElement(Document& document)
 PassRefPtrWillBeRawPtr<HTMLFormElement> HTMLFormElement::create(Document& document)
 {
     UseCounter::count(document, UseCounter::FormElement);
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLFormElement(document));
+    return adoptRefWillBeNoop(new HTMLFormElement(document));
 }
 
 HTMLFormElement::~HTMLFormElement()
@@ -99,6 +99,7 @@ void HTMLFormElement::trace(Visitor* visitor)
     visitor->trace(m_radioButtonGroupScope);
     visitor->trace(m_associatedElements);
     visitor->trace(m_imageElements);
+    visitor->trace(m_pendingAutocompleteEventsQueue);
 #endif
     HTMLElement::trace(visitor);
 }
@@ -328,7 +329,7 @@ void HTMLFormElement::submitFromJavaScript()
     submit(0, false, UserGestureIndicator::processingUserGesture(), SubmittedByJavaScript);
 }
 
-void HTMLFormElement::submitDialog(PassRefPtr<FormSubmission> formSubmission)
+void HTMLFormElement::submitDialog(PassRefPtrWillBeRawPtr<FormSubmission> formSubmission)
 {
     for (Node* node = this; node; node = node->parentOrShadowHostNode()) {
         if (isHTMLDialogElement(*node)) {
@@ -367,7 +368,7 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
 
-    RefPtr<FormSubmission> formSubmission = FormSubmission::create(this, m_attributes, event, formSubmissionTrigger);
+    RefPtrWillBeRawPtr<FormSubmission> formSubmission = FormSubmission::create(this, m_attributes, event, formSubmissionTrigger);
     EventQueueScope scopeForDialogClose; // Delay dispatching 'close' to dialog until done submitting.
     if (formSubmission->method() == FormSubmission::DialogMethod)
         submitDialog(formSubmission.release());
@@ -378,7 +379,7 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
         firstSuccessfulSubmitButton->setActivatedSubmit(false);
 }
 
-void HTMLFormElement::scheduleFormSubmission(PassRefPtr<FormSubmission> submission)
+void HTMLFormElement::scheduleFormSubmission(PassRefPtrWillBeRawPtr<FormSubmission> submission)
 {
     ASSERT(submission->method() == FormSubmission::PostMethod || submission->method() == FormSubmission::GetMethod);
     ASSERT(submission->data());
@@ -392,7 +393,7 @@ void HTMLFormElement::scheduleFormSubmission(PassRefPtr<FormSubmission> submissi
     }
 
     if (protocolIsJavaScript(submission->action())) {
-        if (!document().contentSecurityPolicy()->allowFormAction(KURL(submission->action())))
+        if (!document().contentSecurityPolicy()->allowFormAction(submission->action()))
             return;
         document().frame()->script().executeScriptIfJavaScriptURL(submission->action());
         return;
@@ -408,6 +409,14 @@ void HTMLFormElement::scheduleFormSubmission(PassRefPtr<FormSubmission> submissi
     }
     if (!targetFrame->page())
         return;
+
+    if (MixedContentChecker::isMixedContent(document().securityOrigin(), submission->action())) {
+        UseCounter::count(document(), UseCounter::MixedContentFormsSubmitted);
+        if (!document().frame()->loader().mixedContentChecker()->canSubmitToInsecureForm(document().securityOrigin(), submission->action()))
+            return;
+    } else {
+        UseCounter::count(document(), UseCounter::FormsSubmitted);
+    }
 
     submission->setReferrer(Referrer(document().outgoingReferrer(), document().referrerPolicy()));
     submission->setOrigin(document().outgoingOrigin());
@@ -476,9 +485,14 @@ void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
 
 void HTMLFormElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (name == actionAttr)
-        m_attributes.parseAction(value);
-    else if (name == targetAttr)
+    if (name == actionAttr) {
+        m_attributes.parseAction(document(), value);
+        // If the new action attribute is pointing to insecure "action" location from a secure page
+        // it is marked as "passive" mixed content.
+        KURL actionURL = m_attributes.action().isEmpty() ? document().url() : m_attributes.action();
+        if (MixedContentChecker::isMixedContent(document().securityOrigin(), actionURL))
+            document().frame()->loader().mixedContentChecker()->canSubmitToInsecureForm(document().securityOrigin(), actionURL);
+    } else if (name == targetAttr)
         m_attributes.setTarget(value);
     else if (name == methodAttr)
         m_attributes.updateMethodType(value);
@@ -487,9 +501,9 @@ void HTMLFormElement::parseAttribute(const QualifiedName& name, const AtomicStri
     else if (name == accept_charsetAttr)
         m_attributes.setAcceptCharset(value);
     else if (name == onautocompleteAttr)
-        setAttributeEventListener(EventTypeNames::autocomplete, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::autocomplete, createAttributeEventListener(this, name, value, eventParameterName()));
     else if (name == onautocompleteerrorAttr)
-        setAttributeEventListener(EventTypeNames::autocompleteerror, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::autocompleteerror, createAttributeEventListener(this, name, value, eventParameterName()));
     else
         HTMLElement::parseAttribute(name, value);
 }
@@ -685,7 +699,7 @@ Element* HTMLFormElement::elementFromPastNamesMap(const AtomicString& pastName)
     if (pastName.isEmpty() || !m_pastNamesMap)
         return 0;
     Element* element = m_pastNamesMap->get(pastName);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     if (!element)
         return 0;
     ASSERT_WITH_SECURITY_IMPLICATION(toHTMLElement(element)->formOwner() == this);

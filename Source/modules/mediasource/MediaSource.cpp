@@ -31,11 +31,11 @@
 #include "config.h"
 #include "modules/mediasource/MediaSource.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "core/dom/ExceptionCode.h"
+#include "core/events/Event.h"
 #include "core/events/GenericEventQueue.h"
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/TimeRanges.h"
@@ -259,6 +259,7 @@ ExecutionContext* MediaSource::executionContext() const
 
 void MediaSource::trace(Visitor* visitor)
 {
+    visitor->trace(m_asyncEventQueue);
     visitor->trace(m_sourceBuffers);
     visitor->trace(m_activeSourceBuffers);
     EventTargetWithInlineData::trace(visitor);
@@ -358,10 +359,37 @@ void MediaSource::setDuration(double duration, ExceptionState& exceptionState)
 
     // 4. Run the duration change algorithm with new duration set to the value being
     // assigned to this attribute.
-    // Synchronously process duration change algorithm to enforce any required
-    // seek is started prior to returning.
-    m_attachedElement->durationChanged(duration);
-    m_webMediaSource->setDuration(duration);
+    durationChangeAlgorithm(duration);
+}
+
+void MediaSource::durationChangeAlgorithm(double newDuration)
+{
+    // Section 2.6.4 Duration change
+    // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#duration-change-algorithm
+    // 1. If the current value of duration is equal to new duration, then return.
+    if (newDuration == duration())
+        return;
+
+    // 2. Set old duration to the current value of duration.
+    double oldDuration = duration();
+
+    bool requestSeek = m_attachedElement->currentTime() > newDuration;
+
+    // 3. Update duration to new duration.
+    m_webMediaSource->setDuration(newDuration);
+
+    // 4. If the new duration is less than old duration, then call remove(new duration, old duration) on all all objects in sourceBuffers.
+    if (newDuration < oldDuration) {
+        for (size_t i = 0; i < m_sourceBuffers->length(); ++i)
+            m_sourceBuffers->item(i)->remove(newDuration, oldDuration, ASSERT_NO_EXCEPTION);
+    }
+
+    // 5. If a user agent is unable to partially render audio frames or text cues that start before and end after the duration, then run the following steps:
+    // NOTE: Currently we assume that the media engine is able to render partial frames/cues. If a media
+    // engine gets added that doesn't support this, then we'll need to add logic to handle the substeps.
+
+    // 6. Update the media controller duration to new duration and run the HTMLMediaElement duration change algorithm.
+    m_attachedElement->durationChanged(newDuration, requestSeek);
 }
 
 void MediaSource::setReadyState(const AtomicString& state)
@@ -477,13 +505,7 @@ PassOwnPtr<WebSourceBuffer> MediaSource::createWebSourceBuffer(const String& typ
 {
     WebSourceBuffer* webSourceBuffer = 0;
 
-    // FIXME: Always use the new frame processor once it has stabilized enough. See http://crbug.com/249422.
-    WebMediaSource::FrameProcessorChoice frameProcessorChoice = RuntimeEnabledFeatures::mediaSourceExperimentalEnabled() ?
-        WebMediaSource::UseNewFrameProcessor : WebMediaSource::UseLegacyFrameProcessor;
-
-    WTF_LOG(Media, "MediaSource::createWebSourceBuffer() %p : frameProcessorChoice = %i", this, frameProcessorChoice);
-
-    switch (m_webMediaSource->addSourceBuffer(type, codecs, frameProcessorChoice, &webSourceBuffer)) {
+    switch (m_webMediaSource->addSourceBuffer(type, codecs, &webSourceBuffer)) {
     case WebMediaSource::AddStatusOk:
         return adoptPtr(webSourceBuffer);
     case WebMediaSource::AddStatusNotSupported:

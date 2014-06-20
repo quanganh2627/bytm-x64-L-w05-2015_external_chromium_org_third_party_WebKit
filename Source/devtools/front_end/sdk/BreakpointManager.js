@@ -155,11 +155,12 @@ WebInspector.BreakpointManager.prototype = {
     {
         var uiSourceCode = /** @type {!WebInspector.UISourceCode} */ (event.target);
         var isIdentity = /** @type {boolean} */ (event.data.isIdentity);
+        var target = /** @type {!WebInspector.Target} */ (event.data.target);
         if (isIdentity)
             return;
         var breakpoints = this._breakpointsForPrimaryUISourceCode.get(uiSourceCode) || [];
         for (var i = 0; i < breakpoints.length; ++i)
-            breakpoints[i]._updateInDebugger();
+            breakpoints[i]._updateInDebuggerForTarget(target);
     },
 
     /**
@@ -437,8 +438,8 @@ WebInspector.BreakpointManager.Breakpoint = function(breakpointManager, projectI
 
     /** @type {!Map.<!WebInspector.Target, !WebInspector.BreakpointManager.TargetBreakpoint>}*/
     this._targetBreakpoints = new Map();
-    this._breakpointManager._targetManager.observeTargets(this);
     this._updateState(condition, enabled);
+    this._breakpointManager._targetManager.observeTargets(this);
 }
 
 WebInspector.BreakpointManager.Breakpoint.prototype = {
@@ -455,7 +456,9 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
      */
     targetRemoved: function(target)
     {
-        this._targetBreakpoints.remove(target)._resetLocations();
+        var targetBreakpoint = this._targetBreakpoints.remove(target);
+        targetBreakpoint._cleanUpAfterDebuggerIsGone();
+        targetBreakpoint._removeEventListeners();
     },
 
     /**
@@ -582,7 +585,9 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
     {
         this._removeFakeBreakpointAtPrimaryLocation();
         this._fakeBreakpointAtPrimaryLocation();
-        this._updateInDebugger();
+        var targetBreakpoints = this._targetBreakpoints.values();
+        for (var i = 0; i < targetBreakpoints.length; ++i)
+            targetBreakpoints[i]._updateInDebugger();
     },
 
     /**
@@ -594,18 +599,21 @@ WebInspector.BreakpointManager.Breakpoint.prototype = {
         var removeFromStorage = !keepInStorage;
         this._removeFakeBreakpointAtPrimaryLocation();
         var targetBreakpoints = this._targetBreakpoints.values();
-        for (var i = 0; i < targetBreakpoints.length; ++i)
+        for (var i = 0; i < targetBreakpoints.length; ++i) {
             targetBreakpoints[i]._removeFromDebugger();
+            targetBreakpoints[i]._removeEventListeners();
+        }
 
         this._breakpointManager._removeBreakpoint(this, removeFromStorage);
         this._breakpointManager._targetManager.unobserveTargets(this);
     },
 
-    _updateInDebugger: function()
+    /**
+     * @param {!WebInspector.Target} target
+     */
+    _updateInDebuggerForTarget: function(target)
     {
-        var targetBreakpoints = this._targetBreakpoints.values();
-        for (var i = 0; i < targetBreakpoints.length; ++i)
-            targetBreakpoints[i]._updateInDebugger();
+        this._targetBreakpoints.get(target)._updateInDebugger();
     },
 
     /**
@@ -661,6 +669,10 @@ WebInspector.BreakpointManager.TargetBreakpoint = function(target, breakpoint)
 
     /** @type {!Object.<string, !WebInspector.UILocation>} */
     this._uiLocations = {};
+    target.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerWasDisabled, this._cleanUpAfterDebuggerIsGone, this);
+    target.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerWasEnabled, this._updateInDebugger, this);
+    if (target.debuggerModel.debuggerEnabled())
+        this._updateInDebugger();
 }
 
 WebInspector.BreakpointManager.TargetBreakpoint.prototype = {
@@ -775,6 +787,19 @@ WebInspector.BreakpointManager.TargetBreakpoint.prototype = {
         }
         this._liveLocations.push(location.createLiveLocation(this._locationUpdated.bind(this, location)));
         return true;
+    },
+
+    _cleanUpAfterDebuggerIsGone: function()
+    {
+        this._resetLocations();
+        if (this._debuggerId)
+            this._didRemoveFromDebugger();
+    },
+
+    _removeEventListeners: function()
+    {
+        this.target().debuggerModel.removeEventListener(WebInspector.DebuggerModel.Events.DebuggerWasDisabled, this._cleanUpAfterDebuggerIsGone, this);
+        this.target().debuggerModel.removeEventListener(WebInspector.DebuggerModel.Events.DebuggerWasEnabled, this._updateInDebugger, this);
     },
 
     __proto__: WebInspector.TargetAware.prototype

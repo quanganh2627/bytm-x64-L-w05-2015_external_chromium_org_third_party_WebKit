@@ -11,7 +11,6 @@
 
 namespace WebCore {
 
-class RenderLayer;
 class RenderObject;
 class RenderView;
 
@@ -28,7 +27,7 @@ public:
     bool hasOverflowScrollTrigger() const;
 
     bool requiresCompositingForScrollableFrame() const;
-    bool requiresCompositingForPosition(RenderObject*, const RenderLayer*, RenderLayer::ViewportConstrainedNotCompositedReason*) const;
+    bool requiresCompositingForPositionFixed(RenderObject*, const RenderLayer*, RenderLayer::ViewportConstrainedNotCompositedReason*) const;
 
 private:
     bool isMainFrame() const;
@@ -37,9 +36,7 @@ private:
 
     bool requiresCompositingForTransform(RenderObject*) const;
     bool requiresCompositingForFilters(RenderObject*) const;
-    bool requiresCompositingForAnimation(RenderObject*) const;
-    bool requiresCompositingForPositionSticky(RenderObject*, const RenderLayer*) const;
-    bool requiresCompositingForPositionFixed(RenderObject*, const RenderLayer*, RenderLayer::ViewportConstrainedNotCompositedReason*) const;
+    bool requiresCompositingForAnimation(RenderStyle*) const;
 
     RenderView& m_renderView;
     CompositingTriggerFlags m_compositingTriggers;

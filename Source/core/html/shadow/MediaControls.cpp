@@ -64,7 +64,7 @@ MediaControls::MediaControls(HTMLMediaElement& mediaElement)
 
 PassRefPtrWillBeRawPtr<MediaControls> MediaControls::create(HTMLMediaElement& mediaElement)
 {
-    RefPtrWillBeRawPtr<MediaControls> controls = adoptRefWillBeRefCountedGarbageCollected(new MediaControls(mediaElement));
+    RefPtrWillBeRawPtr<MediaControls> controls = adoptRefWillBeNoop(new MediaControls(mediaElement));
 
     if (controls->initializeControls())
         return controls.release();
@@ -311,7 +311,7 @@ void MediaControls::updateVolume()
 {
     m_muteButton->updateDisplayType();
     if (m_muteButton->renderer())
-        m_muteButton->renderer()->repaint();
+        m_muteButton->renderer()->paintInvalidationForWholeRenderer();
 
     if (mediaElement().muted())
         m_volumeSlider->setVolume(0);

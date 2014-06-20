@@ -16,21 +16,23 @@
 // #if ENABLE(FEATURE) guards.  These are deprecated and should all be removed.
 
 ApplicationCache status=stable
+AudioVideoTracks depends_on=Media, status=experimental
 AuthorShadowDOMForAnyElement
 BatteryStatus status=experimental
 Beacon status=experimental
 
 // This feature is deprecated and we are evangalizing affected sites.
 // See https://crbug.com/346236 for current status.
-PrefixedVideoFullscreen status=test
+PrefixedVideoFullscreen status=stable
 
 // Enable bleeding-edge code to make Blink draw content faster.
 // The changes enabled behind this flag are very likely to break lots of content.
 // ** DO NOT use this flag unless you know what you are doing. **
 BleedingEdgeFastPaths
+BrandColor status=experimental
 
 ClientHintsDpr status=experimental
-Crypto status=experimental
+Crypto status=stable
 CSSAnimationUnprefixed status=experimental
 CSSCompositing status=experimental
 CSSExclusions status=experimental
@@ -38,7 +40,7 @@ CSSGridLayout status=experimental
 CSSMaskSourceType status=experimental
 CSSOMSmoothScroll status=experimental
 CSSShapes status=stable
-CSSStickyPosition status=experimental
+CSSStickyPosition status=test
 CSSTouchAction status=stable
 CSSTouchActionDelay status=test
 CSSTransformsUnprefixed status=stable
@@ -49,13 +51,14 @@ CSS3TextDecorations status=experimental
 CustomSchemeHandler depends_on=NavigatorContentUtils, status=experimental
 Database status=stable
 DeviceLight status=test
-DialogElement status=experimental
+DialogElement status=stable
 EncodingAPI status=experimental
 EncryptedMedia status=test
 EncryptedMediaAnyVersion status=stable
 ExperimentalCanvasFeatures status=test
 ExperimentalContentSecurityPolicyFeatures status=experimental
 ExperimentalWebSocket status=stable
+FastMobileScrolling
 FileAPIBlobClose status=experimental
 FileConstructor status=experimental
 FileSystem status=stable
@@ -123,10 +126,8 @@ ShowModalDialog status=stable
 
 SpeechSynthesis status=stable
 Stream status=experimental
-StyleScoped status=experimental
 SubpixelFontScaling status=stable
 SubresourceIntegrity status=test
-SVGPaintOrder status=stable
 
 // Enable optimizations to recalculate style on the fewest possible number of
 // elements when updating classes, ids or attributes of DOM elements.

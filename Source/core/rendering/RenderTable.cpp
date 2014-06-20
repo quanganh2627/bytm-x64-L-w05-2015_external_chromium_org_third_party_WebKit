@@ -26,7 +26,7 @@
 #include "config.h"
 #include "core/rendering/RenderTable.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/frame/FrameView.h"
 #include "core/html/HTMLTableElement.h"
@@ -302,20 +302,10 @@ void RenderTable::updateLogicalWidth()
     }
 
     // Finally, with our true width determined, compute our margins for real.
-    setMarginStart(0);
-    setMarginEnd(0);
-    if (!hasPerpendicularContainingBlock) {
-        ComputedMarginValues marginValues;
-        bool hasInvertedDirection =  cb->style()->isLeftToRightDirection() == style()->isLeftToRightDirection();
-        computeInlineDirectionMargins(cb, availableLogicalWidth, logicalWidth(),
-            hasInvertedDirection ? marginValues.m_start : marginValues.m_end,
-            hasInvertedDirection ? marginValues.m_end : marginValues.m_start);
-        setMarginStart(marginValues.m_start);
-        setMarginEnd(marginValues.m_end);
-    } else {
-        setMarginStart(minimumValueForLength(style()->marginStart(), availableLogicalWidth));
-        setMarginEnd(minimumValueForLength(style()->marginEnd(), availableLogicalWidth));
-    }
+    ComputedMarginValues marginValues;
+    computeMarginsForDirection(InlineDirection, cb, availableLogicalWidth, logicalWidth(), marginValues.m_start, marginValues.m_end, style()->marginStart(), style()->marginEnd());
+    setMarginStart(marginValues.m_start);
+    setMarginEnd(marginValues.m_end);
 
     // We should NEVER shrink the table below the min-content logical width, or else the table can't accomodate
     // its own content which doesn't match CSS nor what authors expect.
@@ -381,7 +371,7 @@ void RenderTable::layoutCaption(RenderTableCaption* caption)
     }
     caption->setLogicalLocation(LayoutPoint(caption->marginStart(), captionLogicalTop));
 
-    if (!selfNeedsLayout() && caption->checkForRepaintDuringLayout())
+    if (!selfNeedsLayout() && caption->checkForPaintInvalidationDuringLayout())
         caption->repaintDuringLayoutIfMoved(captionRect);
 
     setLogicalHeight(logicalHeight() + caption->logicalHeight() + collapsedMarginBeforeForChild(caption) + collapsedMarginAfterForChild(caption));
@@ -425,7 +415,7 @@ void RenderTable::layout()
     // to call this before we call borderStart/borderEnd to avoid getting a stale value.
     recalcBordersInRowDirection();
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this, checkForPaintInvalidationDuringLayout());
     SubtreeLayoutScope layouter(*this);
 
 
@@ -435,7 +425,7 @@ void RenderTable::layout()
     bool sectionMoved = false;
     LayoutUnit movedSectionLogicalTop = 0;
     {
-        LayoutStateMaintainer statePusher(*this, locationOffset());
+        LayoutState state(*this, locationOffset());
 
         setLogicalHeight(0);
 
@@ -583,9 +573,9 @@ void RenderTable::layout()
     if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()
         && !didFullRepaint && sectionMoved) {
         if (style()->isHorizontalWritingMode())
-            repaintRectangle(LayoutRect(visualOverflowRect().x(), movedSectionLogicalTop, visualOverflowRect().width(), visualOverflowRect().maxY() - movedSectionLogicalTop));
+            invalidatePaintRectangle(LayoutRect(visualOverflowRect().x(), movedSectionLogicalTop, visualOverflowRect().width(), visualOverflowRect().maxY() - movedSectionLogicalTop));
         else
-            repaintRectangle(LayoutRect(movedSectionLogicalTop, visualOverflowRect().y(), visualOverflowRect().maxX() - movedSectionLogicalTop, visualOverflowRect().height()));
+            invalidatePaintRectangle(LayoutRect(movedSectionLogicalTop, visualOverflowRect().y(), visualOverflowRect().maxX() - movedSectionLogicalTop, visualOverflowRect().height()));
     }
 
     m_columnLogicalWidthChanged = false;

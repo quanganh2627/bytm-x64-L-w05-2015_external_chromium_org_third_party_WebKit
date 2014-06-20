@@ -21,7 +21,6 @@
 #include "config.h"
 #include "core/rendering/RenderView.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/frame/LocalFrame.h"
@@ -40,6 +39,8 @@
 #include "core/rendering/compositing/CompositedLayerMapping.h"
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/svg/SVGDocumentExtensions.h"
+#include "platform/RuntimeEnabledFeatures.h"
+#include "platform/TraceEvent.h"
 #include "platform/geometry/FloatQuad.h"
 #include "platform/geometry/TransformState.h"
 #include "platform/graphics/GraphicsContext.h"
@@ -56,7 +57,6 @@ RenderView::RenderView(Document* document)
     , m_pageLogicalHeight(0)
     , m_pageLogicalHeightChanged(false)
     , m_layoutState(0)
-    , m_layoutStateDisableCount(0)
     , m_renderQuoteHead(0)
     , m_renderCounterCount(0)
 {
@@ -182,7 +182,6 @@ void RenderView::checkLayoutState()
     if (!RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
         ASSERT(layoutDeltaMatches(LayoutSize()));
     }
-    ASSERT(!m_layoutStateDisableCount);
     ASSERT(!m_layoutState->next());
 }
 #endif
@@ -209,7 +208,7 @@ bool RenderView::shouldDoFullRepaintForNextLayout() const
             // background positioning area resize.
             if (!m_compositor || !m_compositor->needsFixedRootBackgroundLayer(layer())) {
                 if (backgroundRenderer->style()->hasFixedBackgroundImage()
-                    && mustRepaintFillLayersOnHeightChange(*backgroundRenderer->style()->backgroundLayers()))
+                    && mustInvalidateFillLayersPaintOnHeightChange(*backgroundRenderer->style()->backgroundLayers()))
                 return true;
             }
         }
@@ -251,7 +250,7 @@ void RenderView::layout()
     if (!needsLayout())
         return;
 
-    RootLayoutStateScope rootLayoutStateScope(*this);
+    LayoutState rootLayoutState(pageLogicalHeight(), pageLogicalHeightChanged(), *this);
 
     m_pageLogicalHeightChanged = false;
 
@@ -457,41 +456,41 @@ void RenderView::invalidateTreeAfterLayout(const RenderLayerModelObject& paintIn
     if (doingFullRepaint() && !viewRect().isEmpty())
         repaintViewRectangle(viewRect());
 
+    LayoutState rootLayoutState(0, false, *this);
     RenderBlock::invalidateTreeAfterLayout(paintInvalidationContainer);
 }
 
-void RenderView::repaintViewRectangle(const LayoutRect& ur) const
+void RenderView::repaintViewRectangle(const LayoutRect& repaintRect) const
 {
-    ASSERT(!ur.isEmpty());
+    ASSERT(!repaintRect.isEmpty());
 
     if (document().printing() || !m_frameView)
         return;
 
     // We always just invalidate the root view, since we could be an iframe that is clipped out
     // or even invisible.
-    Element* elt = document().ownerElement();
-    if (!elt) {
-        if (hasLayer() && layer()->compositingState() == PaintsIntoOwnBacking)
-            layer()->repainter().setBackingNeedsRepaintInRect(ur);
-        else
-            m_frameView->contentRectangleForPaintInvalidation(pixelSnappedIntRect(ur));
-    } else if (RenderBox* obj = elt->renderBox()) {
-        LayoutRect vr = viewRect();
-        LayoutRect r = intersection(ur, vr);
+    Element* owner = document().ownerElement();
+    if (layer()->compositingState() == PaintsIntoOwnBacking) {
+        layer()->repainter().setBackingNeedsRepaintInRect(repaintRect);
+    } else if (!owner) {
+        m_frameView->contentRectangleForPaintInvalidation(pixelSnappedIntRect(repaintRect));
+    } else if (RenderBox* obj = owner->renderBox()) {
+        LayoutRect viewRectangle = viewRect();
+        LayoutRect rectToRepaint = intersection(repaintRect, viewRectangle);
 
         // Subtract out the contentsX and contentsY offsets to get our coords within the viewing
         // rectangle.
-        r.moveBy(-vr.location());
+        rectToRepaint.moveBy(-viewRectangle.location());
 
         // FIXME: Hardcoded offsets here are not good.
-        r.moveBy(obj->contentBoxRect().location());
-        obj->repaintRectangle(r);
+        rectToRepaint.moveBy(obj->contentBoxRect().location());
+        obj->invalidatePaintRectangle(rectToRepaint);
     }
 }
 
 void RenderView::repaintViewAndCompositedLayers()
 {
-    repaint();
+    paintInvalidationForWholeRenderer();
 
     // The only way we know how to hit these ASSERTS below this point is via the Chromium OS login screen.
     DisableCompositingQueryAsserts disabler;
@@ -500,11 +499,11 @@ void RenderView::repaintViewAndCompositedLayers()
         compositor()->repaintCompositedLayers();
 }
 
-void RenderView::mapRectToRepaintBacking(const RenderLayerModelObject* repaintContainer, LayoutRect& rect, bool fixed) const
+void RenderView::mapRectToPaintInvalidationBacking(const RenderLayerModelObject* paintInvalidationContainer, LayoutRect& rect, bool fixed) const
 {
     // If a container was specified, and was not 0 or the RenderView,
     // then we should have found it by now.
-    ASSERT_ARG(repaintContainer, !repaintContainer || repaintContainer == this);
+    ASSERT_ARG(paintInvalidationContainer, !paintInvalidationContainer || paintInvalidationContainer == this);
 
     if (document().printing())
         return;
@@ -527,7 +526,7 @@ void RenderView::mapRectToRepaintBacking(const RenderLayerModelObject* repaintCo
     }
 
     // Apply our transform if we have one (because of full page zooming).
-    if (!repaintContainer && layer() && layer()->transform())
+    if (!paintInvalidationContainer && layer() && layer()->transform())
         rect = layer()->transform()->mapRect(rect);
 }
 
@@ -907,26 +906,6 @@ float RenderView::zoomFactor() const
     return m_frameView->frame().pageZoomFactor();
 }
 
-void RenderView::pushLayoutState(RenderObject& root)
-{
-    ASSERT(m_layoutStateDisableCount == 0);
-    ASSERT(m_layoutState == 0);
-
-    pushLayoutStateForCurrentFlowThread(root);
-    m_layoutState = new LayoutState(root);
-}
-
-bool RenderView::shouldDisableLayoutStateForSubtree(RenderObject& renderer) const
-{
-    RenderObject* o = &renderer;
-    while (o) {
-        if (o->shouldDisableLayoutState())
-            return true;
-        o = o->container();
-    }
-    return false;
-}
-
 void RenderView::updateHitTestResult(HitTestResult& result, const LayoutPoint& point)
 {
     if (result.innerNode())
@@ -972,20 +951,20 @@ FlowThreadController* RenderView::flowThreadController()
     return m_flowThreadController.get();
 }
 
-void RenderView::pushLayoutStateForCurrentFlowThread(const RenderObject& object)
+void RenderView::pushLayoutState(LayoutState& layoutState)
 {
-    if (!m_flowThreadController)
-        return;
-
-    RenderFlowThread* currentFlowThread = m_flowThreadController->currentRenderFlowThread();
-    if (!currentFlowThread)
-        return;
-
-    currentFlowThread->pushFlowThreadLayoutState(object);
+    if (m_flowThreadController) {
+        RenderFlowThread* currentFlowThread = m_flowThreadController->currentRenderFlowThread();
+        if (currentFlowThread)
+            currentFlowThread->pushFlowThreadLayoutState(layoutState.renderer());
+    }
+    m_layoutState = &layoutState;
 }
 
-void RenderView::popLayoutStateForCurrentFlowThread()
+void RenderView::popLayoutState()
 {
+    ASSERT(m_layoutState);
+    m_layoutState = m_layoutState->next();
     if (!m_flowThreadController)
         return;
 

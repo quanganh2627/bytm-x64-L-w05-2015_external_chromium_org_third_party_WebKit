@@ -33,6 +33,7 @@
 
 #include "bindings/core/v8/V8JavaScriptCallFrame.h"
 #include "bindings/v8/ScopedPersistent.h"
+#include "bindings/v8/ScriptCallStackFactory.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/ScriptSourceCode.h"
 #include "bindings/v8/ScriptValue.h"
@@ -99,7 +100,7 @@ String ScriptDebugServer::setBreakpoint(const String& sourceID, const ScriptBrea
 
     v8::Handle<v8::Function> setBreakpointFunction = v8::Local<v8::Function>::Cast(m_debuggerScript.newLocal(m_isolate)->Get(v8AtomicString(m_isolate, "setBreakpoint")));
     v8::Handle<v8::Value> breakpointId = v8::Debug::Call(setBreakpointFunction, info);
-    if (!breakpointId->IsString())
+    if (breakpointId.IsEmpty() || !breakpointId->IsString())
         return "";
     *actualLineNumber = info->Get(v8AtomicString(m_isolate, "lineNumber"))->Int32Value();
     *actualColumnNumber = info->Get(v8AtomicString(m_isolate, "columnNumber"))->Int32Value();
@@ -324,7 +325,7 @@ int ScriptDebugServer::frameCount()
     return 0;
 }
 
-PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::wrapCallFrames(int maximumLimit, ScopeInfoDetails scopeDetails)
+PassRefPtrWillBeRawPtr<JavaScriptCallFrame> ScriptDebugServer::wrapCallFrames(int maximumLimit, ScopeInfoDetails scopeDetails)
 {
     const int scopeBits = 2;
     COMPILE_ASSERT(NoScopes < (1 << scopeBits), not_enough_bits_to_encode_ScopeInfoDetails);
@@ -341,7 +342,7 @@ PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::wrapCallFrames(int maximumLim
     }
     ASSERT(!currentCallFrameV8.IsEmpty());
     if (!currentCallFrameV8->IsObject())
-        return PassRefPtr<JavaScriptCallFrame>();
+        return nullptr;
     return JavaScriptCallFrame::create(v8::Debug::GetDebugContext(), v8::Handle<v8::Object>::Cast(currentCallFrameV8));
 }
 
@@ -351,7 +352,7 @@ ScriptValue ScriptDebugServer::currentCallFramesInner(ScopeInfoDetails scopeDeta
         return ScriptValue();
     v8::HandleScope handleScope(m_isolate);
 
-    RefPtr<JavaScriptCallFrame> currentCallFrame = wrapCallFrames(0, scopeDetails);
+    RefPtrWillBeRawPtr<JavaScriptCallFrame> currentCallFrame = wrapCallFrames(0, scopeDetails);
     if (!currentCallFrame)
         return ScriptValue();
 
@@ -370,7 +371,7 @@ ScriptValue ScriptDebugServer::currentCallFramesForAsyncStack()
     return currentCallFramesInner(FastAsyncScopes);
 }
 
-PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::topCallFrameNoScopes()
+PassRefPtrWillBeRawPtr<JavaScriptCallFrame> ScriptDebugServer::topCallFrameNoScopes()
 {
     return wrapCallFrames(1, NoScopes);
 }
@@ -568,7 +569,7 @@ bool ScriptDebugServer::isPaused()
     return m_pausedScriptState;
 }
 
-void ScriptDebugServer::compileScript(ScriptState* scriptState, const String& expression, const String& sourceURL, String* scriptId, String* exceptionMessage)
+void ScriptDebugServer::compileScript(ScriptState* scriptState, const String& expression, const String& sourceURL, String* scriptId, String* exceptionDetailsText, int* lineNumber, int* columnNumber, RefPtrWillBeRawPtr<ScriptCallStack>* stackTrace)
 {
     if (scriptState->contextIsEmpty())
         return;
@@ -579,8 +580,12 @@ void ScriptDebugServer::compileScript(ScriptState* scriptState, const String& ex
     v8::Local<v8::Script> script = V8ScriptRunner::compileScript(source, sourceURL, TextPosition(), 0, m_isolate);
     if (tryCatch.HasCaught()) {
         v8::Local<v8::Message> message = tryCatch.Message();
-        if (!message.IsEmpty())
-            *exceptionMessage = toCoreStringWithUndefinedOrNullCheck(message->Get());
+        if (!message.IsEmpty()) {
+            *exceptionDetailsText = toCoreStringWithUndefinedOrNullCheck(message->Get());
+            *lineNumber = message->GetLineNumber();
+            *columnNumber = message->GetStartColumn();
+            *stackTrace = createScriptCallStack(message->GetStackTrace(), message->GetStackTrace()->GetFrameCount(), m_isolate);
+        }
         return;
     }
     if (script.IsEmpty())
@@ -595,7 +600,7 @@ void ScriptDebugServer::clearCompiledScripts()
     m_compiledScripts.clear();
 }
 
-void ScriptDebugServer::runScript(ScriptState* scriptState, const String& scriptId, ScriptValue* result, bool* wasThrown, String* exceptionMessage)
+void ScriptDebugServer::runScript(ScriptState* scriptState, const String& scriptId, ScriptValue* result, bool* wasThrown, String* exceptionDetailsText, int* lineNumber, int* columnNumber, RefPtrWillBeRawPtr<ScriptCallStack>* stackTrace)
 {
     if (!m_compiledScripts.contains(scriptId))
         return;
@@ -616,8 +621,12 @@ void ScriptDebugServer::runScript(ScriptState* scriptState, const String& script
         *wasThrown = true;
         *result = ScriptValue(scriptState, tryCatch.Exception());
         v8::Local<v8::Message> message = tryCatch.Message();
-        if (!message.IsEmpty())
-            *exceptionMessage = toCoreStringWithUndefinedOrNullCheck(message->Get());
+        if (!message.IsEmpty()) {
+            *exceptionDetailsText = toCoreStringWithUndefinedOrNullCheck(message->Get());
+            *lineNumber = message->GetLineNumber();
+            *columnNumber = message->GetStartColumn();
+            *stackTrace = createScriptCallStack(message->GetStackTrace(), message->GetStackTrace()->GetFrameCount(), m_isolate);
+        }
     } else {
         *result = ScriptValue(scriptState, value);
     }

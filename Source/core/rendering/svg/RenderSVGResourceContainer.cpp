@@ -151,7 +151,7 @@ void RenderSVGResourceContainer::markClientForInvalidation(RenderObject* client,
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled() && frameView()->isInPerformLayout())
                 client->setShouldDoFullPaintInvalidationAfterLayout(true);
             else
-                client->repaint();
+                client->paintInvalidationForWholeRenderer();
         }
         break;
     case ParentOnlyInvalidation:
@@ -200,7 +200,7 @@ void RenderSVGResourceContainer::invalidateCacheAndMarkForLayout(SubtreeLayoutSc
     if (selfNeedsLayout())
         return;
 
-    setNeedsLayoutAndFullRepaint(MarkContainingBlockChain, layoutScope);
+    setNeedsLayoutAndFullPaintInvalidation(MarkContainingBlockChain, layoutScope);
 
     if (everHadLayout())
         removeAllClientsFromCache();
@@ -231,7 +231,7 @@ void RenderSVGResourceContainer::registerResource()
         StyleDifference diff;
         diff.setNeedsFullLayout();
         SVGResourcesCache::clientStyleChanged(renderer, diff, renderer->style());
-        renderer->setNeedsLayoutAndFullRepaint();
+        renderer->setNeedsLayoutAndFullPaintInvalidation();
     }
 }
 

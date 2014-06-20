@@ -89,14 +89,16 @@ WebInspector.SettingsUI.bindCheckbox = function(input, setting)
  * @param {string=} width
  * @param {function(string):?string=} validatorCallback
  * @param {boolean=} instant
+ * @param {boolean=} clearForZero
+ * @param {string=} placeholder
+ * @return {!Element}
  */
-WebInspector.SettingsUI.createSettingInputField = function(label, setting, numeric, maxLength, width, validatorCallback, instant)
+WebInspector.SettingsUI.createSettingInputField = function(label, setting, numeric, maxLength, width, validatorCallback, instant, clearForZero, placeholder)
 {
     var p = document.createElement("p");
     var labelElement = p.createChild("label");
     labelElement.textContent = label;
     var inputElement = p.createChild("input");
-    inputElement.value = setting.get();
     inputElement.type = "text";
     if (numeric)
         inputElement.className = "numeric";
@@ -104,11 +106,13 @@ WebInspector.SettingsUI.createSettingInputField = function(label, setting, numer
         inputElement.maxLength = maxLength;
     if (width)
         inputElement.style.width = width;
+    inputElement.placeholder = placeholder || "";
 
     if (validatorCallback || instant) {
         inputElement.addEventListener("change", onInput, false);
         inputElement.addEventListener("input", onInput, false);
     }
+    inputElement.addEventListener("keydown", onKeyDown, false);
 
     var errorMessageLabel;
     if (validatorCallback) {
@@ -122,6 +126,12 @@ WebInspector.SettingsUI.createSettingInputField = function(label, setting, numer
         if (validatorCallback)
             validate();
         if (instant)
+            apply();
+    }
+
+    function onKeyDown(event)
+    {
+        if (isEnterKey(event))
             apply();
     }
 
@@ -150,12 +160,21 @@ WebInspector.SettingsUI.createSettingInputField = function(label, setting, numer
 
     function onSettingChange()
     {
-        inputElement.value = setting.get();
+        var value = setting.get();
+        if (clearForZero && !value)
+            value = "";
+        inputElement.value = value;
     }
+    onSettingChange();
 
     return p;
 }
 
+/**
+ * @param {string} name
+ * @param {!Element} element
+ * @return {!Element}
+ */
 WebInspector.SettingsUI.createCustomSetting = function(name, element)
 {
     var p = document.createElement("p");

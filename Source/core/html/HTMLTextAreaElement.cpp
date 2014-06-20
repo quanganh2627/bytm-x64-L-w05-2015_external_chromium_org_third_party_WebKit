@@ -26,10 +26,10 @@
 #include "config.h"
 #include "core/html/HTMLTextAreaElement.h"
 
-#include "CSSValueKeywords.h"
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/CSSValueKeywords.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/Text.h"
@@ -90,7 +90,7 @@ HTMLTextAreaElement::HTMLTextAreaElement(Document& document, HTMLFormElement* fo
 
 PassRefPtrWillBeRawPtr<HTMLTextAreaElement> HTMLTextAreaElement::create(Document& document, HTMLFormElement* form)
 {
-    RefPtrWillBeRawPtr<HTMLTextAreaElement> textArea = adoptRefWillBeRefCountedGarbageCollected(new HTMLTextAreaElement(document, form));
+    RefPtrWillBeRawPtr<HTMLTextAreaElement> textArea = adoptRefWillBeNoop(new HTMLTextAreaElement(document, form));
     textArea->ensureUserAgentShadowRoot();
     return textArea.release();
 }
@@ -162,7 +162,7 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
         if (m_rows != rows) {
             m_rows = rows;
             if (renderer())
-                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
         }
     } else if (name == colsAttr) {
         int cols = value.toInt();
@@ -171,7 +171,7 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
         if (m_cols != cols) {
             m_cols = cols;
             if (renderer())
-                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
         }
     } else if (name == wrapAttr) {
         // The virtual/physical values were a Netscape extension of HTML 3.0, now deprecated.
@@ -186,7 +186,7 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
         if (wrap != m_wrap) {
             m_wrap = wrap;
             if (renderer())
-                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
         }
     } else if (name == accesskeyAttr) {
         // ignore for the moment

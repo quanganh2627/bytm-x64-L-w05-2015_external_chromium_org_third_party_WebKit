@@ -25,7 +25,7 @@
 #include "config.h"
 #include "core/rendering/RenderTableRow.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/fetch/ImageResource.h"
 #include "core/rendering/GraphicsContextAnnotator.h"
@@ -161,7 +161,7 @@ void RenderTableRow::layout()
     ASSERT(needsLayout());
 
     // Table rows do not add translation.
-    LayoutStateMaintainer statePusher(*this, LayoutSize());
+    LayoutState state(*this, LayoutSize());
 
     for (RenderTableCell* cell = firstCell(); cell; cell = cell->nextCell()) {
         SubtreeLayoutScope layouter(*cell);
@@ -179,15 +179,15 @@ void RenderTableRow::layout()
     // We only ever need to issue paint invalidations if our cells didn't, which means that they didn't need
     // layout, so we know that our bounds didn't change. This code is just making up for
     // the fact that we did not invalidate paints in setStyle() because we had a layout hint.
-    // We cannot call repaint() because our clippedOverflowRectForRepaint() is taken from the
+    // We cannot call repaint() because our clippedOverflowRectForPaintInvalidation() is taken from the
     // parent table, and being mid-layout, that is invalid. Instead, we issue paint invalidations for our cells.
-    if (selfNeedsLayout() && checkForRepaint()) {
+    if (selfNeedsLayout() && checkForPaintInvalidation()) {
         for (RenderTableCell* cell = firstCell(); cell; cell = cell->nextCell()) {
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled()) {
                 // FIXME: Is this needed with Repaint After Layout?
                 cell->setShouldDoFullPaintInvalidationAfterLayout(true);
             } else {
-                cell->repaint();
+                cell->paintInvalidationForWholeRenderer();
             }
         }
     }
@@ -244,7 +244,7 @@ void RenderTableRow::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
 {
     // FIXME: Examine cells and repaint only the rect the image paints in.
-    repaint();
+    paintInvalidationForWholeRenderer();
 }
 
 RenderTableRow* RenderTableRow::createAnonymous(Document* document)

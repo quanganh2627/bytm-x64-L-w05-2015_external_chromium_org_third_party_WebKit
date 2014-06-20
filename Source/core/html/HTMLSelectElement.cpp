@@ -28,10 +28,10 @@
 #include "config.h"
 #include "core/html/HTMLSelectElement.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/ElementTraversal.h"
@@ -52,7 +52,6 @@
 #include "platform/PlatformMouseEvent.h"
 #include "platform/text/PlatformLocale.h"
 
-using namespace std;
 using namespace WTF::Unicode;
 
 namespace WebCore {
@@ -81,12 +80,12 @@ HTMLSelectElement::HTMLSelectElement(Document& document, HTMLFormElement* form)
 
 PassRefPtrWillBeRawPtr<HTMLSelectElement> HTMLSelectElement::create(Document& document)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLSelectElement(document, 0));
+    return adoptRefWillBeNoop(new HTMLSelectElement(document, 0));
 }
 
 PassRefPtrWillBeRawPtr<HTMLSelectElement> HTMLSelectElement::create(Document& document, HTMLFormElement* form)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLSelectElement(document, form));
+    return adoptRefWillBeNoop(new HTMLSelectElement(document, form));
 }
 
 const AtomicString& HTMLSelectElement::formControlType() const
@@ -258,6 +257,7 @@ void HTMLSelectElement::setValue(const String &value, bool sendEvents)
     }
 
     int previousSelectedIndex = selectedIndex();
+    setSuggestedIndex(-1);
     setSelectedIndex(optionIndex);
 
     if (sendEvents && previousSelectedIndex != selectedIndex()) {
@@ -326,7 +326,7 @@ void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomicSt
             if (Attribute* sizeAttribute = ensureUniqueElementData().findAttributeByName(sizeAttr))
                 sizeAttribute->setValue(attrSize);
         }
-        size = max(size, 1);
+        size = std::max(size, 1);
 
         // Ensure that we've determined selectedness of the items at least once prior to changing the size.
         if (oldSize != size)
@@ -634,8 +634,8 @@ void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
     ASSERT(renderer() && (renderer()->isListBox() || m_multiple));
     ASSERT(!listItems().size() || m_activeSelectionAnchorIndex >= 0);
 
-    unsigned start = min(m_activeSelectionAnchorIndex, m_activeSelectionEndIndex);
-    unsigned end = max(m_activeSelectionAnchorIndex, m_activeSelectionEndIndex);
+    unsigned start = std::min(m_activeSelectionAnchorIndex, m_activeSelectionEndIndex);
+    unsigned end = std::max(m_activeSelectionAnchorIndex, m_activeSelectionEndIndex);
 
     const WillBeHeapVector<RawPtrWillBeMember<HTMLElement> >& items = listItems();
     for (unsigned i = 0; i < items.size(); ++i) {
@@ -725,7 +725,7 @@ const WillBeHeapVector<RawPtrWillBeMember<HTMLElement> >& HTMLSelectElement::lis
     if (m_shouldRecalcListItems)
         recalcListItems();
     else {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         WillBeHeapVector<RawPtrWillBeMember<HTMLElement> > items = m_listItems;
         recalcListItems(false);
         ASSERT(items == m_listItems);

@@ -32,6 +32,7 @@
 #include "core/frame/Settings.h"
 #include "core/rendering/RenderBlock.h"
 #include "core/rendering/RenderView.h"
+#include "platform/graphics/GraphicsContext.h"
 
 namespace WebCore {
 
@@ -195,7 +196,7 @@ void CaretBase::repaintCaretForLocalRect(Node* node, const LayoutRect& rect)
     LayoutRect inflatedRect = rect;
     inflatedRect.inflate(1);
 
-    caretPainter->repaintRectangle(inflatedRect);
+    caretPainter->invalidatePaintRectangle(inflatedRect);
 }
 
 bool CaretBase::shouldRepaintCaret(const RenderView* view, bool isContentEditable) const

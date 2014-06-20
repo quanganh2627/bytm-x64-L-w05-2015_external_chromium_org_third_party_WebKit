@@ -5,7 +5,7 @@
 #include "config.h"
 #include "core/html/HTMLPictureElement.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/html/HTMLImageElement.h"
 
@@ -13,11 +13,13 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLPictureElement::HTMLPictureElement(Document& document)
+inline HTMLPictureElement::HTMLPictureElement(Document& document)
     : HTMLElement(pictureTag, document)
 {
     ScriptWrappable::init(this);
 }
+
+DEFINE_NODE_FACTORY(HTMLPictureElement)
 
 void HTMLPictureElement::sourceOrMediaChanged()
 {

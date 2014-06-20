@@ -25,7 +25,7 @@
 #include "config.h"
 #include "core/html/HTMLFieldSetElement.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/html/HTMLCollection.h"
 #include "core/html/HTMLLegendElement.h"
@@ -46,7 +46,7 @@ inline HTMLFieldSetElement::HTMLFieldSetElement(Document& document, HTMLFormElem
 
 PassRefPtrWillBeRawPtr<HTMLFieldSetElement> HTMLFieldSetElement::create(Document& document, HTMLFormElement* form)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLFieldSetElement(document, form));
+    return adoptRefWillBeNoop(new HTMLFieldSetElement(document, form));
 }
 
 void HTMLFieldSetElement::trace(Visitor* visitor)

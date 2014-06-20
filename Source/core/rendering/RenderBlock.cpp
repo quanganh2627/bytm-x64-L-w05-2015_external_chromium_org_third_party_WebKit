@@ -24,7 +24,7 @@
 #include "config.h"
 #include "core/rendering/RenderBlock.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
@@ -49,6 +49,7 @@
 #include "core/rendering/RenderDeprecatedFlexibleBox.h"
 #include "core/rendering/RenderFlexibleBox.h"
 #include "core/rendering/RenderFlowThread.h"
+#include "core/rendering/RenderGrid.h"
 #include "core/rendering/RenderInline.h"
 #include "core/rendering/RenderLayer.h"
 #include "core/rendering/RenderMarquee.h"
@@ -154,7 +155,6 @@ private:
 
 RenderBlock::RenderBlock(ContainerNode* node)
     : RenderBox(node)
-    , m_lineHeight(-1)
     , m_hasMarginBeforeQuirk(false)
     , m_hasMarginAfterQuirk(false)
     , m_beingDestroyed(false)
@@ -350,7 +350,6 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
         textAutosizer->record(this);
 
     propagateStyleToAnonymousChildren(true);
-    invalidateLineHeight();
 
     // It's possible for our border/padding to change, but for the overall logical width of the block to
     // end up being the same. We keep track of this change so in layoutBlock, we can know to set relayoutChildren=true.
@@ -378,13 +377,13 @@ void RenderBlock::invalidateTreeAfterLayout(const RenderLayerModelObject& invali
     // Take care of positioned objects. This is required as LayoutState keeps a single clip rect.
     if (TrackedRendererListHashSet* positionedObjects = this->positionedObjects()) {
         TrackedRendererListHashSet::iterator end = positionedObjects->end();
-        LayoutStateMaintainer statePusher(*this, isTableRow() ? LayoutSize() : locationOffset());
+        LayoutState state(*this, isTableRow() ? LayoutSize() : locationOffset());
         for (TrackedRendererListHashSet::iterator it = positionedObjects->begin(); it != end; ++it) {
             RenderBox* box = *it;
 
             // One of the renderers we're skipping over here may be the child's repaint container,
             // so we can't pass our own repaint container along.
-            const RenderLayerModelObject& repaintContainerForChild = *box->containerForRepaint();
+            const RenderLayerModelObject& repaintContainerForChild = *box->containerForPaintInvalidation();
 
             // If the positioned renderer is absolutely positioned and it is inside
             // a relatively positioend inline element, we need to account for
@@ -395,7 +394,7 @@ void RenderBlock::invalidateTreeAfterLayout(const RenderLayerModelObject& invali
                     // FIXME: We should be able to use layout-state for this.
                     // Currently, we will place absolutly positioned elements inside
                     // relatively positioned inline blocks in the wrong location. crbug.com/371485
-                    LayoutStateDisabler disable(*this);
+                    ForceHorriblySlowRectMapping slowRectMapping(*this);
                     box->invalidateTreeAfterLayout(repaintContainerForChild);
                     continue;
                 }
@@ -706,9 +705,9 @@ void RenderBlock::splitFlow(RenderObject* beforeChild, RenderBlock* newBlockBox,
     // Always just do a full layout in order to ensure that line boxes (especially wrappers for images)
     // get deleted properly.  Because objects moves from the pre block into the post block, we want to
     // make new line boxes instead of leaving the old line boxes around.
-    pre->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
-    block->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
-    post->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+    pre->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
+    block->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
+    post->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 void RenderBlock::makeChildrenAnonymousColumnBlocks(RenderObject* beforeChild, RenderBlockFlow* newBlockBox, RenderObject* newChild)
@@ -756,10 +755,10 @@ void RenderBlock::makeChildrenAnonymousColumnBlocks(RenderObject* beforeChild, R
     // get deleted properly.  Because objects moved from the pre block into the post block, we want to
     // make new line boxes instead of leaving the old line boxes around.
     if (pre)
-        pre->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
-    block->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        pre->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
+    block->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     if (post)
-        post->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        post->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 }
 
 RenderBlockFlow* RenderBlock::columnsBlockForSpanningElement(RenderObject* newChild)
@@ -1009,7 +1008,7 @@ void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
         ASSERT(!c->isInline());
 #endif
 
-    repaint();
+    paintInvalidationForWholeRenderer();
 }
 
 void RenderBlock::removeLeftoverAnonymousBlock(RenderBlock* child)
@@ -1056,6 +1055,10 @@ void RenderBlock::removeLeftoverAnonymousBlock(RenderBlock* child)
 
     // Remove all the information in the flow thread associated with the leftover anonymous block.
     child->removeFromRenderFlowThread();
+
+    // RenderGrid keeps track of its children, we must notify it about changes in the tree.
+    if (child->parent()->isRenderGrid())
+        toRenderGrid(child->parent())->dirtyGrid();
 
     child->setParent(0);
     child->setPreviousSibling(0);
@@ -1111,7 +1114,7 @@ void RenderBlock::collapseAnonymousBlockChild(RenderBlock* parent, RenderBlock* 
     // destroyed. See crbug.com/282088
     if (child->beingDestroyed())
         return;
-    parent->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+    parent->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     parent->setChildrenInline(child->childrenInline());
     RenderObject* nextSibling = child->nextSibling();
 
@@ -1145,7 +1148,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
     RenderObject* next = oldChild->nextSibling();
     bool canMergeAnonymousBlocks = canMergeContiguousAnonymousBlocks(oldChild, prev, next);
     if (canMergeAnonymousBlocks && prev && next) {
-        prev->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+        prev->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
         RenderBlockFlow* nextBlock = toRenderBlockFlow(next);
         RenderBlockFlow* prevBlock = toRenderBlockFlow(prev);
 
@@ -1167,7 +1170,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
             // Now just put the inlineChildrenBlock inside the blockChildrenBlock.
             blockChildrenBlock->children()->insertChildNode(blockChildrenBlock, inlineChildrenBlock, prev == inlineChildrenBlock ? blockChildrenBlock->firstChild() : 0,
                                                             inlineChildrenBlockHasLayer || blockChildrenBlock->hasLayer());
-            next->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+            next->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
 
             // inlineChildrenBlock got reparented to blockChildrenBlock, so it is no longer a child
             // of "this". we null out prev or next so that is not used later in the function.
@@ -1570,8 +1573,8 @@ bool RenderBlock::simplifiedLayout()
 
 
     {
-        // LayoutStateMaintainer needs this deliberate scope to pop before repaint
-        LayoutStateMaintainer statePusher(*this, locationOffset());
+        // LayoutState needs this deliberate scope to pop before repaint
+        LayoutState state(*this, locationOffset());
 
         if (needsPositionedMovementLayout() && !tryLayoutDoingPositionedMovementOnly())
             return false;
@@ -1712,7 +1715,7 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren, PositionedLayou
         // FIXME: We should be able to do a r->setNeedsPositionedMovementLayout() here instead of a full layout. Need
         // to investigate why it does not trigger the correct invalidations in that case. crbug.com/350756
         if (info == ForcedLayoutAfterContainingBlockMoved)
-            r->setNeedsLayoutAndFullRepaint();
+            r->setNeedsLayoutAndFullPaintInvalidation();
 
         r->layoutIfNeeded();
 
@@ -3779,16 +3782,8 @@ LayoutUnit RenderBlock::lineHeight(bool firstLine, LineDirectionMode direction, 
     if (isReplaced() && linePositionMode == PositionOnContainingLine)
         return RenderBox::lineHeight(firstLine, direction, linePositionMode);
 
-    if (firstLine && document().styleEngine()->usesFirstLineRules()) {
-        RenderStyle* s = style(firstLine);
-        if (s != style())
-            return s->computedLineHeight();
-    }
-
-    if (m_lineHeight == -1)
-        m_lineHeight = style()->computedLineHeight();
-
-    return m_lineHeight;
+    RenderStyle* s = style(firstLine && document().styleEngine()->usesFirstLineRules());
+    return s->computedLineHeight();
 }
 
 int RenderBlock::beforeMarginInLineDirection(LineDirectionMode direction) const
@@ -4021,7 +4016,7 @@ void RenderBlock::updateFirstLetterStyle(RenderObject* firstLetterBlock, RenderO
     RenderStyle* pseudoStyle = styleForFirstLetter(firstLetterBlock, firstLetterContainer);
     ASSERT(firstLetter->isFloating() || firstLetter->isInline());
 
-    LayoutStateDisabler layoutStateDisabler(*this);
+    ForceHorriblySlowRectMapping slowRectMapping(*this);
 
     if (RenderStyle::stylePropagationDiff(firstLetter->style(), pseudoStyle) == Reattach) {
         // The first-letter renderer needs to be replaced. Create a new renderer of the right type.
@@ -4205,7 +4200,7 @@ void RenderBlock::updateFirstLetter()
 
     // Our layout state is not valid for the repaints we are going to trigger by
     // adding and removing children of firstLetterContainer.
-    LayoutStateDisabler layoutStateDisabler(*this);
+    ForceHorriblySlowRectMapping slowRectMapping(*this);
 
     createFirstLetterRenderer(firstLetterBlock, currChild, length);
 }
@@ -4465,9 +4460,9 @@ void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
     }
 }
 
-LayoutRect RenderBlock::rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const
+LayoutRect RenderBlock::rectWithOutlineForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer, LayoutUnit outlineWidth) const
 {
-    LayoutRect r(RenderBox::rectWithOutlineForRepaint(repaintContainer, outlineWidth));
+    LayoutRect r(RenderBox::rectWithOutlineForPaintInvalidation(paintInvalidationContainer, outlineWidth));
     if (isAnonymousBlockContinuation())
         r.inflateY(collapsedMarginBefore()); // FIXME: This is wrong for block-flows that are horizontal.
     return r;
@@ -4485,7 +4480,7 @@ void RenderBlock::updateDragState(bool dragOn)
         continuation()->updateDragState(dragOn);
 }
 
-RenderStyle* RenderBlock::outlineStyleForRepaint() const
+RenderStyle* RenderBlock::outlineStyleForPaintInvalidation() const
 {
     return isAnonymousBlockContinuation() ? continuation()->style() : style();
 }

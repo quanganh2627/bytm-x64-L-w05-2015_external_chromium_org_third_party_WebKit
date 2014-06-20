@@ -42,7 +42,7 @@ const v8::PropertyCallbackInfo<v8::Value>& info
     {% endif %}
     {# Local variables #}
     {% if attribute.is_call_with_execution_context %}
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
     {% endif %}
     {% if attribute.is_call_with_script_state %}
     ScriptState* scriptState = ScriptState::current(info.GetIsolate());
@@ -165,8 +165,13 @@ v8::Local<v8::String>, const v8::PropertyCallbackInfo<v8::Value>& info
     UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
     {% endif %}
     {% if world_suffix in attribute.activity_logging_world_list_for_getter %}
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
+    ScriptState* scriptState = ScriptState::from(info.GetIsolate()->GetCurrentContext());
+    V8PerContextData* contextData = scriptState->perContextData();
+    {% if attribute.activity_logging_world_check %}
+    if (scriptState->world().isIsolatedWorld() && contextData && contextData->activityLogger())
+    {% else %}
     if (contextData && contextData->activityLogger())
+    {% endif %}
         contextData->activityLogger()->logGetter("{{interface_name}}.{{attribute.name}}");
     {% endif %}
     {% if attribute.has_custom_getter %}
@@ -276,7 +281,7 @@ v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info
     {% endif %}
     {% if attribute.is_call_with_execution_context or
           attribute.is_setter_call_with_execution_context %}
-    ExecutionContext* scriptContext = currentExecutionContext(info.GetIsolate());
+    ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
     {% endif %}
     {# Set #}
     {{attribute.cpp_setter}};
@@ -313,8 +318,13 @@ v8::Local<v8::String>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackI
     UseCounter::count(callingExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as}});
     {% endif %}
     {% if world_suffix in attribute.activity_logging_world_list_for_setter %}
-    V8PerContextData* contextData = V8PerContextData::from(info.GetIsolate()->GetCurrentContext());
+    ScriptState* scriptState = ScriptState::from(info.GetIsolate()->GetCurrentContext());
+    V8PerContextData* contextData = scriptState->perContextData();
+    {% if attribute.activity_logging_world_check %}
+    if (scriptState->world().isIsolatedWorld() && contextData && contextData->activityLogger()) {
+    {% else %}
     if (contextData && contextData->activityLogger()) {
+    {% endif %}
         {% if attribute.activity_logging_include_old_value_for_setter %}
         {{cpp_class}}* impl = {{v8_class}}::toNative(info.Holder());
         {% if attribute.cpp_value_original %}

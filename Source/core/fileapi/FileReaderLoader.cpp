@@ -32,7 +32,7 @@
 
 #include "core/fileapi/FileReaderLoader.h"
 
-#include "FetchInitiatorTypeNames.h"
+#include "core/FetchInitiatorTypeNames.h"
 #include "core/dom/ExecutionContext.h"
 #include "core/fileapi/Blob.h"
 #include "core/fileapi/FileReaderLoaderClient.h"
@@ -49,8 +49,6 @@
 #include "wtf/Vector.h"
 #include "wtf/text/Base64.h"
 #include "wtf/text/StringBuilder.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -199,7 +197,7 @@ void FileReaderLoader::didReceiveResponse(unsigned long, const ResourceResponse&
         // Check that we can cast to unsigned since we have to do
         // so to call ArrayBuffer's create function.
         // FIXME: Support reading more than the current size limit of ArrayBuffer.
-        if (initialBufferLength > numeric_limits<unsigned>::max()) {
+        if (initialBufferLength > std::numeric_limits<unsigned>::max()) {
             failed(FileError::NOT_READABLE_ERR);
             return;
         }

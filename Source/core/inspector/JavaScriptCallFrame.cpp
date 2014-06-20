@@ -170,6 +170,7 @@ v8::Handle<v8::Object> JavaScriptCallFrame::innerCallFrame()
 
 ScriptValue JavaScriptCallFrame::setVariableValue(ScriptState* scriptState, int scopeNumber, const String& variableName, const ScriptValue& newValue)
 {
+    ScriptState::Scope scriptScope(scriptState);
     v8::Handle<v8::Object> callFrame = m_callFrame.newLocal(m_isolate);
     v8::Handle<v8::Function> setVariableValueFunction = v8::Handle<v8::Function>::Cast(callFrame->Get(v8AtomicString(m_isolate, "setVariableValue")));
     v8::Handle<v8::Value> argv[] = {
@@ -178,6 +179,11 @@ ScriptValue JavaScriptCallFrame::setVariableValue(ScriptState* scriptState, int 
         newValue.v8Value()
     };
     return ScriptValue(scriptState, setVariableValueFunction->Call(callFrame, WTF_ARRAY_LENGTH(argv), argv));
+}
+
+void JavaScriptCallFrame::trace(Visitor* visitor)
+{
+    visitor->trace(m_caller);
 }
 
 } // namespace WebCore

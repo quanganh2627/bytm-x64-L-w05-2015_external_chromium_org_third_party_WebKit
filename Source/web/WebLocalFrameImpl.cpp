@@ -100,6 +100,7 @@
 #include "core/editing/markup.h"
 #include "core/frame/Console.h"
 #include "core/frame/DOMWindow.h"
+#include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLCollection.h"
@@ -134,6 +135,7 @@
 #include "core/timing/Performance.h"
 #include "modules/geolocation/GeolocationController.h"
 #include "modules/notifications/NotificationController.h"
+#include "modules/screen_orientation/ScreenOrientationController.h"
 #include "platform/TraceEvent.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/clipboard/ClipboardUtilities.h"
@@ -180,6 +182,8 @@
 #include "web/EventListenerWrapper.h"
 #include "web/FindInPageCoordinates.h"
 #include "web/GeolocationClientProxy.h"
+#include "web/LocalFileSystemClient.h"
+#include "web/MIDIClientProxy.h"
 #include "web/PageOverlay.h"
 #include "web/SharedWorkerRepositoryClientImpl.h"
 #include "web/TextFinder.h"
@@ -236,10 +240,13 @@ static void frameContentAsPlainText(size_t maxChars, LocalFrame* frame, StringBu
 
     // Recursively walk the children.
     const FrameTree& frameTree = frame->tree();
-    for (LocalFrame* curChild = frameTree.firstChild(); curChild; curChild = curChild->tree().nextSibling()) {
+    for (Frame* curChild = frameTree.firstChild(); curChild; curChild = curChild->tree().nextSibling()) {
+        if (!curChild->isLocalFrame())
+            continue;
+        LocalFrame* curLocalChild = toLocalFrame(curChild);
         // Ignore the text of non-visible frames.
-        RenderView* contentRenderer = curChild->contentRenderer();
-        RenderPart* ownerRenderer = curChild->ownerRenderer();
+        RenderView* contentRenderer = curLocalChild->contentRenderer();
+        RenderPart* ownerRenderer = curLocalChild->ownerRenderer();
         if (!contentRenderer || !contentRenderer->width() || !contentRenderer->height()
             || (contentRenderer->x() + contentRenderer->width() <= 0) || (contentRenderer->y() + contentRenderer->height() <= 0)
             || (ownerRenderer && ownerRenderer->style() && ownerRenderer->style()->visibility() != VISIBLE)) {
@@ -255,7 +262,7 @@ static void frameContentAsPlainText(size_t maxChars, LocalFrame* frame, StringBu
             return;
 
         output.append(frameSeparator, frameSeparatorLength);
-        frameContentAsPlainText(maxChars, curChild, output);
+        frameContentAsPlainText(maxChars, curLocalChild, output);
         if (output.length() >= maxChars)
             return; // Filled up the buffer.
     }
@@ -322,7 +329,7 @@ public:
 
         context.save();
 #if OS(POSIX) && !OS(MACOSX)
-        context.scale(WebCore::FloatSize(scale, scale));
+        context.scale(scale, scale);
 #endif
         context.translate(static_cast<float>(-pageRect.x()), static_cast<float>(-pageRect.y()));
         context.clip(pageRect);
@@ -369,7 +376,7 @@ public:
             // Account for the disabling of scaling in spoolPage. In the context
             // of spoolAllPagesWithBoundaries the scale HAS NOT been pre-applied.
             float scale = getPageShrink(pageIndex);
-            graphicsContext.scale(WebCore::FloatSize(scale, scale));
+            graphicsContext.scale(scale, scale);
 #endif
             spoolPage(graphicsContext, pageIndex);
             graphicsContext.restore();
@@ -502,6 +509,15 @@ WebRemoteFrame* WebLocalFrameImpl::toWebRemoteFrame()
 void WebLocalFrameImpl::close()
 {
     m_client = 0;
+
+    // FIXME: Oilpan: Signal to LocalFrame and its supplements that the frame is
+    // being torn down so it can do prompt clean-up. For example, this will
+    // clear the raw back pointer to m_geolocationClientProxy. Once
+    // GeolocationClientProxy is on-heap it looks like we can completely remove
+    // |willBeDestroyed| from supplements since tracing will ensure safety.
+    if (m_frame)
+        m_frame->willBeDestroyed();
+
     deref(); // Balances ref() acquired in WebFrame::create
 }
 
@@ -549,6 +565,8 @@ void WebLocalFrameImpl::setRemoteWebLayer(WebLayer* webLayer)
     // FIXME: This should be moved to WebRemoteFrame.
     ASSERT(frame()->deprecatedLocalOwner());
     frame()->deprecatedLocalOwner()->setNeedsCompositingUpdate();
+    if (RenderPart* renderer = frame()->ownerRenderer())
+        renderer->layer()->updateSelfPaintingLayer();
 }
 
 void WebLocalFrameImpl::setPermissionClient(WebPermissionClient* permissionClient)
@@ -656,21 +674,35 @@ WebFrame* WebLocalFrameImpl::traversePrevious(bool wrap) const
 {
     if (!frame())
         return 0;
-    return fromFrame(frame()->tree().traversePreviousWithWrap(wrap));
+    // FIXME: This should move to WebFrame and become local/remote agnostic.
+    Frame* prevFrame = frame()->tree().traversePreviousWithWrap(wrap);
+    if (!prevFrame || !prevFrame->isLocalFrame())
+        return 0;
+    return fromFrame(toLocalFrame(prevFrame));
 }
 
 WebFrame* WebLocalFrameImpl::traverseNext(bool wrap) const
 {
+    // FIXME: This should move to WebFrame and become local/remote agnostic.
     if (!frame())
         return 0;
-    return fromFrame(frame()->tree().traverseNextWithWrap(wrap));
+    // FIXME: This should move to WebFrame and become local/remote agnostic.
+    Frame* nextFrame = frame()->tree().traverseNextWithWrap(wrap);
+    if (!nextFrame || !nextFrame->isLocalFrame())
+        return 0;
+    return fromFrame(toLocalFrame(nextFrame));
 }
 
 WebFrame* WebLocalFrameImpl::findChildByName(const WebString& name) const
 {
+    // FIXME: This should move to WebFrame and become local/remote agnostic.
     if (!frame())
         return 0;
-    return fromFrame(frame()->tree().child(name));
+    // FIXME: This should move to WebFrame and become local/remote agnostic.
+    Frame* child = frame()->tree().child(name);
+    if (!child || !child->isLocalFrame())
+        return 0;
+    return fromFrame(toLocalFrame(child));
 }
 
 WebDocument WebLocalFrameImpl::document() const
@@ -724,6 +756,7 @@ void WebLocalFrameImpl::executeScript(const WebScriptSource& source)
 {
     ASSERT(frame());
     TextPosition position(OrdinalNumber::fromOneBasedInt(source.startLine), OrdinalNumber::first());
+    v8::HandleScope handleScope(toIsolate(frame()));
     frame()->script().executeScriptInMainWorld(ScriptSourceCode(source.code, source.url, position));
 }
 
@@ -739,6 +772,7 @@ void WebLocalFrameImpl::executeScriptInIsolatedWorld(int worldID, const WebScrip
         sources.append(ScriptSourceCode(sourcesIn[i].code, sourcesIn[i].url, position));
     }
 
+    v8::HandleScope handleScope(toIsolate(frame()));
     frame()->script().executeScriptInIsolatedWorld(worldID, sources, extensionGroup, 0);
 }
 
@@ -806,7 +840,7 @@ v8::Handle<v8::Value> WebLocalFrameImpl::executeScriptAndReturnValue(const WebSc
     UserGestureIndicator gestureIndicator(DefinitelyProcessingNewUserGesture);
 
     TextPosition position(OrdinalNumber::fromOneBasedInt(source.startLine), OrdinalNumber::first());
-    return frame()->script().executeScriptInMainWorldAndReturnValue(ScriptSourceCode(source.code, source.url, position)).v8Value();
+    return frame()->script().executeScriptInMainWorldAndReturnValue(ScriptSourceCode(source.code, source.url, position));
 }
 
 void WebLocalFrameImpl::executeScriptInIsolatedWorld(int worldID, const WebScriptSource* sourcesIn, unsigned numSources, int extensionGroup, WebVector<v8::Local<v8::Value> >* results)
@@ -823,13 +857,14 @@ void WebLocalFrameImpl::executeScriptInIsolatedWorld(int worldID, const WebScrip
     }
 
     if (results) {
-        Vector<ScriptValue> scriptResults;
+        Vector<v8::Local<v8::Value> > scriptResults;
         frame()->script().executeScriptInIsolatedWorld(worldID, sources, extensionGroup, &scriptResults);
         WebVector<v8::Local<v8::Value> > v8Results(scriptResults.size());
         for (unsigned i = 0; i < scriptResults.size(); i++)
-            v8Results[i] = v8::Local<v8::Value>::New(toIsolate(frame()), scriptResults[i].v8Value());
+            v8Results[i] = v8::Local<v8::Value>::New(toIsolate(frame()), scriptResults[i]);
         results->swap(v8Results);
     } else {
+        v8::HandleScope handleScope(toIsolate(frame()));
         frame()->script().executeScriptInIsolatedWorld(worldID, sources, extensionGroup, 0);
     }
 }
@@ -1237,7 +1272,7 @@ void WebLocalFrameImpl::selectRange(const WebPoint& base, const WebPoint& extent
 void WebLocalFrameImpl::selectRange(const WebRange& webRange)
 {
     if (RefPtrWillBeRawPtr<Range> range = static_cast<PassRefPtrWillBeRawPtr<Range> >(webRange))
-        frame()->selection().setSelectedRange(range.get(), WebCore::VP_DEFAULT_AFFINITY, false);
+        frame()->selection().setSelectedRange(range.get(), WebCore::VP_DEFAULT_AFFINITY, FrameSelection::NonDirectional, NotUserTriggered);
 }
 
 void WebLocalFrameImpl::moveRangeSelection(const WebPoint& base, const WebPoint& extent)
@@ -1306,8 +1341,12 @@ void WebLocalFrameImpl::setCaretVisible(bool visible)
 
 VisiblePosition WebLocalFrameImpl::visiblePositionForWindowPoint(const WebPoint& point)
 {
+    // FIXME(bokan): crbug.com/371902 - These scale/pinch transforms shouldn't
+    // be ad hoc and explicit.
+    PinchViewport& pinchViewport = frame()->page()->frameHost().pinchViewport();
     FloatPoint unscaledPoint(point);
     unscaledPoint.scale(1 / view()->pageScaleFactor(), 1 / view()->pageScaleFactor());
+    unscaledPoint.moveBy(pinchViewport.visibleRect().location());
 
     HitTestRequest request = HitTestRequest::Move | HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::ConfusingAndOftenMisusedDisallowShadowContent;
     HitTestResult result(frame()->view()->windowToContents(roundedIntPoint(unscaledPoint)));
@@ -1613,6 +1652,10 @@ void WebLocalFrameImpl::setWebCoreFrame(PassRefPtr<WebCore::LocalFrame> frame)
         provideUserMediaTo(*m_frame, &m_userMediaClientImpl);
         provideGeolocationTo(*m_frame, m_geolocationClientProxy.get());
         m_geolocationClientProxy->setController(GeolocationController::from(m_frame.get()));
+        provideMIDITo(*m_frame, MIDIClientProxy::create(m_client ? m_client->webMIDIClient() : 0));
+        if (RuntimeEnabledFeatures::screenOrientationEnabled())
+            ScreenOrientationController::provideTo(*m_frame, m_client ? m_client->webScreenOrientationClient() : 0);
+        provideLocalFileSystemTo(*m_frame, LocalFileSystemClient::create());
     }
 }
 
@@ -1628,53 +1671,36 @@ void WebLocalFrameImpl::initializeAsMainFrame(WebCore::Page* page)
 PassRefPtr<LocalFrame> WebLocalFrameImpl::createChildFrame(const FrameLoadRequest& request, HTMLFrameOwnerElement* ownerElement)
 {
     ASSERT(m_client);
-    WebLocalFrameImpl* webframe = toWebLocalFrameImpl(m_client->createChildFrame(this, request.frameName()));
-    if (!webframe)
+    WebLocalFrameImpl* webframeChild = toWebLocalFrameImpl(m_client->createChildFrame(this, request.frameName()));
+    if (!webframeChild)
         return nullptr;
-
-    RefPtr<LocalFrame> childFrame = LocalFrame::create(&webframe->m_frameLoaderClientImpl, frame()->host(), ownerElement);
-    webframe->setWebCoreFrame(childFrame);
 
     // FIXME: Using subResourceAttributeName as fallback is not a perfect
     // solution. subResourceAttributeName returns just one attribute name. The
     // element might not have the attribute, and there might be other attributes
     // which can identify the element.
-    childFrame->tree().setName(request.frameName(), ownerElement->getAttribute(ownerElement->subResourceAttributeName()));
-
-    // FIXME: This comment is not quite accurate anymore.
-    // LocalFrame::init() can trigger onload event in the parent frame,
-    // which may detach this frame and trigger a null-pointer access
-    // in FrameTree::removeChild. Move init() after appendChild call
-    // so that webframe->mFrame is in the tree before triggering
-    // onload event handler.
-    // Because the event handler may set webframe->mFrame to null,
-    // it is necessary to check the value after calling init() and
-    // return without loading URL.
-    // NOTE: m_client will be null if this frame has been detached.
-    // (b:791612)
-    childFrame->init(); // create an empty document
-    if (!childFrame->tree().parent())
+    RefPtr<LocalFrame> child = webframeChild->initializeAsChildFrame(frame()->host(), ownerElement, request.frameName(), ownerElement->getAttribute(ownerElement->subResourceAttributeName()));
+    // Initializing the WebCore frame may cause the new child to be detached, since it may dispatch a load event in the parent.
+    if (!child->tree().parent())
         return nullptr;
 
     // If we're moving in the back/forward list, we might want to replace the content
     // of this child frame with whatever was there at that point.
     RefPtr<HistoryItem> childItem;
     if (isBackForwardLoadType(frame()->loader().loadType()) && !frame()->document()->loadEventFinished())
-        childItem = PassRefPtr<HistoryItem>(webframe->client()->historyItemForNewChildFrame(webframe));
+        childItem = PassRefPtr<HistoryItem>(webframeChild->client()->historyItemForNewChildFrame(webframeChild));
 
     if (childItem)
-        childFrame->loader().loadHistoryItem(childItem.get());
+        child->loader().loadHistoryItem(childItem.get());
     else
-        childFrame->loader().load(FrameLoadRequest(0, request.resourceRequest(), "_self"));
+        child->loader().load(FrameLoadRequest(0, request.resourceRequest(), "_self"));
 
-    // A synchronous navigation (about:blank) would have already processed
-    // onload, so it is possible for the frame to have already been destroyed by
-    // script in the page.
-    // NOTE: m_client will be null if this frame has been detached.
-    if (!childFrame->tree().parent())
+    // Note a synchronous navigation (about:blank) would have already processed
+    // onload, so it is possible for the child frame to have already been
+    // detached by script in the page.
+    if (!child->tree().parent())
         return nullptr;
-
-    return childFrame.release();
+    return child;
 }
 
 void WebLocalFrameImpl::didChangeContentsSize(const IntSize& size)
@@ -1855,12 +1881,11 @@ void WebLocalFrameImpl::loadJavaScriptURL(const KURL& url)
 
     String script = decodeURLEscapeSequences(url.string().substring(strlen("javascript:")));
     UserGestureIndicator gestureIndicator(DefinitelyProcessingNewUserGesture);
-    ScriptValue result = frame()->script().executeScriptInMainWorldAndReturnValue(ScriptSourceCode(script));
-
-    String scriptResult;
-    if (!result.toString(scriptResult))
+    v8::HandleScope handleScope(toIsolate(frame()));
+    v8::Local<v8::Value> result = frame()->script().executeScriptInMainWorldAndReturnValue(ScriptSourceCode(script));
+    if (result.IsEmpty() || !result->IsString())
         return;
-
+    String scriptResult = toCoreString(v8::Handle<v8::String>::Cast(result));
     if (!frame()->navigationScheduler().locationChangePending())
         frame()->document()->loader()->replaceDocument(scriptResult, ownerDocument.get());
 }
@@ -1919,6 +1944,16 @@ void WebLocalFrameImpl::invalidateAll() const
     FrameView* view = frame()->view();
     view->invalidateRect(view->frameRect());
     invalidateScrollbar();
+}
+
+PassRefPtr<LocalFrame> WebLocalFrameImpl::initializeAsChildFrame(FrameHost* host, FrameOwner* owner, const AtomicString& name, const AtomicString& fallbackName)
+{
+    RefPtr<LocalFrame> frame = LocalFrame::create(&m_frameLoaderClientImpl, host, owner);
+    setWebCoreFrame(frame);
+    frame->tree().setName(name, fallbackName);
+    // May dispatch JS events; frame may be detached after this.
+    frame->init();
+    return frame;
 }
 
 } // namespace blink

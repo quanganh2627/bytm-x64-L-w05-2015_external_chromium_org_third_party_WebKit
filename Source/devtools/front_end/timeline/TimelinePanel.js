@@ -38,6 +38,7 @@ importScript("TimelineModelImpl.js");
 importScript("TimelineJSProfile.js");
 importScript("TimelineOverviewPane.js");
 importScript("TimelinePresentationModel.js");
+importScript("TracingTimelineModel.js");
 importScript("TimelineFrameModel.js");
 importScript("TimelineEventOverview.js");
 importScript("TimelineFrameOverview.js");
@@ -46,11 +47,11 @@ importScript("TimelinePowerGraph.js");
 importScript("TimelinePowerOverview.js");
 importScript("TimelineFlameChart.js");
 importScript("TimelineUIUtils.js");
+importScript("TimelineUIUtilsImpl.js");
 importScript("TimelineView.js");
 importScript("TimelineTracingView.js");
 importScript("TimelineLayersView.js");
 importScript("TracingModel.js");
-importScript("TracingTimelineModel.js");
 importScript("TracingTimelineUIUtils.js");
 importScript("TransformController.js");
 
@@ -73,7 +74,19 @@ WebInspector.TimelinePanel = function()
     this._windowEndTime = Infinity;
 
     // Create model.
-    this._model = new WebInspector.TimelineModelImpl(WebInspector.timelineManager);
+    if (WebInspector.experimentsSettings.timelineTracingMode.isEnabled() ||
+        WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled()) {
+        this._tracingModel = new WebInspector.TracingModel(WebInspector.targetManager.activeTarget());
+        this._tracingModel.addEventListener(WebInspector.TracingModel.Events.BufferUsage, this._onTracingBufferUsage, this);
+
+        this._tracingTimelineModel = new WebInspector.TracingTimelineModel(this._tracingModel);
+        this._model = this._tracingTimelineModel;
+        this._uiUtils = new WebInspector.TracingTimelineUIUtils();
+    } else {
+        this._model = new WebInspector.TimelineModelImpl(WebInspector.timelineManager);
+        this._uiUtils = new WebInspector.TimelineUIUtilsImpl();
+    }
+
     this._model.addEventListener(WebInspector.TimelineModel.Events.RecordingStarted, this._onRecordingStarted, this);
     this._model.addEventListener(WebInspector.TimelineModel.Events.RecordingStopped, this._onRecordingStopped, this);
     this._model.addEventListener(WebInspector.TimelineModel.Events.RecordsCleared, this._onRecordsCleared, this);
@@ -91,15 +104,6 @@ WebInspector.TimelinePanel = function()
     this._model.addFilter(this._categoryFilter);
     this._model.addFilter(this._durationFilter);
     this._model.addFilter(this._textFilter);
-
-    if (WebInspector.experimentsSettings.timelineTracingMode.isEnabled() ||
-        WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled()) {
-        this._tracingModel = new WebInspector.TracingModel(WebInspector.targetManager.activeTarget());
-        this._tracingModel.addEventListener(WebInspector.TracingModel.Events.BufferUsage, this._onTracingBufferUsage, this);
-
-        this._tracingTimelineModel = new WebInspector.TracingTimelineModel(this._tracingModel);
-        this._tracingTimelineModel.addEventListener(WebInspector.TracingTimelineModel.Events.TracingComplete, this._onTracingComplete, this);
-    }
 
     /** @type {!Array.<!WebInspector.TimelineModeView>} */
     this._currentViews = [];
@@ -131,7 +135,7 @@ WebInspector.TimelinePanel = function()
     this._detailsSplitView.element.classList.add("timeline-details-split");
     this._detailsSplitView.sidebarElement().classList.add("timeline-details");
     this._detailsView = new WebInspector.TimelineDetailsView();
-    this._detailsSplitView.installResizer(this._detailsView.titleElement());
+    this._detailsSplitView.installResizer(this._detailsView.headerElement());
     this._detailsView.show(this._detailsSplitView.sidebarElement());
 
     this._searchableView = new WebInspector.SearchableView(this);
@@ -201,9 +205,7 @@ WebInspector.TimelinePanel.prototype = {
     {
         if (this._windowStartTime)
             return this._windowStartTime;
-        if (this._model.minimumRecordTime() != -1)
-            return this._model.minimumRecordTime();
-        return 0;
+        return this._model.minimumRecordTime();
     },
 
     /**
@@ -213,9 +215,7 @@ WebInspector.TimelinePanel.prototype = {
     {
         if (this._windowEndTime < Infinity)
             return this._windowEndTime;
-        if (this._model.maximumRecordTime() != -1)
-            return this._model.maximumRecordTime();
-        return Infinity;
+        return this._model.maximumRecordTime() || Infinity;
     },
 
     /**
@@ -252,16 +252,21 @@ WebInspector.TimelinePanel.prototype = {
     },
 
     /**
-     * @return {!WebInspector.TimelineFrameModel}
+     * @return {!WebInspector.TimelineFrameModelBase}
      */
     _frameModel: function()
     {
-        if (!this._lazyFrameModel) {
-            this._lazyFrameModel = new WebInspector.TimelineFrameModel(this._model.target());
-            this._lazyFrameModel.setMergeRecords(!WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled() || !this._recordingInProgress);
-            this._lazyFrameModel.addRecords(this._model.records());
-            if (this._tracingModel)
-                this._lazyFrameModel.addTraceEvents(this._tracingTimelineModel.inspectedTargetEvents(), this._tracingModel.sessionId() || "");
+        if (this._lazyFrameModel)
+            return this._lazyFrameModel;
+        if (this._tracingModel) {
+            var tracingFrameModel = new WebInspector.TracingTimelineFrameModel(this._model.target());
+            tracingFrameModel.addTraceEvents(this._tracingTimelineModel.inspectedTargetEvents(), this._tracingModel.sessionId() || "");
+            this._lazyFrameModel = tracingFrameModel;
+        } else {
+            var frameModel = new WebInspector.TimelineFrameModel(this._model.target());
+            frameModel.setMergeRecords(!WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled() || !this._recordingInProgress);
+            frameModel.addRecords(this._model.records());
+            this._lazyFrameModel = frameModel;
         }
         return this._lazyFrameModel;
     },
@@ -272,7 +277,7 @@ WebInspector.TimelinePanel.prototype = {
     _timelineView: function()
     {
         if (!this._lazyTimelineView)
-            this._lazyTimelineView = new WebInspector.TimelineView(this, this._model);
+            this._lazyTimelineView = new WebInspector.TimelineView(this, this._model, this._uiUtils);
         return this._lazyTimelineView;
     },
 
@@ -339,6 +344,11 @@ WebInspector.TimelinePanel.prototype = {
                                               this._captureTracingSetting, true, undefined,
                                               WebInspector.UIString("Capture tracing information")));
             this._captureTracingSetting.addChangeListener(this._onModeChanged, this);
+        } else if (WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled()) {
+            this._captureLayersAndPicturesSetting = WebInspector.settings.createSetting("timelineCaptureLayersAndPictures", false);
+            topPaneSidebarElement.appendChild(WebInspector.SettingsUI.createSettingCheckbox(WebInspector.UIString("Capture pictures"),
+                                              this._captureLayersAndPicturesSetting, true, undefined,
+                                              WebInspector.UIString("Capture graphics layer positions and painted pictures")));
         }
     },
 
@@ -612,7 +622,7 @@ WebInspector.TimelinePanel.prototype = {
         if (isFrameMode)
             this._overviewControls.push(new WebInspector.TimelineFrameOverview(this._model, this._frameModel()));
         else
-            this._overviewControls.push(new WebInspector.TimelineEventOverview(this._model));
+            this._overviewControls.push(new WebInspector.TimelineEventOverview(this._model, this._uiUtils));
 
         if (WebInspector.experimentsSettings.timelineFlameChart.isEnabled() && this._flameChartEnabledSetting.get()) {
             var tracingTimelineModel = WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled() ? this._tracingTimelineModel : null;
@@ -623,8 +633,8 @@ WebInspector.TimelinePanel.prototype = {
 
         if (this._captureMemorySetting.get()) {
             if (!isFrameMode)  // Frame mode skews time, don't render aux overviews.
-                this._overviewControls.push(new WebInspector.TimelineMemoryOverview(this._model));
-            this._addModeView(new WebInspector.MemoryCountersGraph(this, this._model));
+                this._overviewControls.push(new WebInspector.TimelineMemoryOverview(this._model, this._uiUtils));
+            this._addModeView(new WebInspector.MemoryCountersGraph(this, this._model, this._uiUtils));
         }
 
         if (this._capturePowerSetting && this._capturePowerSetting.get()) {
@@ -650,14 +660,7 @@ WebInspector.TimelinePanel.prototype = {
     _startRecording: function(userInitiated)
     {
         this._userInitiatedRecording = userInitiated;
-        if (WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled()) {
-            this._model.willStartRecordingTraceEvents();
-            this._tracingTimelineModel.startRecording(this._captureStacksSetting.get(), this._captureMemorySetting.get());
-        } else {
-            this._model.startRecording(this._captureStacksSetting.get(), this._captureMemorySetting.get());
-            if (this._captureTracingSetting && this._captureTracingSetting.get())
-                this._tracingTimelineModel.startRecording(this._captureStacksSetting.get(), this._captureMemorySetting.get());
-        }
+        this._model.startRecording(this._captureStacksSetting.get(), this._captureMemorySetting.get(), this._captureLayersAndPicturesSetting && this._captureLayersAndPicturesSetting.get());
         if (WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled() && this._lazyFrameModel)
             this._lazyFrameModel.setMergeRecords(false);
 
@@ -670,25 +673,15 @@ WebInspector.TimelinePanel.prototype = {
 
     _stopRecording: function()
     {
+        this._stopPending = true;
+        this._updateToggleTimelineButton(false);
         this._userInitiatedRecording = false;
         this._model.stopRecording();
-        if (this._tracingTimelineModel)
-            this._tracingTimelineModel.stopRecording()
+        if (this._progressElement)
+            this._updateProgress(WebInspector.UIString("Retrieving events\u2026"));
 
         for (var i = 0; i < this._overviewControls.length; ++i)
             this._overviewControls[i].timelineStopped();
-    },
-
-    _onTracingComplete: function()
-    {
-        if (this._lazyFrameModel) {
-            this._lazyFrameModel.reset();
-            this._lazyFrameModel.addTraceEvents(this._tracingTimelineModel.inspectedTargetEvents(), this._tracingModel.sessionId());
-            this._overviewPane.update();
-        }
-        if (WebInspector.experimentsSettings.timelineOnTraceEvents.isEnabled())
-            this._model.didStopRecordingTraceEvents(this._tracingTimelineModel.mainThreadEvents());
-        this._refreshViews();
     },
 
     _onProfilingStateChanged: function()
@@ -701,13 +694,20 @@ WebInspector.TimelinePanel.prototype = {
      */
     _updateToggleTimelineButton: function(toggled)
     {
-        var enable = toggled || !this._model.target().profilingLock.isAcquired();
-        this.toggleTimelineButton.setEnabled(enable);
         this.toggleTimelineButton.toggled = toggled;
-        if (enable)
-            this.toggleTimelineButton.title = toggled ? WebInspector.UIString("Stop") : WebInspector.UIString("Record");
-        else
+        if (toggled) {
+            this.toggleTimelineButton.title = WebInspector.UIString("Stop");
+            this.toggleTimelineButton.setEnabled(true);
+        } else if (this._stopPending) {
+            this.toggleTimelineButton.title = WebInspector.UIString("Stop pending");
+            this.toggleTimelineButton.setEnabled(false);
+        } else if (this._model.target().profilingLock.isAcquired()) {
             this.toggleTimelineButton.title = WebInspector.UIString("Another profiler is already active");
+            this.toggleTimelineButton.setEnabled(false);
+        } else {
+            this.toggleTimelineButton.title = WebInspector.UIString("Record");
+            this.toggleTimelineButton.setEnabled(true);
+        }
     },
 
     /**
@@ -733,6 +733,8 @@ WebInspector.TimelinePanel.prototype = {
 
     _onClearButtonClick: function()
     {
+        if (this._tracingModel)
+            this._tracingModel.reset();
         this._model.reset();
     },
 
@@ -805,10 +807,21 @@ WebInspector.TimelinePanel.prototype = {
 
     _onRecordingStopped: function()
     {
+        this._stopPending = false;
         this._updateToggleTimelineButton(false);
-        if (this._lazyFrameModel && WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled()) {
-            this._lazyFrameModel.reset();
-            this._lazyFrameModel.addRecords(this._model.records());
+        if (this._lazyFrameModel) {
+            if (this._tracingTimelineModel) {
+                this._lazyFrameModel.reset();
+                this._lazyFrameModel.addTraceEvents(this._tracingTimelineModel.inspectedTargetEvents(), this._tracingModel.sessionId());
+                this._overviewPane.update();
+            } else if (WebInspector.experimentsSettings.timelineNoLiveUpdate.isEnabled()) {
+                this._lazyFrameModel.reset();
+                this._lazyFrameModel.addRecords(this._model.records());
+            }
+        }
+        if (this._tracingTimelineModel) {
+            this.requestWindowTimes(this._tracingTimelineModel.minimumRecordTime(), this._tracingTimelineModel.maximumRecordTime());
+            this._refreshViews();
         }
         this._hideProgressPane();
     },
@@ -823,7 +836,7 @@ WebInspector.TimelinePanel.prototype = {
      */
     _addRecord: function(record)
     {
-        if (this._lazyFrameModel)
+        if (this._lazyFrameModel && !this._tracingModel)
             this._lazyFrameModel.addRecord(record);
         for (var i = 0; i < this._currentViews.length; ++i)
             this._currentViews[i].addRecord(record);
@@ -973,22 +986,20 @@ WebInspector.TimelinePanel.prototype = {
         switch (this._selection.type()) {
         case WebInspector.TimelineSelection.Type.Record:
             var record = /** @type {!WebInspector.TimelineModel.Record} */ (this._selection.object());
-            WebInspector.TimelineUIUtils.generatePopupContent(record, this._model, this._detailsLinkifier, this.showInDetails.bind(this, record.title()), this._model.loadedFromFile());
+            this._uiUtils.generateDetailsContent(record, this._model, this._detailsLinkifier, this.showInDetails.bind(this, record.title()), this._model.loadedFromFile());
             break;
         case WebInspector.TimelineSelection.Type.TraceEvent:
             var event = /** @type {!WebInspector.TracingModel.Event} */ (this._selection.object());
-            var title = WebInspector.TimelineUIUtils.styleForTimelineEvent(event.name).title;
-            var tracingModel = this._tracingTimelineModel;
-            WebInspector.TracingTimelineUIUtils.buildTraceEventDetails(event, tracingModel, this._detailsLinkifier, this.showInDetails.bind(this, title), false, this._model.target());
+            var title = WebInspector.TracingTimelineUIUtils.styleForTraceEvent(event.name).title;
+            WebInspector.TracingTimelineUIUtils.buildTraceEventDetails(event, this._tracingTimelineModel, this._detailsLinkifier, this.showInDetails.bind(this, title), false, this._model.target());
             break;
         case WebInspector.TimelineSelection.Type.Frame:
             var frame = /** @type {!WebInspector.TimelineFrame} */ (this._selection.object());
+            this.showInDetails(WebInspector.UIString("Frame Statistics"), WebInspector.TimelineUIUtils.generateDetailsContentForFrame(this._lazyFrameModel, frame));
             if (frame.layerTree) {
                 var layersView = this._layersView();
                 layersView.showLayerTree(frame.layerTree);
-                this._detailsView.setChildView(WebInspector.UIString("Frame Layers"), layersView);
-            } else {
-                this.showInDetails(WebInspector.UIString("Frame Statistics"), WebInspector.TimelineUIUtils.generatePopupContentForFrame(this._lazyFrameModel, frame));
+                this._detailsView.appendTab("layers", WebInspector.UIString("Layers"), layersView);
             }
             break;
         }
@@ -1035,7 +1046,7 @@ WebInspector.TimelinePanel.prototype = {
                 childrenTime += Math.min(endTime, child.endTime()) - Math.max(startTime, child.startTime());
                 aggregateTimeForRecordWithinWindow(child);
             }
-            var categoryName = WebInspector.TimelineUIUtils.categoryForRecord(record).name;
+            var categoryName = record.category().name;
             var ownTime = Math.min(endTime, record.endTime()) - Math.max(startTime, record.startTime()) - childrenTime;
             aggregatedStats[categoryName] = (aggregatedStats[categoryName] || 0) + ownTime;
         }
@@ -1054,11 +1065,11 @@ WebInspector.TimelinePanel.prototype = {
             aggregatedTotal += aggregatedStats[categoryName];
         aggregatedStats["idle"] = Math.max(0, endTime - startTime - aggregatedTotal);
 
-        var fragment = document.createDocumentFragment();
-        fragment.appendChild(WebInspector.TimelineUIUtils.generatePieChart(aggregatedStats));
+        var pieChartContainer = document.createElement("div");
+        pieChartContainer.classList.add("vbox", "timeline-range-summary");
         var startOffset = startTime - this._model.minimumRecordTime();
         var endOffset = endTime - this._model.minimumRecordTime();
-        var title = WebInspector.UIString("%s \u2013 %s", Number.millisToString(startOffset), Number.millisToString(endOffset));
+        var title = WebInspector.UIString("Range: %s \u2013 %s", Number.millisToString(startOffset), Number.millisToString(endOffset));
 
         for (var i = 0; i < this._overviewControls.length; ++i) {
             if (this._overviewControls[i] instanceof WebInspector.TimelinePowerOverview) {
@@ -1067,7 +1078,9 @@ WebInspector.TimelinePanel.prototype = {
                 break;
             }
         }
-        this.showInDetails(title, fragment);
+        pieChartContainer.appendChild(document.createTextNode(title));
+        pieChartContainer.appendChild(WebInspector.TimelineUIUtils.generatePieChart(aggregatedStats));
+        this.showInDetails(WebInspector.UIString("Selected Range"), pieChartContainer);
     },
 
     /**
@@ -1099,59 +1112,34 @@ WebInspector.TimelinePanel.prototype = {
 
 /**
  * @constructor
- * @extends {WebInspector.VBox}
+ * @extends {WebInspector.TabbedPane}
  */
 WebInspector.TimelineDetailsView = function()
 {
-    WebInspector.VBox.call(this);
-    this.element.classList.add("timeline-details-view");
-    this._titleElement = this.element.createChild("div", "timeline-details-view-title");
-    this._titleElement.textContent = WebInspector.UIString("DETAILS");
-    this._contentElement = this.element.createChild("div", "timeline-details-view-body");
-    this._currentChildView = null;
+    WebInspector.TabbedPane.call(this);
+
+    this._defaultDetailsView = new WebInspector.VBox();
+    this._defaultDetailsView.element.classList.add("timeline-details-view");
+    this._defaultDetailsContentElement = this._defaultDetailsView.element.createChild("div", "timeline-details-view-body");
+
+    this.appendTab("default", WebInspector.UIString("Details"), this._defaultDetailsView);
+
+    this.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected, this._tabSelected, this);
 }
 
 WebInspector.TimelineDetailsView.prototype = {
-    /**
-     * @return {!Element}
-     */
-    titleElement: function()
-    {
-        return this._titleElement;
-    },
-
     /**
      * @param {string} title
      * @param {!Node} node
      */
     setContent: function(title, node)
     {
-        this._titleElement.textContent = WebInspector.UIString("DETAILS: %s", title);
-        this._clearContent();
-        this._contentElement.appendChild(node);
-    },
-
-    /**
-     * @param {string} title
-     * @param {!WebInspector.View} view
-     */
-    setChildView: function(title, view)
-    {
-        this._titleElement.textContent = WebInspector.UIString("DETAILS: %s", title);
-        if (this._currentChildView === view)
-            return;
-        this._clearContent();
-        view.show(this._contentElement);
-        this._currentChildView = view;
-    },
-
-    _clearContent: function()
-    {
-        if (this._currentChildView) {
-            this._currentChildView.detach();
-            this._currentChildView = null;
-        }
-        this._contentElement.removeChildren();
+        this.changeTabTitle("default", WebInspector.UIString("Details: %s", title));
+        var otherTabs = this.otherTabs("default");
+        for (var i = 0; i < otherTabs.length; ++i)
+            this.closeTab(otherTabs[i]);
+        this._defaultDetailsContentElement.removeChildren();
+        this._defaultDetailsContentElement.appendChild(node);
     },
 
     /**
@@ -1159,11 +1147,32 @@ WebInspector.TimelineDetailsView.prototype = {
      */
     setVertical: function(vertical)
     {
-        this._contentElement.classList.toggle("hbox", !vertical);
-        this._contentElement.classList.toggle("vbox", vertical);
+        this._defaultDetailsContentElement.classList.toggle("hbox", !vertical);
+        this._defaultDetailsContentElement.classList.toggle("vbox", vertical);
     },
 
-    __proto__: WebInspector.VBox.prototype
+    /**
+     * @param {string} id
+     * @param {string} tabTitle
+     * @param {!WebInspector.View} view
+     * @param {string=} tabTooltip
+     */
+    appendTab: function(id, tabTitle, view, tabTooltip)
+    {
+        WebInspector.TabbedPane.prototype.appendTab.call(this, id, tabTitle, view, tabTooltip);
+        if (this._lastUserSelectedTabId === id)
+            this.selectTab(id);
+    },
+
+    _tabSelected: function(event)
+    {
+        if (!event.data.isUserGesture)
+            return;
+
+        this._lastUserSelectedTabId = event.data.tabId;
+    },
+
+    __proto__: WebInspector.TabbedPane.prototype
 }
 
 /**

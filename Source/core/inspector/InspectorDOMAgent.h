@@ -30,7 +30,7 @@
 #ifndef InspectorDOMAgent_h
 #define InspectorDOMAgent_h
 
-#include "InspectorFrontend.h"
+#include "core/InspectorFrontend.h"
 #include "core/inspector/InjectedScript.h"
 #include "core/inspector/InjectedScriptManager.h"
 #include "core/inspector/InspectorBaseAgent.h"
@@ -272,8 +272,8 @@ private:
     OwnPtr<RevalidateStyleAttributeTask> m_revalidateStyleAttrTask;
     SearchMode m_searchingForNode;
     OwnPtr<HighlightConfig> m_inspectModeHighlightConfig;
-    OwnPtr<InspectorHistory> m_history;
-    OwnPtr<DOMEditor> m_domEditor;
+    OwnPtrWillBePersistent<InspectorHistory> m_history;
+    OwnPtrWillBePersistent<DOMEditor> m_domEditor;
     bool m_suppressAttributeModifiedEvent;
     Listener* m_listener;
 };

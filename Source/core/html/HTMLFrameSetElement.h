@@ -24,6 +24,7 @@
 #ifndef HTMLFrameSetElement_h
 #define HTMLFrameSetElement_h
 
+#include "core/dom/Document.h"
 #include "core/html/HTMLDimension.h"
 #include "core/html/HTMLElement.h"
 
@@ -31,7 +32,7 @@ namespace WebCore {
 
 class HTMLFrameSetElement FINAL : public HTMLElement {
 public:
-    static PassRefPtrWillBeRawPtr<HTMLFrameSetElement> create(Document&);
+    DECLARE_NODE_FACTORY(HTMLFrameSetElement);
 
     bool hasFrameBorder() const { return m_frameborder; }
     bool noResize() const { return m_noresize; }

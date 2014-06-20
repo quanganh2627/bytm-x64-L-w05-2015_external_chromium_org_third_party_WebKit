@@ -60,14 +60,15 @@ static void V8TestInterfaceEventTargetConstructorCallback(const v8::FunctionCall
         return;
     }
 
-    Document* document = currentDOMWindow(isolate)->document();
-    ASSERT(document);
+    Document* documentPtr = currentDOMWindow(isolate)->document();
+    ASSERT(documentPtr);
+    Document& document = *documentPtr;
 
     // Make sure the document is added to the DOM Node map. Otherwise, the TestInterfaceEventTarget instance
     // may end up being the only node in the map and get garbage-collected prematurely.
-    toV8(document, info.Holder(), isolate);
+    toV8(documentPtr, info.Holder(), isolate);
 
-    RefPtrWillBeRawPtr<TestInterfaceEventTarget> impl = TestInterfaceEventTarget::createForJSConstructor(*document);
+    RefPtrWillBeRawPtr<TestInterfaceEventTarget> impl = TestInterfaceEventTarget::createForJSConstructor(document);
 
     v8::Handle<v8::Object> wrapper = info.Holder();
     V8DOMWrapper::associateObjectWithWrapper<V8TestInterfaceEventTarget>(impl.release(), &V8TestInterfaceEventTargetConstructor::wrapperTypeInfo, wrapper, isolate, WrapperConfiguration::Independent);
@@ -111,16 +112,7 @@ static void configureV8TestInterfaceEventTargetTemplate(v8::Handle<v8::FunctionT
 
 v8::Handle<v8::FunctionTemplate> V8TestInterfaceEventTarget::domTemplate(v8::Isolate* isolate)
 {
-    V8PerIsolateData* data = V8PerIsolateData::from(isolate);
-    v8::Local<v8::FunctionTemplate> result = data->existingDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo));
-    if (!result.IsEmpty())
-        return result;
-
-    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
-    result = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
-    configureV8TestInterfaceEventTargetTemplate(result, isolate);
-    data->setDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), result);
-    return result;
+    return V8DOMConfiguration::domClassTemplate(isolate, const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), configureV8TestInterfaceEventTargetTemplate);
 }
 
 bool V8TestInterfaceEventTarget::hasInstance(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)
@@ -141,6 +133,13 @@ TestInterfaceEventTarget* V8TestInterfaceEventTarget::toNativeWithTypeCheck(v8::
 EventTarget* V8TestInterfaceEventTarget::toEventTarget(v8::Handle<v8::Object> object)
 {
     return toNative(object);
+}
+
+v8::Handle<v8::Object> wrap(TestInterfaceEventTarget* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
+{
+    ASSERT(impl);
+    ASSERT(!DOMDataStore::containsWrapper<V8TestInterfaceEventTarget>(impl, isolate));
+    return V8TestInterfaceEventTarget::createWrapper(impl, creationContext, isolate);
 }
 
 v8::Handle<v8::Object> V8TestInterfaceEventTarget::createWrapper(PassRefPtrWillBeRawPtr<TestInterfaceEventTarget> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)

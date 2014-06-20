@@ -221,7 +221,7 @@ Node* InjectedScript::nodeForObjectId(const String& objectId)
     ScriptValue resultValue = callFunctionWithEvalEnabled(function, hadException);
     ASSERT(!hadException);
 
-    return InjectedScriptHost::scriptValueAsNode(resultValue);
+    return InjectedScriptHost::scriptValueAsNode(scriptState(), resultValue);
 }
 
 void InjectedScript::releaseObject(const String& objectId)
@@ -242,7 +242,7 @@ PassRefPtr<Array<CallFrame> > InjectedScript::wrapCallFrames(const ScriptValue& 
     ScriptValue callFramesValue = callFunctionWithEvalEnabled(function, hadException);
     ASSERT(!hadException);
     RefPtr<JSONValue> result = callFramesValue.toJSONValue(scriptState());
-    if (result->type() == JSONValue::TypeArray)
+    if (result && result->type() == JSONValue::TypeArray)
         return Array<CallFrame>::runtimeCast(result);
     return Array<CallFrame>::create();
 }

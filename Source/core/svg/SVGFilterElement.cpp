@@ -25,13 +25,13 @@
 
 #include "core/svg/SVGFilterElement.h"
 
-#include "XLinkNames.h"
+#include "core/XLinkNames.h"
 #include "core/rendering/svg/RenderSVGResourceFilter.h"
 #include "core/svg/SVGParserUtilities.h"
 
 namespace WebCore {
 
-SVGFilterElement::SVGFilterElement(Document& document)
+inline SVGFilterElement::SVGFilterElement(Document& document)
     : SVGElement(SVGNames::filterTag, document)
     , SVGURIReference(this)
     , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
@@ -59,6 +59,8 @@ SVGFilterElement::SVGFilterElement(Document& document)
     addToPropertyMap(m_primitiveUnits);
     addToPropertyMap(m_filterRes);
 }
+
+DEFINE_NODE_FACTORY(SVGFilterElement)
 
 void SVGFilterElement::trace(Visitor* visitor)
 {
@@ -146,7 +148,7 @@ void SVGFilterElement::childrenChanged(bool changedByParser, Node* beforeChange,
         return;
 
     if (RenderObject* object = renderer())
-        object->setNeedsLayoutAndFullRepaint();
+        object->setNeedsLayoutAndFullPaintInvalidation();
 }
 
 RenderObject* SVGFilterElement::createRenderer(RenderStyle*)

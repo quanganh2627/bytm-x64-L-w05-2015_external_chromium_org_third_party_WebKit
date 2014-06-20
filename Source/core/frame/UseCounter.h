@@ -26,7 +26,7 @@
 #ifndef UseCounter_h
 #define UseCounter_h
 
-#include "CSSPropertyNames.h"
+#include "core/CSSPropertyNames.h"
 #include "wtf/BitVector.h"
 #include "wtf/Noncopyable.h"
 #include "wtf/OwnPtr.h"
@@ -438,6 +438,31 @@ public:
         MixedContentImage = 438,
         MixedContentMedia = 439,
         DocumentFonts = 440,
+        MixedContentFormsSubmitted = 441,
+        FormsSubmitted = 442,
+        TextInputEventOnInput = 443,
+        TextInputEventOnTextArea = 444,
+        TextInputEventOnContentEditable= 445,
+        TextInputEventOnNotNode = 446,
+        WebkitBeforeTextInsertedOnInput = 447,
+        WebkitBeforeTextInsertedOnTextArea = 448,
+        WebkitBeforeTextInsertedOnContentEditable = 449,
+        WebkitBeforeTextInsertedOnNotNode = 450,
+        WebkitEditableContentChangedOnInput = 451,
+        WebkitEditableContentChangedOnTextArea = 452,
+        WebkitEditableContentChangedOnContentEditable = 453,
+        WebkitEditableContentChangedOnNotNode = 454,
+        HTMLImports = 455,
+        ElementCreateShadowRoot = 456,
+        DocumentRegisterElement = 457,
+        EditingAppleInterchangeNewline = 458,
+        EditingAppleConvertedSpace = 459,
+        EditingApplePasteAsQuotation = 460,
+        EditingAppleStyleSpanClass = 461,
+        EditingAppleTabSpanClass = 462,
+        HTMLImportsAsyncAttribute = 463,
+        FontFaceSetReady = 464,
+        XMLHttpRequestSynchronous = 465,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         // Also, run update_use_counter_feature_enum.py in chromium/src/tools/metrics/histograms/

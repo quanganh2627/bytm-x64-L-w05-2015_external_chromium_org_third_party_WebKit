@@ -26,13 +26,12 @@
 #include "config.h"
 #include "core/dom/Element.h"
 
-#include "CSSValueKeywords.h"
-#include "RuntimeEnabledFeatures.h"
-#include "SVGNames.h"
-#include "XMLNames.h"
 #include "bindings/v8/Dictionary.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/CSSValueKeywords.h"
+#include "core/SVGNames.h"
+#include "core/XMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/animation/AnimationTimeline.h"
 #include "core/animation/css/CSSAnimations.h"
@@ -101,6 +100,7 @@
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 #include "core/svg/SVGDocumentExtensions.h"
 #include "core/svg/SVGElement.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/scroll/ScrollableArea.h"
 #include "wtf/BitVector.h"
 #include "wtf/HashFunctions.h"
@@ -114,41 +114,6 @@ using namespace HTMLNames;
 using namespace XMLNames;
 
 typedef WillBeHeapVector<RefPtrWillBeMember<Attr> > AttrNodeList;
-typedef WillBePersistentHeapHashMap<RawPtrWillBeWeakMember<Element>, OwnPtrWillBeMember<AttrNodeList> > AttrNodeListMap;
-
-static AttrNodeListMap& attrNodeListMap()
-{
-    DEFINE_STATIC_LOCAL(AttrNodeListMap, map, ());
-    return map;
-}
-
-static AttrNodeList* attrNodeListForElement(Element* element)
-{
-    if (!element->hasSyntheticAttrChildNodes())
-        return 0;
-    ASSERT(attrNodeListMap().contains(element));
-    return attrNodeListMap().get(element);
-}
-
-static AttrNodeList& ensureAttrNodeListForElement(Element* element)
-{
-    if (element->hasSyntheticAttrChildNodes()) {
-        ASSERT(attrNodeListMap().contains(element));
-        return *attrNodeListMap().get(element);
-    }
-    ASSERT(!attrNodeListMap().contains(element));
-    element->setHasSyntheticAttrChildNodes(true);
-    AttrNodeListMap::AddResult result = attrNodeListMap().add(element, adoptPtrWillBeNoop(new AttrNodeList));
-    return *result.storedValue->value;
-}
-
-static void removeAttrNodeListForElement(Element* element)
-{
-    ASSERT(element->hasSyntheticAttrChildNodes());
-    ASSERT(attrNodeListMap().contains(element));
-    attrNodeListMap().remove(element);
-    element->setHasSyntheticAttrChildNodes(false);
-}
 
 static Attr* findAttrNodeInList(const AttrNodeList& attrNodeList, const QualifiedName& name)
 {
@@ -162,7 +127,7 @@ static Attr* findAttrNodeInList(const AttrNodeList& attrNodeList, const Qualifie
 
 PassRefPtrWillBeRawPtr<Element> Element::create(const QualifiedName& tagName, Document* document)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new Element(tagName, document, CreateElement));
+    return adoptRefWillBeNoop(new Element(tagName, document, CreateElement));
 }
 
 Element::Element(const QualifiedName& tagName, Document* document, ConstructionType type)
@@ -465,6 +430,11 @@ const AtomicString& Element::getAttribute(const QualifiedName& name) const
     if (const Attribute* attribute = findAttributeByName(name))
         return attribute->value();
     return nullAtom;
+}
+
+bool Element::shouldIgnoreAttributeCase() const
+{
+    return isHTMLElement() && document().isHTMLDocument();
 }
 
 void Element::scrollIntoView(bool alignToTop)
@@ -804,7 +774,7 @@ double Element::scrollWidth()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
-        return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
+        return adjustLayoutUnitForAbsoluteZoom(rend->scrollWidth(), *rend).toDouble();
     return 0;
 }
 
@@ -812,7 +782,7 @@ double Element::scrollHeight()
 {
     document().updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
-        return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
+        return adjustLayoutUnitForAbsoluteZoom(rend->scrollHeight(), *rend).toDouble();
     return 0;
 }
 
@@ -1037,7 +1007,7 @@ bool Element::hasLegalLinkAttribute(const QualifiedName&) const
 
 const QualifiedName& Element::subResourceAttributeName() const
 {
-    return nullQName();
+    return QualifiedName::null();
 }
 
 inline void Element::attributeChangedFromParserOrByCloning(const QualifiedName& name, const AtomicString& newValue, AttributeModificationReason reason)
@@ -1484,7 +1454,7 @@ bool Element::pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderS
                 // FIXME: We should do an actual diff to determine whether a repaint vs. layout
                 // is needed, but for now just assume a layout will be required. The diff code
                 // in RenderObject::setStyle would need to be factored out so that it could be reused.
-                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+                renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
             }
             return true;
         }
@@ -1725,7 +1695,7 @@ void Element::setNeedsCompositingUpdate()
         return;
     if (!renderer->hasLayer())
         return;
-    renderer->layer()->setNeedsToUpdateAncestorDependentProperties();
+    renderer->layer()->setNeedsCompositingInputsUpdate();
     document().renderView()->compositor()->setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
 }
 
@@ -1865,10 +1835,23 @@ void Element::formatForDebugger(char* buffer, unsigned length) const
 }
 #endif
 
-const WillBeHeapVector<RefPtrWillBeMember<Attr> >& Element::attrNodeList()
+WillBeHeapVector<RefPtrWillBeMember<Attr> >* Element::attrNodeList()
+{
+    return hasRareData() ? elementRareData()->attrNodeList() : 0;
+}
+
+WillBeHeapVector<RefPtrWillBeMember<Attr> >& Element::ensureAttrNodeList()
+{
+    setHasSyntheticAttrChildNodes(true);
+    return ensureElementRareData().ensureAttrNodeList();
+}
+
+void Element::removeAttrNodeList()
 {
     ASSERT(hasSyntheticAttrChildNodes());
-    return *attrNodeListForElement(this);
+    if (hasRareData())
+        elementRareData()->removeAttrNodeList();
+    setHasSyntheticAttrChildNodes(false);
 }
 
 PassRefPtrWillBeRawPtr<Attr> Element::setAttributeNode(Attr* attrNode, ExceptionState& exceptionState)
@@ -1919,7 +1902,7 @@ PassRefPtrWillBeRawPtr<Attr> Element::setAttributeNode(Attr* attrNode, Exception
 
     attrNode->attachToElement(this, localName);
     treeScope().adoptIfNeeded(*attrNode);
-    ensureAttrNodeListForElement(this).append(attrNode);
+    ensureAttrNodeList().append(attrNode);
 
     return oldAttrNode.release();
 }
@@ -2442,6 +2425,18 @@ bool Element::isInDescendantTreeOf(const Element* shadowHost) const
     return false;
 }
 
+LayoutSize Element::minimumSizeForResizing() const
+{
+    return hasRareData() ? elementRareData()->minimumSizeForResizing() : defaultMinimumSizeForResizing();
+}
+
+void Element::setMinimumSizeForResizing(const LayoutSize& size)
+{
+    if (!hasRareData() && size == defaultMinimumSizeForResizing())
+        return;
+    ensureElementRareData().setMinimumSizeForResizing(size);
+}
+
 RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
 {
     if (PseudoElement* element = pseudoElement(pseudoElementSpecifier))
@@ -2603,7 +2598,7 @@ DOMStringMap& Element::dataset()
 
 KURL Element::getURLAttribute(const QualifiedName& name) const
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     if (elementData()) {
         if (const Attribute* attribute = findAttributeByName(name))
             ASSERT(isURLAttribute(*attribute));
@@ -2614,7 +2609,7 @@ KURL Element::getURLAttribute(const QualifiedName& name) const
 
 KURL Element::getNonEmptyURLAttribute(const QualifiedName& name) const
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     if (elementData()) {
         if (const Attribute* attribute = findAttributeByName(name))
             ASSERT(isURLAttribute(*attribute));
@@ -2973,14 +2968,14 @@ void Element::setSavedLayerScrollOffset(const IntSize& size)
 
 PassRefPtrWillBeRawPtr<Attr> Element::attrIfExists(const QualifiedName& name)
 {
-    if (AttrNodeList* attrNodeList = attrNodeListForElement(this))
+    if (AttrNodeList* attrNodeList = this->attrNodeList())
         return findAttrNodeInList(*attrNodeList, name);
     return nullptr;
 }
 
 PassRefPtrWillBeRawPtr<Attr> Element::ensureAttr(const QualifiedName& name)
 {
-    AttrNodeList& attrNodeList = ensureAttrNodeListForElement(this);
+    AttrNodeList& attrNodeList = ensureAttrNodeList();
     RefPtrWillBeRawPtr<Attr> attrNode = findAttrNodeInList(attrNodeList, name);
     if (!attrNode) {
         attrNode = Attr::create(*this, name);
@@ -2995,12 +2990,12 @@ void Element::detachAttrNodeFromElementWithValue(Attr* attrNode, const AtomicStr
     ASSERT(hasSyntheticAttrChildNodes());
     attrNode->detachFromElementWithValue(value);
 
-    AttrNodeList* attrNodeList = attrNodeListForElement(this);
-    for (unsigned i = 0; i < attrNodeList->size(); ++i) {
-        if (attrNodeList->at(i)->qualifiedName() == attrNode->qualifiedName()) {
-            attrNodeList->remove(i);
-            if (attrNodeList->isEmpty())
-                removeAttrNodeListForElement(this);
+    AttrNodeList* list = attrNodeList();
+    for (unsigned i = 0; i < list->size(); ++i) {
+        if (list->at(i)->qualifiedName() == attrNode->qualifiedName()) {
+            list->remove(i);
+            if (list->isEmpty())
+                removeAttrNodeList();
             return;
         }
     }
@@ -3009,17 +3004,17 @@ void Element::detachAttrNodeFromElementWithValue(Attr* attrNode, const AtomicStr
 
 void Element::detachAllAttrNodesFromElement()
 {
-    AttrNodeList* attrNodeList = attrNodeListForElement(this);
-    ASSERT(attrNodeList);
+    AttrNodeList* list = this->attrNodeList();
+    ASSERT(list);
 
     AttributeIteratorAccessor attributes = attributesIterator();
     AttributeConstIterator end = attributes.end();
     for (AttributeConstIterator it = attributes.begin(); it != end; ++it) {
-        if (RefPtrWillBeRawPtr<Attr> attrNode = findAttrNodeInList(*attrNodeList, it->name()))
+        if (RefPtrWillBeRawPtr<Attr> attrNode = findAttrNodeInList(*list, it->name()))
             attrNode->detachFromElementWithValue(it->value());
     }
 
-    removeAttrNodeListForElement(this);
+    removeAttrNodeList();
 }
 
 void Element::willRecalcStyle(StyleRecalcChange)
@@ -3298,8 +3293,6 @@ bool Element::supportsStyleSharing() const
     if (isUserActionElement())
         return false;
     if (!parentOrShadowHostElement()->childrenSupportStyleSharing())
-        return false;
-    if (hasScopedHTMLStyleChild())
         return false;
     if (this == document().cssTarget())
         return false;

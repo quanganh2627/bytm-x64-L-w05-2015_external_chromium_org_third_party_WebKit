@@ -25,18 +25,17 @@
 #include "config.h"
 #include "core/html/HTMLLinkElement.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/HTMLNames.h"
 #include "core/css/MediaList.h"
 #include "core/css/MediaQueryEvaluator.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/Document.h"
+#include "core/dom/StyleEngine.h"
 #include "core/events/Event.h"
 #include "core/events/EventSender.h"
-#include "core/dom/StyleEngine.h"
 #include "core/fetch/CSSStyleSheetResource.h"
 #include "core/fetch/FetchRequest.h"
 #include "core/fetch/ResourceFetcher.h"
@@ -47,6 +46,8 @@
 #include "core/html/imports/LinkImport.h"
 #include "core/loader/FrameLoader.h"
 #include "core/loader/FrameLoaderClient.h"
+#include "core/rendering/style/StyleInheritedData.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "wtf/StdLibExtras.h"
 
 namespace WebCore {
@@ -143,7 +144,7 @@ inline HTMLLinkElement::HTMLLinkElement(Document& document, bool createdByParser
 
 PassRefPtrWillBeRawPtr<HTMLLinkElement> HTMLLinkElement::create(Document& document, bool createdByParser)
 {
-    return adoptRefWillBeRefCountedGarbageCollected(new HTMLLinkElement(document, createdByParser));
+    return adoptRefWillBeNoop(new HTMLLinkElement(document, createdByParser));
 }
 
 HTMLLinkElement::~HTMLLinkElement()
@@ -270,6 +271,10 @@ Node::InsertionNotificationRequest HTMLLinkElement::insertedInto(ContainerNode* 
     document().styleEngine()->addStyleSheetCandidateNode(this, m_createdByParser);
 
     process();
+
+    if (m_link)
+        m_link->ownerInserted();
+
     return InsertionDone;
 }
 

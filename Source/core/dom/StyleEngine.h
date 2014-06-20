@@ -56,23 +56,6 @@ class StyleSheetCollection;
 class StyleSheetContents;
 class StyleSheetList;
 
-class StyleResolverChange {
-public:
-    StyleResolverChange()
-        : m_needsRepaint(false)
-        , m_needsStyleRecalc(false)
-    { }
-
-    bool needsRepaint() const { return m_needsRepaint; }
-    bool needsStyleRecalc() const { return m_needsStyleRecalc; }
-    void setNeedsRepaint() { m_needsRepaint = true; }
-    void setNeedsStyleRecalc() { m_needsStyleRecalc = true; }
-
-private:
-    bool m_needsRepaint;
-    bool m_needsStyleRecalc;
-};
-
 class StyleEngine FINAL : public CSSFontSelectorClient  {
     WTF_MAKE_FAST_ALLOCATED_WILL_BE_REMOVED;
 public:
@@ -109,6 +92,8 @@ public:
     void removeStyleSheetCandidateNode(Node*, ContainerNode* scopingNode, TreeScope&);
     void modifiedStyleSheetCandidateNode(Node*);
     void enableExitTransitionStylesheets();
+    void addXSLStyleSheet(ProcessingInstruction*, bool createdByParser);
+    void removeXSLStyleSheet(ProcessingInstruction*);
 
     void invalidateInjectedStyleSheetCache();
     void updateInjectedStyleSheetCache() const;
@@ -117,7 +102,7 @@ public:
 
     void clearMediaQueryRuleSetStyleSheets();
     void updateStyleSheetsInImport(DocumentStyleSheetCollector& parentCollector);
-    bool updateActiveStyleSheets(StyleResolverUpdateMode);
+    void updateActiveStyleSheets(StyleResolverUpdateMode);
 
     String preferredStylesheetSetName() const { return m_preferredStylesheetSetName; }
     String selectedStylesheetSetName() const { return m_selectedStylesheetSetName; }
@@ -180,7 +165,7 @@ public:
 
     void didDetach();
     bool shouldClearResolver() const;
-    StyleResolverChange resolverChanged(StyleResolverUpdateMode);
+    void resolverChanged(StyleResolverUpdateMode);
     unsigned resolverAccessCount() const;
 
     void markDocumentDirty();
@@ -199,7 +184,9 @@ private:
 
     TreeScopeStyleSheetCollection* ensureStyleSheetCollectionFor(TreeScope&);
     TreeScopeStyleSheetCollection* styleSheetCollectionFor(TreeScope&);
-    bool shouldUpdateShadowTreeStyleSheetCollection(StyleResolverUpdateMode);
+    bool shouldUpdateDocumentStyleSheetCollection(StyleResolverUpdateMode) const;
+    bool shouldUpdateShadowTreeStyleSheetCollection(StyleResolverUpdateMode) const;
+    bool shouldApplyXSLTransform() const;
 
     void markTreeScopeDirty(TreeScope&);
 
@@ -278,6 +265,8 @@ private:
 
     WillBeHeapHashMap<AtomicString, RawPtrWillBeMember<StyleSheetContents> > m_textToSheetCache;
     WillBeHeapHashMap<RawPtrWillBeMember<StyleSheetContents>, AtomicString> m_sheetToTextCache;
+
+    RefPtrWillBeMember<ProcessingInstruction> m_xslStyleSheet;
 };
 
 }

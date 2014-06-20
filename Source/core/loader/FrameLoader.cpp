@@ -35,10 +35,10 @@
 #include "config.h"
 #include "core/loader/FrameLoader.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/DOMWrapperWorld.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/SerializedScriptValue.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/dom/ViewportDescription.h"
@@ -311,7 +311,7 @@ void FrameLoader::receivedFirstData()
     HistoryCommitType historyCommitType = loadTypeToCommitType(m_loadType);
     if (historyCommitType == StandardCommit && (m_documentLoader->urlForHistory().isEmpty() || (opener() && !m_currentItem && m_documentLoader->originalRequest().url().isEmpty())))
         historyCommitType = HistoryInertCommit;
-    else if (historyCommitType == InitialCommitInChildFrame && (!m_frame->tree().top()->isLocalFrame() || MixedContentChecker::isMixedContent(m_frame->tree().top()->document()->securityOrigin(), m_documentLoader->url())))
+    else if (historyCommitType == InitialCommitInChildFrame && (!m_frame->tree().top()->isLocalFrame() || MixedContentChecker::isMixedContent(toLocalFrame(m_frame->tree().top())->document()->securityOrigin(), m_documentLoader->url())))
         historyCommitType = HistoryInertCommit;
     setHistoryItemStateForCommit(historyCommitType);
 
@@ -598,11 +598,14 @@ void FrameLoader::completed()
 {
     RefPtr<LocalFrame> protect(m_frame);
 
-    for (LocalFrame* descendant = m_frame->tree().traverseNext(m_frame); descendant; descendant = descendant->tree().traverseNext(m_frame))
-        descendant->navigationScheduler().startTimer();
+    for (Frame* descendant = m_frame->tree().traverseNext(m_frame); descendant; descendant = descendant->tree().traverseNext(m_frame)) {
+        if (descendant->isLocalFrame())
+            toLocalFrame(descendant)->navigationScheduler().startTimer();
+    }
 
-    if (LocalFrame* parent = m_frame->tree().parent())
-        parent->loader().checkCompleted();
+    Frame* parent = m_frame->tree().parent();
+    if (parent && parent->isLocalFrame())
+        toLocalFrame(parent)->loader().checkCompleted();
 
     if (m_frame->view())
         m_frame->view()->maintainScrollPositionAtAnchor(0);
@@ -1035,7 +1038,7 @@ void FrameLoader::restoreScrollPositionAndViewState()
 
         m_frame->page()->setPageScaleFactor(m_currentItem->pageScaleFactor(), frameScrollOffset);
 
-        if (m_frame->document()->settings()->pinchVirtualViewportEnabled()) {
+        if (m_frame->settings()->pinchVirtualViewportEnabled()) {
             // If the pinch viewport's offset is (-1, -1) it means the history item
             // is an old version of HistoryItem so distribute the scroll between
             // the main frame and the pinch viewport as best as we can.
@@ -1074,8 +1077,10 @@ void FrameLoader::detachChildren()
 void FrameLoader::checkLoadComplete()
 {
     ASSERT(client()->hasWebView());
-    if (Page* page = m_frame->page())
-        page->mainFrame()->loader().checkLoadCompleteForThisFrame();
+    if (Page* page = m_frame->page()) {
+        if (page->mainFrame()->isLocalFrame())
+            page->deprecatedLocalMainFrame()->loader().checkLoadCompleteForThisFrame();
+    }
 }
 
 String FrameLoader::userAgent(const KURL& url) const

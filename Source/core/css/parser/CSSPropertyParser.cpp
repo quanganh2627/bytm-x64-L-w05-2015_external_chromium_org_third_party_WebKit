@@ -26,13 +26,10 @@
 
 #include "config.h"
 #include "core/css/parser/CSSPropertyParser.h"
-#include "RuntimeEnabledFeatures.h"
-#include "core/rendering/RenderTheme.h"
-#include "core/svg/SVGPaint.h"
+
 // FIXME: Way too many!
-#include "CSSValueKeywords.h"
-#include "RuntimeEnabledFeatures.h"
-#include "StylePropertyShorthand.h"
+#include "core/CSSValueKeywords.h"
+#include "core/StylePropertyShorthand.h"
 #include "core/css/CSSArrayFunctionValue.h"
 #include "core/css/CSSAspectRatioValue.h"
 #include "core/css/CSSBasicShapes.h"
@@ -74,8 +71,9 @@
 #include "core/html/parser/HTMLParserIdioms.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/rendering/RenderTheme.h"
-#include "core/svg/SVGParserUtilities.h"
+#include "core/svg/SVGPaint.h"
 #include "platform/FloatConversion.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "wtf/BitArray.h"
 #include "wtf/HexNumber.h"
 #include "wtf/text/StringBuffer.h"
@@ -1612,6 +1610,14 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyUserZoom:
         validPrimitive = false;
         break;
+
+    case CSSPropertyAll:
+        if (id == CSSValueInitial || id == CSSValueInherit || id == CSSValueUnset) {
+            validPrimitive = true;
+            break;
+        }
+        return false;
+
     default:
         return parseSVGValue(propId, important);
     }
@@ -3073,11 +3079,14 @@ PassRefPtrWillBeRawPtr<CSSValue> CSSPropertyParser::parseAnimationProperty()
     CSSParserValue* value = m_valueList->current();
     if (value->unit != CSSPrimitiveValue::CSS_IDENT)
         return nullptr;
+    // Since all is valid css property keyword, cssPropertyID for all
+    // returns non-null value. We need to check "all" before
+    // cssPropertyID check.
+    if (equalIgnoringCase(value, "all"))
+        return cssValuePool().createIdentifierValue(CSSValueAll);
     CSSPropertyID result = cssPropertyID(value->string);
     if (result && RuntimeCSSEnabled::isCSSPropertyEnabled(result))
         return cssValuePool().createIdentifierValue(result);
-    if (equalIgnoringCase(value, "all"))
-        return cssValuePool().createIdentifierValue(CSSValueAll);
     if (equalIgnoringCase(value, "none"))
         return cssValuePool().createIdentifierValue(CSSValueNone);
     return nullptr;
@@ -7178,7 +7187,9 @@ bool CSSPropertyParser::parseWillChange(bool important)
 
         CSSPropertyID property = cssPropertyID(currentValue->string);
         if (property && RuntimeCSSEnabled::isCSSPropertyEnabled(property)) {
-            if (property == CSSPropertyWillChange)
+            // Now "all" is used by both CSSValue and CSSPropertyValue.
+            // Need to return false when currentValue is CSSPropertyAll.
+            if (property == CSSPropertyWillChange || property == CSSPropertyAll)
                 return false;
             values->append(cssValuePool().createIdentifierValue(property));
         } else {
@@ -8245,9 +8256,6 @@ bool CSSPropertyParser::parseSVGValue(CSSPropertyID propId, bool important)
         break;
 
     case CSSPropertyPaintOrder:
-        if (!RuntimeEnabledFeatures::svgPaintOrderEnabled())
-            return false;
-
         if (m_valueList->size() == 1 && id == CSSValueNormal)
             validPrimitive = true;
         else if ((parsedValue = parsePaintOrder()))

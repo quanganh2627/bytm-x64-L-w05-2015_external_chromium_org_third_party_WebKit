@@ -24,8 +24,8 @@
 #include "config.h"
 #include "core/html/HTMLObjectElement.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/ElementTraversal.h"
 #include "core/dom/Text.h"
@@ -65,7 +65,7 @@ inline HTMLObjectElement::~HTMLObjectElement()
 
 PassRefPtrWillBeRawPtr<HTMLObjectElement> HTMLObjectElement::create(Document& document, HTMLFormElement* form, bool createdByParser)
 {
-    RefPtrWillBeRawPtr<HTMLObjectElement> element = adoptRefWillBeRefCountedGarbageCollected(new HTMLObjectElement(document, form, createdByParser));
+    RefPtrWillBeRawPtr<HTMLObjectElement> element = adoptRefWillBeNoop(new HTMLObjectElement(document, form, createdByParser));
     element->ensureUserAgentShadowRoot();
     return element.release();
 }
@@ -115,7 +115,7 @@ void HTMLObjectElement::parseAttribute(const QualifiedName& name, const AtomicSt
         if (renderer() && isImageType()) {
             setNeedsWidgetUpdate(true);
             if (!m_imageLoader)
-                m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+                m_imageLoader = HTMLImageLoader::create(this);
             m_imageLoader->updateFromElementIgnoringPreviousError();
         } else {
             reloadPluginOnAttributeChange(name);

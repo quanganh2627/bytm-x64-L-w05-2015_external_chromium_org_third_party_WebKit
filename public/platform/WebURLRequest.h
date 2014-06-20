@@ -149,10 +149,6 @@ public:
     BLINK_PLATFORM_EXPORT bool reportUploadProgress() const;
     BLINK_PLATFORM_EXPORT void setReportUploadProgress(bool);
 
-    // Controls whether load timing info is collected for the request.
-    BLINK_PLATFORM_EXPORT bool reportLoadTiming() const;
-    BLINK_PLATFORM_EXPORT void setReportLoadTiming(bool);
-
     // Controls whether actual headers sent and received for request are
     // collected and reported.
     BLINK_PLATFORM_EXPORT bool reportRawHeaders() const;
@@ -196,6 +192,7 @@ public:
     BLINK_PLATFORM_EXPORT void setExtraData(ExtraData*);
 
     BLINK_PLATFORM_EXPORT Priority priority() const;
+    BLINK_PLATFORM_EXPORT void setPriority(Priority);
 
 #if INSIDE_BLINK
     BLINK_PLATFORM_EXPORT WebCore::ResourceRequest& toMutableResourceRequest();

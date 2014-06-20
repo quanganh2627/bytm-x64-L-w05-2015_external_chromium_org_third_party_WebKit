@@ -231,10 +231,13 @@ enum PageshowEventPersistence {
 
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionState&);
         void postMessageTimerFired(PassOwnPtr<PostMessageTimer>);
-        void dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, PassRefPtrWillBeRawPtr<Event>, PassRefPtr<ScriptCallStack>);
+        void dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, PassRefPtrWillBeRawPtr<Event>, PassRefPtrWillBeRawPtr<ScriptCallStack>);
 
+        void scrollBy(int x, int y) const;
         void scrollBy(int x, int y, const Dictionary& scrollOptions, ExceptionState&) const;
+        void scrollTo(int x, int y) const;
         void scrollTo(int x, int y, const Dictionary& scrollOptions, ExceptionState&) const;
+        void scroll(int x, int y) const { scrollTo(x, y); }
         void scroll(int x, int y, const Dictionary& scrollOptions, ExceptionState& exceptionState) const { scrollTo(x, y, scrollOptions, exceptionState); }
 
         void moveBy(float x, float y) const;
@@ -390,7 +393,7 @@ enum PageshowEventPersistence {
 
         mutable RefPtrWillBeMember<DOMWindowCSS> m_css;
 
-        RefPtr<DOMWindowEventQueue> m_eventQueue;
+        RefPtrWillBeMember<DOMWindowEventQueue> m_eventQueue;
         RefPtr<SerializedScriptValue> m_pendingStateObject;
     };
 

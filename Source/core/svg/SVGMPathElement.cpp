@@ -21,7 +21,7 @@
 
 #include "core/svg/SVGMPathElement.h"
 
-#include "XLinkNames.h"
+#include "core/XLinkNames.h"
 #include "core/dom/Document.h"
 #include "core/svg/SVGAnimateMotionElement.h"
 #include "core/svg/SVGDocumentExtensions.h"
@@ -29,12 +29,14 @@
 
 namespace WebCore {
 
-SVGMPathElement::SVGMPathElement(Document& document)
+inline SVGMPathElement::SVGMPathElement(Document& document)
     : SVGElement(SVGNames::mpathTag, document)
     , SVGURIReference(this)
 {
     ScriptWrappable::init(this);
 }
+
+DEFINE_NODE_FACTORY(SVGMPathElement)
 
 SVGMPathElement::~SVGMPathElement()
 {

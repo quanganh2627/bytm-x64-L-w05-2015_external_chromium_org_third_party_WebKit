@@ -105,6 +105,11 @@ void WebRuntimeFeatures::enableExperimentalCanvasFeatures(bool enable)
     RuntimeEnabledFeatures::setExperimentalCanvasFeaturesEnabled(enable);
 }
 
+void WebRuntimeFeatures::enableFastMobileScrolling(bool enable)
+{
+    RuntimeEnabledFeatures::setFastMobileScrollingEnabled(enable);
+}
+
 void WebRuntimeFeatures::enableFastTextAutosizing(bool enable)
 {
     RuntimeEnabledFeatures::setFastTextAutosizingEnabled(enable);
@@ -118,11 +123,6 @@ void WebRuntimeFeatures::enableFileSystem(bool enable)
 void WebRuntimeFeatures::enableGamepad(bool enable)
 {
     RuntimeEnabledFeatures::setGamepadEnabled(enable);
-}
-
-void WebRuntimeFeatures::enableLazyLayout(bool enable)
-{
-    // FIXME: Remove this once Chromium stops calling this.
 }
 
 void WebRuntimeFeatures::enableLocalStorage(bool enable)
@@ -210,12 +210,6 @@ void WebRuntimeFeatures::enableTouchIconLoading(bool enable)
     RuntimeEnabledFeatures::setTouchIconLoadingEnabled(enable);
 }
 
-void WebRuntimeFeatures::enableWebAnimationsCSS(bool enable)
-{
-    // FIXME: Remove this method once the runtime flags are removed from Chromium.
-    ASSERT(enable);
-}
-
 void WebRuntimeFeatures::enableWebAnimationsSVG(bool enable)
 {
     RuntimeEnabledFeatures::setWebAnimationsSVGEnabled(enable);
@@ -289,6 +283,11 @@ void WebRuntimeFeatures::enablePreciseMemoryInfo(bool enable)
 void WebRuntimeFeatures::enableLayerSquashing(bool enable)
 {
     RuntimeEnabledFeatures::setLayerSquashingEnabled(enable);
+}
+
+void WebRuntimeFeatures::enableShowModalDialog(bool enable)
+{
+    RuntimeEnabledFeatures::setShowModalDialogEnabled(enable);
 }
 
 } // namespace blink

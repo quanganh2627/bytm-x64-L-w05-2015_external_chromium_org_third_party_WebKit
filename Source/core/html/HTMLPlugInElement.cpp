@@ -23,10 +23,10 @@
 #include "config.h"
 #include "core/html/HTMLPlugInElement.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
 #include "bindings/v8/ScriptController.h"
 #include "bindings/v8/npruntime_impl.h"
+#include "core/CSSPropertyNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/Node.h"
 #include "core/dom/shadow/ShadowRoot.h"
@@ -82,6 +82,12 @@ HTMLPlugInElement::~HTMLPlugInElement()
     }
 }
 
+void HTMLPlugInElement::trace(Visitor* visitor)
+{
+    visitor->trace(m_imageLoader);
+    HTMLFrameOwnerElement::trace(visitor);
+}
+
 bool HTMLPlugInElement::canProcessDrag() const
 {
     return pluginWidget() && pluginWidget()->isPluginView() && toPluginView(pluginWidget())->canProcessDrag();
@@ -120,7 +126,7 @@ void HTMLPlugInElement::attach(const AttachContext& context)
 
     if (isImageType()) {
         if (!m_imageLoader)
-            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+            m_imageLoader = HTMLImageLoader::create(this);
         m_imageLoader->updateFromElement();
     } else if (needsWidgetUpdate()
         && renderEmbeddedObject()
@@ -171,6 +177,13 @@ void HTMLPlugInElement::createPluginWithoutRenderer()
 
     bool useFallback = false;
     loadPlugin(url, m_serviceType, paramNames, paramValues, useFallback, false);
+}
+
+bool HTMLPlugInElement::shouldAccelerate() const
+{
+    if (Widget* widget = ownedWidget())
+        return widget->isPluginView() && toPluginView(widget)->platformLayer();
+    return false;
 }
 
 void HTMLPlugInElement::detach(const AttachContext& context)

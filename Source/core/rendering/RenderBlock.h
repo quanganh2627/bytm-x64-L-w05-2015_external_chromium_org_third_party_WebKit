@@ -39,7 +39,6 @@ namespace WebCore {
 
 class BasicShape;
 class BidiContext;
-class LayoutStateMaintainer;
 class LineLayoutState;
 class RenderInline;
 class RenderText;
@@ -167,6 +166,7 @@ public:
     RootInlineBox* firstRootBox() const { return static_cast<RootInlineBox*>(firstLineBox()); }
     RootInlineBox* lastRootBox() const { return static_cast<RootInlineBox*>(lastLineBox()); }
 
+    virtual bool shouldPaintSelectionGaps() const OVERRIDE FINAL;
     GapRects selectionGapRectsForRepaint(const RenderLayerModelObject* repaintContainer);
     LayoutRect logicalLeftSelectionGap(RenderBlock* rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
                                        RenderObject* selObj, LayoutUnit logicalLeft, LayoutUnit logicalTop, LayoutUnit logicalHeight, const PaintInfo*);
@@ -407,18 +407,17 @@ private:
     // children.
     virtual RenderBlock* firstLineBlock() const OVERRIDE;
 
-    virtual LayoutRect rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const OVERRIDE FINAL;
-    virtual RenderStyle* outlineStyleForRepaint() const OVERRIDE FINAL;
+    virtual LayoutRect rectWithOutlineForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer, LayoutUnit outlineWidth) const OVERRIDE FINAL;
+    virtual RenderStyle* outlineStyleForPaintInvalidation() const OVERRIDE FINAL;
 
     virtual RenderObject* hoverAncestor() const OVERRIDE FINAL;
     virtual void updateDragState(bool dragOn) OVERRIDE FINAL;
     virtual void childBecameNonInline(RenderObject* child) OVERRIDE FINAL;
 
-    virtual LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool /*clipToVisibleContent*/) OVERRIDE FINAL
+    virtual LayoutRect selectionRectForPaintInvalidation(const RenderLayerModelObject* paintInvalidationContainer, bool /*clipToVisibleContent*/) OVERRIDE FINAL
     {
-        return selectionGapRectsForRepaint(repaintContainer);
+        return selectionGapRectsForRepaint(paintInvalidationContainer);
     }
-    virtual bool shouldPaintSelectionGaps() const OVERRIDE FINAL;
     bool isSelectionRoot() const;
     GapRects selectionGaps(RenderBlock* rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
                            LayoutUnit& lastLogicalTop, LayoutUnit& lastLogicalLeft, LayoutUnit& lastLogicalRight, const PaintInfo* = 0);
@@ -505,8 +504,6 @@ protected:
 public:
     virtual LayoutUnit offsetFromLogicalTopOfFirstPage() const OVERRIDE FINAL;
 
-    void invalidateLineHeight() { m_lineHeight = -1; }
-
 public:
 
     // Allocated only when some of these fields have non-default values
@@ -534,7 +531,7 @@ protected:
     RenderObjectChildList m_children;
     RenderLineBoxList m_lineBoxes;   // All of the root line boxes created for this block flow.  For example, <div>Hello<br>world.</div> will have two total lines for the <div>.
 
-    mutable signed m_lineHeight : 26;
+    // WARNING: Don't add any bits here until we are comfortable that removing m_lineHeight has not regressed performance. See http://crrev.com/260073005 for more information.
     unsigned m_hasMarginBeforeQuirk : 1; // Note these quirk values can't be put in RenderBlockRareData since they are set too frequently.
     unsigned m_hasMarginAfterQuirk : 1;
     unsigned m_beingDestroyed : 1;

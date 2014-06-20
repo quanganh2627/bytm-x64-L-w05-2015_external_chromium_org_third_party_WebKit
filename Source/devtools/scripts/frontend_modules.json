@@ -16,6 +16,7 @@
             "common/Progress.js",
             "common/Settings.js",
             "common/TextRange.js",
+            "common/Throttler.js",
             "common/UIString.js",
             "common/UserMetrics.js",
             "common/utilities.js",
@@ -311,6 +312,7 @@
             "timeline/Layers3DView.js",
             "timeline/MemoryCountersGraph.js",
             "timeline/TimelineEventOverview.js",
+            "timeline/TracingTimelineModel.js",
             "timeline/TimelineFrameModel.js",
             "timeline/TimelineFrameOverview.js",
             "timeline/TimelineJSProfile.js",
@@ -324,11 +326,11 @@
             "timeline/TimelinePanel.js",
             "timeline/TimelinePresentationModel.js",
             "timeline/TimelineUIUtils.js",
+            "timeline/TimelineUIUtilsImpl.js",
             "timeline/TimelineView.js",
             "timeline/TimelineTracingView.js",
             "timeline/TimelineLayersView.js",
             "timeline/TracingModel.js",
-            "timeline/TracingTimelineModel.js",
             "timeline/TracingTimelineUIUtils.js",
             "timeline/TransformController.js"
         ]

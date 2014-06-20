@@ -29,9 +29,9 @@
 #include "bindings/v8/ScriptWrappable.h"
 #include "core/events/EventTarget.h"
 #include "core/html/HTMLMediaElement.h"
+#include "wtf/LinkedHashSet.h"
 #include "wtf/PassRefPtr.h"
 #include "wtf/RefCounted.h"
-#include "wtf/Vector.h"
 
 namespace WebCore {
 
@@ -84,7 +84,11 @@ public:
     bool isRestrained() const;
     bool isBlocked() const;
 
-    void clearExecutionContext() { m_executionContext = 0; }
+#if !ENABLE(OILPAN)
+    void clearExecutionContext() { m_executionContext = nullptr; }
+#endif
+
+    virtual void trace(Visitor*) OVERRIDE;
 
 private:
     MediaController(ExecutionContext*);
@@ -106,7 +110,12 @@ private:
 
     friend class HTMLMediaElement;
     friend class MediaControllerEventListener;
-    Vector<HTMLMediaElement*> m_mediaElements;
+    // FIXME: A MediaController should ideally keep an otherwise
+    // unreferenced slaved media element alive. When Oilpan is
+    // enabled by default, consider making the hash set references
+    // strong to accomplish that. crbug.com/383072
+    typedef WillBeHeapLinkedHashSet<RawPtrWillBeWeakMember<HTMLMediaElement> > MediaElementSequence;
+    MediaElementSequence m_mediaElements;
     bool m_paused;
     double m_defaultPlaybackRate;
     double m_volume;
@@ -114,10 +123,10 @@ private:
     bool m_muted;
     ReadyState m_readyState;
     PlaybackState m_playbackState;
-    OwnPtr<GenericEventQueue> m_pendingEventsQueue;
+    OwnPtrWillBeMember<GenericEventQueue> m_pendingEventsQueue;
     mutable Timer<MediaController> m_clearPositionTimer;
     OwnPtr<Clock> m_clock;
-    ExecutionContext* m_executionContext;
+    RawPtrWillBeWeakMember<ExecutionContext> m_executionContext;
     Timer<MediaController> m_timeupdateTimer;
     double m_previousTimeupdateTime;
 };

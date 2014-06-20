@@ -64,6 +64,7 @@ PassRefPtr<ServiceWorkerContainer> ServiceWorkerContainer::create(ExecutionConte
 
 ServiceWorkerContainer::~ServiceWorkerContainer()
 {
+    ASSERT(!m_provider);
 }
 
 void ServiceWorkerContainer::detachClient()
@@ -155,11 +156,6 @@ ScriptPromise ServiceWorkerContainer::ready(ScriptState* scriptState)
     return ScriptPromise();
 }
 
-void ServiceWorkerContainer::setCurrentServiceWorker(blink::WebServiceWorker* serviceWorker)
-{
-    setController(serviceWorker);
-}
-
 // If the WebServiceWorker is up for adoption (does not have a
 // WebServiceWorkerProxy owner), rejects the adoption by deleting the
 // WebServiceWorker.
@@ -169,13 +165,13 @@ static void deleteIfNoExistingOwner(blink::WebServiceWorker* serviceWorker)
         delete serviceWorker;
 }
 
-void ServiceWorkerContainer::setWaiting(blink::WebServiceWorker* serviceWorker)
+void ServiceWorkerContainer::setActive(blink::WebServiceWorker* serviceWorker)
 {
     if (!executionContext()) {
         deleteIfNoExistingOwner(serviceWorker);
         return;
     }
-    m_waiting = ServiceWorker::from(executionContext(), serviceWorker);
+    m_active = ServiceWorker::from(executionContext(), serviceWorker);
 }
 
 void ServiceWorkerContainer::setController(blink::WebServiceWorker* serviceWorker)
@@ -187,19 +183,36 @@ void ServiceWorkerContainer::setController(blink::WebServiceWorker* serviceWorke
     m_controller = ServiceWorker::from(executionContext(), serviceWorker);
 }
 
+void ServiceWorkerContainer::setInstalling(blink::WebServiceWorker* serviceWorker)
+{
+    if (!executionContext()) {
+        deleteIfNoExistingOwner(serviceWorker);
+        return;
+    }
+    m_installing = ServiceWorker::from(executionContext(), serviceWorker);
+}
+
+void ServiceWorkerContainer::setWaiting(blink::WebServiceWorker* serviceWorker)
+{
+    if (!executionContext()) {
+        deleteIfNoExistingOwner(serviceWorker);
+        return;
+    }
+    m_waiting = ServiceWorker::from(executionContext(), serviceWorker);
+}
+
 void ServiceWorkerContainer::dispatchMessageEvent(const blink::WebString& message, const blink::WebMessagePortChannelArray& webChannels)
 {
-    if (!executionContext() || !window())
+    if (!executionContext() || !executionContext()->executingWindow())
         return;
 
     OwnPtr<MessagePortArray> ports = MessagePort::toMessagePortArray(executionContext(), webChannels);
     RefPtr<SerializedScriptValue> value = SerializedScriptValue::createFromWire(message);
-    window()->dispatchEvent(MessageEvent::create(ports.release(), value));
+    executionContext()->executingWindow()->dispatchEvent(MessageEvent::create(ports.release(), value));
 }
 
 ServiceWorkerContainer::ServiceWorkerContainer(ExecutionContext* executionContext)
     : ContextLifecycleObserver(executionContext)
-    , DOMWindowLifecycleObserver(executionContext->isDocument() ? toDocument(executionContext)->domWindow() : 0)
     , m_provider(0)
 {
     ScriptWrappable::init(this);

@@ -27,84 +27,35 @@
 
 #include "core/rendering/compositing/RenderLayerCompositor.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include "core/animation/ActiveAnimations.h"
 #include "core/animation/DocumentAnimations.h"
 #include "core/dom/FullscreenElementStack.h"
-#include "core/dom/NodeList.h"
 #include "core/dom/ScriptForbiddenScope.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Settings.h"
-#include "core/html/HTMLCanvasElement.h"
 #include "core/html/HTMLIFrameElement.h"
-#include "core/html/HTMLMediaElement.h"
-#include "core/html/canvas/CanvasRenderingContext.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/inspector/InspectorNodeIds.h"
 #include "core/page/Chrome.h"
 #include "core/page/Page.h"
-#include "core/page/scrolling/ScrollingConstraints.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
-#include "core/rendering/HitTestResult.h"
-#include "core/rendering/RenderApplet.h"
-#include "core/rendering/RenderEmbeddedObject.h"
-#include "core/rendering/RenderFullScreen.h"
-#include "core/rendering/RenderIFrame.h"
 #include "core/rendering/RenderLayerStackingNode.h"
 #include "core/rendering/RenderLayerStackingNodeIterator.h"
-#include "core/rendering/RenderReplica.h"
 #include "core/rendering/RenderVideo.h"
 #include "core/rendering/RenderView.h"
 #include "core/rendering/compositing/CompositedLayerMapping.h"
+#include "core/rendering/compositing/CompositingInputsUpdater.h"
 #include "core/rendering/compositing/CompositingLayerAssigner.h"
 #include "core/rendering/compositing/CompositingRequirementsUpdater.h"
+#include "core/rendering/compositing/GraphicsLayerTreeBuilder.h"
 #include "core/rendering/compositing/GraphicsLayerUpdater.h"
 #include "platform/OverscrollTheme.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
-#include "platform/geometry/TransformState.h"
 #include "platform/graphics/GraphicsLayer.h"
-#include "platform/scroll/ScrollbarTheme.h"
 #include "public/platform/Platform.h"
-#include "wtf/TemporaryChange.h"
-
-#ifndef NDEBUG
-#include "core/rendering/RenderTreeAsText.h"
-#endif
 
 namespace WebCore {
-
-using namespace HTMLNames;
-
-class DeprecatedDirtyCompositingDuringCompositingUpdate {
-    WTF_MAKE_NONCOPYABLE(DeprecatedDirtyCompositingDuringCompositingUpdate);
-public:
-    DeprecatedDirtyCompositingDuringCompositingUpdate(DocumentLifecycle& lifecycle)
-        : m_lifecycle(lifecycle)
-        , m_deprecatedTransition(lifecycle.state(), DocumentLifecycle::LayoutClean)
-        , m_originalState(lifecycle.state())
-    {
-    }
-
-    ~DeprecatedDirtyCompositingDuringCompositingUpdate()
-    {
-        if (m_originalState != DocumentLifecycle::InCompositingUpdate)
-            return;
-        if (m_lifecycle.state() != m_originalState) {
-            // FIXME: It's crazy that we can trigger a style recalc from inside
-            // the compositing update, but that happens in compositing/visibility/hidden-iframe.html.
-            ASSERT(m_lifecycle.state() == DocumentLifecycle::LayoutClean || m_lifecycle.state() == DocumentLifecycle::VisualUpdatePending);
-            m_lifecycle.advanceTo(m_originalState);
-        }
-    }
-
-private:
-    DocumentLifecycle& m_lifecycle;
-    DocumentLifecycle::DeprecatedTransition m_deprecatedTransition;
-    DocumentLifecycle::State m_originalState;
-};
 
 RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
     : m_renderView(renderView)
@@ -112,11 +63,11 @@ RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
     , m_pendingUpdateType(CompositingUpdateNone)
     , m_hasAcceleratedCompositing(true)
     , m_compositing(false)
-    , m_compositingLayersNeedRebuild(false)
     , m_rootShouldAlwaysCompositeDirty(true)
     , m_needsUpdateFixedBackground(false)
     , m_isTrackingRepaints(false)
     , m_rootLayerAttachment(RootLayerUnattached)
+    , m_inOverlayFullscreenVideo(false)
 {
     updateAcceleratedCompositingSettings();
 }
@@ -176,37 +127,22 @@ void RenderLayerCompositor::enableCompositingModeIfNeeded()
     if (rootShouldAlwaysComposite()) {
         // FIXME: Is this needed? It was added in https://bugs.webkit.org/show_bug.cgi?id=26651.
         // No tests fail if it's deleted.
-        setCompositingLayersNeedRebuild();
+        setNeedsCompositingUpdate(CompositingUpdateRebuildTree);
         setCompositingModeEnabled(true);
     }
 }
 
-bool RenderLayerCompositor::compositingLayersNeedRebuild()
-{
-    // enableCompositingModeIfNeeded can set the m_compositingLayersNeedRebuild bit.
-    ASSERT(!m_rootShouldAlwaysCompositeDirty);
-    return m_compositingLayersNeedRebuild;
-}
-
 bool RenderLayerCompositor::rootShouldAlwaysComposite() const
 {
-    if (m_hasAcceleratedCompositing && !m_renderView.frame()->isMainFrame())
-        return m_compositingReasonFinder.requiresCompositingForScrollableFrame();
-    return m_hasAcceleratedCompositing;
+    if (!m_hasAcceleratedCompositing)
+        return false;
+    return m_renderView.frame()->isMainFrame() || m_compositingReasonFinder.requiresCompositingForScrollableFrame();
 }
 
 void RenderLayerCompositor::updateAcceleratedCompositingSettings()
 {
     m_compositingReasonFinder.updateTriggers();
-
-    bool hasAcceleratedCompositing = m_renderView.document().settings()->acceleratedCompositingEnabled();
-
-    // FIXME: Is this needed? It was added in https://bugs.webkit.org/show_bug.cgi?id=26651.
-    // No tests fail if it's deleted.
-    if (hasAcceleratedCompositing != m_hasAcceleratedCompositing)
-        setCompositingLayersNeedRebuild();
-
-    m_hasAcceleratedCompositing = hasAcceleratedCompositing;
+    m_hasAcceleratedCompositing = m_renderView.document().settings()->acceleratedCompositingEnabled();
     m_rootShouldAlwaysCompositeDirty = true;
 }
 
@@ -222,14 +158,6 @@ bool RenderLayerCompositor::layerSquashingEnabled() const
 bool RenderLayerCompositor::acceleratedCompositingForOverflowScrollEnabled() const
 {
     return m_compositingReasonFinder.hasOverflowScrollTrigger();
-}
-
-void RenderLayerCompositor::setCompositingLayersNeedRebuild()
-{
-    // FIXME: crbug.com/332248 ideally this could be merged with setNeedsCompositingUpdate().
-    m_compositingLayersNeedRebuild = true;
-    page()->animator().scheduleVisualUpdate();
-    lifecycle().ensureStateAtMost(DocumentLifecycle::LayoutClean);
 }
 
 static RenderVideo* findFullscreenVideoRenderer(Document& document)
@@ -251,8 +179,10 @@ static RenderVideo* findFullscreenVideoRenderer(Document& document)
 
 void RenderLayerCompositor::updateIfNeededRecursive()
 {
-    for (LocalFrame* child = m_renderView.frameView()->frame().tree().firstChild(); child; child = child->tree().nextSibling())
-        child->contentRenderer()->compositor()->updateIfNeededRecursive();
+    for (Frame* child = m_renderView.frameView()->frame().tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (child->isLocalFrame())
+            toLocalFrame(child)->contentRenderer()->compositor()->updateIfNeededRecursive();
+    }
 
     TRACE_EVENT0("blink_rendering", "RenderLayerCompositor::updateIfNeededRecursive");
 
@@ -260,10 +190,12 @@ void RenderLayerCompositor::updateIfNeededRecursive()
 
     ScriptForbiddenScope forbidScript;
 
+    // FIXME: enableCompositingModeIfNeeded can trigger a CompositingUpdateRebuildTree,
+    // which asserts that it's not InCompositingUpdate.
+    enableCompositingModeIfNeeded();
+
     lifecycle().advanceTo(DocumentLifecycle::InCompositingUpdate);
-
     updateIfNeeded();
-
     lifecycle().advanceTo(DocumentLifecycle::CompositingClean);
 
     DocumentAnimations::startPendingAnimations(m_renderView.document());
@@ -272,38 +204,51 @@ void RenderLayerCompositor::updateIfNeededRecursive()
 
 #if ASSERT_ENABLED
     assertNoUnresolvedDirtyBits();
-    for (LocalFrame* child = m_renderView.frameView()->frame().tree().firstChild(); child; child = child->tree().nextSibling())
-        child->contentRenderer()->compositor()->assertNoUnresolvedDirtyBits();
+    for (Frame* child = m_renderView.frameView()->frame().tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (child->isLocalFrame())
+            toLocalFrame(child)->contentRenderer()->compositor()->assertNoUnresolvedDirtyBits();
+    }
 #endif
 }
 
 void RenderLayerCompositor::setNeedsCompositingUpdate(CompositingUpdateType updateType)
 {
     ASSERT(updateType != CompositingUpdateNone);
-    // FIXME: Technically we only need to do this when the FrameView's isScrollable method
-    // would return a different value.
-    if (updateType == CompositingUpdateAfterLayout)
-        m_rootShouldAlwaysCompositeDirty = true;
 
     // FIXME: This function should only set dirty bits. We shouldn't
     // enable compositing mode here.
     // We check needsLayout here because we don't know if we need to enable
     // compositing mode until layout is up-to-date because we need to know
     // if this frame scrolls.
+    //
+    // NOTE: CastStreamingApiTestWithPixelOutput.RtpStreamError triggers
+    // an ASSERT when this code is removed.
     if (!m_renderView.needsLayout())
         enableCompositingModeIfNeeded();
 
     m_pendingUpdateType = std::max(m_pendingUpdateType, updateType);
-
     page()->animator().scheduleVisualUpdate();
     lifecycle().ensureStateAtMost(DocumentLifecycle::LayoutClean);
+}
+
+void RenderLayerCompositor::didLayout()
+{
+    // FIXME: Technically we only need to do this when the FrameView's
+    // isScrollable method would return a different value.
+    m_rootShouldAlwaysCompositeDirty = true;
+    enableCompositingModeIfNeeded();
+
+    // FIXME: Rather than marking the entire RenderView as dirty, we should
+    // track which RenderLayers moved during layout and only dirty those
+    // specific RenderLayers.
+    rootRenderLayer()->setNeedsCompositingInputsUpdate();
+    setNeedsCompositingUpdate(CompositingUpdateAfterCompositingInputChange);
 }
 
 #if ASSERT_ENABLED
 
 void RenderLayerCompositor::assertNoUnresolvedDirtyBits()
 {
-    ASSERT(!compositingLayersNeedRebuild());
     ASSERT(m_pendingUpdateType == CompositingUpdateNone);
     ASSERT(!m_rootShouldAlwaysCompositeDirty);
 }
@@ -312,6 +257,7 @@ void RenderLayerCompositor::assertNoUnresolvedDirtyBits()
 
 void RenderLayerCompositor::applyOverlayFullscreenVideoAdjustment()
 {
+    m_inOverlayFullscreenVideo = false;
     if (!m_rootContentLayer)
         return;
 
@@ -340,42 +286,16 @@ void RenderLayerCompositor::applyOverlayFullscreenVideoAdjustment()
     m_overflowControlsHostLayer->addChild(videoLayer);
     if (GraphicsLayer* backgroundLayer = fixedRootBackgroundLayer())
         backgroundLayer->removeFromParent();
+    m_inOverlayFullscreenVideo = true;
 }
 
 void RenderLayerCompositor::updateIfNeeded()
 {
-    {
-        // FIXME: Notice that we call this function before checking the dirty bits below.
-        // We'll need to remove DeprecatedDirtyCompositingDuringCompositingUpdate
-        // before moving this function after checking the dirty bits.
-        DeprecatedDirtyCompositingDuringCompositingUpdate marker(lifecycle());
-
-        // FIXME: enableCompositingModeIfNeeded can call setCompositingLayersNeedRebuild,
-        // which asserts that it's not InCompositingUpdate.
-        enableCompositingModeIfNeeded();
-    }
-
     CompositingUpdateType updateType = m_pendingUpdateType;
-    bool needHierarchyAndGeometryUpdate = compositingLayersNeedRebuild();
-
     m_pendingUpdateType = CompositingUpdateNone;
-    m_compositingLayersNeedRebuild = false;
 
-    if (!hasAcceleratedCompositing())
+    if (!hasAcceleratedCompositing() || updateType == CompositingUpdateNone)
         return;
-
-    bool needsToUpdateScrollingCoordinator = scrollingCoordinator() && scrollingCoordinator()->needsToUpdateAfterCompositingChange();
-    if (updateType == CompositingUpdateNone && !needHierarchyAndGeometryUpdate && !needsToUpdateScrollingCoordinator)
-        return;
-
-    GraphicsLayerUpdater::UpdateType graphicsLayerUpdateType = GraphicsLayerUpdater::DoNotForceUpdate;
-    CompositingPropertyUpdater::UpdateType compositingPropertyUpdateType = CompositingPropertyUpdater::DoNotForceUpdate;
-
-    // FIXME: Teach non-style compositing updates how to do partial tree walks.
-    if (updateType >= CompositingUpdateAfterLayout) {
-        graphicsLayerUpdateType = GraphicsLayerUpdater::ForceUpdate;
-        compositingPropertyUpdateType = CompositingPropertyUpdater::ForceUpdate;
-    }
 
     RenderLayer* updateRoot = rootRenderLayer();
 
@@ -384,10 +304,10 @@ void RenderLayerCompositor::updateIfNeeded()
     if (updateType >= CompositingUpdateAfterCompositingInputChange) {
         bool layersChanged = false;
         {
-            TRACE_EVENT0("blink_rendering", "CompositingPropertyUpdater::updateAncestorDependentProperties");
-            CompositingPropertyUpdater(updateRoot).updateAncestorDependentProperties(updateRoot, compositingPropertyUpdateType);
+            TRACE_EVENT0("blink_rendering", "CompositingInputsUpdater::update");
+            CompositingInputsUpdater(updateRoot).update(updateRoot);
 #if ASSERT_ENABLED
-            CompositingPropertyUpdater::assertNeedsToUpdateAncestorDependantPropertiesBitsCleared(updateRoot);
+            CompositingInputsUpdater::assertNeedsCompositingInputsUpdateBitsCleared(updateRoot);
 #endif
         }
 
@@ -407,29 +327,28 @@ void RenderLayerCompositor::updateIfNeeded()
         }
 
         if (layersChanged)
-            needHierarchyAndGeometryUpdate = true;
+            updateType = std::max(updateType, CompositingUpdateRebuildTree);
     }
 
-    if (updateType != CompositingUpdateNone || needHierarchyAndGeometryUpdate) {
+    if (updateType != CompositingUpdateNone) {
         TRACE_EVENT0("blink_rendering", "GraphicsLayerUpdater::updateRecursive");
         GraphicsLayerUpdater updater;
-        updater.update(*updateRoot, graphicsLayerUpdateType);
+        updater.update(*updateRoot);
 
         if (updater.needsRebuildTree())
-            needHierarchyAndGeometryUpdate = true;
+            updateType = std::max(updateType, CompositingUpdateRebuildTree);
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         // FIXME: Move this check to the end of the compositing update.
         GraphicsLayerUpdater::assertNeedsToUpdateGraphicsLayerBitsCleared(*updateRoot);
 #endif
     }
 
-    if (needHierarchyAndGeometryUpdate) {
-        // Update the hierarchy of the compositing layers.
+    if (updateType >= CompositingUpdateRebuildTree) {
         GraphicsLayerVector childList;
         {
-            TRACE_EVENT0("blink_rendering", "GraphicsLayerUpdater::rebuildTree");
-            GraphicsLayerUpdater().rebuildTree(*updateRoot, childList);
+            TRACE_EVENT0("blink_rendering", "GraphicsLayerTreeBuilder::rebuild");
+            GraphicsLayerTreeBuilder().rebuild(*updateRoot, childList);
         }
 
         if (childList.isEmpty())
@@ -446,16 +365,9 @@ void RenderLayerCompositor::updateIfNeeded()
         m_needsUpdateFixedBackground = false;
     }
 
-    ASSERT(updateRoot || !compositingLayersNeedRebuild());
-
-    // The scrolling coordinator may realize that it needs updating while compositing was being updated in this function.
-    needsToUpdateScrollingCoordinator |= scrollingCoordinator() && scrollingCoordinator()->needsToUpdateAfterCompositingChange();
-    if (needsToUpdateScrollingCoordinator && m_renderView.frame()->isMainFrame() && scrollingCoordinator() && inCompositingMode())
-        scrollingCoordinator()->updateAfterCompositingChange();
-
     for (unsigned i = 0; i < layersNeedingRepaint.size(); i++) {
         RenderLayer* layer = layersNeedingRepaint[i];
-        layer->repainter().computeRepaintRectsIncludingDescendants();
+        layer->repainter().computeRepaintRectsIncludingNonCompositingDescendants();
 
         repaintOnCompositingChange(layer);
     }
@@ -548,7 +460,7 @@ bool RenderLayerCompositor::allocateOrClearCompositedLayerMapping(RenderLayer* l
 bool RenderLayerCompositor::updateLayerIfViewportConstrained(RenderLayer* layer)
 {
     RenderLayer::ViewportConstrainedNotCompositedReason viewportConstrainedNotCompositedReason = RenderLayer::NoNotCompositedReason;
-    m_compositingReasonFinder.requiresCompositingForPosition(layer->renderer(), layer, &viewportConstrainedNotCompositedReason);
+    m_compositingReasonFinder.requiresCompositingForPositionFixed(layer->renderer(), layer, &viewportConstrainedNotCompositedReason);
 
     if (layer->viewportConstrainedNotCompositedReason() != viewportConstrainedNotCompositedReason) {
         ASSERT(viewportConstrainedNotCompositedReason == RenderLayer::NoNotCompositedReason || layer->renderer()->style()->position() == FixedPosition);
@@ -559,20 +471,31 @@ bool RenderLayerCompositor::updateLayerIfViewportConstrained(RenderLayer* layer)
 }
 
 // These are temporary hacks to work around chicken-egg issues while we continue to refactor the compositing code.
-// See crbug.com/339892 for a list of tests that fail if this method is removed.
+// See crbug.com/383191 for a list of tests that fail if this method is removed.
 void RenderLayerCompositor::applyUpdateLayerCompositingStateChickenEggHacks(RenderLayer* layer, CompositingStateTransitionType compositedLayerUpdate)
 {
-    if (compositedLayerUpdate != NoCompositingStateChange)
-        allocateOrClearCompositedLayerMapping(layer, compositedLayerUpdate);
+    if (compositedLayerUpdate != NoCompositingStateChange) {
+        bool compositedLayerMappingChanged = allocateOrClearCompositedLayerMapping(layer, compositedLayerUpdate);
+        if (compositedLayerMappingChanged) {
+            // Repaint rects can only be computed for layers that have already been attached to the
+            // render tree, but a chicken-egg compositing update can happen before |layer| gets
+            // attached. Since newly-created renderers don't get parented until they are attached
+            // (see RenderTreeBuilder::createRendererForElementIfNeeded), we can check for attachment
+            // by checking for a parent.
+            if (layer->parent())
+                layer->repainter().computeRepaintRectsIncludingNonCompositingDescendants();
+            repaintOnCompositingChange(layer);
+        }
+    }
 }
 
 void RenderLayerCompositor::updateLayerCompositingState(RenderLayer* layer, UpdateLayerCompositingStateOptions options)
 {
-    updateDirectCompositingReasons(layer);
+    layer->setCompositingReasons(layer->styleDeterminedCompositingReasons(), CompositingReasonComboAllStyleDeterminedReasons);
     CompositingStateTransitionType compositedLayerUpdate = CompositingLayerAssigner(this).computeCompositedLayerUpdate(layer);
 
     if (compositedLayerUpdate != NoCompositingStateChange)
-        setCompositingLayersNeedRebuild();
+        setNeedsCompositingUpdate(CompositingUpdateRebuildTree);
 
     if (options == UseChickenEggHacks)
         applyUpdateLayerCompositingStateChickenEggHacks(layer, compositedLayerUpdate);
@@ -600,26 +523,6 @@ void RenderLayerCompositor::repaintInCompositedAncestor(RenderLayer* layer, cons
     LayoutRect repaintRect = rect;
     repaintRect.moveBy(offset);
     compositedAncestor->repainter().setBackingNeedsRepaintInRect(repaintRect);
-}
-
-void RenderLayerCompositor::layerWasAdded(RenderLayer* /*parent*/, RenderLayer* /*child*/)
-{
-    setCompositingLayersNeedRebuild();
-}
-
-void RenderLayerCompositor::layerWillBeRemoved(RenderLayer* parent, RenderLayer* child)
-{
-    if (!child->hasCompositedLayerMapping() || parent->renderer()->documentBeingDestroyed())
-        return;
-
-    {
-        // FIXME: This is called from within RenderLayer::removeChild, which is called from RenderObject::RemoveChild.
-        // There's no guarantee that compositor state is up to date.
-        DisableCompositingQueryAsserts disabler;
-        repaintInCompositedAncestor(child, child->compositedLayerMapping()->compositedBounds());
-    }
-
-    setCompositingLayersNeedRebuild();
 }
 
 void RenderLayerCompositor::frameViewDidChangeLocation(const IntPoint& contentsOffset)
@@ -777,10 +680,16 @@ void RenderLayerCompositor::repaintCompositedLayers()
 void RenderLayerCompositor::recursiveRepaintLayer(RenderLayer* layer)
 {
     // FIXME: This method does not work correctly with transforms.
-    if (layer->compositingState() == PaintsIntoOwnBacking)
-        layer->repainter().setBackingNeedsRepaint();
+    if (layer->compositingState() == PaintsIntoOwnBacking) {
+        layer->compositedLayerMapping()->setContentsNeedDisplay();
+        // This function is called only when it is desired to repaint the entire compositing graphics layer tree.
+        // This includes squashing.
+        layer->compositedLayerMapping()->setSquashingContentsNeedDisplay();
+    }
 
-#if !ASSERT_DISABLED
+    layer->stackingNode()->updateLayerListsIfNeeded();
+
+#if ASSERT_ENABLED
     LayerListMutationDetector mutationChecker(layer->stackingNode());
 #endif
 
@@ -1058,26 +967,10 @@ bool RenderLayerCompositor::requiresScrollCornerLayer() const
     return shouldCompositeOverflowControls(view) && view->isScrollCornerVisible();
 }
 
-#if USE(RUBBER_BANDING)
-bool RenderLayerCompositor::requiresOverhangLayers() const
-{
-    // We don't want a layer if this is a subframe.
-    if (!m_renderView.frame()->isMainFrame())
-        return false;
-
-    // We do want a layer if we have a scrolling coordinator and can scroll.
-    if (scrollingCoordinator() && m_renderView.frameView()->hasOpaqueBackground())
-        return true;
-
-    // Chromium always wants a layer.
-    return true;
-}
-#endif
-
 void RenderLayerCompositor::updateOverflowControlsLayers()
 {
 #if USE(RUBBER_BANDING)
-    if (requiresOverhangLayers()) {
+    if (m_renderView.frame()->isMainFrame()) {
         if (!m_layerForOverhangShadow) {
             m_layerForOverhangShadow = GraphicsLayer::create(graphicsLayerFactory(), this);
             OverscrollTheme::theme()->setUpOverhangShadowLayer(m_layerForOverhangShadow.get());
@@ -1085,10 +978,7 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
             m_scrollLayer->addChild(m_layerForOverhangShadow.get());
         }
     } else {
-        if (m_layerForOverhangShadow) {
-            m_layerForOverhangShadow->removeFromParent();
-            m_layerForOverhangShadow = nullptr;
-        }
+        ASSERT(!m_layerForOverhangShadow);
     }
 #endif
     GraphicsLayer* controlsParent = m_rootTransformLayer.get() ? m_rootTransformLayer.get() : m_overflowControlsHostLayer.get();

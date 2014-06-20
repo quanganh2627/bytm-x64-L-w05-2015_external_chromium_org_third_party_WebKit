@@ -10,6 +10,7 @@
 ../../modules/mediastream/RTCDTMFToneChangeEvent.idl
 ../../modules/mediastream/RTCDataChannelEvent.idl
 ../../modules/mediastream/RTCIceCandidateEvent.idl
+../../modules/push_messaging/PushEvent.idl
 ../../modules/serviceworkers/FetchEvent.idl
 ../../modules/serviceworkers/InstallEvent.idl
 ../../modules/serviceworkers/InstallPhaseEvent.idl

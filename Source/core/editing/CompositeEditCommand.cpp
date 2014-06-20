@@ -26,8 +26,8 @@
 #include "config.h"
 #include "core/editing/CompositeEditCommand.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/DocumentFragment.h"
 #include "core/dom/DocumentMarkerController.h"
@@ -68,8 +68,6 @@
 #include "core/rendering/RenderBlock.h"
 #include "core/rendering/RenderListItem.h"
 #include "core/rendering/RenderText.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -762,7 +760,7 @@ void CompositeEditCommand::deleteInsignificantText(PassRefPtrWillBeRawPtr<Text> 
         bool indicesIntersect = start <= gapEnd && end >= gapStart;
         int gapLen = gapEnd - gapStart;
         if (indicesIntersect && gapLen > 0) {
-            gapStart = max(gapStart, start);
+            gapStart = std::max(gapStart, start);
             if (str.isNull())
                 str = textNode->data().substring(start, end - start);
             // remove text in the gap
@@ -897,10 +895,7 @@ PassRefPtrWillBeRawPtr<Element> CompositeEditCommand::insertNewDefaultParagraphE
 // it, and return that block.  Otherwise return 0.
 PassRefPtrWillBeRawPtr<Element> CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary(const Position& pos)
 {
-    if (pos.isNull())
-        return nullptr;
-
-    document().updateLayoutIgnorePendingStylesheets();
+    ASSERT(isEditablePosition(pos, ContentIsEditable, DoNotUpdateStyle));
 
     // It's strange that this function is responsible for verifying that pos has not been invalidated
     // by an earlier call to this function.  The caller, applyBlockStyle, should do this.
@@ -1128,7 +1123,7 @@ void CompositeEditCommand::moveParagraphWithClones(const VisiblePosition& startO
     cloneParagraphUnderNewElement(start, end, outerNode, blockElement);
 
     setEndingSelection(VisibleSelection(start, end, DOWNSTREAM));
-    deleteSelection(false, false, false, false);
+    deleteSelection(false, false, false);
 
     // There are bugs in deletion when it removes a fully selected table/list.
     // It expands and removes the entire table/list, but will let content
@@ -1227,7 +1222,7 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
 
     setEndingSelection(VisibleSelection(start, end, DOWNSTREAM));
     document().frame()->spellChecker().clearMisspellingsAndBadGrammar(endingSelection());
-    deleteSelection(false, false, false, false);
+    deleteSelection(false, false, false);
 
     ASSERT(destination.deepEquivalent().inDocument());
     cleanupAfterDeletion(destination);

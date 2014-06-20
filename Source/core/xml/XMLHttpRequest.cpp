@@ -23,9 +23,8 @@
 #include "config.h"
 #include "core/xml/XMLHttpRequest.h"
 
-#include "FetchInitiatorTypeNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/FetchInitiatorTypeNames.h"
 #include "core/dom/ContextFeatures.h"
 #include "core/dom/DOMImplementation.h"
 #include "core/dom/ExceptionCode.h"
@@ -36,6 +35,8 @@
 #include "core/fileapi/Blob.h"
 #include "core/fileapi/File.h"
 #include "core/fileapi/Stream.h"
+#include "core/frame/Settings.h"
+#include "core/frame/UseCounter.h"
 #include "core/frame/csp/ContentSecurityPolicy.h"
 #include "core/html/DOMFormData.h"
 #include "core/html/HTMLDocument.h"
@@ -43,10 +44,10 @@
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/inspector/InspectorTraceEvents.h"
 #include "core/loader/ThreadableLoader.h"
-#include "core/frame/Settings.h"
 #include "core/xml/XMLHttpRequestProgressEvent.h"
 #include "core/xml/XMLHttpRequestUpload.h"
 #include "platform/Logging.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/SharedBuffer.h"
 #include "platform/blob/BlobData.h"
 #include "platform/network/HTTPParsers.h"
@@ -572,6 +573,9 @@ void XMLHttpRequest::open(const AtomicString& method, const KURL& url, bool asyn
     }
 
     if (!async && executionContext()->isDocument()) {
+        // Use count for XHR synchronous requests.
+        UseCounter::count(document(), UseCounter::XMLHttpRequestSynchronous);
+
         if (document()->settings() && !document()->settings()->syncXHRInDocumentsEnabled()) {
             exceptionState.throwDOMException(InvalidAccessError, "Synchronous requests are disabled for this page.");
             return;
@@ -657,6 +661,8 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exceptionState)
     if (!initSend(exceptionState))
         return;
 
+    RefPtr<FormData> httpBody;
+
     if (areMethodAndURLValidForSend()) {
         if (getRequestHeader("Content-Type").isEmpty()) {
             // FIXME: this should include the charset used for encoding.
@@ -668,12 +674,12 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exceptionState)
         String body = createMarkup(document);
 
         // FIXME: This should use value of document.inputEncoding to determine the encoding to use.
-        m_requestEntityBody = FormData::create(UTF8Encoding().encode(body, WTF::EntitiesForUnencodables));
+        httpBody = FormData::create(UTF8Encoding().encode(body, WTF::EntitiesForUnencodables));
         if (m_upload)
-            m_requestEntityBody->setAlwaysStream(true);
+            httpBody->setAlwaysStream(true);
     }
 
-    createRequest(exceptionState);
+    createRequest(httpBody.release(), exceptionState);
 }
 
 void XMLHttpRequest::send(const String& body, ExceptionState& exceptionState)
@@ -682,6 +688,8 @@ void XMLHttpRequest::send(const String& body, ExceptionState& exceptionState)
 
     if (!initSend(exceptionState))
         return;
+
+    RefPtr<FormData> httpBody;
 
     if (!body.isNull() && areMethodAndURLValidForSend()) {
         String contentType = getRequestHeader("Content-Type");
@@ -692,12 +700,12 @@ void XMLHttpRequest::send(const String& body, ExceptionState& exceptionState)
             m_requestHeaders.set("Content-Type", AtomicString(contentType));
         }
 
-        m_requestEntityBody = FormData::create(UTF8Encoding().encode(body, WTF::EntitiesForUnencodables));
+        httpBody = FormData::create(UTF8Encoding().encode(body, WTF::EntitiesForUnencodables));
         if (m_upload)
-            m_requestEntityBody->setAlwaysStream(true);
+            httpBody->setAlwaysStream(true);
     }
 
-    createRequest(exceptionState);
+    createRequest(httpBody.release(), exceptionState);
 }
 
 void XMLHttpRequest::send(Blob* body, ExceptionState& exceptionState)
@@ -706,6 +714,8 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exceptionState)
 
     if (!initSend(exceptionState))
         return;
+
+    RefPtr<FormData> httpBody;
 
     if (areMethodAndURLValidForSend()) {
         if (getRequestHeader("Content-Type").isEmpty()) {
@@ -719,21 +729,21 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exceptionState)
         }
 
         // FIXME: add support for uploading bundles.
-        m_requestEntityBody = FormData::create();
+        httpBody = FormData::create();
         if (body->hasBackingFile()) {
             File* file = toFile(body);
             if (!file->path().isEmpty())
-                m_requestEntityBody->appendFile(file->path());
+                httpBody->appendFile(file->path());
             else if (!file->fileSystemURL().isEmpty())
-                m_requestEntityBody->appendFileSystemURL(file->fileSystemURL());
+                httpBody->appendFileSystemURL(file->fileSystemURL());
             else
                 ASSERT_NOT_REACHED();
         } else {
-            m_requestEntityBody->appendBlob(body->uuid(), body->blobDataHandle());
+            httpBody->appendBlob(body->uuid(), body->blobDataHandle());
         }
     }
 
-    createRequest(exceptionState);
+    createRequest(httpBody.release(), exceptionState);
 }
 
 void XMLHttpRequest::send(DOMFormData* body, ExceptionState& exceptionState)
@@ -743,16 +753,18 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionState& exceptionState)
     if (!initSend(exceptionState))
         return;
 
+    RefPtr<FormData> httpBody;
+
     if (areMethodAndURLValidForSend()) {
-        m_requestEntityBody = body->createMultiPartFormData(body->encoding());
+        httpBody = body->createMultiPartFormData();
 
         if (getRequestHeader("Content-Type").isEmpty()) {
-            AtomicString contentType = AtomicString("multipart/form-data; boundary=", AtomicString::ConstructFromLiteral) + m_requestEntityBody->boundary().data();
+            AtomicString contentType = AtomicString("multipart/form-data; boundary=", AtomicString::ConstructFromLiteral) + httpBody->boundary().data();
             setRequestHeaderInternal("Content-Type", contentType);
         }
     }
 
-    createRequest(exceptionState);
+    createRequest(httpBody.release(), exceptionState);
 }
 
 void XMLHttpRequest::send(ArrayBuffer* body, ExceptionState& exceptionState)
@@ -781,23 +793,24 @@ void XMLHttpRequest::sendBytesData(const void* data, size_t length, ExceptionSta
     if (!initSend(exceptionState))
         return;
 
+    RefPtr<FormData> httpBody;
+
     if (areMethodAndURLValidForSend()) {
-        m_requestEntityBody = FormData::create(data, length);
+        httpBody = FormData::create(data, length);
         if (m_upload)
-            m_requestEntityBody->setAlwaysStream(true);
+            httpBody->setAlwaysStream(true);
     }
 
-    createRequest(exceptionState);
+    createRequest(httpBody.release(), exceptionState);
 }
 
 void XMLHttpRequest::sendForInspectorXHRReplay(PassRefPtr<FormData> formData, ExceptionState& exceptionState)
 {
-    m_requestEntityBody = formData ? formData->deepCopy() : nullptr;
-    createRequest(exceptionState);
+    createRequest(formData ? formData->deepCopy() : nullptr, exceptionState);
     m_exceptionCode = exceptionState.code();
 }
 
-void XMLHttpRequest::createRequest(ExceptionState& exceptionState)
+void XMLHttpRequest::createRequest(PassRefPtr<FormData> httpBody, ExceptionState& exceptionState)
 {
     // Only GET request is supported for blob URL.
     if (m_url.protocolIs("blob") && m_method != "GET") {
@@ -811,7 +824,7 @@ void XMLHttpRequest::createRequest(ExceptionState& exceptionState)
     bool uploadEvents = false;
     if (m_async) {
         dispatchProgressEvent(EventTypeNames::loadstart, 0, 0);
-        if (m_requestEntityBody && m_upload) {
+        if (httpBody && m_upload) {
             uploadEvents = m_upload->hasEventListeners();
             m_upload->dispatchEvent(XMLHttpRequestProgressEvent::create(EventTypeNames::loadstart));
         }
@@ -830,12 +843,12 @@ void XMLHttpRequest::createRequest(ExceptionState& exceptionState)
     request.setHTTPMethod(m_method);
     request.setTargetType(ResourceRequest::TargetIsXHR);
 
-    InspectorInstrumentation::willLoadXHR(&executionContext, this, this, m_method, m_url, m_async, m_requestEntityBody ? m_requestEntityBody->deepCopy() : nullptr, m_requestHeaders, m_includeCredentials);
+    InspectorInstrumentation::willLoadXHR(&executionContext, this, this, m_method, m_url, m_async, httpBody ? httpBody->deepCopy() : nullptr, m_requestHeaders, m_includeCredentials);
 
-    if (m_requestEntityBody) {
+    if (httpBody) {
         ASSERT(m_method != "GET");
         ASSERT(m_method != "HEAD");
-        request.setHTTPBody(m_requestEntityBody.release());
+        request.setHTTPBody(httpBody);
     }
 
     if (m_requestHeaders.size() > 0)
@@ -998,7 +1011,6 @@ void XMLHttpRequest::clearResponse()
 void XMLHttpRequest::clearRequest()
 {
     m_requestHeaders.clear();
-    m_requestEntityBody = nullptr;
 }
 
 void XMLHttpRequest::handleDidFailGeneric()

@@ -26,10 +26,9 @@
 #include "config.h"
 #include "core/svg/animation/SVGSMILElement.h"
 
-#include "SVGNames.h"
-#include "XLinkNames.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/XLinkNames.h"
 #include "core/dom/Document.h"
 #include "core/events/EventListener.h"
 #include "core/events/EventSender.h"
@@ -41,8 +40,6 @@
 #include "wtf/MathExtras.h"
 #include "wtf/StdLibExtras.h"
 #include "wtf/Vector.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -539,11 +536,11 @@ void SVGSMILElement::parseAttribute(const QualifiedName& name, const AtomicStrin
         if (inDocument())
             connectSyncBaseConditions();
     } else if (name == SVGNames::onbeginAttr) {
-        setAttributeEventListener(EventTypeNames::beginEvent, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::beginEvent, createAttributeEventListener(this, name, value, eventParameterName()));
     } else if (name == SVGNames::onendAttr) {
-        setAttributeEventListener(EventTypeNames::endEvent, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::endEvent, createAttributeEventListener(this, name, value, eventParameterName()));
     } else if (name == SVGNames::onrepeatAttr) {
-        setAttributeEventListener(EventTypeNames::repeatEvent, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::repeatEvent, createAttributeEventListener(this, name, value, eventParameterName()));
     } else
         SVGElement::parseAttribute(name, value);
 }
@@ -797,7 +794,7 @@ SMILTime SVGSMILElement::minValue() const
 
 SMILTime SVGSMILElement::simpleDuration() const
 {
-    return min(dur(), SMILTime::indefinite());
+    return std::min(dur(), SMILTime::indefinite());
 }
 
 void SVGSMILElement::addBeginTime(SMILTime eventTime, SMILTime beginTime, SMILTimeWithOrigin::Origin origin)
@@ -869,7 +866,7 @@ SMILTime SVGSMILElement::repeatingDuration() const
     if (!simpleDuration || (repeatDur.isUnresolved() && repeatCount.isUnresolved()))
         return simpleDuration;
     SMILTime repeatCountDuration = simpleDuration * repeatCount;
-    return min(repeatCountDuration, min(repeatDur, SMILTime::indefinite()));
+    return std::min(repeatCountDuration, std::min(repeatDur, SMILTime::indefinite()));
 }
 
 SMILTime SVGSMILElement::resolveActiveEnd(SMILTime resolvedBegin, SMILTime resolvedEnd) const
@@ -882,7 +879,7 @@ SMILTime SVGSMILElement::resolveActiveEnd(SMILTime resolvedBegin, SMILTime resol
     else if (!resolvedEnd.isFinite())
         preliminaryActiveDuration = repeatingDuration();
     else
-        preliminaryActiveDuration = min(repeatingDuration(), resolvedEnd - resolvedBegin);
+        preliminaryActiveDuration = std::min(repeatingDuration(), resolvedEnd - resolvedBegin);
 
     SMILTime minValue = this->minValue();
     SMILTime maxValue = this->maxValue();
@@ -892,15 +889,15 @@ SMILTime SVGSMILElement::resolveActiveEnd(SMILTime resolvedBegin, SMILTime resol
         minValue = 0;
         maxValue = SMILTime::indefinite();
     }
-    return resolvedBegin + min(maxValue, max(minValue, preliminaryActiveDuration));
+    return resolvedBegin + std::min(maxValue, std::max(minValue, preliminaryActiveDuration));
 }
 
 SMILInterval SVGSMILElement::resolveInterval(ResolveInterval resolveIntervalType) const
 {
     bool first = resolveIntervalType == FirstInterval;
     // See the pseudocode in http://www.w3.org/TR/SMIL3/smil-timing.html#q90.
-    SMILTime beginAfter = first ? -numeric_limits<double>::infinity() : m_interval.end;
-    SMILTime lastIntervalTempEnd = numeric_limits<double>::infinity();
+    SMILTime beginAfter = first ? -std::numeric_limits<double>::infinity() : m_interval.end;
+    SMILTime lastIntervalTempEnd = std::numeric_limits<double>::infinity();
     while (true) {
         bool equalsMinimumOK = !first || m_interval.end > m_interval.begin;
         SMILTime tempBegin = findInstanceTime(Begin, beginAfter, equalsMinimumOK);
@@ -936,7 +933,7 @@ void SVGSMILElement::resolveFirstInterval()
     if (!firstInterval.begin.isUnresolved() && firstInterval != m_interval) {
         m_interval = firstInterval;
         notifyDependentsIntervalChanged();
-        m_nextProgressTime = min(m_nextProgressTime, m_interval.begin);
+        m_nextProgressTime = std::min(m_nextProgressTime, m_interval.begin);
 
         if (m_timeContainer)
             m_timeContainer->notifyIntervalsChanged();
@@ -951,7 +948,7 @@ bool SVGSMILElement::resolveNextInterval()
     if (!nextInterval.begin.isUnresolved() && nextInterval.begin != m_interval.begin) {
         m_interval = nextInterval;
         notifyDependentsIntervalChanged();
-        m_nextProgressTime = min(m_nextProgressTime, m_interval.begin);
+        m_nextProgressTime = std::min(m_nextProgressTime, m_interval.begin);
         return true;
     }
 
@@ -1096,7 +1093,7 @@ float SVGSMILElement::calculateAnimationPercentAndRepeat(SMILTime elapsed, unsig
 
         double percent = (m_interval.end.value() - m_interval.begin.value()) / simpleDuration.value();
         percent = percent - floor(percent);
-        if (percent < numeric_limits<float>::epsilon() || 1 - percent < numeric_limits<float>::epsilon())
+        if (percent < std::numeric_limits<float>::epsilon() || 1 - percent < std::numeric_limits<float>::epsilon())
             return 1.0f;
         return narrowPrecisionToFloat(percent);
     }

@@ -35,6 +35,8 @@
 #include "core/rendering/line/BreakingContextInlineHeaders.h"
 #include "core/rendering/line/LineLayoutState.h"
 #include "core/rendering/line/LineWidth.h"
+#include "core/rendering/line/RenderTextInfo.h"
+#include "core/rendering/line/WordMeasurement.h"
 #include "core/rendering/svg/SVGRootInlineBox.h"
 #include "platform/fonts/Character.h"
 #include "platform/text/BidiResolver.h"
@@ -624,7 +626,7 @@ BidiRun* RenderBlockFlow::computeInlineDirectionPositionsForSegment(RootInlineBo
     float& availableLogicalWidth, BidiRun* firstRun, BidiRun* trailingSpaceRun, GlyphOverflowAndFallbackFontsMap& textBoxDataMap, VerticalPositionCache& verticalPositionCache,
     WordMeasurements& wordMeasurements)
 {
-    bool needsWordSpacing = false;
+    bool needsWordSpacing = true;
     float totalLogicalWidth = lineBox->getFlowSpacingLogicalWidth().toFloat();
     unsigned expansionOpportunityCount = 0;
     bool isAfterExpansion = true;
@@ -652,10 +654,10 @@ BidiRun* RenderBlockFlow::computeInlineDirectionPositionsForSegment(RootInlineBo
                 expansionOpportunityCount += opportunitiesInRun;
             }
 
-            if (int length = rt->textLength()) {
+            if (rt->textLength()) {
                 if (!r->m_start && needsWordSpacing && isSpaceOrNewline(rt->characterAt(r->m_start)))
                     totalLogicalWidth += rt->style(lineInfo.isFirstLine())->font().fontDescription().wordSpacing();
-                needsWordSpacing = !isSpaceOrNewline(rt->characterAt(r->m_stop - 1)) && r->m_stop == length;
+                needsWordSpacing = !isSpaceOrNewline(rt->characterAt(r->m_stop - 1));
             }
 
             setLogicalWidthForTextRun(lineBox, r, rt, totalLogicalWidth, lineInfo, textBoxDataMap, verticalPositionCache, wordMeasurements);
@@ -916,16 +918,6 @@ void RenderBlockFlow::layoutRunsAndFloats(LineLayoutState& layoutState)
     layoutRunsAndFloatsInRange(layoutState, resolver, cleanLineStart, cleanLineBidiStatus, consecutiveHyphenatedLines);
     linkToEndLineIfNeeded(layoutState);
     repaintDirtyFloats(layoutState.floats());
-}
-
-RenderTextInfo::RenderTextInfo()
-    : m_text(0)
-    , m_font(0)
-{
-}
-
-RenderTextInfo::~RenderTextInfo()
-{
 }
 
 // Before restarting the layout loop with a new logicalHeight, remove all floats that were added and reset the resolver.
@@ -1222,11 +1214,11 @@ void RenderBlockFlow::repaintDirtyFloats(Vector<FloatWithRect>& floats)
     for (size_t i = 0; i < floatCount; ++i) {
         if (!floats[i].everHadLayout) {
             RenderBox* f = floats[i].object;
-            if (!f->x() && !f->y() && f->checkForRepaint()) {
+            if (!f->x() && !f->y() && f->checkForPaintInvalidation()) {
                 if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                     f->setShouldDoFullPaintInvalidationAfterLayout(true);
                 else
-                    f->repaint();
+                    f->paintInvalidationForWholeRenderer();
             }
         }
     }
@@ -1831,7 +1823,7 @@ RootInlineBox* RenderBlockFlow::determineStartPosition(LineLayoutState& layoutSt
     if (layoutState.isFullLayout()) {
         // If we encountered a new float and have inline children, mark ourself to force us to issue paint invalidations.
         if (layoutState.hasInlineChild() && !selfNeedsLayout()) {
-            setNeedsLayoutAndFullRepaint(MarkOnlyThis);
+            setNeedsLayoutAndFullPaintInvalidation(MarkOnlyThis);
             if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                 setShouldDoFullPaintInvalidationAfterLayout(true);
         }

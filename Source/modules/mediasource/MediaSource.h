@@ -122,9 +122,13 @@ private:
     void scheduleEvent(const AtomicString& eventName);
     void endOfStreamInternal(const blink::WebMediaSource::EndOfStreamStatus, ExceptionState&);
 
+    // Implements the duration change algorithm.
+    // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#duration-change-algorithm
+    void durationChangeAlgorithm(double newDuration);
+
     OwnPtr<blink::WebMediaSource> m_webMediaSource;
     AtomicString m_readyState;
-    OwnPtr<GenericEventQueue> m_asyncEventQueue;
+    OwnPtrWillBeMember<GenericEventQueue> m_asyncEventQueue;
     // FIXME: oilpan: This should become a Member. For now, m_attachedElement will be cleared by the HTMLMediaElement destructor.
     HTMLMediaElement* m_attachedElement;
 

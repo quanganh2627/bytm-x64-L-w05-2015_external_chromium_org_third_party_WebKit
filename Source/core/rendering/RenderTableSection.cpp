@@ -642,7 +642,8 @@ int RenderTableSection::calcRowLogicalHeight()
 
     RenderTableCell* cell;
 
-    LayoutStateMaintainer statePusher(*this);
+    // FIXME: This shouldn't use the same constructor as RenderView.
+    LayoutState state(*this);
 
     m_rowPos.resize(m_grid.size() + 1);
 
@@ -695,11 +696,6 @@ int RenderTableSection::calcRowLogicalHeight()
                 ASSERT(cell->rowSpan() == 1);
 
                 if (cell->hasOverrideHeight()) {
-                    if (!statePusher.didPush()) {
-                        // Technically, we should also push state for the row, but since
-                        // rows don't push a coordinate transform, that's not necessary.
-                        statePusher.push(*this, locationOffset());
-                    }
                     cell->clearIntrinsicPadding();
                     cell->clearOverrideSize();
                     cell->forceChildLayout();
@@ -735,7 +731,7 @@ void RenderTableSection::layout()
     // can be called in a loop (e.g during parsing). Doing it now ensures we have a stable-enough structure.
     m_grid.shrinkToFit();
 
-    LayoutStateMaintainer statePusher(*this, locationOffset());
+    LayoutState state(*this, locationOffset());
 
     const Vector<int>& columnPos = table()->columnPositions();
 
@@ -892,7 +888,7 @@ void RenderTableSection::layoutRows()
     int vspacing = table()->vBorderSpacing();
     unsigned nEffCols = table()->numEffCols();
 
-    LayoutStateMaintainer statePusher(*this, locationOffset());
+    LayoutState state(*this, locationOffset());
 
     for (unsigned r = 0; r < totalRows; r++) {
         // Set the row's x/y position and width/height.
@@ -1002,7 +998,7 @@ void RenderTableSection::layoutRows()
                 // If the child moved, we have to repaint it as well as any floating/positioned
                 // descendants. An exception is if we need a layout. In this case, we know we're going to
                 // repaint ourselves (and the child) anyway.
-                if (!table()->selfNeedsLayout() && cell->checkForRepaint()) {
+                if (!table()->selfNeedsLayout() && cell->checkForPaintInvalidation()) {
                     if (RuntimeEnabledFeatures::repaintAfterLayoutEnabled())
                         cell->setMayNeedPaintInvalidation(true);
                     else
@@ -1486,7 +1482,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, const LayoutPoint& pa
 void RenderTableSection::imageChanged(WrappedImagePtr, const IntRect*)
 {
     // FIXME: Examine cells and repaint only the rect the image paints in.
-    repaint();
+    paintInvalidationForWholeRenderer();
 }
 
 void RenderTableSection::recalcCells()
@@ -1516,7 +1512,7 @@ void RenderTableSection::recalcCells()
     }
 
     m_grid.shrinkToFit();
-    setNeedsLayoutAndFullRepaint();
+    setNeedsLayoutAndFullPaintInvalidation();
 }
 
 // FIXME: This function could be made O(1) in certain cases (like for the non-most-constrainive cells' case).

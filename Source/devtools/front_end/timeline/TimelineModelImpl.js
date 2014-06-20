@@ -36,9 +36,11 @@ WebInspector.TimelineModelImpl.prototype = {
     /**
      * @param {boolean} captureStacks
      * @param {boolean} captureMemory
+     * @param {boolean} capturePictures
      */
-    startRecording: function(captureStacks, captureMemory)
+    startRecording: function(captureStacks, captureMemory, capturePictures)
     {
+        console.assert(!capturePictures, "Legacy timeline does not support capturing pictures");
         this._clientInitiatedRecording = true;
         this.reset();
         var maxStackFrames = captureStacks ? 30 : 0;
@@ -162,7 +164,6 @@ WebInspector.TimelineModelImpl.prototype = {
      * @param {!TimelineAgent.TimelineEvent} payload
      * @param {?WebInspector.TimelineModel.Record} parentRecord
      * @return {!WebInspector.TimelineModel.Record}
-     * @this {!WebInspector.TimelineModel}
      */
     _innerAddRecord: function(payload, parentRecord)
     {
@@ -290,7 +291,7 @@ WebInspector.TimelineModelImpl.InterRecordBindings.prototype = {
 /**
  * @constructor
  * @implements {WebInspector.TimelineModel.Record}
- * @param {!WebInspector.TimelineModel} model
+ * @param {!WebInspector.TimelineModelImpl} model
  * @param {!TimelineAgent.TimelineEvent} timelineEvent
  * @param {?WebInspector.TimelineModel.Record} parentRecord
  */
@@ -419,7 +420,7 @@ WebInspector.TimelineModel.RecordImpl.prototype = {
      */
     category: function()
     {
-        return WebInspector.TimelineUIUtils.categoryForRecord(this);
+        return WebInspector.TimelineUIUtils.recordStyle(this).category;
     },
 
     /**

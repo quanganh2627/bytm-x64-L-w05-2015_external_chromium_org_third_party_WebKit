@@ -25,10 +25,10 @@
  */
 
 #include "config.h"
-#include "core/html/parser/HTMLTreeBuilder.h"
+#include "core/html/parser/HTMLConstructionSite.h"
 
-#include "HTMLElementFactory.h"
-#include "HTMLNames.h"
+#include "core/HTMLElementFactory.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Comment.h"
 #include "core/dom/DocumentFragment.h"
 #include "core/dom/DocumentType.h"

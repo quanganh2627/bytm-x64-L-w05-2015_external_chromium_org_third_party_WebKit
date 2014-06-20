@@ -25,12 +25,12 @@
 #include "config.h"
 #include "core/inspector/InspectorCSSAgent.h"
 
-#include "CSSPropertyNames.h"
-#include "FetchInitiatorTypeNames.h"
-#include "InspectorTypeBuilder.h"
-#include "StylePropertyShorthand.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/CSSPropertyNames.h"
+#include "core/FetchInitiatorTypeNames.h"
+#include "core/InspectorTypeBuilder.h"
+#include "core/StylePropertyShorthand.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/css/CSSDefaultStyleSheets.h"
 #include "core/css/CSSImportRule.h"
@@ -201,7 +201,7 @@ public:
         return String::format("SetStyleSheetText %s", m_styleSheet->id().utf8().data());
     }
 
-    virtual void merge(PassRefPtr<Action> action) OVERRIDE
+    virtual void merge(PassRefPtrWillBeRawPtr<Action> action) OVERRIDE
     {
         ASSERT(action->mergeId() == mergeId());
 
@@ -257,7 +257,7 @@ public:
         return String::format("SetPropertyText %s:%u:%s", m_styleSheet->id().utf8().data(), m_propertyIndex, m_overwrite ? "true" : "false");
     }
 
-    virtual void merge(PassRefPtr<Action> action) OVERRIDE
+    virtual void merge(PassRefPtrWillBeRawPtr<Action> action) OVERRIDE
     {
         ASSERT(action->mergeId() == mergeId());
 
@@ -562,16 +562,15 @@ void InspectorCSSAgent::setActiveStyleSheets(Document* document, const Vector<CS
     }
 
     HashSet<CSSStyleSheet*> removedSheets(*documentCSSStyleSheets);
-
-    HashSet<CSSStyleSheet*> addedSheets;
+    Vector<CSSStyleSheet*> addedSheets;
     for (Vector<CSSStyleSheet*>::const_iterator it = allSheetsVector.begin(); it != allSheetsVector.end(); ++it) {
         CSSStyleSheet* cssStyleSheet = *it;
         if (removedSheets.contains(cssStyleSheet)) {
             removedSheets.remove(cssStyleSheet);
             if (isInitialFrontendLoad)
-                addedSheets.add(cssStyleSheet);
+                addedSheets.append(cssStyleSheet);
         } else {
-            addedSheets.add(cssStyleSheet);
+            addedSheets.append(cssStyleSheet);
         }
     }
 
@@ -588,7 +587,7 @@ void InspectorCSSAgent::setActiveStyleSheets(Document* document, const Vector<CS
         }
     }
 
-    for (HashSet<CSSStyleSheet*>::iterator it = addedSheets.begin(); it != addedSheets.end(); ++it) {
+    for (Vector<CSSStyleSheet*>::iterator it = addedSheets.begin(); it != addedSheets.end(); ++it) {
         CSSStyleSheet* cssStyleSheet = *it;
         bool isNew = isInitialFrontendLoad || !m_cssStyleSheetToInspectorStyleSheet.contains(cssStyleSheet);
         if (isNew) {
@@ -832,7 +831,7 @@ void InspectorCSSAgent::setStyleSheetText(ErrorString* errorString, const String
     }
 
     TrackExceptionState exceptionState;
-    m_domAgent->history()->perform(adoptRef(new SetStyleSheetTextAction(inspectorStyleSheet, text)), exceptionState);
+    m_domAgent->history()->perform(adoptRefWillBeNoop(new SetStyleSheetTextAction(inspectorStyleSheet, text)), exceptionState);
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
 }
 
@@ -894,7 +893,7 @@ void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const String& 
     }
 
     TrackExceptionState exceptionState;
-    bool success = m_domAgent->history()->perform(adoptRef(new SetPropertyTextAction(inspectorStyleSheet, compoundId, propertyIndex, text, overwrite)), exceptionState);
+    bool success = m_domAgent->history()->perform(adoptRefWillBeNoop(new SetPropertyTextAction(inspectorStyleSheet, compoundId, propertyIndex, text, overwrite)), exceptionState);
     if (success)
         result = inspectorStyleSheet->buildObjectForStyle(inspectorStyleSheet->styleForId(compoundId));
     *errorString = InspectorDOMAgent::toErrorString(exceptionState);
@@ -915,7 +914,7 @@ void InspectorCSSAgent::setRuleSelector(ErrorString* errorString, const String& 
     }
 
     TrackExceptionState exceptionState;
-    bool success = m_domAgent->history()->perform(adoptRef(new SetRuleSelectorAction(inspectorStyleSheet, compoundId, selector)), exceptionState);
+    bool success = m_domAgent->history()->perform(adoptRefWillBeNoop(new SetRuleSelectorAction(inspectorStyleSheet, compoundId, selector)), exceptionState);
     if (success) {
         CSSStyleRule* rule = inspectorStyleSheet->ruleForId(compoundId);
         result = inspectorStyleSheet->buildObjectForRule(rule, buildMediaListChain(rule));
@@ -955,7 +954,7 @@ void InspectorCSSAgent::addRule(ErrorString* errorString, const String& styleShe
         return;
 
     TrackExceptionState exceptionState;
-    RefPtr<AddRuleAction> action = adoptRef(new AddRuleAction(inspectorStyleSheet, selector));
+    RefPtrWillBeRawPtr<AddRuleAction> action = adoptRefWillBeNoop(new AddRuleAction(inspectorStyleSheet, selector));
     bool success = m_domAgent->history()->perform(action, exceptionState);
     if (!success) {
         *errorString = InspectorDOMAgent::toErrorString(exceptionState);

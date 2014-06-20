@@ -44,6 +44,7 @@ enum PreferPlugInsForImagesOption {
 class HTMLPlugInElement : public HTMLFrameOwnerElement {
 public:
     virtual ~HTMLPlugInElement();
+    virtual void trace(Visitor*) OVERRIDE;
 
     void resetInstance();
     SharedPersistent<v8::Object>* pluginWrapper();
@@ -56,6 +57,8 @@ public:
     bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
     void setNeedsWidgetUpdate(bool needsWidgetUpdate) { m_needsWidgetUpdate = needsWidgetUpdate; }
     void updateWidget();
+
+    bool shouldAccelerate() const;
 
     void requestPluginCreationWithoutRendererIfPossible();
     void createPluginWithoutRenderer();
@@ -88,7 +91,7 @@ protected:
     String m_serviceType;
     String m_url;
     KURL m_loadedUrl;
-    OwnPtr<HTMLImageLoader> m_imageLoader;
+    OwnPtrWillBeMember<HTMLImageLoader> m_imageLoader;
     bool m_isDelayingLoadEvent;
 
 private:

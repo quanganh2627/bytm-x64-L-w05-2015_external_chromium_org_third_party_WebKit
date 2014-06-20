@@ -26,7 +26,7 @@
 #include "config.h"
 #include "core/rendering/RenderBoxModelObject.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/frame/Settings.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/page/scrolling/ScrollingConstraints.h"
@@ -474,6 +474,8 @@ void RenderBoxModelObject::clipRoundedInnerRect(GraphicsContext * context, const
     }
 }
 
+// FIXME: See crbug.com/382491. The use of getCTM in this context is incorrect because the matrix returned does not
+// include scales applied at raster time, such as the device zoom.
 static LayoutRect shrinkRectByOnePixel(GraphicsContext* context, const LayoutRect& rect)
 {
     LayoutRect shrunkRect = rect;
@@ -1003,15 +1005,15 @@ void RenderBoxModelObject::calculateBackgroundImageGeometry(const RenderLayerMod
     // FIXME: transforms spec says that fixed backgrounds behave like scroll inside transforms.
     bool fixedAttachment = fillLayer->attachment() == FixedBackgroundAttachment;
 
-#if ENABLE(FAST_MOBILE_SCROLLING)
-    if (view()->frameView() && view()->frameView()->shouldAttemptToScrollUsingFastPath()) {
+    if (RuntimeEnabledFeatures::fastMobileScrollingEnabled()
+        && view()->frameView()
+        && view()->frameView()->shouldAttemptToScrollUsingFastPath()) {
         // As a side effect of an optimization to blit on scroll, we do not honor the CSS
         // property "background-attachment: fixed" because it may result in rendering
         // artifacts. Note, these artifacts only appear if we are blitting on scroll of
         // a page that has fixed background images.
         fixedAttachment = false;
     }
-#endif
 
     if (!fixedAttachment) {
         geometry.setDestRect(snappedPaintRect);
@@ -2554,6 +2556,8 @@ void RenderBoxModelObject::paintBoxShadow(const PaintInfo& info, const LayoutRec
                     if (hasOpaqueBackground) {
                         // FIXME: The function to decide on the policy based on the transform should be a named function.
                         // FIXME: It's not clear if this check is right. What about integral scale factors?
+                        // FIXME: See crbug.com/382491. The use of getCTM may also be wrong because it does not include
+                        // device zoom applied at raster time.
                         AffineTransform transform = context->getCTM();
                         if (transform.a() != 1 || (transform.d() != 1 && transform.d() != -1) || transform.b() || transform.c())
                             rectToClipOut.inflate(-1);
@@ -2733,13 +2737,15 @@ bool RenderBoxModelObject::shouldAntialiasLines(GraphicsContext* context)
 {
     // FIXME: We may want to not antialias when scaled by an integral value,
     // and we may want to antialias when translated by a non-integral value.
+    // FIXME: See crbug.com/382491. getCTM does not include scale factors applied at raster time, such
+    // as device zoom.
     return !context->getCTM().isIdentityOrTranslationOrFlipped();
 }
 
 void RenderBoxModelObject::mapAbsoluteToLocalPoint(MapCoordinatesFlags mode, TransformState& transformState) const
 {
     // We don't expect to be called during layout.
-    ASSERT(!view() || !view()->layoutStateEnabled());
+    ASSERT(!view() || !view()->layoutStateCachedOffsetsEnabled());
 
     RenderObject* o = container();
     if (!o)

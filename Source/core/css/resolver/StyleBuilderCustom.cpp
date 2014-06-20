@@ -37,11 +37,11 @@
  */
 
 #include "config.h"
-#include "StyleBuilderFunctions.h"
 
-#include "CSSPropertyNames.h"
-#include "CSSValueKeywords.h"
-#include "StylePropertyShorthand.h"
+#include "core/CSSPropertyNames.h"
+#include "core/CSSValueKeywords.h"
+#include "core/StyleBuilderFunctions.h"
+#include "core/StylePropertyShorthand.h"
 #include "core/css/BasicShapeFunctions.h"
 #include "core/css/CSSAspectRatioValue.h"
 #include "core/css/CSSCursorImageValue.h"
@@ -71,9 +71,7 @@
 #include "core/rendering/style/RenderStyle.h"
 #include "core/rendering/style/RenderStyleConstants.h"
 #include "core/rendering/style/SVGRenderStyle.h"
-#include "core/rendering/style/SVGRenderStyleDefs.h"
 #include "core/rendering/style/StyleGeneratedImage.h"
-#include "core/svg/SVGPaint.h"
 #include "platform/fonts/FontDescription.h"
 #include "wtf/MathExtras.h"
 #include "wtf/StdLibExtras.h"

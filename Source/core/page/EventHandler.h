@@ -246,7 +246,7 @@ private:
     bool scroll(ScrollDirection, ScrollGranularity, Node* startNode = 0, Node** stopNode = 0, float delta = 1.0f, IntPoint absolutePoint = IntPoint());
 
     TouchAction intersectTouchAction(const TouchAction, const TouchAction);
-    TouchAction computeEffectiveTouchAction(const LayoutPoint&);
+    TouchAction computeEffectiveTouchAction(const Node&);
 
     HitTestResult hitTestResultInFrame(LocalFrame*, const LayoutPoint&, HitTestRequest::HitTestRequestType hitType = HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::ConfusingAndOftenMisusedDisallowShadowContent);
 
@@ -274,7 +274,7 @@ private:
     bool passMouseMoveEventToSubframe(MouseEventWithHitTestResults&, LocalFrame* subframe, HitTestResult* hoveredNode = 0);
     bool passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&, LocalFrame* subframe);
 
-    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&, Scrollbar*);
+    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&);
 
     bool passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults&);
 
@@ -373,6 +373,7 @@ private:
 
     // If set, the document of the active touch sequence. Unset if no touch sequence active.
     RefPtrWillBeMember<Document> m_touchSequenceDocument;
+    RefPtr<UserGestureToken> m_touchSequenceUserGestureToken;
 
     bool m_touchPressed;
 

@@ -93,10 +93,6 @@ public:
     BLINK_EXPORT WebFileSystem::Type type() const;
     BLINK_EXPORT WebURL rootURL() const;
 
-    BLINK_EXPORT v8::Handle<v8::Value> toV8Value();
-    BLINK_EXPORT v8::Handle<v8::Value> createV8Entry(
-        const WebString& path,
-        EntryType);
     BLINK_EXPORT v8::Handle<v8::Value> toV8Value(v8::Handle<v8::Object> creationContext, v8::Isolate*);
     BLINK_EXPORT v8::Handle<v8::Value> createV8Entry(
         const WebString& path,
@@ -106,8 +102,8 @@ public:
     bool isNull() const { return m_private.isNull(); }
 
 #if BLINK_IMPLEMENTATION
-    WebDOMFileSystem(const PassRefPtrWillBeRawPtr<WebCore::DOMFileSystem>&);
-    WebDOMFileSystem& operator=(const PassRefPtrWillBeRawPtr<WebCore::DOMFileSystem>&);
+    WebDOMFileSystem(WebCore::DOMFileSystem*);
+    WebDOMFileSystem& operator=(WebCore::DOMFileSystem*);
 #endif
 
 private:

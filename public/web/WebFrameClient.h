@@ -67,6 +67,7 @@ class WebGeolocationClient;
 class WebInputEvent;
 class WebMediaPlayer;
 class WebMediaPlayerClient;
+class WebMIDIClient;
 class WebNotificationPresenter;
 class WebServiceWorkerProvider;
 class WebServiceWorkerProviderClient;
@@ -74,6 +75,7 @@ class WebSocketHandle;
 class WebNode;
 class WebPlugin;
 class WebRTCPeerConnectionHandler;
+class WebScreenOrientationClient;
 class WebSharedWorker;
 class WebSharedWorkerClient;
 class WebSocketStreamHandle;
@@ -264,6 +266,9 @@ public:
     // The frame's manifest has changed.
     virtual void didChangeManifest(WebLocalFrame*) { }
 
+    // The frame's brand color has changed.
+    virtual void didChangeBrandColor(WebLocalFrame*) { }
+
 
     // Misc ----------------------------------------------------------------
 
@@ -395,9 +400,6 @@ public:
     // The frame's document finished the initial non-empty layout of a page.
     virtual void didFirstVisuallyNonEmptyLayout(WebLocalFrame*) { }
 
-    // The size of the content area changed.
-    virtual void didChangeContentsSize(WebLocalFrame*, const WebSize&) { }
-
     // The main frame scrolled.
     virtual void didChangeScrollOffset(WebLocalFrame*) { }
 
@@ -464,6 +466,11 @@ public:
     virtual WebUserMediaClient* userMediaClient() { return 0; }
 
 
+    // Web MIDI -------------------------------------------------------------
+
+    virtual WebMIDIClient* webMIDIClient() { return 0; }
+
+
     // Messages ------------------------------------------------------
 
     // Notifies the embedder that a postMessage was issued on this frame, and
@@ -505,8 +512,14 @@ public:
     // Send initial drawing parameters to a child frame that is being rendered out of process.
     virtual void initializeChildFrame(const WebRect& frameRect, float scaleFactor) { }
 
+
+    // Screen Orientation --------------------------------------------------
+
+    // Access the embedder API for (client-based) screen orientation client .
+    virtual WebScreenOrientationClient* webScreenOrientationClient() { return 0; }
+
 protected:
-    ~WebFrameClient() { }
+    virtual ~WebFrameClient() { }
 };
 
 } // namespace blink

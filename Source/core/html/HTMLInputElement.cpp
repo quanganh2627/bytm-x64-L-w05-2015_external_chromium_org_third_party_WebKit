@@ -29,12 +29,11 @@
 #include "config.h"
 #include "core/html/HTMLInputElement.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/CSSPropertyNames.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
@@ -70,13 +69,13 @@
 #include "core/page/ChromeClient.h"
 #include "core/rendering/RenderTextControlSingleLine.h"
 #include "core/rendering/RenderTheme.h"
+#include "platform/ColorChooser.h"
 #include "platform/DateTimeChooser.h"
 #include "platform/Language.h"
 #include "platform/PlatformMouseEvent.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/text/PlatformLocale.h"
 #include "wtf/MathExtras.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -132,7 +131,7 @@ HTMLInputElement::HTMLInputElement(Document& document, HTMLFormElement* form, bo
 
 PassRefPtrWillBeRawPtr<HTMLInputElement> HTMLInputElement::create(Document& document, HTMLFormElement* form, bool createdByParser)
 {
-    RefPtrWillBeRawPtr<HTMLInputElement> inputElement = adoptRefWillBeRefCountedGarbageCollected(new HTMLInputElement(document, form, createdByParser));
+    RefPtrWillBeRawPtr<HTMLInputElement> inputElement = adoptRefWillBeNoop(new HTMLInputElement(document, form, createdByParser));
     inputElement->ensureUserAgentShadowRoot();
     return inputElement.release();
 }
@@ -142,13 +141,14 @@ void HTMLInputElement::trace(Visitor* visitor)
     visitor->trace(m_inputType);
     visitor->trace(m_inputTypeView);
     visitor->trace(m_listAttributeTargetObserver);
+    visitor->trace(m_imageLoader);
     HTMLTextFormControlElement::trace(visitor);
 }
 
 HTMLImageLoader* HTMLInputElement::imageLoader()
 {
     if (!m_imageLoader)
-        m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+        m_imageLoader = HTMLImageLoader::create(this);
     return m_imageLoader.get();
 }
 
@@ -659,7 +659,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         int valueAsInteger = value.toInt();
         m_size = valueAsInteger > 0 ? valueAsInteger : defaultSize;
         if (m_size != oldSize && renderer())
-            renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullRepaint();
+            renderer()->setNeedsLayoutAndPrefWidthsRecalcAndFullPaintInvalidation();
     } else if (name == altAttr)
         m_inputTypeView->altAttributeChanged();
     else if (name == srcAttr)
@@ -668,7 +668,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         // FIXME: ignore for the moment
     } else if (name == onsearchAttr) {
         // Search field and slider attributes all just cause updateFromElement to be called through style recalcing.
-        setAttributeEventListener(EventTypeNames::search, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(EventTypeNames::search, createAttributeEventListener(this, name, value, eventParameterName()));
     } else if (name == resultsAttr) {
         int oldResults = m_maxResults;
         m_maxResults = !value.isNull() ? std::min(value.toInt(), maxSavedResults) : -1;

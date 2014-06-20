@@ -28,7 +28,7 @@
 #include "config.h"
 #include "core/dom/FullscreenElementStack.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/events/Event.h"
 #include "core/frame/FrameHost.h"
@@ -189,9 +189,11 @@ void FullscreenElementStack::requestFullScreenForElement(Element* element, unsig
 
         // A descendant browsing context's document has a non-empty fullscreen element stack.
         bool descendentHasNonEmptyStack = false;
-        for (LocalFrame* descendant = document()->frame() ? document()->frame()->tree().traverseNext() : 0; descendant; descendant = descendant->tree().traverseNext()) {
-            ASSERT(descendant->document());
-            if (fullscreenElementFrom(*descendant->document())) {
+        for (Frame* descendant = document()->frame() ? document()->frame()->tree().traverseNext() : 0; descendant; descendant = descendant->tree().traverseNext()) {
+            if (!descendant->isLocalFrame())
+                continue;
+            ASSERT(toLocalFrame(descendant)->document());
+            if (fullscreenElementFrom(*toLocalFrame(descendant)->document())) {
                 descendentHasNonEmptyStack = true;
                 break;
             }
@@ -302,10 +304,12 @@ void FullscreenElementStack::webkitExitFullscreen()
     // element stack (if any), ordered so that the child of the doc is last and the document furthest
     // away from the doc is first.
     WillBeHeapDeque<RefPtrWillBeMember<Document> > descendants;
-    for (LocalFrame* descendant = document()->frame() ?  document()->frame()->tree().traverseNext() : 0; descendant; descendant = descendant->tree().traverseNext()) {
-        ASSERT(descendant->document());
-        if (fullscreenElementFrom(*descendant->document()))
-            descendants.prepend(descendant->document());
+    for (Frame* descendant = document()->frame() ? document()->frame()->tree().traverseNext() : 0; descendant; descendant = descendant->tree().traverseNext()) {
+        if (!descendant->isLocalFrame())
+            continue;
+        ASSERT(toLocalFrame(descendant)->document());
+        if (fullscreenElementFrom(*toLocalFrame(descendant)->document()))
+            descendants.prepend(toLocalFrame(descendant)->document());
     }
 
     // 4. For each descendant in descendants, empty descendant's fullscreen element stack, and queue a

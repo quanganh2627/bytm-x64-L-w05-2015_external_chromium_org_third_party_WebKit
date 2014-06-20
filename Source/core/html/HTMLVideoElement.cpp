@@ -26,9 +26,9 @@
 #include "config.h"
 #include "core/html/HTMLVideoElement.h"
 
-#include "CSSPropertyNames.h"
-#include "HTMLNames.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/CSSPropertyNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Attribute.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
@@ -55,10 +55,16 @@ inline HTMLVideoElement::HTMLVideoElement(Document& document)
 
 PassRefPtrWillBeRawPtr<HTMLVideoElement> HTMLVideoElement::create(Document& document)
 {
-    RefPtrWillBeRawPtr<HTMLVideoElement> video = adoptRefWillBeRefCountedGarbageCollected(new HTMLVideoElement(document));
+    RefPtrWillBeRawPtr<HTMLVideoElement> video = adoptRefWillBeNoop(new HTMLVideoElement(document));
     video->ensureUserAgentShadowRoot();
     video->suspendIfNeeded();
     return video.release();
+}
+
+void HTMLVideoElement::trace(Visitor* visitor)
+{
+    visitor->trace(m_imageLoader);
+    HTMLMediaElement::trace(visitor);
 }
 
 bool HTMLVideoElement::rendererIsNeeded(const RenderStyle& style)
@@ -78,7 +84,7 @@ void HTMLVideoElement::attach(const AttachContext& context)
     updateDisplayState();
     if (shouldDisplayPosterImage()) {
         if (!m_imageLoader)
-            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+            m_imageLoader = HTMLImageLoader::create(this);
         m_imageLoader->updateFromElement();
         if (renderer())
             toRenderImage(renderer())->imageResource()->setImageResource(m_imageLoader->image());
@@ -110,15 +116,15 @@ void HTMLVideoElement::parseAttribute(const QualifiedName& name, const AtomicStr
         updateDisplayState();
         if (shouldDisplayPosterImage()) {
             if (!m_imageLoader)
-                m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+                m_imageLoader = HTMLImageLoader::create(this);
             m_imageLoader->updateFromElementIgnoringPreviousError();
         } else {
             if (renderer())
                 toRenderImage(renderer())->imageResource()->setImageResource(0);
         }
         // Notify the player when the poster image URL changes.
-        if (webMediaPlayer())
-            webMediaPlayer()->setPoster(posterImageURL());
+        if (player())
+            player()->setPoster(posterImageURL());
     } else
         HTMLMediaElement::parseAttribute(name, value);
 }

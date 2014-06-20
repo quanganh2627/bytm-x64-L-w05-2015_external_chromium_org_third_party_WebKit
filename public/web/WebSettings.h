@@ -122,8 +122,6 @@ public:
     virtual void setExperimentalWebGLEnabled(bool) = 0;
     virtual void setFantasyFontFamily(const WebString&, UScriptCode = USCRIPT_COMMON) = 0;
     virtual void setFixedFontFamily(const WebString&, UScriptCode = USCRIPT_COMMON) = 0;
-    // FIXME: Remove this once DevToolsAgent::enableDeviceEmulation stops calling it.
-    virtual void setForceCompositingMode(bool) { };
     virtual void setGestureTapHighlightEnabled(bool) = 0;
     virtual void setHyperlinkAuditingEnabled(bool) = 0;
     virtual void setIgnoreMainFrameOverflowHiddenQuirk(bool) = 0;
@@ -188,6 +186,7 @@ public:
     virtual void setTouchEditingEnabled(bool) = 0;
     virtual void setUnifiedTextCheckerEnabled(bool) = 0;
     virtual void setUnsafePluginPastingEnabled(bool) = 0;
+    virtual void setUseExpandedHeuristicsForGpuRasterization(bool) = 0;
     virtual void setUseLegacyBackgroundSizeShorthandBehavior(bool) = 0;
     virtual void setUseSolidColorScrollbars(bool) = 0;
     virtual void setUseWideViewport(bool) = 0;

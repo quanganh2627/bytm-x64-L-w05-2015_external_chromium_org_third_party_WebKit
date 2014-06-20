@@ -72,6 +72,7 @@ test("ui.onebar", 3, function() {
     $(onebar).detach();
 });
 
+// FIXME: These three results.* tests should be moved ot ui/results_unittests.js.
 test("results.ResultsGrid", 1, function() {
     var grid = new ui.results.ResultsGrid()
     grid.addResults([
@@ -81,38 +82,42 @@ test("results.ResultsGrid", 1, function() {
         'http://example.com/layout-test-results/foo-bar-diff.png',
     ]);
     equal(grid.innerHTML,
-        '<table class="comparison">' +
-            '<thead>' +
-                '<tr>' +
-                    '<th>Expected</th>' +
-                    '<th>Actual</th>' +
-                    '<th>Diff</th>' +
-                '</tr>' +
-            '</thead>' +
-            '<tbody>' +
-                '<tr>' +
-                    '<td class="expected result-container"><img class="image-result" src="http://example.com/layout-test-results/foo-bar-expected.png"></td>' +
-                    '<td class="actual result-container"><img class="image-result" src="http://example.com/layout-test-results/foo-bar-actual.png"></td>' +
-                    '<td class="diff result-container"><img class="image-result" src="http://example.com/layout-test-results/foo-bar-diff.png"></td>' +
-                '</tr>' +
-            '</tbody>' +
-        '</table>' +
-        '<table class="comparison">' +
-            '<thead>' +
-                '<tr>' +
-                    '<th>Expected</th>' +
-                    '<th>Actual</th>' +
-                    '<th>Diff</th>' +
-                '</tr>' +
-            '</thead>' +
-            '<tbody>' +
-                '<tr>' +
-                    '<td class="expected result-container"></td>' +
-                    '<td class="actual result-container"></td>' +
-                    '<td class="diff result-container"><iframe class="text-result" src="http://example.com/layout-test-results/foo-bar-diff.txt"></iframe></td>' +
-                '</tr>' +
-            '</tbody>' +
-        '</table>');
+        '<div class="comparison">' +
+            '<div>' +
+                '<h2>Expected</h2>' +
+                '<div class="results-container expected">' +
+                    '<img class="image-result" src="http://example.com/layout-test-results/foo-bar-expected.png">' +
+                '</div>' +
+            '</div>' +
+            '<div>' +
+                '<h2>Actual</h2>' +
+                '<div class="results-container actual">' +
+                    '<img class="image-result" src="http://example.com/layout-test-results/foo-bar-actual.png">' +
+                '</div>' +
+            '</div>' +
+            '<div>' +
+                '<h2>Diff</h2>' +
+                '<div class="results-container diff">' +
+                    '<img class="image-result" src="http://example.com/layout-test-results/foo-bar-diff.png">' +
+                '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="comparison">' +
+            '<div>' +
+                '<h2>Expected</h2>' +
+                '<div class="results-container expected"></div>' +
+            '</div>' +
+            '<div>' +
+                '<h2>Actual</h2>' +
+                '<div class="results-container actual"></div>' +
+            '</div>' +
+            '<div>' +
+                '<h2>Diff</h2>' +
+                '<div class="results-container diff">' +
+                    '<iframe class="text-result" src="http://example.com/layout-test-results/foo-bar-diff.txt"></iframe>' +
+                '</div>' +
+            '</div>' +
+        '</div>');
 });
 
 test("results.ResultsGrid (crashlog)", 1, function() {
@@ -127,24 +132,6 @@ test("results.ResultsGrid (empty)", 1, function() {
     equal(grid.innerHTML, 'No results to display.');
 });
 
-test("time", 6, function() {
-    var time = new ui.RelativeTime();
-    equal(time.tagName, 'TIME');
-    equal(time.className, 'relative');
-    deepEqual(Object.getOwnPropertyNames(time.__proto__).sort(), [
-        'date',
-        'init',
-        'setDate',
-        'update',
-    ]);
-    equal(time.outerHTML, '<time class="relative"></time>');
-    var tenMinutesAgo = new Date();
-    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
-    time.setDate(tenMinutesAgo);
-    equal(time.outerHTML, '<time class="relative">10 minutes ago</time>');
-    equal(time.date().getTime(), tenMinutesAgo.getTime());
-});
-
 test("StatusArea", 3, function() {
     var statusArea = new ui.StatusArea();
     var id = statusArea.newId();
@@ -152,12 +139,15 @@ test("StatusArea", 3, function() {
     statusArea.addMessage(id, 'Second Message');
     equal(statusArea.outerHTML,
         '<div class="status processing" style="visibility: visible;">' +
+            '<div class="dragger"></div>' +
+            '<div class="contents">' +
+                '<div id="status-content-1" class="status-content">' +
+                    '<div class="message">First Message</div>' +
+                    '<div class="message">Second Message</div>' +
+                '</div>' +
+            '</div>' +
             '<ul class="actions"><li><button class="action">Close</button></li></ul>' +
             '<progress class="process-text">Processing...</progress>' +
-            '<div id="status-content-1" class="status-content">' +
-                '<div class="message">First Message</div>' +
-                '<div class="message">Second Message</div>' +
-            '</div>' +
         '</div>');
 
     var secondStatusArea = new ui.StatusArea();
@@ -166,15 +156,18 @@ test("StatusArea", 3, function() {
 
     equal(statusArea.outerHTML,
         '<div class="status processing" style="visibility: visible;">' +
+            '<div class="dragger"></div>' +
+            '<div class="contents">' +
+                '<div id="status-content-1" class="status-content">' +
+                    '<div class="message">First Message</div>' +
+                    '<div class="message">Second Message</div>' +
+                '</div>' +
+                '<div id="status-content-2" class="status-content">' +
+                    '<div class="message">First Message second id</div>' +
+                '</div>' +
+            '</div>' +
             '<ul class="actions"><li><button class="action">Close</button></li></ul>' +
             '<progress class="process-text">Processing...</progress>' +
-            '<div id="status-content-1" class="status-content">' +
-                '<div class="message">First Message</div>' +
-                '<div class="message">Second Message</div>' +
-            '</div>' +
-            '<div id="status-content-2" class="status-content">' +
-                '<div class="message">First Message second id</div>' +
-            '</div>' +
         '</div>');
 
     statusArea.addFinalMessage(id, 'Final Message 1');
@@ -182,17 +175,20 @@ test("StatusArea", 3, function() {
 
     equal(statusArea.outerHTML,
         '<div class="status" style="visibility: visible;">' +
+            '<div class="dragger"></div>' +
+            '<div class="contents">' +
+                '<div id="status-content-1" class="status-content">' +
+                    '<div class="message">First Message</div>' +
+                    '<div class="message">Second Message</div>' +
+                    '<div class="message">Final Message 1</div>' +
+                '</div>' +
+                '<div id="status-content-2" class="status-content">' +
+                    '<div class="message">First Message second id</div>' +
+                    '<div class="message">Final Message 2</div>' +
+                '</div>' +
+            '</div>' +
             '<ul class="actions"><li><button class="action">Close</button></li></ul>' +
             '<progress class="process-text">Processing...</progress>' +
-            '<div id="status-content-1" class="status-content">' +
-                '<div class="message">First Message</div>' +
-                '<div class="message">Second Message</div>' +
-                '<div class="message">Final Message 1</div>' +
-            '</div>' +
-            '<div id="status-content-2" class="status-content">' +
-                '<div class="message">First Message second id</div>' +
-                '<div class="message">Final Message 2</div>' +
-            '</div>' +
         '</div>');
 
     statusArea.close();

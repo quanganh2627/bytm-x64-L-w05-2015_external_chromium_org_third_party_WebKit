@@ -167,7 +167,7 @@ public:
     void updateLayerPositionsAfterDocumentScroll();
 
     // FIXME: Should updateLayerPositions be private?
-    void updateLayerPositions(RenderGeometryMap*, const RenderLayerModelObject* paintInvalidationContainer, UpdateLayerPositionsFlags = CheckForRepaint);
+    void updateLayerPositionRecursive(UpdateLayerPositionsFlags = CheckForRepaint);
 
     bool isPaginated() const { return m_isPaginated; }
     RenderLayer* enclosingPaginationLayer() const { return m_enclosingPaginationLayer; }
@@ -177,9 +177,11 @@ public:
 
     const LayoutSize& offsetForInFlowPosition() const { return m_offsetForInFlowPosition; }
 
+    void blockSelectionGapsBoundsChanged();
     void addBlockSelectionGapsBounds(const LayoutRect&);
     void clearBlockSelectionGapsBounds();
     void repaintBlockSelectionGaps();
+    IntRect blockSelectionGapsBounds() const;
     bool hasBlockSelectionGapBounds() const;
 
     RenderLayerStackingNode* stackingNode() { return m_stackingNode.get(); }
@@ -339,16 +341,11 @@ public:
     RenderLayer* scrollParent() const;
     RenderLayer* clipParent() const;
 
-    // Adjusts the given rect to the coordinate space of the repaint container's GraphicsLayer backing.
-    void mapRectToRepaintBacking(const RenderLayerModelObject* repaintContainer, LayoutRect&) const;
+    // Adjusts the given rect (in the coordinate space of the RenderObject) to the coordinate space of |repaintContainer|'s GraphicsLayer backing.
+    static void mapRectToRepaintBacking(const RenderObject*, const RenderLayerModelObject* repaintContainer, LayoutRect&);
 
     // Computes the bounding repaint rect for |renderObject|, in the coordinate space of |repaintContainer|'s GraphicsLayer backing.
     static LayoutRect computeRepaintRect(const RenderObject*, const RenderLayer* repaintContainer);
-
-    bool needsCompositingLayersRebuiltForClip(const RenderStyle* oldStyle, const RenderStyle* newStyle) const;
-    bool needsCompositingLayersRebuiltForOverflow(const RenderStyle* oldStyle, const RenderStyle* newStyle) const;
-    bool needsCompositingLayersRebuiltForFilters(const RenderStyle* oldStyle, const RenderStyle* newStyle) const;
-    bool needsCompositingLayersRebuiltForBlending(const RenderStyle* oldStyle, const RenderStyle* newStyle) const;
 
     bool paintsWithTransparency(PaintBehavior paintBehavior) const
     {
@@ -441,14 +438,12 @@ public:
 
     bool scrollsOverflow() const;
 
-    bool hasDirectReasonsForCompositing() const { return compositingReasons() & CompositingReasonComboAllDirectReasons; }
-
     CompositingReasons styleDeterminedCompositingReasons() const { return m_styleDeterminedCompositingReasons; }
     void setStyleDeterminedCompositingReasons(CompositingReasons reasons) { ASSERT(reasons == (reasons & CompositingReasonComboAllStyleDeterminedReasons)); m_styleDeterminedCompositingReasons = reasons; }
 
-    class AncestorDependentProperties {
+    class CompositingInputs {
     public:
-        AncestorDependentProperties()
+        CompositingInputs()
             : opacityAncestor(0)
             , transformAncestor(0)
             , filterAncestor(0)
@@ -462,17 +457,14 @@ public:
         unsigned isUnclippedDescendant : 1;
     };
 
-    void setNeedsToUpdateAncestorDependentProperties();
-    bool childNeedsToUpdateAncestorDependantProperties() const { return m_childNeedsToUpdateAncestorDependantProperties; }
-    bool needsToUpdateAncestorDependentProperties() const { return m_needsToUpdateAncestorDependentProperties; }
+    void setNeedsCompositingInputsUpdate();
+    bool childNeedsCompositingInputsUpdate() const { return m_childNeedsCompositingInputsUpdate; }
+    bool needsCompositingInputsUpdate() const { return m_needsCompositingInputsUpdate; }
 
-    void updateAncestorDependentProperties(const AncestorDependentProperties&);
-    void clearChildNeedsToUpdateAncestorDependantProperties();
+    void updateCompositingInputs(const CompositingInputs&);
+    void clearChildNeedsCompositingInputsUpdate();
 
-    const AncestorDependentProperties& ancestorDependentProperties() const { ASSERT(!m_needsToUpdateAncestorDependentProperties); return m_ancestorDependentProperties; }
-
-    // FIXME: Remove this function.
-    bool potentiallyStaleIsUnclippedDescendant() const { return m_ancestorDependentProperties.isUnclippedDescendant; }
+    const CompositingInputs& compositingInputs() const { ASSERT(!m_needsCompositingInputsUpdate); return m_compositingInputs; }
 
     bool lostGroupedMapping() const { ASSERT(isAllowedToQueryCompositingState()); return m_lostGroupedMapping; }
     void setLostGroupedMapping(bool b) { m_lostGroupedMapping = b; }
@@ -523,7 +515,7 @@ private:
         HasChangedAncestor = 1 << 3
     };
     typedef unsigned UpdateLayerPositionsAfterScrollFlags;
-    void updateLayerPositionsAfterScroll(RenderGeometryMap*, UpdateLayerPositionsAfterScrollFlags = NoFlag);
+    void updateLayerPositionsAfterScroll(UpdateLayerPositionsAfterScrollFlags = NoFlag);
 
     void setNextSibling(RenderLayer* next) { m_next = next; }
     void setPreviousSibling(RenderLayer* prev) { m_previous = prev; }
@@ -654,8 +646,8 @@ private:
     const unsigned m_canSkipRepaintRectsUpdateOnScroll : 1;
 
     unsigned m_hasFilterInfo : 1;
-    unsigned m_needsToUpdateAncestorDependentProperties : 1;
-    unsigned m_childNeedsToUpdateAncestorDependantProperties : 1;
+    unsigned m_needsCompositingInputsUpdate : 1;
+    unsigned m_childNeedsCompositingInputsUpdate : 1;
 
     // Used only while determining what layers should be composited. Applies to the tree of z-order lists.
     unsigned m_hasCompositingDescendant : 1;
@@ -710,7 +702,7 @@ private:
     // Used for invalidating this layer's contents on the squashing GraphicsLayer.
     IntSize m_offsetFromSquashingLayerOrigin;
 
-    AncestorDependentProperties m_ancestorDependentProperties;
+    CompositingInputs m_compositingInputs;
 
     IntRect m_blockSelectionGapsBounds;
 

@@ -20,9 +20,9 @@
 #include "config.h"
 #include "core/svg/SVGViewSpec.h"
 
-#include "SVGNames.h"
 #include "bindings/v8/ExceptionMessages.h"
 #include "bindings/v8/ExceptionState.h"
+#include "core/SVGNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/svg/SVGAnimatedTransformList.h"
@@ -149,7 +149,7 @@ bool SVGViewSpec::parseViewSpecInternal(const CharType* ptr, const CharType* end
                 float y = 0.0f;
                 float width = 0.0f;
                 float height = 0.0f;
-                if (!(parseNumber(ptr, end, x) && parseNumber(ptr, end, y) && parseNumber(ptr, end, width) && parseNumber(ptr, end, height, false)))
+                if (!(parseNumber(ptr, end, x) && parseNumber(ptr, end, y) && parseNumber(ptr, end, width) && parseNumber(ptr, end, height, DisallowWhitespace)))
                     return false;
                 updateViewBox(FloatRect(x, y, width, height));
                 if (ptr >= end || *ptr != ')')
@@ -214,13 +214,7 @@ bool SVGViewSpec::parseViewSpecInternal(const CharType* ptr, const CharType* end
 
 void SVGViewSpec::trace(Visitor* visitor)
 {
-    visitor->registerWeakMembers<SVGViewSpec, &SVGViewSpec::clearWeakMembers>(this);
-}
-
-void SVGViewSpec::clearWeakMembers(Visitor* visitor)
-{
-    if (!visitor->isAlive(m_contextElement))
-        detachContextElement();
+    visitor->trace(m_contextElement);
 }
 
 }

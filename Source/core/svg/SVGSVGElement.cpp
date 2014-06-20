@@ -24,9 +24,9 @@
 
 #include "core/svg/SVGSVGElement.h"
 
-#include "HTMLNames.h"
-#include "SVGNames.h"
 #include "bindings/v8/ScriptEventListener.h"
+#include "core/HTMLNames.h"
+#include "core/SVGNames.h"
 #include "core/css/CSSHelper.h"
 #include "core/dom/Document.h"
 #include "core/dom/ElementTraversal.h"
@@ -61,7 +61,7 @@
 
 namespace WebCore {
 
-SVGSVGElement::SVGSVGElement(Document& doc)
+inline SVGSVGElement::SVGSVGElement(Document& doc)
     : SVGGraphicsElement(SVGNames::svgTag, doc)
     , SVGFitToViewBox(this)
     , m_x(SVGAnimatedLength::create(this, SVGNames::xAttr, SVGLength::create(LengthModeWidth), AllowNegativeLengths))
@@ -84,6 +84,8 @@ SVGSVGElement::SVGSVGElement(Document& doc)
 
     UseCounter::count(doc, UseCounter::SVGSVGElement);
 }
+
+DEFINE_NODE_FACTORY(SVGSVGElement)
 
 SVGSVGElement::~SVGSVGElement()
 {
@@ -206,7 +208,7 @@ void SVGSVGElement::setCurrentTranslate(const FloatPoint& point)
 void SVGSVGElement::updateCurrentTranslate()
 {
     if (RenderObject* object = renderer())
-        object->setNeedsLayoutAndFullRepaint();
+        object->setNeedsLayoutAndFullPaintInvalidation();
 }
 
 void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -218,13 +220,13 @@ void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomicString
 
         // Only handle events if we're the outermost <svg> element
         if (name == HTMLNames::onunloadAttr)
-            document().setWindowAttributeEventListener(EventTypeNames::unload, createAttributeEventListener(document().frame(), name, value));
+            document().setWindowAttributeEventListener(EventTypeNames::unload, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
         else if (name == HTMLNames::onresizeAttr)
-            document().setWindowAttributeEventListener(EventTypeNames::resize, createAttributeEventListener(document().frame(), name, value));
+            document().setWindowAttributeEventListener(EventTypeNames::resize, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
         else if (name == HTMLNames::onscrollAttr)
-            document().setWindowAttributeEventListener(EventTypeNames::scroll, createAttributeEventListener(document().frame(), name, value));
+            document().setWindowAttributeEventListener(EventTypeNames::scroll, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
         else if (name == SVGNames::onzoomAttr)
-            document().setWindowAttributeEventListener(EventTypeNames::zoom, createAttributeEventListener(document().frame(), name, value));
+            document().setWindowAttributeEventListener(EventTypeNames::zoom, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
         else
             setListener = false;
 
@@ -233,9 +235,9 @@ void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomicString
     }
 
     if (name == HTMLNames::onabortAttr) {
-        document().setWindowAttributeEventListener(EventTypeNames::abort, createAttributeEventListener(document().frame(), name, value));
+        document().setWindowAttributeEventListener(EventTypeNames::abort, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
     } else if (name == HTMLNames::onerrorAttr) {
-        document().setWindowAttributeEventListener(EventTypeNames::error, createAttributeEventListener(document().frame(), name, value));
+        document().setWindowAttributeEventListener(EventTypeNames::error, createAttributeEventListener(document().frame(), name, value, eventParameterName()));
     } else if (name == SVGNames::xAttr) {
         m_x->setBaseValueAsString(value, parseError);
     } else if (name == SVGNames::yAttr) {
@@ -355,7 +357,7 @@ bool SVGSVGElement::checkIntersectionOrEnclosure(const SVGElement& element, cons
         return false;
 
     AffineTransform ctm = toSVGGraphicsElement(element).computeCTM(AncestorScope, DisallowStyleUpdate, this);
-    FloatRect mappedRepaintRect = ctm.mapRect(renderer->repaintRectInLocalCoordinates());
+    FloatRect mappedRepaintRect = ctm.mapRect(renderer->paintInvalidationRectInLocalCoordinates());
 
     bool result = false;
     switch (mode) {

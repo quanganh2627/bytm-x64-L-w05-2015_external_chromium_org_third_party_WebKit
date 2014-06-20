@@ -224,7 +224,9 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
     {
         static bool compare(const T* a, const T* b, size_t size)
         {
-            return std::equal(a, a + size, b);
+            if (LIKELY(a && b))
+                return std::equal(a, a + size, b);
+            return !a && !b;
         }
     };
 
@@ -305,7 +307,7 @@ static const size_t kInitialVectorSize = WTF_VECTOR_INITIAL_SIZE;
 
         void clearUnusedSlots(T* from, T* to)
         {
-            VectorUnusedSlotClearer<Allocator::isGarbageCollected && (VectorTraits<T>::needsDestruction || ShouldBeTraced<VectorTraits<T> >::value || VectorTraits<T>::isWeak), T>::clear(from, to);
+            VectorUnusedSlotClearer<Allocator::isGarbageCollected && (VectorTraits<T>::needsDestruction || ShouldBeTraced<VectorTraits<T> >::value), T>::clear(from, to);
         }
 
     protected:

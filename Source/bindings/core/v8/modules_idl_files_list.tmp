@@ -94,6 +94,7 @@
 ../../../modules/notifications/Notification.idl
 ../../../modules/notifications/NotificationPermissionCallback.idl
 ../../../modules/performance/WorkerPerformance.idl
+../../../modules/push_messaging/PushEvent.idl
 ../../../modules/push_messaging/PushManager.idl
 ../../../modules/push_messaging/PushRegistration.idl
 ../../../modules/quota/DeprecatedStorageInfo.idl

@@ -34,7 +34,6 @@
 #include "platform/HostWindow.h"
 #include "platform/PopupMenu.h"
 #include "platform/PopupMenuClient.h"
-#include "platform/graphics/GraphicsContext.h"
 #include "platform/scroll/ScrollTypes.h"
 #include "wtf/Forward.h"
 #include "wtf/PassOwnPtr.h"
@@ -57,6 +56,7 @@ class Element;
 class FileChooser;
 class FloatRect;
 class Frame;
+class GraphicsContext;
 class GraphicsLayer;
 class GraphicsLayerFactory;
 class HitTestResult;
@@ -175,7 +175,7 @@ public:
     //    returns true, if ENABLE(INPUT_MULTIPLE_FIELDS_UI)
     //  - <datalist> UI for date/time input types regardless of
     //    ENABLE(INPUT_MULTIPLE_FIELDS_UI)
-    virtual PassRefPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&) = 0;
+    virtual PassRefPtrWillBeRawPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&) = 0;
 
     virtual void openTextDataListChooser(HTMLInputElement&) = 0;
 
@@ -237,6 +237,8 @@ public:
     virtual void didCancelCompositionOnSelectionChange() { }
     virtual void willSetInputMethodState() { }
     virtual void didUpdateTextOfFocusedElementByNonUserInput() { }
+
+    virtual bool usesGpuRasterization() = 0;
 
 protected:
     virtual ~ChromeClient() { }

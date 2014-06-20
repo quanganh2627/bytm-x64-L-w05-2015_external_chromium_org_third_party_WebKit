@@ -82,16 +82,7 @@ static void configureV8TestInterfaceCustomConstructorTemplate(v8::Handle<v8::Fun
 
 v8::Handle<v8::FunctionTemplate> V8TestInterfaceCustomConstructor::domTemplate(v8::Isolate* isolate)
 {
-    V8PerIsolateData* data = V8PerIsolateData::from(isolate);
-    v8::Local<v8::FunctionTemplate> result = data->existingDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo));
-    if (!result.IsEmpty())
-        return result;
-
-    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
-    result = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
-    configureV8TestInterfaceCustomConstructorTemplate(result, isolate);
-    data->setDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), result);
-    return result;
+    return V8DOMConfiguration::domClassTemplate(isolate, const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), configureV8TestInterfaceCustomConstructorTemplate);
 }
 
 bool V8TestInterfaceCustomConstructor::hasInstance(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)
@@ -107,6 +98,13 @@ v8::Handle<v8::Object> V8TestInterfaceCustomConstructor::findInstanceInPrototype
 TestInterfaceCustomConstructor* V8TestInterfaceCustomConstructor::toNativeWithTypeCheck(v8::Isolate* isolate, v8::Handle<v8::Value> value)
 {
     return hasInstance(value, isolate) ? fromInternalPointer(v8::Handle<v8::Object>::Cast(value)->GetAlignedPointerFromInternalField(v8DOMWrapperObjectIndex)) : 0;
+}
+
+v8::Handle<v8::Object> wrap(TestInterfaceCustomConstructor* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
+{
+    ASSERT(impl);
+    ASSERT(!DOMDataStore::containsWrapper<V8TestInterfaceCustomConstructor>(impl, isolate));
+    return V8TestInterfaceCustomConstructor::createWrapper(impl, creationContext, isolate);
 }
 
 v8::Handle<v8::Object> V8TestInterfaceCustomConstructor::createWrapper(PassRefPtr<TestInterfaceCustomConstructor> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)

@@ -32,7 +32,7 @@
 #define InspectorPageAgent_h
 
 
-#include "InspectorFrontend.h"
+#include "core/InspectorFrontend.h"
 #include "core/inspector/InspectorBaseAgent.h"
 #include "wtf/HashMap.h"
 #include "wtf/text/WTFString.h"

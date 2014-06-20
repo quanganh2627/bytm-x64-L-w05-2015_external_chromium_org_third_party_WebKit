@@ -34,6 +34,8 @@
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
+#include "core/frame/RemoteFrame.h"
+#include "core/frame/RemoteFrameView.h"
 #include "core/frame/Settings.h"
 #include "core/inspector/InspectorController.h"
 #include "core/inspector/InspectorInstrumentation.h"
@@ -161,12 +163,12 @@ void Page::makeOrdinary()
 
 ViewportDescription Page::viewportDescription() const
 {
-    return mainFrame() && mainFrame()->document() ? mainFrame()->document()->viewportDescription() : ViewportDescription();
+    return mainFrame() && mainFrame()->isLocalFrame() && deprecatedLocalMainFrame()->document() ? deprecatedLocalMainFrame()->document()->viewportDescription() : ViewportDescription();
 }
 
 ScrollingCoordinator* Page::scrollingCoordinator()
 {
-    if (!m_scrollingCoordinator && m_settings->scrollingCoordinatorEnabled())
+    if (!m_scrollingCoordinator && m_settings->acceleratedCompositingEnabled())
         m_scrollingCoordinator = ScrollingCoordinator::create(this);
 
     return m_scrollingCoordinator.get();
@@ -182,8 +184,8 @@ String Page::mainThreadScrollingReasonsAsText()
 
 PassRefPtrWillBeRawPtr<ClientRectList> Page::nonFastScrollableRects(const LocalFrame* frame)
 {
-    if (Document* document = m_mainFrame->document())
-        document->updateLayout();
+    if (m_mainFrame->isLocalFrame() && deprecatedLocalMainFrame()->document())
+        deprecatedLocalMainFrame()->document()->updateLayout();
 
     Vector<IntRect> rects;
     if (ScrollingCoordinator* scrollingCoordinator = this->scrollingCoordinator())
@@ -195,7 +197,7 @@ PassRefPtrWillBeRawPtr<ClientRectList> Page::nonFastScrollableRects(const LocalF
     return ClientRectList::create(quads);
 }
 
-void Page::setMainFrame(PassRefPtr<LocalFrame> mainFrame)
+void Page::setMainFrame(PassRefPtr<Frame> mainFrame)
 {
     ASSERT(!m_mainFrame); // Should only be called during initialization
     m_mainFrame = mainFrame;
@@ -283,7 +285,7 @@ void Page::refreshPlugins(bool reload)
 
 PluginData* Page::pluginData() const
 {
-    if (!mainFrame()->loader().allowPlugins(NotAboutToInstantiatePlugin))
+    if (!deprecatedLocalMainFrame()->loader().allowPlugins(NotAboutToInstantiatePlugin))
         return 0;
     if (!m_pluginData)
         m_pluginData = PluginData::create(this);
@@ -310,7 +312,7 @@ void Page::unmarkAllTextMatches()
     } while (frame);
 }
 
-void Page::setValidationMessageClient(PassOwnPtr<ValidationMessageClient> client)
+void Page::setValidationMessageClient(PassOwnPtrWillBeRawPtr<ValidationMessageClient> client)
 {
     m_validationMessageClient = client;
 }
@@ -329,7 +331,10 @@ void Page::setDefersLoading(bool defers)
 
 void Page::setPageScaleFactor(float scale, const IntPoint& origin)
 {
-    FrameView* view = mainFrame()->view();
+    if (!mainFrame()->isLocalFrame())
+        return;
+
+    FrameView* view = deprecatedLocalMainFrame()->view();
     PinchViewport& viewport = frameHost().pinchViewport();
 
     if (scale != viewport.scale()) {
@@ -338,7 +343,7 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin)
         if (view && !settings().pinchVirtualViewportEnabled())
             view->setVisibleContentScaleFactor(scale);
 
-        mainFrame()->deviceOrPageScaleFactorChanged();
+        deprecatedLocalMainFrame()->deviceOrPageScaleFactorChanged();
         m_chrome->client().deviceOrPageScaleFactorChanged();
 
         // FIXME: In virtual-viewport pinch mode, scale doesn't change the fixed-pos viewport;
@@ -346,7 +351,7 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin)
         if (view)
             view->viewportConstrainedVisibleContentSizeChanged(true, true);
 
-        mainFrame()->loader().saveScrollState();
+        deprecatedLocalMainFrame()->loader().saveScrollState();
     }
 
     if (view && view->scrollPosition() != origin)
@@ -366,8 +371,8 @@ void Page::setDeviceScaleFactor(float scaleFactor)
     m_deviceScaleFactor = scaleFactor;
     setNeedsRecalcStyleInAllFrames();
 
-    if (mainFrame()) {
-        mainFrame()->deviceOrPageScaleFactorChanged();
+    if (mainFrame() && mainFrame()->isLocalFrame()) {
+        deprecatedLocalMainFrame()->deviceOrPageScaleFactorChanged();
         m_chrome->client().deviceOrPageScaleFactorChanged();
     }
 }
@@ -420,7 +425,7 @@ double Page::timerAlignmentInterval() const
     return m_timerAlignmentInterval;
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 void Page::checkSubframeCountConsistency() const
 {
     ASSERT(m_subframeCount >= 0);
@@ -447,8 +452,8 @@ void Page::setVisibilityState(PageVisibilityState visibilityState, bool isInitia
     if (!isInitialState)
         lifecycleNotifier().notifyPageVisibilityChanged();
 
-    if (!isInitialState && m_mainFrame)
-        m_mainFrame->didChangeVisibilityState();
+    if (!isInitialState && m_mainFrame && m_mainFrame->isLocalFrame())
+        deprecatedLocalMainFrame()->didChangeVisibilityState();
 }
 
 PageVisibilityState Page::visibilityState() const
@@ -478,12 +483,14 @@ void Page::settingsChanged(SettingsDelegate::ChangeType changeType)
         setNeedsRecalcStyleInAllFrames();
         break;
     case SettingsDelegate::ViewportDescriptionChange:
-        if (mainFrame())
-            mainFrame()->document()->updateViewportDescription();
+        if (mainFrame() && mainFrame()->isLocalFrame())
+            deprecatedLocalMainFrame()->document()->updateViewportDescription();
         break;
     case SettingsDelegate::MediaTypeChange:
-        m_mainFrame->view()->setMediaType(AtomicString(settings().mediaTypeOverride()));
-        setNeedsRecalcStyleInAllFrames();
+        if (m_mainFrame->isLocalFrame()) {
+            deprecatedLocalMainFrame()->view()->setMediaType(AtomicString(settings().mediaTypeOverride()));
+            setNeedsRecalcStyleInAllFrames();
+        }
         break;
     case SettingsDelegate::DNSPrefetchingChange:
         for (Frame* frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
@@ -506,9 +513,9 @@ void Page::settingsChanged(SettingsDelegate::ChangeType changeType)
         }
         break;
     case SettingsDelegate::TextAutosizingChange:
-        if (!mainFrame())
+        if (!mainFrame() || !mainFrame()->isLocalFrame())
             break;
-        if (FastTextAutosizer* textAutosizer = mainFrame()->document()->fastTextAutosizer()) {
+        if (FastTextAutosizer* textAutosizer = deprecatedLocalMainFrame()->document()->fastTextAutosizer()) {
             textAutosizer->updatePageInfoInAllFrames();
         } else {
             for (Frame* frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
@@ -563,8 +570,10 @@ void Page::acceptLanguagesChanged()
 
     // Even though we don't fire an event from here, the DOMWindow's will fire
     // an event so we keep the frames alive until we are done.
-    for (LocalFrame* frame = mainFrame(); frame; frame = frame->tree().traverseNext())
-        frames.append(frame);
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (frame->isLocalFrame())
+            frames.append(toLocalFrame(frame));
+    }
 
     for (unsigned i = 0; i < frames.size(); ++i)
         frames[i]->domWindow()->acceptLanguagesChanged();
@@ -584,6 +593,10 @@ void Page::trace(Visitor* visitor)
 {
     visitor->trace(m_dragCaretController);
     visitor->trace(m_dragController);
+    visitor->trace(m_contextMenuController);
+    visitor->trace(m_pointerLockController);
+    visitor->trace(m_undoStack);
+    visitor->trace(m_validationMessageClient);
     visitor->trace(m_multisamplingChangedObservers);
     visitor->trace(m_frameHost);
     WillBeHeapSupplementable<Page>::trace(visitor);
@@ -591,19 +604,22 @@ void Page::trace(Visitor* visitor)
 
 void Page::willBeDestroyed()
 {
+    if (m_mainFrame && m_mainFrame->isLocalFrame())
+        deprecatedLocalMainFrame()->loader().frameDetached();
+
     // Disable all agents prior to resetting the frame view.
     m_inspectorController->willBeDestroyed();
 
-    m_mainFrame->setView(nullptr);
+    if (m_mainFrame->isLocalFrame()) {
+        toLocalFrame(m_mainFrame.get())->setView(nullptr);
+    } else {
+        ASSERT(m_mainFrame->isRemoteFrame());
+        toRemoteFrame(m_mainFrame.get())->setView(nullptr);
+    }
 
     allPages().remove(this);
     if (ordinaryPages().contains(this))
         ordinaryPages().remove(this);
-
-    for (Frame* frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        if (frame->isLocalFrame())
-            toLocalFrame(frame)->loader().frameDetached();
-    }
 
     if (m_scrollingCoordinator)
         m_scrollingCoordinator->willBeDestroyed();

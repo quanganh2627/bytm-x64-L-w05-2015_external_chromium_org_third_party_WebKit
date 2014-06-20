@@ -225,10 +225,14 @@ public:
     // DocumentVisibilityObserver::setDocument
     void setObservedDocument(Document&);
 
+protected:
+    void trace(Visitor*);
+
 private:
     void registerObserver(Document&);
     void unregisterObserver();
-    Document* m_document;
+
+    RawPtrWillBeMember<Document> m_document;
 };
 
 class Document : public ContainerNode, public TreeScope, public SecurityContext, public ExecutionContext, public ExecutionContextClient
@@ -237,7 +241,7 @@ class Document : public ContainerNode, public TreeScope, public SecurityContext,
 public:
     static PassRefPtrWillBeRawPtr<Document> create(const DocumentInit& initializer = DocumentInit())
     {
-        return adoptRefWillBeRefCountedGarbageCollected(new Document(initializer));
+        return adoptRefWillBeNoop(new Document(initializer));
     }
     virtual ~Document();
 
@@ -245,8 +249,10 @@ public:
 
     void mediaQueryAffectingValueChanged();
 
+#if !ENABLE(OILPAN)
     using ContainerNode::ref;
     using ContainerNode::deref;
+#endif
     using SecurityContext::securityOrigin;
     using SecurityContext::contentSecurityPolicy;
     using ExecutionContextClient::addConsoleMessage;
@@ -673,6 +679,7 @@ public:
     void detachRange(Range*);
 
     void updateRangesAfterChildrenChanged(ContainerNode*);
+    void updateRangesAfterNodeMovedToAnotherDocument(const Node&);
     // nodeChildrenWillBeRemoved is used when removing all node children at once.
     void nodeChildrenWillBeRemoved(ContainerNode&);
     // nodeWillBeRemoved is only safe when removing one node at a time.
@@ -691,7 +698,7 @@ public:
     void setWindowAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
     EventListener* getWindowAttributeEventListener(const AtomicString& eventType);
 
-    static void registerEventFactory(EventFactoryBase*);
+    static void registerEventFactory(PassOwnPtr<EventFactoryBase>);
     static PassRefPtrWillBeRawPtr<Event> createEvent(const String& eventType, ExceptionState&);
 
     // keep track of what types of event listeners are registered, so we don't
@@ -849,11 +856,14 @@ public:
     enum PendingSheetLayout { NoLayoutWithPendingSheets, DidLayoutWithPendingSheets, IgnoreLayoutWithPendingSheets };
 
     bool didLayoutWithPendingStylesheets() const { return m_pendingSheetLayout == DidLayoutWithPendingSheets; }
+    bool ignoreLayoutWithPendingStylesheets() const { return m_pendingSheetLayout == IgnoreLayoutWithPendingSheets; }
 
     bool hasNodesWithPlaceholderStyle() const { return m_hasNodesWithPlaceholderStyle; }
     void setHasNodesWithPlaceholderStyle() { m_hasNodesWithPlaceholderStyle = true; }
 
     Vector<IconURL> iconURLs(int iconTypesMask);
+
+    Color brandColor() const;
 
     // Returns the HTMLLinkElement currently in use for the Web Manifest.
     // Returns null if there is no such element.
@@ -952,7 +962,7 @@ public:
     bool isDelayingLoadEvent();
     void loadPluginsSoon();
 
-    PassRefPtrWillBeRawPtr<Touch> createTouch(DOMWindow*, EventTarget*, int identifier, int pageX, int pageY, int screenX, int screenY, int radiusX, int radiusY, float rotationAngle, float force) const;
+    PassRefPtrWillBeRawPtr<Touch> createTouch(DOMWindow*, EventTarget*, int identifier, double pageX, double pageY, double screenX, double screenY, double radiusX, double radiusY, float rotationAngle, float force) const;
     PassRefPtrWillBeRawPtr<TouchList> createTouchList(WillBeHeapVector<RefPtrWillBeMember<Touch> >&) const;
 
     const DocumentTiming& timing() const { return m_documentTiming; }
@@ -962,7 +972,7 @@ public:
     void serviceScriptedAnimations(double monotonicAnimationStartTime);
 
     virtual EventTarget* errorEventTarget() OVERRIDE FINAL;
-    virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, PassRefPtr<ScriptCallStack>) OVERRIDE FINAL;
+    virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, PassRefPtrWillBeRawPtr<ScriptCallStack>) OVERRIDE FINAL;
 
     void initDNSPrefetch();
 
@@ -1132,15 +1142,17 @@ private:
     virtual PassRefPtrWillBeRawPtr<Node> cloneNode(bool deep = true) OVERRIDE FINAL;
     void cloneDataFromDocument(const Document&);
 
+#if !ENABLE(OILPAN)
     virtual void refExecutionContext() OVERRIDE FINAL { ref(); }
     virtual void derefExecutionContext() OVERRIDE FINAL { deref(); }
+#endif
 
     virtual const KURL& virtualURL() const OVERRIDE FINAL; // Same as url(), but needed for ExecutionContext to implement it without a performance loss for direct calls.
     virtual KURL virtualCompleteURL(const String&) const OVERRIDE FINAL; // Same as completeURL() for the same reason as above.
 
     virtual void reportBlockedScriptExecutionToInspector(const String& directiveText) OVERRIDE FINAL;
     virtual void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, ScriptState*) OVERRIDE FINAL;
-    void internalAddMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>, ScriptState*);
+    void internalAddMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtrWillBeRawPtr<ScriptCallStack>, ScriptState*);
 
     virtual double timerAlignmentInterval() const OVERRIDE FINAL;
 
@@ -1185,7 +1197,7 @@ private:
     void setHoverNode(PassRefPtrWillBeRawPtr<Node>);
     Node* hoverNode() const { return m_hoverNode.get(); }
 
-    typedef HashSet<EventFactoryBase*> EventFactorySet;
+    typedef HashSet<OwnPtr<EventFactoryBase> > EventFactorySet;
     static EventFactorySet& eventFactories();
 
     DocumentLifecycle m_lifecycle;
@@ -1375,7 +1387,7 @@ private:
 
     OwnPtr<TouchEventTargetSet> m_touchEventTargets;
 
-    RefPtr<ScriptedAnimationController> m_scriptedAnimationController;
+    RefPtrWillBeMember<ScriptedAnimationController> m_scriptedAnimationController;
     OwnPtr<MainThreadTaskRunner> m_taskRunner;
     OwnPtr<TextAutosizer> m_textAutosizer;
     OwnPtr<FastTextAutosizer> m_fastTextAutosizer;
@@ -1407,8 +1419,8 @@ private:
     Timer<Document> m_didAssociateFormControlsTimer;
     WillBeHeapHashSet<RefPtrWillBeMember<Element> > m_associatedFormControls;
 
-    HashSet<SVGUseElement*> m_useElementsNeedingUpdate;
-    HashSet<Element*> m_layerUpdateSVGFilterElements;
+    WillBeHeapHashSet<RawPtrWillBeMember<SVGUseElement> > m_useElementsNeedingUpdate;
+    WillBeHeapHashSet<RawPtrWillBeMember<Element> > m_layerUpdateSVGFilterElements;
 
     bool m_hasViewportUnits;
 

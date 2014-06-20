@@ -30,8 +30,8 @@
 #ifndef InspectorDebuggerAgent_h
 #define InspectorDebuggerAgent_h
 
-#include "InspectorFrontend.h"
 #include "bindings/v8/ScriptState.h"
+#include "core/InspectorFrontend.h"
 #include "core/frame/ConsoleTypes.h"
 #include "core/inspector/AsyncCallStackTracker.h"
 #include "core/inspector/ConsoleAPITypes.h"
@@ -48,6 +48,7 @@
 namespace WebCore {
 
 class Document;
+class Event;
 class EventListener;
 class EventTarget;
 class FormData;
@@ -92,8 +93,8 @@ public:
 
     bool isPaused();
     bool runningNestedMessageLoop();
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String&, ScriptCallStack*, unsigned long);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String&, ScriptState*, ScriptArguments*, unsigned long);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String&, PassRefPtrWillBeRawPtr<ScriptCallStack>, unsigned long);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String&, ScriptState*, PassRefPtrWillBeRawPtr<ScriptArguments>, unsigned long);
 
     String preprocessEventListener(LocalFrame*, const String& source, const String& url, const String& functionName);
     PassOwnPtr<ScriptSourceCode> preprocess(LocalFrame*, const ScriptSourceCode&);
@@ -132,8 +133,8 @@ public:
         const bool* generatePreview,
         RefPtr<TypeBuilder::Runtime::RemoteObject>& result,
         TypeBuilder::OptOutput<bool>* wasThrown) OVERRIDE FINAL;
-    virtual void compileScript(ErrorString*, const String& expression, const String& sourceURL, const int* executionContextId, TypeBuilder::OptOutput<TypeBuilder::Debugger::ScriptId>*, TypeBuilder::OptOutput<String>* syntaxErrorMessage) OVERRIDE;
-    virtual void runScript(ErrorString*, const TypeBuilder::Debugger::ScriptId&, const int* executionContextId, const String* objectGroup, const bool* doNotPauseOnExceptionsAndMuteConsole, RefPtr<TypeBuilder::Runtime::RemoteObject>& result, TypeBuilder::OptOutput<bool>* wasThrown) OVERRIDE;
+    virtual void compileScript(ErrorString*, const String& expression, const String& sourceURL, const int* executionContextId, TypeBuilder::OptOutput<TypeBuilder::Debugger::ScriptId>*, RefPtr<TypeBuilder::Debugger::ExceptionDetails>&) OVERRIDE;
+    virtual void runScript(ErrorString*, const TypeBuilder::Debugger::ScriptId&, const int* executionContextId, const String* objectGroup, const bool* doNotPauseOnExceptionsAndMuteConsole, RefPtr<TypeBuilder::Runtime::RemoteObject>& result, RefPtr<TypeBuilder::Debugger::ExceptionDetails>&) OVERRIDE;
     virtual void setOverlayMessage(ErrorString*, const String*) OVERRIDE;
     virtual void setVariableValue(ErrorString*, int in_scopeNumber, const String& in_variableName, const RefPtr<JSONObject>& in_newValue, const String* in_callFrame, const String* in_functionObjectId) OVERRIDE FINAL;
     virtual void skipStackFrames(ErrorString*, const String* pattern) OVERRIDE FINAL;
@@ -148,7 +149,9 @@ public:
     void didCancelAnimationFrame(Document*, int callbackId);
     bool willFireAnimationFrame(Document*, int callbackId);
     void didFireAnimationFrame();
-    void willHandleEvent(EventTarget*, const AtomicString& eventType, EventListener*, bool useCapture);
+    void didEnqueueEvent(EventTarget*, Event*);
+    void didRemoveEvent(EventTarget*, Event*);
+    void willHandleEvent(EventTarget*, Event*, EventListener*, bool useCapture);
     void didHandleEvent();
     void willLoadXHR(XMLHttpRequest*, ThreadableLoaderClient*, const AtomicString& method, const KURL&, bool async, FormData* body, const HTTPHeaderMap& headers, bool includeCrendentials);
     void didEnqueueMutationRecord(ExecutionContext*, MutationObserver*);

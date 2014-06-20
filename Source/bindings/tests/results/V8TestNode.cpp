@@ -187,16 +187,7 @@ static void configureV8TestNodeTemplate(v8::Handle<v8::FunctionTemplate> functio
 
 v8::Handle<v8::FunctionTemplate> V8TestNode::domTemplate(v8::Isolate* isolate)
 {
-    V8PerIsolateData* data = V8PerIsolateData::from(isolate);
-    v8::Local<v8::FunctionTemplate> result = data->existingDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo));
-    if (!result.IsEmpty())
-        return result;
-
-    TRACE_EVENT_SCOPED_SAMPLING_STATE("Blink", "BuildDOMTemplate");
-    result = v8::FunctionTemplate::New(isolate, V8ObjectConstructor::isValidConstructorMode);
-    configureV8TestNodeTemplate(result, isolate);
-    data->setDOMTemplate(const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), result);
-    return result;
+    return V8DOMConfiguration::domClassTemplate(isolate, const_cast<WrapperTypeInfo*>(&wrapperTypeInfo), configureV8TestNodeTemplate);
 }
 
 bool V8TestNode::hasInstance(v8::Handle<v8::Value> v8Value, v8::Isolate* isolate)
@@ -217,6 +208,13 @@ TestNode* V8TestNode::toNativeWithTypeCheck(v8::Isolate* isolate, v8::Handle<v8:
 EventTarget* V8TestNode::toEventTarget(v8::Handle<v8::Object> object)
 {
     return toNative(object);
+}
+
+v8::Handle<v8::Object> wrap(TestNode* impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)
+{
+    ASSERT(impl);
+    ASSERT(!DOMDataStore::containsWrapper<V8TestNode>(impl, isolate));
+    return V8TestNode::createWrapper(impl, creationContext, isolate);
 }
 
 v8::Handle<v8::Object> V8TestNode::createWrapper(PassRefPtrWillBeRawPtr<TestNode> impl, v8::Handle<v8::Object> creationContext, v8::Isolate* isolate)

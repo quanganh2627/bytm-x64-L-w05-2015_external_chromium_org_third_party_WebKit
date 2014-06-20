@@ -25,6 +25,7 @@
 
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
+#include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/dom/Text.h"
 #include "core/events/ScopedEventQueue.h"
@@ -57,14 +58,14 @@ Attr::Attr(Document& document, const QualifiedName& name, const AtomicString& st
 
 PassRefPtrWillBeRawPtr<Attr> Attr::create(Element& element, const QualifiedName& name)
 {
-    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeRefCountedGarbageCollected(new Attr(element, name));
+    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeNoop(new Attr(element, name));
     attr->createTextChild();
     return attr.release();
 }
 
 PassRefPtrWillBeRawPtr<Attr> Attr::create(Document& document, const QualifiedName& name, const AtomicString& value)
 {
-    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeRefCountedGarbageCollected(new Attr(document, name, value));
+    RefPtrWillBeRawPtr<Attr> attr = adoptRefWillBeNoop(new Attr(document, name, value));
     attr->createTextChild();
     return attr.release();
 }
@@ -153,7 +154,7 @@ void Attr::setNodeValue(const String& v)
 
 PassRefPtrWillBeRawPtr<Node> Attr::cloneNode(bool /*deep*/)
 {
-    RefPtrWillBeRawPtr<Attr> clone = adoptRefWillBeRefCountedGarbageCollected(new Attr(document(), m_name, value()));
+    RefPtrWillBeRawPtr<Attr> clone = adoptRefWillBeNoop(new Attr(document(), m_name, value()));
     cloneChildNodes(clone.get());
     return clone.release();
 }
@@ -219,15 +220,9 @@ void Attr::attachToElement(Element* element, const AtomicString& attachedLocalNa
     m_standaloneValueOrAttachedLocalName = attachedLocalName;
 }
 
-void Attr::clearWeakMembers(Visitor* visitor)
-{
-    if (m_element && !visitor->isAlive(m_element))
-        detachFromElementWithValue(value());
-}
-
 void Attr::trace(Visitor* visitor)
 {
-    visitor->registerWeakMembers<Attr, &Attr::clearWeakMembers>(this);
+    visitor->trace(m_element);
     ContainerNode::trace(visitor);
 }
 

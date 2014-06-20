@@ -26,8 +26,7 @@
 #include "config.h"
 #include "core/dom/Position.h"
 
-#include <stdio.h>
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/dom/PositionIterator.h"
 #include "core/dom/Text.h"
@@ -46,6 +45,7 @@
 #include "platform/Logging.h"
 #include "wtf/text/CString.h"
 #include "wtf/unicode/CharacterNames.h"
+#include <stdio.h>
 
 namespace WebCore {
 
@@ -228,7 +228,6 @@ Node* Position::computeNodeBeforePosition() const
 {
     if (!m_anchorNode)
         return 0;
-
     switch (anchorType()) {
     case PositionIsBeforeChildren:
         return 0;
@@ -865,6 +864,12 @@ bool Position::isCandidate() const
     if (renderer->isText())
         return !nodeIsUserSelectNone(deprecatedNode()) && inRenderedText();
 
+    if (renderer->isSVG()) {
+        // We don't consider SVG elements are contenteditable except for
+        // associated renderer returns isText() true, e.g. RenderSVGInlineText.
+        return false;
+    }
+
     if (isRenderedTableElement(deprecatedNode()) || editingIgnoresContent(deprecatedNode()))
         return (atFirstEditingPositionForNode() || atLastEditingPositionForNode()) && !nodeIsUserSelectNone(deprecatedNode()->parentNode());
 
@@ -1260,7 +1265,10 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
                     break;
                 inlineBox = prevBox;
             }
-            caretOffset = inlineBox->caretLeftmostOffset();
+            if (m_anchorNode->selfOrAncestorHasDirAutoAttribute())
+                caretOffset = inlineBox->bidiLevel() < level ? inlineBox->caretLeftmostOffset() : inlineBox->caretRightmostOffset();
+            else
+                caretOffset = inlineBox->caretLeftmostOffset();
         } else if (nextBox->bidiLevel() > level) {
             // Left edge of a "tertiary" run. Set to the right edge of that run.
             while (InlineBox* tertiaryBox = inlineBox->nextLeafChildIgnoringLineBreak()) {

@@ -47,6 +47,7 @@
 #include "core/svg/animation/SMILTimeContainer.h"
 #include "core/svg/graphics/SVGImageChromeClient.h"
 #include "platform/LengthFunctions.h"
+#include "platform/TraceEvent.h"
 #include "platform/geometry/IntRect.h"
 #include "platform/graphics/GraphicsContextStateSaver.h"
 #include "platform/graphics/ImageBuffer.h"
@@ -65,7 +66,7 @@ SVGImage::~SVGImage()
     if (m_page) {
         // Store m_page in a local variable, clearing m_page, so that SVGImageChromeClient knows we're destructed.
         OwnPtrWillBeRawPtr<Page> currentPage = m_page.release();
-        currentPage->mainFrame()->loader().frameDetached(); // Break both the loader and view references to the frame
+        // Break both the loader and view references to the frame
         currentPage->willBeDestroyed();
     }
 
@@ -89,7 +90,7 @@ bool SVGImage::currentFrameHasSingleSecurityOrigin() const
     if (!m_page)
         return true;
 
-    LocalFrame* frame = m_page->mainFrame();
+    LocalFrame* frame = toLocalFrame(m_page->mainFrame());
 
     RELEASE_ASSERT(frame->document()->loadEventFinished());
 
@@ -122,7 +123,7 @@ static SVGSVGElement* svgRootElement(Page* page)
 {
     if (!page)
         return 0;
-    LocalFrame* frame = page->mainFrame();
+    LocalFrame* frame = toLocalFrame(page->mainFrame());
     return frame->document()->accessSVGExtensions().rootElement();
 }
 
@@ -162,16 +163,21 @@ IntSize SVGImage::containerSize() const
     // Assure that a container size is always given for a non-identity zoom level.
     ASSERT(renderer->style()->effectiveZoom() == 1);
 
-    FloatSize currentSize;
-    if (rootElement->hasIntrinsicWidth() && rootElement->hasIntrinsicHeight())
-        currentSize = rootElement->currentViewportSize();
-    else
-        currentSize = rootElement->currentViewBoxRect().size();
+    FloatSize intrinsicSize;
+    double intrinsicRatio = 0;
+    renderer->computeIntrinsicRatioInformation(intrinsicSize, intrinsicRatio);
 
-    if (!currentSize.isEmpty())
-        return IntSize(static_cast<int>(ceilf(currentSize.width())), static_cast<int>(ceilf(currentSize.height())));
+    if (intrinsicSize.isEmpty() && intrinsicRatio) {
+        if (!intrinsicSize.width() && intrinsicSize.height())
+            intrinsicSize.setWidth(intrinsicSize.height() * intrinsicRatio);
+        else if (intrinsicSize.width() && !intrinsicSize.height())
+            intrinsicSize.setHeight(intrinsicSize.width() / intrinsicRatio);
+    }
 
-    // As last resort, use CSS default intrinsic size.
+    if (!intrinsicSize.isEmpty())
+        return expandedIntSize(intrinsicSize);
+
+    // As last resort, use CSS replaced element fallback size.
     return IntSize(300, 150);
 }
 
@@ -221,6 +227,8 @@ void SVGImage::drawPatternForContainer(GraphicsContext* context, const FloatSize
 
     // The ImageBuffer size needs to be scaled to match the final resolution.
     // FIXME: No need to get the full CTM here, we just need the scale.
+    // FIXME: See crbug.com/382491. This scale does not reflect compositor applied
+    // scale factors, such a High DPI or device zoom.
     AffineTransform transform = context->getCTM();
     FloatSize imageBufferScale = FloatSize(transform.xScale(), transform.yScale());
     ASSERT(imageBufferScale.width());
@@ -271,7 +279,7 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
     FloatPoint destOffset = dstRect.location() - topLeftOffset;
 
     context->translate(destOffset.x(), destOffset.y());
-    context->scale(scale);
+    context->scale(scale.width(), scale.height());
 
     FrameView* view = frameView();
     view->resize(containerSize());
@@ -312,7 +320,7 @@ FrameView* SVGImage::frameView() const
     if (!m_page)
         return 0;
 
-    return m_page->mainFrame()->view();
+    return toLocalFrame(m_page->mainFrame())->view();
 }
 
 void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio)
@@ -362,7 +370,7 @@ bool SVGImage::hasAnimations() const
     SVGSVGElement* rootElement = svgRootElement(m_page.get());
     if (!rootElement)
         return false;
-    return rootElement->timeContainer()->hasAnimations() || m_page->mainFrame()->document()->timeline().hasPendingUpdates();
+    return rootElement->timeContainer()->hasAnimations() || toLocalFrame(m_page->mainFrame())->document()->timeline().hasPendingUpdates();
 }
 
 bool SVGImage::dataChanged(bool allDataReceived)
