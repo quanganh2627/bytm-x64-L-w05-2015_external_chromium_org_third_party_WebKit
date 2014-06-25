@@ -31,7 +31,6 @@
 #include "config.h"
 #include "bindings/core/v8/V8Element.h"
 
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/core/v8/V8AnimationEffect.h"
 #include "bindings/core/v8/V8AnimationPlayer.h"
 #include "bindings/v8/Dictionary.h"
@@ -41,6 +40,7 @@
 #include "core/animation/ElementAnimation.h"
 #include "core/dom/Element.h"
 #include "core/frame/UseCounter.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "wtf/GetPtr.h"
 
 namespace WebCore {
@@ -57,7 +57,7 @@ void V8Element::scrollLeftAttributeSetterCustom(v8::Local<v8::Value> value, cons
         return;
     }
 
-    TONATIVE_VOID_EXCEPTIONSTATE(float, position, toFloat(value, exceptionState), exceptionState);
+    TONATIVE_VOID_EXCEPTIONSTATE(float, position, toInt32(value, exceptionState), exceptionState);
     impl->setScrollLeft(position);
 }
 
@@ -73,7 +73,7 @@ void V8Element::scrollTopAttributeSetterCustom(v8::Local<v8::Value> value, const
         return;
     }
 
-    TONATIVE_VOID_EXCEPTIONSTATE(float, position, toFloat(value, exceptionState), exceptionState);
+    TONATIVE_VOID_EXCEPTIONSTATE(float, position, toInt32(value, exceptionState), exceptionState);
     impl->setScrollTop(position);
 }
 

@@ -534,11 +534,11 @@ void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
     quads.append(localToAbsoluteQuad(FloatRect(0, 0, width().toFloat(), height().toFloat()), 0 /* mode */, wasFixed));
 }
 
-void RenderBox::updateLayerTransform()
+void RenderBox::updateLayerTransformAfterLayout()
 {
     // Transform-origin depends on box size, so we need to update the layer transform after layout.
     if (hasLayer())
-        layer()->updateTransform();
+        layer()->updateTransformationMatrix();
 }
 
 LayoutUnit RenderBox::constrainLogicalWidthByMinMax(LayoutUnit logicalWidth, LayoutUnit availableWidth, RenderBlock* cb) const
@@ -1582,7 +1582,7 @@ void RenderBox::invalidateTreeAfterLayout(const RenderLayerModelObject& paintInv
     const LayoutRect oldPaintInvalidationRect = previousPaintInvalidationRect();
     const LayoutPoint oldPositionFromPaintInvalidationContainer = previousPositionFromPaintInvalidationContainer();
     setPreviousPaintInvalidationRect(boundsRectForPaintInvalidation(&newPaintInvalidationContainer));
-    setPreviousPositionFromPaintInvalidationContainer(positionFromPaintInvalidationContainer(&newPaintInvalidationContainer));
+    setPreviousPositionFromPaintInvalidationContainer(RenderLayer::positionFromPaintInvalidationContainer(this, &newPaintInvalidationContainer));
 
     // If we are set to do a full paint invalidation that means the RenderView will be
     // issue paint invalidations. We can then skip issuing of paint invalidations for the child
@@ -4080,7 +4080,16 @@ bool RenderBox::shrinkToAvoidFloats() const
 
 bool RenderBox::avoidsFloats() const
 {
-    return isReplaced() || hasOverflowClip() || isHR() || isLegend() || isWritingModeRoot() || isFlexItemIncludingDeprecated();
+    // CSS2.1: "The border box of a table, a block-level replaced element, or an element in the normal flow that establishes a new block formatting
+    // context .. must not overlap the margin box of any floats in the same block formatting context."
+    // FIXME: The inclusion of horizontal rule and legend elements here isn't covered by any spec.
+    return isReplaced() || isHR() || isLegend() || isTable() || (!isFloatingOrOutOfFlowPositioned() && createsBlockFormattingContext());
+}
+
+bool RenderBox::createsBlockFormattingContext() const
+{
+    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasOverflowClip() || isFlexItemIncludingDeprecated()
+        || style()->specifiesColumns() || isRenderFlowThread() || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElement() || style()->columnSpan();
 }
 
 void RenderBox::markForPaginationRelayoutIfNeeded(SubtreeLayoutScope& layoutScope)

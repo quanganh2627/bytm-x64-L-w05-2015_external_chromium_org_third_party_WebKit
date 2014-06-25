@@ -165,7 +165,6 @@ LOCAL_SRC_FILES := \
 	third_party/WebKit/Source/modules/crypto/HmacKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/Key.cpp \
 	third_party/WebKit/Source/modules/crypto/KeyAlgorithm.cpp \
-	third_party/WebKit/Source/modules/crypto/KeyPair.cpp \
 	third_party/WebKit/Source/modules/crypto/NormalizeAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/RsaHashedKeyAlgorithm.cpp \
 	third_party/WebKit/Source/modules/crypto/RsaKeyAlgorithm.cpp \
@@ -516,6 +515,7 @@ MY_DEFS_Debug := \
 	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
 	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
 	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
+	'-DDATA_REDUCTION_PROXY_WARMUP_URL="http://www.gstatic.com/generate_204"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -538,6 +538,7 @@ MY_DEFS_Debug := \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_SETCONFIG' \
 	'-DSK_IGNORE_ETC1_SUPPORT' \
+	'-DSK_IGNORE_GPU_DITHER' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -572,7 +573,6 @@ LOCAL_C_INCLUDES_Debug := \
 	$(LOCAL_PATH)/third_party/zlib \
 	$(LOCAL_PATH)/third_party/sqlite \
 	$(LOCAL_PATH)/third_party/WebKit \
-	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(gyp_shared_intermediate_dir)/blink \
@@ -662,6 +662,7 @@ MY_DEFS_Release := \
 	'-DDATA_REDUCTION_DEV_HOST="http://proxy-dev.googlezip.net:80/"' \
 	'-DSPDY_PROXY_AUTH_ORIGIN="https://proxy.googlezip.net:443/"' \
 	'-DDATA_REDUCTION_PROXY_PROBE_URL="http://check.googlezip.net/connect"' \
+	'-DDATA_REDUCTION_PROXY_WARMUP_URL="http://www.gstatic.com/generate_204"' \
 	'-DVIDEO_HOLE=1' \
 	'-DBLINK_IMPLEMENTATION=1' \
 	'-DINSIDE_BLINK' \
@@ -684,6 +685,7 @@ MY_DEFS_Release := \
 	'-DSK_SUPPORT_LEGACY_N32_NAME' \
 	'-DSK_SUPPORT_LEGACY_SETCONFIG' \
 	'-DSK_IGNORE_ETC1_SUPPORT' \
+	'-DSK_IGNORE_GPU_DITHER' \
 	'-DSK_SUPPORT_LEGACY_GETTOTALCLIP' \
 	'-DSK_BUILD_FOR_ANDROID' \
 	'-DSK_USE_POSIX_THREADS' \
@@ -719,7 +721,6 @@ LOCAL_C_INCLUDES_Release := \
 	$(LOCAL_PATH)/third_party/zlib \
 	$(LOCAL_PATH)/third_party/sqlite \
 	$(LOCAL_PATH)/third_party/WebKit \
-	$(gyp_shared_intermediate_dir)/blink/platform \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(gyp_shared_intermediate_dir)/blink \

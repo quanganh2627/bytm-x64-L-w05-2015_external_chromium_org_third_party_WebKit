@@ -36,7 +36,7 @@
 namespace WebCore {
 
 class CSSStyleSheet;
-class DOMWindow;
+class LocalDOMWindow;
 class Document;
 class ExecutionContext;
 class StyleSheetContents;
@@ -278,7 +278,7 @@ public:
         HTMLMediaElementSeekToFragmentStart = 281,
         HTMLMediaElementPauseAtFragmentEnd = 282,
         PrefixedWindowURL = 283,
-        PrefixedWorkerURL = 284,
+        PrefixedWorkerURL = 284, // This didn't work because of crbug.com/376039. Available since M37.
         WindowOrientation = 285,
         DOMStringListContains = 286,
         DocumentCaptureEvents = 287,
@@ -307,8 +307,8 @@ public:
         NamedNodeMapGetNamedItemNS = 310,
         NamedNodeMapSetNamedItemNS = 311,
         NamedNodeMapRemoveNamedItemNS = 312,
-        OpenWebDatabaseInWorker = 313, // This doesn't work because of crbug.com/376039.
-        OpenWebDatabaseSyncInWorker = 314, // This doesn't work because of crbug.com/376039.
+        OpenWebDatabaseInWorker = 313, // This didn't work because of crbug.com/376039. Available since M37.
+        OpenWebDatabaseSyncInWorker = 314, // This didn't work because of crbug.com/376039. Available since M37.
         PrefixedAllowFullscreenAttribute = 315,
         XHRProgressEventPosition = 316,
         XHRProgressEventTotalSize = 317,
@@ -463,6 +463,13 @@ public:
         HTMLImportsAsyncAttribute = 463,
         FontFaceSetReady = 464,
         XMLHttpRequestSynchronous = 465,
+        CSSSelectorPseudoUnresolved = 466,
+        CSSSelectorPseudoShadow = 467,
+        CSSSelectorPseudoContent = 468,
+        CSSSelectorPseudoHost = 469,
+        CSSSelectorPseudoHostContext = 470,
+        CSSDeepCombinator = 471,
+        SyncXHRWithCredentials = 472,
         // Add new features immediately above this line. Don't change assigned
         // numbers of any item, and don't reuse removed slots.
         // Also, run update_use_counter_feature_enum.py in chromium/src/tools/metrics/histograms/
@@ -472,7 +479,8 @@ public:
 
     // "count" sets the bit for this feature to 1. Repeated calls are ignored.
     static void count(const Document&, Feature);
-    // This doesn't count for non-Document ExecutionContext.
+    // This doesn't count for ExecutionContexts for shared workers and service
+    // workers.
     static void count(const ExecutionContext*, Feature);
     void count(CSSParserContext, CSSPropertyID);
     void count(Feature);
@@ -480,9 +488,13 @@ public:
     // "countDeprecation" sets the bit for this feature to 1, and sends a deprecation
     // warning to the console. Repeated calls are ignored.
     //
-    // Be considerate to developers' consoles: features should only send deprecation warnings
-    // when we're actively interested in removing them from the platform.
-    static void countDeprecation(const DOMWindow*, Feature);
+    // Be considerate to developers' consoles: features should only send
+    // deprecation warnings when we're actively interested in removing them from
+    // the platform.
+    //
+    // The ExecutionContext* overload doesn't work for shared workers and
+    // service workers.
+    static void countDeprecation(const LocalDOMWindow*, Feature);
     static void countDeprecation(ExecutionContext*, Feature);
     static void countDeprecation(const Document&, Feature);
     String deprecationMessage(Feature);

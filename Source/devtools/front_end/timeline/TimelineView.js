@@ -40,11 +40,11 @@
 WebInspector.TimelineView = function(delegate, model, uiUtils)
 {
     WebInspector.HBox.call(this);
-    this._uiUtils = uiUtils;
     this.element.classList.add("timeline-view");
 
     this._delegate = delegate;
     this._model = model;
+    this._uiUtils = uiUtils;
     this._presentationModel = new WebInspector.TimelinePresentationModel(model, uiUtils);
     this._calculator = new WebInspector.TimelineCalculator(model);
     this._linkifier = new WebInspector.Linkifier();
@@ -135,7 +135,8 @@ WebInspector.TimelineView.prototype = {
             var dividerPosition = Math.round(position);
             if (dividerPosition < 0 || dividerPosition >= clientWidth || dividers[dividerPosition])
                 continue;
-            var divider = WebInspector.TimelineUIUtils.createEventDivider(record.type(), WebInspector.TimelineUIUtils.recordTitle(record, this._model));
+            var title = this._uiUtils.titleForRecord(record);
+            var divider = this._uiUtils.createEventDivider(record.type(), title);
             divider.style.left = dividerPosition + "px";
             dividers[dividerPosition] = divider;
         }
@@ -181,7 +182,7 @@ WebInspector.TimelineView.prototype = {
             this._frameContainer.appendChild(frameStrip);
 
             if (actualStart > 0) {
-                var frameMarker = WebInspector.TimelineUIUtils.createEventDivider(WebInspector.TimelineModel.RecordType.BeginFrame);
+                var frameMarker = this._uiUtils.createBeginFrameDivider();
                 frameMarker.style.left = frameStart + "px";
                 dividers.push(frameMarker);
             }
@@ -1065,7 +1066,7 @@ WebInspector.TimelineRecordListRow.prototype = {
         if (record.thread())
             this.element.classList.add("background");
 
-        this._typeElement.textContent = record.title();
+        this._typeElement.textContent = uiUtils.titleForRecord(record);
 
         if (this._dataElement.firstChild)
             this._dataElement.removeChildren();

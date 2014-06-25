@@ -175,6 +175,8 @@ void ImageLoader::doUpdateFromElement(bool bypassMainWorldCSP)
     delayLoad.swap(m_delayLoad);
 
     Document& document = m_element->document();
+    if (!document.isActive())
+        return;
 
     AtomicString attr = m_element->imageSourceURL();
 
@@ -458,8 +460,6 @@ void ImageLoader::dispatchPendingErrorEvent()
     if (!m_hasPendingErrorEvent)
         return;
     m_hasPendingErrorEvent = false;
-    if (isHTMLImageElement(element()))
-        toHTMLImageElement(element())->updateCurrentSrc();
 
     if (element()->document().frame())
         element()->dispatchEvent(Event::create(EventTypeNames::error));

@@ -66,11 +66,8 @@ class FilterOperations;
 class HitTestRequest;
 class HitTestResult;
 class HitTestingTransformState;
-class RenderFlowThread;
-class RenderGeometryMap;
 class CompositedLayerMapping;
 class RenderLayerCompositor;
-class RenderReplica;
 class RenderStyle;
 class TransformationMatrix;
 
@@ -172,7 +169,7 @@ public:
     bool isPaginated() const { return m_isPaginated; }
     RenderLayer* enclosingPaginationLayer() const { return m_enclosingPaginationLayer; }
 
-    void updateTransform();
+    void updateTransformationMatrix();
     RenderLayer* renderingContextRoot();
 
     const LayoutSize& offsetForInFlowPosition() const { return m_offsetForInFlowPosition; }
@@ -227,9 +224,6 @@ public:
     RenderLayer* enclosingCompositingLayerForRepaint(IncludeSelfOrNot = IncludeSelf) const;
     // Ancestor compositing layer, excluding this.
     RenderLayer* ancestorCompositingLayer() const { return enclosingCompositingLayer(ExcludeSelf); }
-
-    // Ancestor composited scrolling layer at or above our containing block.
-    RenderLayer* ancestorCompositedScrollingLayer() const;
 
     // Ancestor scrolling layer at or above our containing block.
     RenderLayer* ancestorScrollingLayer() const;
@@ -340,6 +334,11 @@ public:
 
     RenderLayer* scrollParent() const;
     RenderLayer* clipParent() const;
+
+    // Computes the position of the given render object in the space of |repaintContainer|.
+    // FIXME: invert the logic to have repaint containers take care of painting objects into them, rather than the reverse.
+    // This will allow us to clean up this static method messiness.
+    static LayoutPoint positionFromPaintInvalidationContainer(const RenderObject*, const RenderLayerModelObject* repaintContainer);
 
     // Adjusts the given rect (in the coordinate space of the RenderObject) to the coordinate space of |repaintContainer|'s GraphicsLayer backing.
     static void mapRectToRepaintBacking(const RenderObject*, const RenderLayerModelObject* repaintContainer, LayoutRect&);
@@ -473,10 +472,10 @@ public:
     void setCompositingReasons(CompositingReasons, CompositingReasons mask = CompositingReasonAll);
 
     bool hasCompositingDescendant() const { ASSERT(isAllowedToQueryCompositingState()); return m_hasCompositingDescendant; }
-    void setHasCompositingDescendant(bool b)  { m_hasCompositingDescendant = b; }
+    void setHasCompositingDescendant(bool);
 
     bool shouldIsolateCompositedDescendants() const { ASSERT(isAllowedToQueryCompositingState()); return m_shouldIsolateCompositedDescendants; }
-    void setShouldIsolateCompositedDescendants(bool b)  { m_shouldIsolateCompositedDescendants = b; }
+    void setShouldIsolateCompositedDescendants(bool);
 
     void updateDescendantDependentFlags();
 
@@ -592,6 +591,8 @@ private:
 
     void dirtyAncestorChainVisibleDescendantStatus();
     void setAncestorChainHasVisibleDescendant();
+
+    void updateTransform(const RenderStyle* oldStyle, RenderStyle* newStyle);
 
     void dirty3DTransformedDescendantStatus();
     // Both updates the status, and returns true if descendants of this have 3d.

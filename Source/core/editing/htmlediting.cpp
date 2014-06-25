@@ -258,54 +258,58 @@ Position previousVisuallyDistinctCandidate(const Position& position)
     return Position();
 }
 
-VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& position, Node* highestRoot)
+VisiblePosition firstEditableVisiblePositionAfterPositionInRoot(const Position& position, Node* highestRoot)
 {
     // position falls before highestRoot.
     if (comparePositions(position, firstPositionInNode(highestRoot)) == -1 && highestRoot->rendererIsEditable())
         return VisiblePosition(firstPositionInNode(highestRoot));
 
-    Position p = position;
+    Position editablePosition = position;
 
     if (position.deprecatedNode()->treeScope() != highestRoot->treeScope()) {
-        Node* shadowAncestor = highestRoot->treeScope().ancestorInThisScope(p.deprecatedNode());
+        Node* shadowAncestor = highestRoot->treeScope().ancestorInThisScope(editablePosition.deprecatedNode());
         if (!shadowAncestor)
             return VisiblePosition();
 
-        p = positionAfterNode(shadowAncestor);
+        editablePosition = positionAfterNode(shadowAncestor);
     }
 
-    while (p.deprecatedNode() && !isEditablePosition(p) && p.deprecatedNode()->isDescendantOf(highestRoot))
-        p = isAtomicNode(p.deprecatedNode()) ? positionInParentAfterNode(*p.deprecatedNode()) : nextVisuallyDistinctCandidate(p);
+    while (editablePosition.deprecatedNode() && !isEditablePosition(editablePosition) && editablePosition.deprecatedNode()->isDescendantOf(highestRoot))
+        editablePosition = isAtomicNode(editablePosition.deprecatedNode()) ? positionInParentAfterNode(*editablePosition.deprecatedNode()) : nextVisuallyDistinctCandidate(editablePosition);
 
-    if (p.deprecatedNode() && p.deprecatedNode() != highestRoot && !p.deprecatedNode()->isDescendantOf(highestRoot))
+    if (editablePosition.deprecatedNode() && editablePosition.deprecatedNode() != highestRoot && !editablePosition.deprecatedNode()->isDescendantOf(highestRoot))
         return VisiblePosition();
 
-    return VisiblePosition(p);
+    return VisiblePosition(editablePosition);
 }
 
-VisiblePosition lastEditablePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
+VisiblePosition lastEditableVisiblePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
+{
+    return VisiblePosition(lastEditablePositionBeforePositionInRoot(position, highestRoot));
+}
+
+Position lastEditablePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
 {
     // When position falls after highestRoot, the result is easy to compute.
     if (comparePositions(position, lastPositionInNode(highestRoot)) == 1)
-        return VisiblePosition(lastPositionInNode(highestRoot));
+        return lastPositionInNode(highestRoot);
 
-    Position p = position;
+    Position editablePosition = position;
 
     if (position.deprecatedNode()->treeScope() != highestRoot->treeScope()) {
-        Node* shadowAncestor = highestRoot->treeScope().ancestorInThisScope(p.deprecatedNode());
+        Node* shadowAncestor = highestRoot->treeScope().ancestorInThisScope(editablePosition.deprecatedNode());
         if (!shadowAncestor)
-            return VisiblePosition();
+            return Position();
 
-        p = firstPositionInOrBeforeNode(shadowAncestor);
+        editablePosition = firstPositionInOrBeforeNode(shadowAncestor);
     }
 
-    while (p.deprecatedNode() && !isEditablePosition(p) && p.deprecatedNode()->isDescendantOf(highestRoot))
-        p = isAtomicNode(p.deprecatedNode()) ? positionInParentBeforeNode(*p.deprecatedNode()) : previousVisuallyDistinctCandidate(p);
+    while (editablePosition.deprecatedNode() && !isEditablePosition(editablePosition) && editablePosition.deprecatedNode()->isDescendantOf(highestRoot))
+        editablePosition = isAtomicNode(editablePosition.deprecatedNode()) ? positionInParentBeforeNode(*editablePosition.deprecatedNode()) : previousVisuallyDistinctCandidate(editablePosition);
 
-    if (p.deprecatedNode() && p.deprecatedNode() != highestRoot && !p.deprecatedNode()->isDescendantOf(highestRoot))
-        return VisiblePosition();
-
-    return VisiblePosition(p);
+    if (editablePosition.deprecatedNode() && editablePosition.deprecatedNode() != highestRoot && !editablePosition.deprecatedNode()->isDescendantOf(highestRoot))
+        return Position();
+    return editablePosition;
 }
 
 // FIXME: The method name, comment, and code say three different things here!

@@ -37,12 +37,13 @@
 #include "core/events/Event.h"
 #include "core/events/GenericEventQueue.h"
 #include "core/events/ScopedEventQueue.h"
-#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalDOMWindow.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/UseCounter.h"
 #include "core/frame/csp/ContentSecurityPolicy.h"
 #include "core/html/HTMLCollection.h"
 #include "core/html/HTMLDialogElement.h"
+#include "core/html/HTMLFormControlsCollection.h"
 #include "core/html/HTMLImageElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/html/HTMLObjectElement.h"
@@ -401,7 +402,7 @@ void HTMLFormElement::scheduleFormSubmission(PassRefPtrWillBeRawPtr<FormSubmissi
 
     LocalFrame* targetFrame = document().frame()->loader().findFrameForNavigation(submission->target(), submission->state()->sourceDocument());
     if (!targetFrame) {
-        if (!DOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::processingUserGesture())
+        if (!LocalDOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::processingUserGesture())
             return;
         targetFrame = document().frame();
     } else {
@@ -559,9 +560,9 @@ void HTMLFormElement::didAssociateByParser()
     UseCounter::count(document(), UseCounter::FormAssociationByParser);
 }
 
-PassRefPtrWillBeRawPtr<HTMLCollection> HTMLFormElement::elements()
+PassRefPtrWillBeRawPtr<HTMLFormControlsCollection> HTMLFormElement::elements()
 {
-    return ensureCachedHTMLCollection(FormControls);
+    return toHTMLFormControlsCollection(ensureCachedHTMLCollection(FormControls).get());
 }
 
 void HTMLFormElement::collectAssociatedElements(Node& root, FormAssociatedElement::List& elements) const

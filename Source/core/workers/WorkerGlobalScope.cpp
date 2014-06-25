@@ -44,7 +44,8 @@
 #include "core/inspector/ScriptCallStack.h"
 #include "core/inspector/WorkerInspectorController.h"
 #include "core/loader/WorkerThreadableLoader.h"
-#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalDOMWindow.h"
+#include "core/workers/WorkerNavigator.h"
 #include "core/workers/WorkerClients.h"
 #include "core/workers/WorkerConsole.h"
 #include "core/workers/WorkerLocation.h"
@@ -320,6 +321,16 @@ bool WorkerGlobalScope::idleNotification()
 WorkerEventQueue* WorkerGlobalScope::eventQueue() const
 {
     return m_eventQueue.get();
+}
+
+void WorkerGlobalScope::countFeature(UseCounter::Feature) const
+{
+    // FIXME: How should we count features for shared/service workers?
+}
+
+void WorkerGlobalScope::countDeprecation(UseCounter::Feature) const
+{
+    // FIXME: How should we count features for shared/service workers?
 }
 
 void WorkerGlobalScope::trace(Visitor* visitor)

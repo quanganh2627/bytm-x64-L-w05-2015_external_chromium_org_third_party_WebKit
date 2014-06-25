@@ -54,13 +54,13 @@ INTERFACE_H_INCLUDES = frozenset([
     'platform/heap/Handle.h',
 ])
 INTERFACE_CPP_INCLUDES = frozenset([
-    'RuntimeEnabledFeatures.h',
     'bindings/v8/ExceptionState.h',
     'bindings/v8/V8DOMConfiguration.h',
     'bindings/v8/V8HiddenValue.h',
     'bindings/v8/V8ObjectConstructor.h',
     'core/dom/ContextFeatures.h',
     'core/dom/Document.h',
+    'platform/RuntimeEnabledFeatures.h',
     'platform/TraceEvent.h',
     'wtf/GetPtr.h',
     'wtf/RefPtr.h',
@@ -205,7 +205,7 @@ def generate_interface(interface):
     if (constructors or custom_constructors or has_event_constructor or
         named_constructor):
         includes.add('bindings/v8/V8ObjectConstructor.h')
-        includes.add('core/frame/DOMWindow.h')
+        includes.add('core/frame/LocalDOMWindow.h')
 
     template_contents.update({
         'any_type_attributes': any_type_attributes,
@@ -761,9 +761,14 @@ def resolution_tests_methods(effective_overloads):
     # types at position i of its type list,
     # • DOMString
     # • an enumeration type
+    # * ByteString
+    # Blink: ScalarValueString is a pending Web IDL addition
     try:
         method = next(method for idl_type, method in idl_types_methods
-                      if idl_type.name == 'String' or idl_type.is_enum)
+                      if idl_type.name in ('String',
+                                           'ByteString',
+                                           'ScalarValueString') or
+                      idl_type.is_enum)
         yield 'true', method
     except StopIteration:
         pass

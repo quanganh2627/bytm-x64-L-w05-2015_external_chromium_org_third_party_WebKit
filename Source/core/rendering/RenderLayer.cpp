@@ -210,7 +210,7 @@ void RenderLayer::contentChanged(ContentChangeType changeType)
         // layer for this canvas.
         // See http://crbug.com/349195
         if (hasCompositedLayerMapping())
-            compositedLayerMapping()->setNeedsGraphicsLayerUpdate();
+            compositedLayerMapping()->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateSubtree);
     }
 
     if (m_compositedLayerMapping)
@@ -368,35 +368,31 @@ bool RenderLayer::scrollsWithRespectTo(const RenderLayer* other) const
     if (isRootFixedPos || otherIsRootFixedPos)
         return true;
 
-    if (containingBlock == otherContainingBlock)
+    if (containingBlock->enclosingLayer() == otherContainingBlock->enclosingLayer())
         return false;
 
     // Maintain a set of containing blocks between the first layer and its
     // closest scrollable ancestor.
-    HashSet<const RenderObject*> containingBlocks;
+    HashSet<const RenderLayer*> containingBlocks;
     while (containingBlock) {
-        if (containingBlock->enclosingLayer()->scrollsOverflow()) {
+        containingBlocks.add(containingBlock->enclosingLayer());
+        if (containingBlock->enclosingLayer()->scrollsOverflow())
             break;
-        }
+
         if (containingBlock->enclosingLayer() == other) {
             // This layer does not scroll with respect to the other layer if the other one does not scroll and this one is a child.
             return false;
         }
-        containingBlocks.add(containingBlock);
+
         containingBlock = containingBlock->containingBlock();
     }
 
     // Do the same for the 2nd layer, but if we find a common containing block,
     // it means both layers are contained within a single non-scrolling subtree.
     // Hence, they will not scroll with respect to each other.
-    bool thisLayerScrollsOverflow = scrollsOverflow();
     while (otherContainingBlock) {
-        if (containingBlocks.contains(otherContainingBlock))
+        if (containingBlocks.contains(otherContainingBlock->enclosingLayer()))
             return false;
-        // The other layer scrolls with respect to this one if this one scrolls and it's a child.
-        if (!thisLayerScrollsOverflow && otherContainingBlock->enclosingLayer() == this)
-            return false;
-        // The other layer does not scroll with respect to this one if this one does not scroll and it's a child.
         if (otherContainingBlock->enclosingLayer()->scrollsOverflow())
             break;
         otherContainingBlock = otherContainingBlock->containingBlock();
@@ -459,11 +455,25 @@ void RenderLayer::updateLayerPositionsAfterScroll(UpdateLayerPositionsAfterScrol
     // updated above.
 }
 
-void RenderLayer::updateTransform()
+void RenderLayer::updateTransformationMatrix()
 {
+    if (m_transform) {
+        RenderBox* box = renderBox();
+        ASSERT(box);
+        m_transform->makeIdentity();
+        box->style()->applyTransform(*m_transform, box->pixelSnappedBorderBoxRect().size(), RenderStyle::IncludeTransformOrigin);
+        makeMatrixRenderable(*m_transform, compositor()->hasAcceleratedCompositing());
+    }
+}
+
+void RenderLayer::updateTransform(const RenderStyle* oldStyle, RenderStyle* newStyle)
+{
+    if (oldStyle && newStyle->transformDataEquivalent(*oldStyle))
+        return;
+
     // hasTransform() on the renderer is also true when there is transform-style: preserve-3d or perspective set,
     // so check style too.
-    bool hasTransform = renderer()->hasTransform() && renderer()->style()->hasTransform();
+    bool hasTransform = renderer()->hasTransform() && newStyle->hasTransform();
     bool had3DTransform = has3DTransform();
 
     bool hadTransform = m_transform;
@@ -475,15 +485,11 @@ void RenderLayer::updateTransform()
 
         // Layers with transforms act as clip rects roots, so clear the cached clip rects here.
         m_clipper.clearClipRectsIncludingDescendants();
+    } else if (hasTransform) {
+        m_clipper.clearClipRectsIncludingDescendants(AbsoluteClipRects);
     }
 
-    if (hasTransform) {
-        RenderBox* box = renderBox();
-        ASSERT(box);
-        m_transform->makeIdentity();
-        box->style()->applyTransform(*m_transform, box->pixelSnappedBorderBoxRect().size(), RenderStyle::IncludeTransformOrigin);
-        makeMatrixRenderable(*m_transform, compositor()->hasAcceleratedCompositing());
-    }
+    updateTransformationMatrix();
 
     if (had3DTransform != has3DTransform())
         dirty3DTransformedDescendantStatus();
@@ -647,13 +653,8 @@ void RenderLayer::updatePagination()
     }
 }
 
-void RenderLayer::mapRectToRepaintBacking(const RenderObject* renderObject, const RenderLayerModelObject* repaintContainer, LayoutRect& rect)
+static RenderLayerModelObject* getTransformedAncestor(const RenderLayerModelObject* repaintContainer)
 {
-    if (!repaintContainer->groupedMapping()) {
-        renderObject->mapRectToPaintInvalidationBacking(repaintContainer, rect);
-        return;
-    }
-
     ASSERT(repaintContainer->layer()->enclosingTransformedAncestor());
     ASSERT(repaintContainer->layer()->enclosingTransformedAncestor()->renderer());
 
@@ -661,6 +662,37 @@ void RenderLayer::mapRectToRepaintBacking(const RenderObject* renderObject, cons
     RenderLayerModelObject* transformedAncestor = 0;
     if (RenderLayer* ancestor = repaintContainer->layer()->enclosingTransformedAncestor())
         transformedAncestor = ancestor->renderer();
+    return transformedAncestor;
+}
+
+LayoutPoint RenderLayer::positionFromPaintInvalidationContainer(const RenderObject* renderObject, const RenderLayerModelObject* repaintContainer)
+{
+    if (!repaintContainer || !repaintContainer->groupedMapping())
+        return renderObject->positionFromPaintInvalidationContainer(repaintContainer);
+
+    RenderLayerModelObject* transformedAncestor = getTransformedAncestor(repaintContainer);
+    if (!transformedAncestor)
+        return renderObject->positionFromPaintInvalidationContainer(repaintContainer);
+
+    // If the transformedAncestor is actually the RenderView, we might get
+    // confused and think that we can use LayoutState. Ideally, we'd made
+    // LayoutState work for all composited layers as well, but until then
+    // we need to disable LayoutState for squashed layers.
+    ForceHorriblySlowRectMapping slowRectMapping(*transformedAncestor);
+
+    LayoutPoint point = renderObject->positionFromPaintInvalidationContainer(transformedAncestor);
+    point.moveBy(-repaintContainer->groupedMapping()->squashingOffsetFromTransformedAncestor());
+    return point;
+}
+
+void RenderLayer::mapRectToRepaintBacking(const RenderObject* renderObject, const RenderLayerModelObject* repaintContainer, LayoutRect& rect)
+{
+    if (!repaintContainer->groupedMapping()) {
+        renderObject->mapRectToPaintInvalidationBacking(repaintContainer, rect);
+        return;
+    }
+
+    RenderLayerModelObject* transformedAncestor = getTransformedAncestor(repaintContainer);
     if (!transformedAncestor)
         return;
 
@@ -676,8 +708,6 @@ void RenderLayer::mapRectToRepaintBacking(const RenderObject* renderObject, cons
     // FIXME: remove this special-case code that works around the repainting code structure.
     renderObject->mapRectToPaintInvalidationBacking(transformedAncestor, rect);
     rect.moveBy(-repaintContainer->groupedMapping()->squashingOffsetFromTransformedAncestor());
-
-    return;
 }
 
 LayoutRect RenderLayer::computeRepaintRect(const RenderObject* renderObject, const RenderLayer* repaintContainer)
@@ -1082,35 +1112,12 @@ RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot i
     return 0;
 }
 
-RenderLayer* RenderLayer::ancestorCompositedScrollingLayer() const
-{
-    if (!compositor()->acceleratedCompositingForOverflowScrollEnabled())
-        return 0;
-
-    RenderObject* containingBlock = renderer()->containingBlock();
-    if (!containingBlock)
-        return 0;
-
-    RenderLayer* ancestorCompositedScrollingLayer = 0;
-    for (RenderLayer* ancestorLayer = containingBlock->enclosingLayer(); ancestorLayer; ancestorLayer = ancestorLayer->parent()) {
-        if (ancestorLayer->needsCompositedScrolling()) {
-            ancestorCompositedScrollingLayer = ancestorLayer;
-            break;
-        }
-    }
-
-    return ancestorCompositedScrollingLayer;
-}
-
 RenderLayer* RenderLayer::ancestorScrollingLayer() const
 {
-    RenderObject* containingBlock = renderer()->containingBlock();
-    if (!containingBlock)
-        return 0;
-
-    for (RenderLayer* ancestorLayer = containingBlock->enclosingLayer(); ancestorLayer; ancestorLayer = ancestorLayer->parent()) {
-        if (ancestorLayer->scrollsOverflow())
-            return ancestorLayer;
+    for (RenderObject* container = renderer()->containingBlock(); container; container = container->containingBlock()) {
+        RenderLayer* currentLayer = container->enclosingLayer();
+        if (currentLayer->scrollsOverflow())
+            return currentLayer;
     }
 
     return 0;
@@ -1154,6 +1161,28 @@ void RenderLayer::setCompositingReasons(CompositingReasons reasons, CompositingR
         return;
     m_compositingReasons = (reasons & mask) | (compositingReasons() & ~mask);
     m_clipper.setCompositingClipRectsDirty();
+}
+
+void RenderLayer::setHasCompositingDescendant(bool hasCompositingDescendant)
+{
+    if (m_hasCompositingDescendant == static_cast<unsigned>(hasCompositingDescendant))
+        return;
+
+    m_hasCompositingDescendant = hasCompositingDescendant;
+
+    if (hasCompositedLayerMapping())
+        compositedLayerMapping()->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateLocal);
+}
+
+void RenderLayer::setShouldIsolateCompositedDescendants(bool shouldIsolateCompositedDescendants)
+{
+    if (m_shouldIsolateCompositedDescendants == static_cast<unsigned>(shouldIsolateCompositedDescendants))
+        return;
+
+    m_shouldIsolateCompositedDescendants = shouldIsolateCompositedDescendants;
+
+    if (hasCompositedLayerMapping())
+        compositedLayerMapping()->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateLocal);
 }
 
 bool RenderLayer::hasAncestorWithFilterOutsets() const
@@ -1615,7 +1644,7 @@ RenderLayer* RenderLayer::scrollParent() const
     // be a composited layer since the compositor will need to take special measures to ensure
     // that we scroll with our scrolling ancestor and it cannot do this if we do not promote.
 
-    RenderLayer* scrollParent = ancestorCompositedScrollingLayer();
+    RenderLayer* scrollParent = ancestorScrollingLayer();
     if (!scrollParent || scrollParent->stackingNode()->isStackingContext())
         return 0;
 
@@ -3440,7 +3469,7 @@ CompositedLayerMappingPtr RenderLayer::ensureCompositedLayerMapping()
 {
     if (!m_compositedLayerMapping) {
         m_compositedLayerMapping = adoptPtr(new CompositedLayerMapping(*this));
-        m_compositedLayerMapping->setNeedsGraphicsLayerUpdate();
+        m_compositedLayerMapping->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateSubtree);
 
         updateOrRemoveFilterEffectRenderer();
 
@@ -3458,7 +3487,7 @@ void RenderLayer::clearCompositedLayerMapping(bool layerBeingDestroyed)
         // require walking the z-order lists to find them. Instead, we over-invalidate
         // by marking our parent as needing a geometry update.
         if (RenderLayer* compositingParent = enclosingCompositingLayer(ExcludeSelf))
-            compositingParent->compositedLayerMapping()->setNeedsGraphicsLayerUpdate();
+            compositingParent->compositedLayerMapping()->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateSubtree);
     }
 
     m_compositedLayerMapping.clear();
@@ -3473,12 +3502,12 @@ void RenderLayer::setGroupedMapping(CompositedLayerMapping* groupedMapping, bool
         return;
 
     if (!layerBeingDestroyed && m_groupedMapping) {
-        m_groupedMapping->setNeedsGraphicsLayerUpdate();
+        m_groupedMapping->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateSubtree);
         m_groupedMapping->removeRenderLayerFromSquashingGraphicsLayer(this);
     }
     m_groupedMapping = groupedMapping;
     if (!layerBeingDestroyed && m_groupedMapping)
-        m_groupedMapping->setNeedsGraphicsLayerUpdate();
+        m_groupedMapping->setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateSubtree);
 }
 
 bool RenderLayer::hasCompositedMask() const
@@ -3689,8 +3718,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
 
     updateDescendantDependentFlags();
 
-    if (!oldStyle || !renderer()->style()->transformDataEquivalent(*oldStyle))
-        updateTransform();
+    updateTransform(oldStyle, renderer()->style());
 
     {
         // https://code.google.com/p/chromium/issues/detail?id=343759

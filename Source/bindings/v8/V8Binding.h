@@ -47,7 +47,7 @@
 
 namespace WebCore {
 
-class DOMWindow;
+class LocalDOMWindow;
 class Document;
 class EventListener;
 class ExecutionContext;
@@ -528,6 +528,9 @@ inline float toFloat(v8::Local<v8::Value> value)
 // Converts a value to a String, throwing if any code unit is outside 0-255.
 String toByteString(v8::Handle<v8::Value>, ExceptionState&);
 
+// Converts a value to a String, replacing unmatched UTF-16 surrogates with replacement characters.
+String toScalarValueString(v8::Handle<v8::Value>, ExceptionState&);
+
 inline v8::Handle<v8::Boolean> v8Boolean(bool value, v8::Isolate* isolate)
 {
     return value ? v8::True(isolate) : v8::False(isolate);
@@ -759,11 +762,11 @@ inline v8::Handle<v8::Value> toV8Sequence(v8::Handle<v8::Value> value, uint32_t&
 v8::Isolate* toIsolate(ExecutionContext*);
 v8::Isolate* toIsolate(LocalFrame*);
 
-DOMWindow* toDOMWindow(v8::Handle<v8::Value>, v8::Isolate*);
-DOMWindow* toDOMWindow(v8::Handle<v8::Context>);
-DOMWindow* enteredDOMWindow(v8::Isolate*);
-DOMWindow* currentDOMWindow(v8::Isolate*);
-DOMWindow* callingDOMWindow(v8::Isolate*);
+LocalDOMWindow* toDOMWindow(v8::Handle<v8::Value>, v8::Isolate*);
+LocalDOMWindow* toDOMWindow(v8::Handle<v8::Context>);
+LocalDOMWindow* enteredDOMWindow(v8::Isolate*);
+LocalDOMWindow* currentDOMWindow(v8::Isolate*);
+LocalDOMWindow* callingDOMWindow(v8::Isolate*);
 ExecutionContext* toExecutionContext(v8::Handle<v8::Context>);
 ExecutionContext* currentExecutionContext(v8::Isolate*);
 ExecutionContext* callingExecutionContext(v8::Isolate*);

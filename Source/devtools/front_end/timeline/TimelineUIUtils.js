@@ -61,6 +61,14 @@ WebInspector.TimelineUIUtils.prototype = {
     },
     /**
      * @param {!WebInspector.TimelineModel.Record} record
+     * @return {boolean}
+     */
+    isEventDivider: function(record)
+    {
+        throw new Error("Not implemented.");
+    },
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
      * @return {?Object}
      */
     countersForRecord: function(record)
@@ -72,6 +80,14 @@ WebInspector.TimelineUIUtils.prototype = {
      * @return {?Object}
      */
     highlightQuadForRecord: function(record)
+    {
+        throw new Error("Not implemented.");
+    },
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
+     * @return {string}
+     */
+    titleForRecord: function(record)
     {
         throw new Error("Not implemented.");
     },
@@ -93,6 +109,31 @@ WebInspector.TimelineUIUtils.prototype = {
      * @param {boolean} loadedFromFile
      */
     generateDetailsContent: function(record, model, linkifier, callback, loadedFromFile)
+    {
+        throw new Error("Not implemented.");
+    },
+    /**
+     * @return {!Element}
+     */
+    createBeginFrameDivider: function()
+    {
+        throw new Error("Not implemented.");
+    },
+    /**
+     * @param {string} recordType
+     * @param {string=} title
+     * @return {!Element}
+     */
+    createEventDivider: function(recordType, title)
+    {
+        throw new Error("Not implemented.");
+    },
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
+     * @param {!RegExp} regExp
+     * @return {boolean}
+     */
+    testContentMatching: function(record, regExp)
     {
         throw new Error("Not implemented.");
     }
@@ -196,71 +237,6 @@ WebInspector.TimelineUIUtils.recordStyle = function(record)
 }
 
 /**
- * @param {!WebInspector.TimelineModel.Record} record
- * @return {boolean}
- */
-WebInspector.TimelineUIUtils.isEventDivider = function(record)
-{
-    var recordTypes = WebInspector.TimelineModel.RecordType;
-    if (record.type() === recordTypes.TimeStamp)
-        return true;
-    if (record.type() === recordTypes.MarkFirstPaint)
-        return true;
-    if (record.type() === recordTypes.MarkDOMContent || record.type() === recordTypes.MarkLoad)
-        return record.data()["isMainFrame"];
-    return false;
-}
-
-/**
- * @param {string=} recordType
- * @return {boolean}
- */
-WebInspector.TimelineUIUtils.needsPreviewElement = function(recordType)
-{
-    if (!recordType)
-        return false;
-    const recordTypes = WebInspector.TimelineModel.RecordType;
-    switch (recordType) {
-    case recordTypes.ResourceSendRequest:
-    case recordTypes.ResourceReceiveResponse:
-    case recordTypes.ResourceReceivedData:
-    case recordTypes.ResourceFinish:
-        return true;
-    default:
-        return false;
-    }
-}
-
-/**
- * @param {string} recordType
- * @param {string=} title
- * @return {!Element}
- */
-WebInspector.TimelineUIUtils.createEventDivider = function(recordType, title)
-{
-    var eventDivider = document.createElement("div");
-    eventDivider.className = "resources-event-divider";
-    var recordTypes = WebInspector.TimelineModel.RecordType;
-
-    if (recordType === recordTypes.MarkDOMContent)
-        eventDivider.className += " resources-blue-divider";
-    else if (recordType === recordTypes.MarkLoad)
-        eventDivider.className += " resources-red-divider";
-    else if (recordType === recordTypes.MarkFirstPaint)
-        eventDivider.className += " resources-green-divider";
-    else if (recordType === recordTypes.TimeStamp)
-        eventDivider.className += " resources-orange-divider";
-    else if (recordType === recordTypes.BeginFrame)
-        eventDivider.className += " timeline-frame-divider";
-
-    if (title)
-        eventDivider.title = title;
-
-    return eventDivider;
-}
-
-
-/**
  * @param {!WebInspector.TimelineModel} model
  * @param {!{name: string, tasks: !Array.<!{startTime: number, endTime: number}>, firstTaskIndex: number, lastTaskIndex: number}} info
  * @return {!Element}
@@ -288,25 +264,6 @@ WebInspector.TimelineUIUtils.generateMainThreadBarPopupContent = function(model,
     contentHelper.appendTextRow(WebInspector.UIString("CPU time"), Number.millisToString(cpuTime, true));
     contentHelper.appendTextRow(WebInspector.UIString("Message Count"), messageCount);
     return contentHelper.contentTable();
-}
-
-/**
- * @param {!WebInspector.TimelineModel.Record} record
- * @param {!WebInspector.TimelineModel} model
- * @return {string}
- */
-WebInspector.TimelineUIUtils.recordTitle = function(record, model)
-{
-    var recordData = record.data();
-    if (record.type() === WebInspector.TimelineModel.RecordType.TimeStamp)
-        return recordData["message"];
-    if (record.type() === WebInspector.TimelineModel.RecordType.JSFrame)
-        return recordData["functionName"];
-    if (WebInspector.TimelineUIUtils.isEventDivider(record)) {
-        var startTime = Number.millisToString(record.startTime() - model.minimumRecordTime());
-        return WebInspector.UIString("%s at %s", WebInspector.TimelineUIUtils.recordStyle(record).title, startTime, true);
-    }
-    return WebInspector.TimelineUIUtils.recordStyle(record).title;
 }
 
 /**

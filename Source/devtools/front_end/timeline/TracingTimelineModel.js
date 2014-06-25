@@ -227,7 +227,7 @@ WebInspector.TracingTimelineModel.prototype = {
             }
             var parentRecord = recordStack.peekLast() || null;
             var record = new WebInspector.TracingTimelineModel.TraceEventRecord(this, event, parentRecord);
-            if (WebInspector.TimelineUIUtils.isEventDivider(record))
+            if (WebInspector.TracingTimelineUIUtils.isEventDivider(record))
                 this._eventDividerRecords.push(record);
             if (!recordStack.length)
                 this._addTopLevelRecord(record);
@@ -538,14 +538,6 @@ WebInspector.TracingTimelineModel.TraceEventRecord.prototype = {
     },
 
     /**
-     * @return {string}
-     */
-    title: function()
-    {
-        return WebInspector.TracingTimelineUIUtils.styleForTraceEvent(this._event.name).title;
-    },
-
-    /**
      * @return {number}
      */
     startTime: function()
@@ -657,21 +649,6 @@ WebInspector.TracingTimelineModel.TraceEventRecord.prototype = {
         if (this._event.warning)
             return [this._event.warning];
         return null;
-    },
-
-    /**
-     * @param {!RegExp} regExp
-     * @return {boolean}
-     */
-    testContentMatching: function(regExp)
-    {
-        var tokens = [this.title()];
-        var data = this._event.args.data;
-        if (data) {
-            for (var key in data)
-                tokens.push(data[key]);
-        }
-        return regExp.test(tokens.join("|"));
     },
 
     /**

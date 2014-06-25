@@ -32,7 +32,7 @@
 
 #include "core/dom/DocumentType.h"
 #include "core/events/Event.h"
-#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalDOMWindow.h"
 #include "core/frame/FrameDestructionObserver.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/Settings.h"
@@ -73,6 +73,8 @@ Frame::Frame(FrameClient* client, FrameHost* host, FrameOwner* owner)
         page()->incrementSubframeCount();
         if (m_owner->isLocal())
             toHTMLFrameOwnerElement(m_owner)->setContentFrame(*this);
+    } else {
+        page()->setMainFrame(this);
     }
 }
 
@@ -121,7 +123,7 @@ Settings* Frame::settings() const
     return 0;
 }
 
-void Frame::setDOMWindow(PassRefPtrWillBeRawPtr<DOMWindow> domWindow)
+void Frame::setDOMWindow(PassRefPtrWillBeRawPtr<LocalDOMWindow> domWindow)
 {
     if (m_domWindow)
         m_domWindow->reset();
@@ -191,6 +193,11 @@ void Frame::disconnectOwnerElement()
             page()->decrementSubframeCount();
     }
     m_owner = 0;
+}
+
+HTMLFrameOwnerElement* Frame::deprecatedLocalOwner() const
+{
+    return m_owner && m_owner->isLocal() ? toHTMLFrameOwnerElement(m_owner) : 0;
 }
 
 } // namespace WebCore

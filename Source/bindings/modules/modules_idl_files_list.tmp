@@ -4,7 +4,6 @@
 ../../modules/crypto/HmacKeyAlgorithm.idl
 ../../modules/crypto/Key.idl
 ../../modules/crypto/KeyAlgorithm.idl
-../../modules/crypto/KeyPair.idl
 ../../modules/crypto/RsaHashedKeyAlgorithm.idl
 ../../modules/crypto/RsaKeyAlgorithm.idl
 ../../modules/crypto/SubtleCrypto.idl

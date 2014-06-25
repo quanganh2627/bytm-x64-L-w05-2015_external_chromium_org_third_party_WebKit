@@ -32,9 +32,8 @@
 #include "config.h"
 #include "web/ChromeClientImpl.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptController.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObject.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/dom/Document.h"
@@ -61,6 +60,7 @@
 #include "platform/FileChooser.h"
 #include "platform/NotImplemented.h"
 #include "platform/PlatformScreen.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/exported/WrappedResourceRequest.h"
 #include "platform/geometry/FloatRect.h"
 #include "platform/geometry/IntRect.h"

@@ -41,6 +41,15 @@ WebInspector.TracingTimelineUIUtils.prototype = {
 
     /**
      * @param {!WebInspector.TimelineModel.Record} record
+     * @return {boolean}
+     */
+    isEventDivider: function(record)
+    {
+        return WebInspector.TracingTimelineUIUtils.isEventDivider(record);
+    },
+
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
      * @return {?Object}
      */
     countersForRecord: function(record)
@@ -55,6 +64,15 @@ WebInspector.TracingTimelineUIUtils.prototype = {
     highlightQuadForRecord: function(record)
     {
         return record.traceEvent().highlightQuad || null;
+    },
+
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
+     * @return {string}
+     */
+    titleForRecord: function(record)
+    {
+        return WebInspector.TracingTimelineUIUtils.styleForTraceEvent(record.traceEvent().name).title;
     },
 
     /**
@@ -81,6 +99,42 @@ WebInspector.TracingTimelineUIUtils.prototype = {
             throw new Error("Illegal argument.");
         var tracingTimelineModel = /** @type {!WebInspector.TracingTimelineModel} */ (model);
         WebInspector.TracingTimelineUIUtils.buildTraceEventDetails(record.traceEvent(), tracingTimelineModel, linkifier, callback, loadedFromFile, record.target());
+    },
+
+    /**
+     * @return {!Element}
+     */
+    createBeginFrameDivider: function()
+    {
+        return this.createEventDivider(WebInspector.TracingTimelineModel.RecordType.BeginFrame);
+    },
+
+    /**
+     * @param {string} recordType
+     * @param {string=} title
+     * @return {!Element}
+     */
+    createEventDivider: function(recordType, title)
+    {
+        return WebInspector.TracingTimelineUIUtils._createEventDivider(recordType, title);
+    },
+
+    /**
+     * @param {!WebInspector.TimelineModel.Record} record
+     * @param {!RegExp} regExp
+     * @return {boolean}
+     */
+    testContentMatching: function(record, regExp)
+    {
+        var traceEvent = record.traceEvent();
+        var title = WebInspector.TracingTimelineUIUtils.styleForTraceEvent(traceEvent.name).title;
+        var tokens = [title];
+        for (var argName in traceEvent.args) {
+            var argValue = traceEvent.args[argName];
+            for (var key in argValue)
+                tokens.push(argValue[key]);
+        }
+        return regExp.test(tokens.join("|"));
     },
 
     __proto__: WebInspector.TimelineUIUtils.prototype
@@ -189,6 +243,22 @@ WebInspector.TracingTimelineUIUtils.styleForTraceEvent = function(name)
         eventStyles[name] = result;
     }
     return result;
+}
+
+/**
+ * @param {!WebInspector.TimelineModel.Record} record
+ * @return {boolean}
+ */
+WebInspector.TracingTimelineUIUtils.isEventDivider = function(record)
+{
+    var recordTypes = WebInspector.TracingTimelineModel.RecordType;
+    if (record.type() === recordTypes.TimeStamp)
+        return true;
+    if (record.type() === recordTypes.MarkFirstPaint)
+        return true;
+    if (record.type() === recordTypes.MarkDOMContent || record.type() === recordTypes.MarkLoad)
+        return record.data()["isMainFrame"];
+    return false;
 }
 
 /**
@@ -628,4 +698,32 @@ WebInspector.TracingTimelineUIUtils._buildPicturePreviewContent = function(encod
         img.src = encodedBitmap;
         callback(container);
     }
+}
+
+/**
+ * @param {string} recordType
+ * @param {string=} title
+ * @return {!Element}
+ */
+WebInspector.TracingTimelineUIUtils._createEventDivider = function(recordType, title)
+{
+    var eventDivider = document.createElement("div");
+    eventDivider.className = "resources-event-divider";
+    var recordTypes = WebInspector.TracingTimelineModel.RecordType;
+
+    if (recordType === recordTypes.MarkDOMContent)
+        eventDivider.className += " resources-blue-divider";
+    else if (recordType === recordTypes.MarkLoad)
+        eventDivider.className += " resources-red-divider";
+    else if (recordType === recordTypes.MarkFirstPaint)
+        eventDivider.className += " resources-green-divider";
+    else if (recordType === recordTypes.TimeStamp)
+        eventDivider.className += " resources-orange-divider";
+    else if (recordType === recordTypes.BeginFrame)
+        eventDivider.className += " timeline-frame-divider";
+
+    if (title)
+        eventDivider.title = title;
+
+    return eventDivider;
 }

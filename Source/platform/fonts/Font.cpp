@@ -250,7 +250,7 @@ CodePath Font::codePath(const TextRun& run) const
         return SimplePath;
 #endif
 
-    if (m_fontDescription.featureSettings() && m_fontDescription.featureSettings()->size() > 0)
+    if (m_fontDescription.featureSettings() && m_fontDescription.featureSettings()->size() > 0 && m_fontDescription.letterSpacing() == 0)
         return ComplexPath;
 
     if (run.length() > 1 && !WidthIterator::supportsTypesettingFeatures(*this))
@@ -396,7 +396,7 @@ std::pair<GlyphData, GlyphPage*> Font::glyphDataAndPageForCharacter(UChar32 c, b
     ASSERT(isMainThread());
 
     if (variant == AutoVariant) {
-        if (m_fontDescription.variant() && !primaryFont()->isSVGFont()) {
+        if (m_fontDescription.variant() == FontVariantSmallCaps && !primaryFont()->isSVGFont()) {
             UChar32 upperC = toUpper(c);
             if (upperC != c) {
                 c = upperC;
@@ -648,7 +648,7 @@ float Font::getGlyphsAndAdvancesForSimpleText(const TextRunPaintInfo& runInfo, G
         float finalRoundingWidth = it.m_finalRoundingWidth;
         it.advance(runInfo.run.length(), &localGlyphBuffer);
         initialAdvance = finalRoundingWidth + it.m_runWidthSoFar - afterWidth;
-        glyphBuffer.reverse(0, glyphBuffer.size());
+        glyphBuffer.reverse();
     } else {
         initialAdvance = beforeWidth;
     }

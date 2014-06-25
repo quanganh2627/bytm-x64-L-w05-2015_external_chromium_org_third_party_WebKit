@@ -1164,8 +1164,6 @@
                 "name": "emulateNetworkConditions",
                 "description": "Activates emulation of network conditions.",
                 "parameters": [
-                    { "name": "domains", "type": "array", "items": { "type": "string" }, "description": "List of affected domains." },
-                    { "name": "maximalThroughput", "type": "number", "description": "Deprecated." },
                     { "name": "offline", "type": "boolean", "description": "True to emulate internet disconnection." },
                     { "name": "latency", "type": "number", "description": "Additional latency (ms)." },
                     { "name": "downloadThroughput", "type": "number", "description": "Maximal aggregated download throughput." },
@@ -2612,7 +2610,8 @@
                 "properties": [
                     { "name": "value", "type": "number", "description": "Media query expression value."},
                     { "name": "unit", "type": "string", "description": "Media query expression units."},
-                    { "name": "feature", "type": "string", "description": "Media query expression feature."}
+                    { "name": "feature", "type": "string", "description": "Media query expression feature."},
+                    { "name": "computedLength", "type": "number", "optional": true, "description": "Computed length of media query expression (if applicable)."}
                 ],
                 "description": "Media query expression data.",
                 "hidden": true
@@ -3059,10 +3058,7 @@
             },
             {
                 "name": "stepOver",
-                "parameters": [
-                    { "name": "callFrameId", "optional": true, "$ref": "CallFrameId", "description": "A frame where the step must be performed." }
-                ],
-                "description": "Steps over the statement. Moves execution to the next statement in the top call frame or in the specified one."
+                "description": "Steps over the statement."
             },
             {
                 "name": "stepInto",
@@ -3070,10 +3066,7 @@
             },
             {
                 "name": "stepOut",
-                "parameters": [
-                    { "name": "callFrameId", "optional": true, "$ref": "CallFrameId", "description": "A frame where the step must be performed." }
-                ],
-                "description": "Steps out of the top call frame or the specified one."
+                "description": "Steps out of the function call."
             },
             {
                 "name": "pause",
@@ -4124,6 +4117,14 @@
             {
                 "name": "end",
                 "description": "Stop trace events collection.",
+                "handlers": ["browser", "frontend"]
+            },
+            {
+                "name": "getCategories",
+                "description": "Gets supported tracing categories.",
+                "returns": [
+                    { "name": "categories", "type": "array", "items": { "type": "string" }, "description": "A list of supported tracing categories." }
+                ],
                 "handlers": ["browser", "frontend"]
             }
         ],

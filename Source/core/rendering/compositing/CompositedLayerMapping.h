@@ -68,6 +68,12 @@ struct GraphicsLayerPaintInfo {
     }
 };
 
+enum GraphicsLayerUpdateScope {
+    GraphicsLayerUpdateNone,
+    GraphicsLayerUpdateLocal,
+    GraphicsLayerUpdateSubtree,
+};
+
 // CompositedLayerMapping keeps track of how RenderLayers of the render tree correspond to
 // GraphicsLayers of the composited layer tree. Each instance of CompositedLayerMapping
 // manages a small cluster of GraphicsLayers and the references to which RenderLayers
@@ -87,7 +93,7 @@ public:
     bool updateGraphicsLayerConfiguration(GraphicsLayerUpdater::UpdateType);
     // Update graphics layer position and bounds.
 
-    void updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType, const RenderLayer* compositingContainer);
+    void updateGraphicsLayerGeometry(GraphicsLayerUpdater::UpdateType, const RenderLayer* compositingContainer, Vector<RenderLayer*>& layersNeedingPaintInvalidation);
 
     // Update whether layer needs blending.
     void updateContentsOpaque();
@@ -189,13 +195,14 @@ public:
 
     void setBlendMode(blink::WebBlendMode);
 
-    void setNeedsGraphicsLayerUpdate();
-    bool shouldUpdateGraphicsLayer(GraphicsLayerUpdater::UpdateType updateType) const { return m_needToUpdateGraphicsLayer || updateType == GraphicsLayerUpdater::ForceUpdate; }
+    void setNeedsGraphicsLayerUpdate(GraphicsLayerUpdateScope scope) { m_pendingUpdateScope = std::max(static_cast<GraphicsLayerUpdateScope>(m_pendingUpdateScope), scope); }
+    void clearNeedsGraphicsLayerUpdate() { m_pendingUpdateScope = GraphicsLayerUpdateNone; }
+
+    bool shouldUpdateGraphicsLayer(GraphicsLayerUpdater::UpdateType updateType) const { return m_pendingUpdateScope > GraphicsLayerUpdateNone || updateType == GraphicsLayerUpdater::ForceUpdate; }
     GraphicsLayerUpdater::UpdateType updateTypeForChildren(GraphicsLayerUpdater::UpdateType) const;
-    void clearNeedsGraphicsLayerUpdate();
 
 #if ASSERT_ENABLED
-    void assertNeedsToUpdateGraphicsLayerBitsCleared();
+    void assertNeedsToUpdateGraphicsLayerBitsCleared() {  ASSERT(m_pendingUpdateScope == GraphicsLayerUpdateNone); }
 #endif
 
     virtual String debugName(const GraphicsLayer*) OVERRIDE;
@@ -217,7 +224,7 @@ private:
 
     // Helper methods to updateGraphicsLayerGeometry:
     void computeGraphicsLayerParentLocation(const RenderLayer* compositingContainer, const IntRect& ancestorCompositingBounds, IntPoint& graphicsLayerParentLocation);
-    void updateSquashingLayerGeometry(const LayoutPoint& offsetFromCompositedAncestor, const IntPoint& graphicsLayerParentLocation, const RenderLayer& referenceLayer, Vector<GraphicsLayerPaintInfo>& layers, GraphicsLayer*, LayoutPoint* offsetFromTransformedAncestor);
+    void updateSquashingLayerGeometry(const LayoutPoint& offsetFromCompositedAncestor, const IntPoint& graphicsLayerParentLocation, const RenderLayer& referenceLayer, Vector<GraphicsLayerPaintInfo>& layers, GraphicsLayer*, LayoutPoint* offsetFromTransformedAncestor, Vector<RenderLayer*>& layersNeedingPaintInvalidation);
     void updateMainGraphicsLayerGeometry(const IntRect& relativeCompositingBounds, const IntRect& localCompositingBounds, IntPoint& graphicsLayerParentLocation);
     void updateAncestorClippingLayerGeometry(const RenderLayer* compositingContainer, const IntPoint& snappedOffsetFromCompositedAncestor, IntPoint& graphicsLayerParentLocation);
     void updateChildContainmentLayerGeometry(const IntRect& clippingBox, const IntRect& localCompositingBounds);
@@ -226,7 +233,7 @@ private:
     void updateTransformGeometry(const IntPoint& snappedOffsetFromCompositedAncestor, const IntRect& relativeCompositingBounds);
     void updateForegroundLayerGeometry(const FloatSize& relativeCompositingBoundsSize, const IntRect& clippingBox);
     void updateBackgroundLayerGeometry(const FloatSize& relativeCompositingBoundsSize);
-    void updateReflectionLayerGeometry();
+    void updateReflectionLayerGeometry(Vector<RenderLayer*>& layersNeedingPaintInvalidation);
     void updateScrollingLayerGeometry(const IntRect& localCompositingBounds);
     void updateChildClippingMaskLayerGeometry();
 
@@ -398,14 +405,13 @@ private:
 
     LayoutRect m_compositedBounds;
 
-    bool m_isMainFrameRenderViewLayer : 1;
-    bool m_requiresOwnBackingStoreForIntrinsicReasons : 1;
-    bool m_requiresOwnBackingStoreForAncestorReasons : 1;
-    bool m_canCompositeFilters : 1;
-    bool m_backgroundLayerPaintsFixedRootBackground : 1;
-    bool m_needToUpdateGraphicsLayer : 1;
-    bool m_needToUpdateGraphicsLayerOfAllDecendants : 1;
-    bool m_scrollingContentsAreEmpty : 1;
+    unsigned m_pendingUpdateScope : 2;
+    unsigned m_isMainFrameRenderViewLayer : 1;
+    unsigned m_requiresOwnBackingStoreForIntrinsicReasons : 1;
+    unsigned m_requiresOwnBackingStoreForAncestorReasons : 1;
+    unsigned m_canCompositeFilters : 1;
+    unsigned m_backgroundLayerPaintsFixedRootBackground : 1;
+    unsigned m_scrollingContentsAreEmpty : 1;
 };
 
 } // namespace WebCore

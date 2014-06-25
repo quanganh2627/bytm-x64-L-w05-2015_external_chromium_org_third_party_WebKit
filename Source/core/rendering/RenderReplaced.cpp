@@ -90,7 +90,7 @@ void RenderReplaced::layout()
 
     m_overflow.clear();
     addVisualEffectOverflow();
-    updateLayerTransform();
+    updateLayerTransformAfterLayout();
     invalidateBackgroundObscurationStatus();
 
     repainter.repaintAfterLayout();
@@ -390,6 +390,8 @@ LayoutUnit RenderReplaced::computeReplacedLogicalWidth(ShouldComputePreferred sh
             // 'width' is undefined in CSS 2.1. However, it is suggested that, if the containing block's width does not itself depend on the replaced element's width, then
             // the used value of 'width' is calculated from the constraint equation used for block-level, non-replaced elements in normal flow.
             if (computedHeightIsAuto && !hasIntrinsicWidth && !hasIntrinsicHeight) {
+                if (shouldComputePreferred == ComputePreferred)
+                    return 0;
                 // The aforementioned 'constraint equation' used for block-level, non-replaced elements in normal flow:
                 // 'margin-left' + 'border-left-width' + 'padding-left' + 'width' + 'padding-right' + 'border-right-width' + 'margin-right' = width of containing block
                 LayoutUnit logicalWidth;

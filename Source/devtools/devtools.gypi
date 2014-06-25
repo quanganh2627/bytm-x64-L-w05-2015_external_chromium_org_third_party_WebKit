@@ -48,6 +48,7 @@
             'front_end/InspectorFrontendEventSink.js',
             'front_end/InspectorFrontendHostStub.js',
             'front_end/jsdifflib.js',
+            'front_end/MediaQueryInspector.js',
             'front_end/ResponsiveDesignView.js',
             'front_end/ScreencastView.js',
             'front_end/TestController.js',
@@ -374,7 +375,7 @@
             'front_end/sources/UISourceCodeFrame.js',
             'front_end/sources/WatchExpressionsSidebarPane.js',
             'front_end/sources/WorkersSidebarPane.js',
-            'front_end/sources/ThreadsToolbar.js',
+            'front_end/sources/TargetsToolbar.js',
         ],
         'devtools_timeline_js_files': [
             'front_end/timeline/CountersGraph.js',
@@ -554,7 +555,8 @@
             'front_end/layers/LayersPanel.js',
             'front_end/layers/LayerTreeOutline.js',
             'front_end/layers/LayerDetailsView.js',
-            'front_end/layers/PaintProfilerView.js'
+            'front_end/layers/PaintProfilerView.js',
+            'front_end/layers/LayerPaintProfilerView.js'
         ],
         'devtools_extension_api_files': [
             'front_end/extensions/ExtensionAPI.js',

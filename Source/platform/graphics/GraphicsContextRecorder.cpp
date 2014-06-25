@@ -164,22 +164,9 @@ private:
     Vector<double>* m_currentTimings;
 };
 
-class LoggingSnapshotPlayer : public SnapshotPlayer {
-public:
-    LoggingSnapshotPlayer(PassRefPtr<SkPicture> picture, SkCanvas* canvas)
-        : SnapshotPlayer(picture, canvas)
-    {
-    }
-
-    virtual bool abortDrawing() OVERRIDE
-    {
-        return false;
-    }
-};
-
 class LoggingCanvas : public SkCanvas {
 public:
-    LoggingCanvas()
+    LoggingCanvas(int width, int height) : SkCanvas(width, height)
     {
         m_log = JSONArray::create();
     }
@@ -428,18 +415,18 @@ public:
     SaveLayerStrategy willSaveLayer(const SkRect* bounds, const SkPaint* paint, SaveFlags flags) OVERRIDE
     {
         RefPtr<JSONObject> params = addItemWithParams("saveLayer");
-        params->setObject("bounds", objectForSkRect(*bounds));
+        if (bounds)
+            params->setObject("bounds", objectForSkRect(*bounds));
         params->setObject("paint", objectForSkPaint(*paint));
         params->setString("saveFlags", saveFlagsToString(flags));
         this->SkCanvas::willSaveLayer(bounds, paint, flags);
         return kNoLayer_SaveLayerStrategy;
     }
 
-    void willSave(SaveFlags flags) OVERRIDE
+    void willSave() OVERRIDE
     {
         RefPtr<JSONObject> params = addItemWithParams("save");
-        params->setString("saveFlags", saveFlagsToString(flags));
-        this->SkCanvas::willSave(flags);
+        this->SkCanvas::willSave();
     }
 
     bool isClipEmpty() const OVERRIDE
@@ -941,10 +928,6 @@ private:
     String saveFlagsToString(SkCanvas::SaveFlags flags)
     {
         String flagsString = "";
-        if (flags & SkCanvas::kMatrix_SaveFlag)
-            flagsString.append("kMatrix_SaveFlag ");
-        if (flags & SkCanvas::kClip_SaveFlag)
-            flagsString.append("kClip_SaveFlag ");
         if (flags & SkCanvas::kHasAlphaLayer_SaveFlag)
             flagsString.append("kHasAlphaLayer_SaveFlag ");
         if (flags & SkCanvas::kFullColorLayer_SaveFlag)
@@ -1035,7 +1018,7 @@ PassOwnPtr<ImageBuffer> GraphicsContextSnapshot::createImageBuffer() const
 
 PassRefPtr<JSONArray> GraphicsContextSnapshot::snapshotCommandLog() const
 {
-    LoggingCanvas canvas;
+    LoggingCanvas canvas(m_picture->width(), m_picture->height());
     FragmentSnapshotPlayer player(m_picture, &canvas);
     player.play(0, 0);
     return canvas.log();

@@ -32,9 +32,8 @@
 #include "config.h"
 #include "web/FrameLoaderClientImpl.h"
 
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "bindings/v8/ScriptController.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/DocumentFullscreen.h"
 #include "core/events/MessageEvent.h"
@@ -57,6 +56,7 @@
 #include "modules/gamepad/NavigatorGamepad.h"
 #include "modules/serviceworkers/NavigatorServiceWorker.h"
 #include "platform/MIMETypeRegistry.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/exported/WrappedResourceRequest.h"
 #include "platform/exported/WrappedResourceResponse.h"
@@ -453,7 +453,7 @@ void FrameLoaderClientImpl::dispatchDidFirstVisuallyNonEmptyLayout()
 void FrameLoaderClientImpl::dispatchDidChangeBrandColor()
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didChangeBrandColor(m_webFrame);
+        m_webFrame->client()->didChangeBrandColor();
 }
 
 NavigationPolicy FrameLoaderClientImpl::decidePolicyForNavigation(const ResourceRequest& request, DocumentLoader* loader, NavigationPolicy policy)

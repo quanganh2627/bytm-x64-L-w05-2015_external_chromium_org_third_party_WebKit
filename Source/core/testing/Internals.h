@@ -32,7 +32,6 @@
 #include "bindings/v8/ScriptValue.h"
 #include "core/css/CSSComputedStyleDeclaration.h"
 #include "core/dom/ContextLifecycleObserver.h"
-#include "core/dom/NodeList.h"
 #include "core/page/scrolling/ScrollingCoordinator.h"
 #include "platform/heap/Handle.h"
 #include "wtf/ArrayBuffer.h"
@@ -46,7 +45,7 @@ class ClientRect;
 class ClientRectList;
 class DOMPoint;
 class DOMStringList;
-class DOMWindow;
+class LocalDOMWindow;
 class Document;
 class DocumentMarker;
 class Element;
@@ -65,6 +64,7 @@ class Page;
 class PagePopupController;
 class Range;
 class SerializedScriptValue;
+class StaticNodeList;
 class ShadowRoot;
 class TypeConversions;
 
@@ -186,7 +186,7 @@ public:
     PassRefPtrWillBeRawPtr<LayerRectList> touchEventTargetLayerRects(Document*, ExceptionState&);
 
     // This is used to test rect based hit testing like what's done on touch screens.
-    PassRefPtrWillBeRawPtr<NodeList> nodesFromRect(Document*, int x, int y, unsigned topPadding, unsigned rightPadding,
+    PassRefPtrWillBeRawPtr<StaticNodeList> nodesFromRect(Document*, int x, int y, unsigned topPadding, unsigned rightPadding,
         unsigned bottomPadding, unsigned leftPadding, bool ignoreClipping, bool allowShadowContent, bool allowChildFrameContent, ExceptionState&) const;
 
     void emitInspectorDidBeginFrame(int frameId = 0);
@@ -217,9 +217,6 @@ public:
     String elementLayerTreeAsText(Element*, unsigned flags, ExceptionState&) const;
     String elementLayerTreeAsText(Element*, ExceptionState&) const;
 
-    PassRefPtrWillBeRawPtr<NodeList> paintOrderListBeforePromote(Element*, ExceptionState&);
-    PassRefPtrWillBeRawPtr<NodeList> paintOrderListAfterPromote(Element*, ExceptionState&);
-
     bool scrollsWithRespectTo(Element*, Element*, ExceptionState&);
     bool isUnclippedDescendant(Element*, ExceptionState&);
 
@@ -239,7 +236,7 @@ public:
     unsigned numberOfLiveDocuments() const;
     String dumpRefCountedInstanceCounts() const;
     Vector<String> consoleMessageArgumentCounts(Document*) const;
-    PassRefPtrWillBeRawPtr<DOMWindow> openDummyInspectorFrontend(const String& url);
+    PassRefPtrWillBeRawPtr<LocalDOMWindow> openDummyInspectorFrontend(const String& url);
     void closeDummyInspectorFrontend();
     Vector<unsigned long> setMemoryCacheCapacities(unsigned long minDeadBytes, unsigned long maxDeadBytes, unsigned long totalBytes);
     void setInspectorResourcesDataSizeLimits(int maximumResourcesContentSize, int maximumSingleResourceContentSize, ExceptionState&);

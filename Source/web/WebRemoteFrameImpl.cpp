@@ -5,6 +5,7 @@
 #include "config.h"
 #include "web/WebRemoteFrameImpl.h"
 
+#include "core/frame/FrameOwner.h"
 #include "core/frame/RemoteFrame.h"
 #include "public/platform/WebFloatRect.h"
 #include "public/platform/WebRect.h"
@@ -242,24 +243,6 @@ void WebRemoteFrameImpl::removeChild(WebFrame* frame)
 {
     WebFrame::removeChild(frame);
     m_ownersForChildren.remove(frame);
-}
-
-WebFrame* WebRemoteFrameImpl::traversePrevious(bool wrap) const
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-WebFrame* WebRemoteFrameImpl::traverseNext(bool wrap) const
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-WebFrame* WebRemoteFrameImpl::findChildByName(const WebString&) const
-{
-    ASSERT_NOT_REACHED();
-    return 0;
 }
 
 WebDocument WebRemoteFrameImpl::document() const
@@ -614,11 +597,6 @@ void WebRemoteFrameImpl::extendSelectionAndDelete(int before, int after)
     ASSERT_NOT_REACHED();
 }
 
-void WebRemoteFrameImpl::addStyleSheetByURL(const WebString& url)
-{
-    ASSERT_NOT_REACHED();
-}
-
 void WebRemoteFrameImpl::setCaretVisible(bool)
 {
     ASSERT_NOT_REACHED();
@@ -841,6 +819,13 @@ WebRemoteFrame* WebRemoteFrameImpl::createRemoteChild(const WebString& name, Web
 void WebRemoteFrameImpl::setWebCoreFrame(PassRefPtr<RemoteFrame> frame)
 {
     m_frame = frame;
+}
+
+WebRemoteFrameImpl* WebRemoteFrameImpl::fromFrame(RemoteFrame& frame)
+{
+    if (!frame.client())
+        return 0;
+    return static_cast<RemoteFrameClient*>(frame.client())->webFrame();
 }
 
 } // namespace blink

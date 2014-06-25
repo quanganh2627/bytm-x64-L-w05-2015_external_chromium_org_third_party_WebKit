@@ -62,6 +62,7 @@
 #include "core/inspector/InspectorClient.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/inspector/InspectorOverlay.h"
+#include "core/inspector/InspectorResourceContentLoader.h"
 #include "core/inspector/InspectorState.h"
 #include "core/inspector/InstrumentingAgents.h"
 #include "core/loader/CookieJar.h"
@@ -403,6 +404,7 @@ void InspectorPageAgent::enable(ErrorString*)
     m_enabled = true;
     m_state->setBoolean(PageAgentState::pageAgentEnabled, true);
     m_instrumentingAgents->setInspectorPageAgent(this);
+    m_inspectorResourceContentLoader = adoptPtr(new InspectorResourceContentLoader(m_page));
 }
 
 void InspectorPageAgent::disable(ErrorString*)
@@ -412,13 +414,15 @@ void InspectorPageAgent::disable(ErrorString*)
     m_state->remove(PageAgentState::pageAgentScriptsToEvaluateOnLoad);
     m_overlay->hide();
     m_instrumentingAgents->setInspectorPageAgent(0);
+    m_inspectorResourceContentLoader.clear();
     m_deviceMetricsOverridden = false;
 
     setShowPaintRects(0, false);
     setShowDebugBorders(0, false);
     setShowFPSCounter(0, false);
     setEmulatedMedia(0, String());
-    setContinuousPaintingEnabled(0, false);
+    if (m_state->getBoolean(PageAgentState::pageAgentContinuousPaintingEnabled))
+        setContinuousPaintingEnabled(0, false);
     setShowScrollBottleneckRects(0, false);
     setShowViewportSizeOnResize(0, false, 0);
 
@@ -538,7 +542,8 @@ static void cachedResourcesForDocument(Document* document, Vector<Resource*>& re
     }
 }
 
-static Vector<Document*> importsForFrame(LocalFrame* frame)
+// static
+Vector<Document*> InspectorPageAgent::importsForFrame(LocalFrame* frame)
 {
     Vector<Document*> result;
     Document* rootDocument = frame->document();
@@ -557,7 +562,7 @@ static Vector<Resource*> cachedResourcesForFrame(LocalFrame* frame)
 {
     Vector<Resource*> result;
     Document* rootDocument = frame->document();
-    Vector<Document*> loaders = importsForFrame(frame);
+    Vector<Document*> loaders = InspectorPageAgent::importsForFrame(frame);
 
     cachedResourcesForDocument(rootDocument, result);
     for (size_t i = 0; i < loaders.size(); ++i)
@@ -735,13 +740,20 @@ bool InspectorPageAgent::deviceMetricsChanged(bool enabled, int width, int heigh
     // These two always fit an int.
     int currentWidth = static_cast<int>(m_state->getLong(PageAgentState::pageAgentScreenWidthOverride));
     int currentHeight = static_cast<int>(m_state->getLong(PageAgentState::pageAgentScreenHeightOverride));
-    double currentDeviceScaleFactor = m_state->getDouble(PageAgentState::pageAgentDeviceScaleFactorOverride, 1);
+    double currentDeviceScaleFactor = m_state->getDouble(PageAgentState::pageAgentDeviceScaleFactorOverride, 0);
     bool currentEmulateViewport = m_state->getBoolean(PageAgentState::pageAgentEmulateViewport);
     bool currentFitWindow = m_state->getBoolean(PageAgentState::pageAgentFitWindow);
     double currentFontScaleFactor = m_state->getDouble(PageAgentState::fontScaleFactor, 1);
     bool currentTextAutosizing = m_state->getBoolean(PageAgentState::pageAgentTextAutosizingOverride);
 
-    return enabled != currentEnabled || width != currentWidth || height != currentHeight || deviceScaleFactor != currentDeviceScaleFactor || emulateViewport != currentEmulateViewport || fitWindow != currentFitWindow || fontScaleFactor != currentFontScaleFactor || textAutosizing != currentTextAutosizing;
+    return enabled != currentEnabled
+        || width != currentWidth
+        || height != currentHeight
+        || deviceScaleFactor != currentDeviceScaleFactor
+        || emulateViewport != currentEmulateViewport
+        || fitWindow != currentFitWindow
+        || fontScaleFactor != currentFontScaleFactor
+        || textAutosizing != currentTextAutosizing;
 }
 
 void InspectorPageAgent::setShowPaintRects(ErrorString*, bool show)
@@ -857,7 +869,7 @@ void InspectorPageAgent::loadEventFired(LocalFrame* frame)
 
 void InspectorPageAgent::didCommitLoad(LocalFrame*, DocumentLoader* loader)
 {
-    // FIXME: If "frame" is always guarenteed to be in the same Page as loader->frame()
+    // FIXME: If "frame" is always guaranteed to be in the same Page as loader->frame()
     // then all we need to check here is loader->frame()->isMainFrame()
     // and we don't need "frame" at all.
     if (loader->frame() == m_page->mainFrame()) {
@@ -865,6 +877,8 @@ void InspectorPageAgent::didCommitLoad(LocalFrame*, DocumentLoader* loader)
         m_scriptPreprocessorSource = m_pendingScriptPreprocessor;
         m_pendingScriptToEvaluateOnLoadOnce = String();
         m_pendingScriptPreprocessor = String();
+        if (m_inspectorResourceContentLoader)
+            m_inspectorResourceContentLoader->stop();
     }
     m_frontend->frameNavigated(buildObjectForFrame(loader->frame()));
 }
@@ -1117,7 +1131,7 @@ PassRefPtr<TypeBuilder::Page::FrameResourceTree> InspectorPageAgent::buildObject
         subresources->addItem(resourceObject);
     }
 
-    Vector<Document*> allImports = importsForFrame(frame);
+    Vector<Document*> allImports = InspectorPageAgent::importsForFrame(frame);
     for (Vector<Document*>::const_iterator it = allImports.begin(); it != allImports.end(); ++it) {
         Document* import = *it;
         RefPtr<TypeBuilder::Page::FrameResourceTree::Resources> resourceObject = TypeBuilder::Page::FrameResourceTree::Resources::create()

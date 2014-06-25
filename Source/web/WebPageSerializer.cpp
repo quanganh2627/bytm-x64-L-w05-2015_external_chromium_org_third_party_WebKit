@@ -31,7 +31,7 @@
 #include "config.h"
 #include "public/web/WebPageSerializer.h"
 
-#include "HTMLNames.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
 #include "core/frame/LocalFrame.h"
@@ -139,7 +139,7 @@ void retrieveResourcesForFrame(LocalFrame* frame,
         frameURLs->append(frameURL);
 
     // Now get the resources associated with each node of the document.
-    RefPtrWillBeRawPtr<HTMLCollection> allElements = frame->document()->all();
+    RefPtrWillBeRawPtr<HTMLAllCollection> allElements = frame->document()->all();
     for (unsigned i = 0; i < allElements->length(); ++i) {
         Element* element = allElements->item(i);
         retrieveResourcesForElement(element,

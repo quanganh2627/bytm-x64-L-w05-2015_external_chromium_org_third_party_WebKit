@@ -31,8 +31,8 @@
 #ifndef ScriptDebugServer_h
 #define ScriptDebugServer_h
 
-#include "InspectorBackendDispatcher.h"
 #include "bindings/v8/ScopedPersistent.h"
+#include "core/InspectorBackendDispatcher.h"
 #include "core/inspector/ScriptBreakpoint.h"
 #include "core/inspector/ScriptCallStack.h"
 #include "core/inspector/ScriptDebugListener.h"
@@ -75,8 +75,8 @@ public:
     void breakProgram();
     void continueProgram();
     void stepIntoStatement();
-    void stepOverStatement(const ScriptValue& frame);
-    void stepOutOfFunction(const ScriptValue& frame);
+    void stepOverStatement();
+    void stepOutOfFunction();
 
     bool setScriptSource(const String& sourceID, const String& newContent, bool preview, String* error, RefPtr<TypeBuilder::Debugger::SetScriptSourceError>&, ScriptValue* newCallFrames, RefPtr<JSONObject>* result);
     ScriptValue currentCallFrames();
@@ -147,7 +147,6 @@ private:
 
     ScriptValue currentCallFramesInner(ScopeInfoDetails);
 
-    void stepCommandWithFrame(const char* functionName, const ScriptValue& frame);
     PassRefPtrWillBeRawPtr<JavaScriptCallFrame> wrapCallFrames(int maximumLimit, ScopeInfoDetails);
 
     bool m_runningNestedMessageLoop;

@@ -28,7 +28,6 @@
 #ifndef Frame_h
 #define Frame_h
 
-#include "core/html/HTMLFrameOwnerElement.h"
 #include "core/page/FrameTree.h"
 #include "platform/heap/Handle.h"
 #include "wtf/Forward.h"
@@ -41,12 +40,13 @@ class WebLayer;
 
 namespace WebCore {
 
-class DOMWindow;
 class ChromeClient;
 class FrameClient;
 class FrameDestructionObserver;
 class FrameHost;
 class FrameOwner;
+class HTMLFrameOwnerElement;
+class LocalDOMWindow;
 class Page;
 class RenderPart;
 class Settings;
@@ -80,10 +80,10 @@ public:
     FrameOwner* owner() const;
     HTMLFrameOwnerElement* deprecatedLocalOwner() const;
 
-    // FIXME: DOMWindow and Document should both be moved to LocalFrame
+    // FIXME: LocalDOMWindow and Document should both be moved to LocalFrame
     // after RemoteFrame is complete enough to exist without them.
-    virtual void setDOMWindow(PassRefPtrWillBeRawPtr<DOMWindow>);
-    DOMWindow* domWindow() const;
+    virtual void setDOMWindow(PassRefPtrWillBeRawPtr<LocalDOMWindow>);
+    LocalDOMWindow* domWindow() const;
 
     FrameTree& tree() const;
     ChromeClient& chromeClient() const;
@@ -110,7 +110,7 @@ protected:
     FrameHost* m_host;
     FrameOwner* m_owner;
 
-    RefPtrWillBePersistent<DOMWindow> m_domWindow;
+    RefPtrWillBePersistent<LocalDOMWindow> m_domWindow;
 
 private:
     FrameClient* m_client;
@@ -129,7 +129,7 @@ inline void Frame::clearClient()
     m_client = 0;
 }
 
-inline DOMWindow* Frame::domWindow() const
+inline LocalDOMWindow* Frame::domWindow() const
 {
     return m_domWindow.get();
 }
@@ -137,11 +137,6 @@ inline DOMWindow* Frame::domWindow() const
 inline FrameOwner* Frame::owner() const
 {
     return m_owner;
-}
-
-inline HTMLFrameOwnerElement* Frame::deprecatedLocalOwner() const
-{
-    return m_owner && m_owner->isLocal() ? toHTMLFrameOwnerElement(m_owner) : 0;
 }
 
 inline FrameTree& Frame::tree() const

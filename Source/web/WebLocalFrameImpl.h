@@ -103,11 +103,6 @@ public:
     virtual bool hasVerticalScrollbar() const OVERRIDE;
     virtual WebView* view() const OVERRIDE;
     virtual void setOpener(WebFrame*) OVERRIDE;
-    virtual void appendChild(WebFrame*) OVERRIDE;
-    virtual void removeChild(WebFrame*) OVERRIDE;
-    virtual WebFrame* traversePrevious(bool wrap) const OVERRIDE;
-    virtual WebFrame* traverseNext(bool wrap) const OVERRIDE;
-    virtual WebFrame* findChildByName(const WebString&) const OVERRIDE;
     virtual WebDocument document() const OVERRIDE;
     virtual WebPerformance performance() const OVERRIDE;
     virtual bool dispatchBeforeUnloadEvent() OVERRIDE;
@@ -183,7 +178,6 @@ public:
     virtual bool setEditableSelectionOffsets(int start, int end) OVERRIDE;
     virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) OVERRIDE;
     virtual void extendSelectionAndDelete(int before, int after) OVERRIDE;
-    virtual void addStyleSheetByURL(const WebString& url) OVERRIDE;
     virtual void setCaretVisible(bool) OVERRIDE;
     virtual int printBegin(const WebPrintParams&, const WebNode& constrainToNode) OVERRIDE;
     virtual float printPage(int pageToPrint, WebCanvas*) OVERRIDE;
@@ -232,6 +226,9 @@ public:
     virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const OVERRIDE;
     virtual WebString layerTreeAsText(bool showDebugInfo = false) const OVERRIDE;
 
+    // WebLocalFrame methods:
+    virtual void addStyleSheetByURL(const WebString& url) OVERRIDE;
+
     void willDetachParent();
 
     static WebLocalFrameImpl* create(WebFrameClient*);
@@ -248,6 +245,7 @@ public:
     void createFrameView();
 
     static WebLocalFrameImpl* fromFrame(WebCore::LocalFrame*);
+    static WebLocalFrameImpl* fromFrame(WebCore::LocalFrame&);
     static WebLocalFrameImpl* fromFrameOwnerElement(WebCore::Element*);
 
     // If the frame hosts a PluginDocument, this method returns the WebPluginContainerImpl

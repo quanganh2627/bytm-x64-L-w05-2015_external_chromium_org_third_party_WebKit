@@ -176,6 +176,7 @@
         "name": "responsive_design",
         "dependencies": ["components"],
         "sources": [
+            "MediaQueryInspector.js",
             "ResponsiveDesignView.js"
         ]
     },
@@ -293,7 +294,7 @@
             "sources/UISourceCodeFrame.js",
             "sources/WatchExpressionsSidebarPane.js",
             "sources/WorkersSidebarPane.js",
-            "sources/ThreadsToolbar.js"
+            "sources/TargetsToolbar.js"
         ]
     },
     {
@@ -356,7 +357,8 @@
             "layers/LayersPanel.js",
             "layers/LayerTreeOutline.js",
             "layers/LayerDetailsView.js",
-            "layers/PaintProfilerView.js"
+            "layers/PaintProfilerView.js",
+            "layers/LayerPaintProfilerView.js"
         ]
     },
     {

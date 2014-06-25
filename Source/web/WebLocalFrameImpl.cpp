@@ -72,7 +72,6 @@
 #include "config.h"
 #include "web/WebLocalFrameImpl.h"
 
-#include "HTMLNames.h"
 #include "bindings/v8/DOMWrapperWorld.h"
 #include "bindings/v8/ExceptionState.h"
 #include "bindings/v8/ExceptionStatePlaceholder.h"
@@ -81,6 +80,7 @@
 #include "bindings/v8/ScriptValue.h"
 #include "bindings/v8/V8GCController.h"
 #include "bindings/v8/V8PerIsolateData.h"
+#include "core/HTMLNames.h"
 #include "core/dom/Document.h"
 #include "core/dom/DocumentMarker.h"
 #include "core/dom/DocumentMarkerController.h"
@@ -99,7 +99,7 @@
 #include "core/editing/htmlediting.h"
 #include "core/editing/markup.h"
 #include "core/frame/Console.h"
-#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalDOMWindow.h"
 #include "core/frame/FrameHost.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/Settings.h"
@@ -654,55 +654,6 @@ void WebLocalFrameImpl::setOpener(WebFrame* opener)
     ASSERT(m_frame);
     if (m_frame && m_frame->document())
         m_frame->document()->initSecurityContext();
-}
-
-// FIXME: These methods should move into WebFrame once FrameTree is no longer
-// dependent on LocalFrame.
-void WebLocalFrameImpl::appendChild(WebFrame* child)
-{
-    WebFrame::appendChild(child);
-    frame()->tree().invalidateScopedChildCount();
-}
-
-void WebLocalFrameImpl::removeChild(WebFrame* child)
-{
-    WebFrame::removeChild(child);
-    frame()->tree().invalidateScopedChildCount();
-}
-
-WebFrame* WebLocalFrameImpl::traversePrevious(bool wrap) const
-{
-    if (!frame())
-        return 0;
-    // FIXME: This should move to WebFrame and become local/remote agnostic.
-    Frame* prevFrame = frame()->tree().traversePreviousWithWrap(wrap);
-    if (!prevFrame || !prevFrame->isLocalFrame())
-        return 0;
-    return fromFrame(toLocalFrame(prevFrame));
-}
-
-WebFrame* WebLocalFrameImpl::traverseNext(bool wrap) const
-{
-    // FIXME: This should move to WebFrame and become local/remote agnostic.
-    if (!frame())
-        return 0;
-    // FIXME: This should move to WebFrame and become local/remote agnostic.
-    Frame* nextFrame = frame()->tree().traverseNextWithWrap(wrap);
-    if (!nextFrame || !nextFrame->isLocalFrame())
-        return 0;
-    return fromFrame(toLocalFrame(nextFrame));
-}
-
-WebFrame* WebLocalFrameImpl::findChildByName(const WebString& name) const
-{
-    // FIXME: This should move to WebFrame and become local/remote agnostic.
-    if (!frame())
-        return 0;
-    // FIXME: This should move to WebFrame and become local/remote agnostic.
-    Frame* child = frame()->tree().child(name);
-    if (!child || !child->isLocalFrame())
-        return 0;
-    return fromFrame(toLocalFrame(child));
 }
 
 WebDocument WebLocalFrameImpl::document() const
@@ -1323,17 +1274,6 @@ void WebLocalFrameImpl::extendSelectionAndDelete(int before, int after)
     frame()->inputMethodController().extendSelectionAndDelete(before, after);
 }
 
-void WebLocalFrameImpl::addStyleSheetByURL(const WebString& url)
-{
-    RefPtrWillBeRawPtr<Element> styleElement = frame()->document()->createElement(HTMLNames::linkTag, false);
-
-    styleElement->setAttribute(HTMLNames::typeAttr, "text/css");
-    styleElement->setAttribute(HTMLNames::relAttr, "stylesheet");
-    styleElement->setAttribute(HTMLNames::hrefAttr, url);
-
-    frame()->document()->head()->appendChild(styleElement.release(), IGNORE_EXCEPTION);
-}
-
 void WebLocalFrameImpl::setCaretVisible(bool visible)
 {
     frame()->selection().setCaretVisible(visible);
@@ -1737,7 +1677,12 @@ WebLocalFrameImpl* WebLocalFrameImpl::fromFrame(LocalFrame* frame)
 {
     if (!frame)
         return 0;
-    FrameLoaderClient* client = frame->loader().client();
+    return fromFrame(*frame);
+}
+
+WebLocalFrameImpl* WebLocalFrameImpl::fromFrame(LocalFrame& frame)
+{
+    FrameLoaderClient* client = frame.loader().client();
     if (!client || !client->isFrameLoaderClientImpl())
         return 0;
     return toFrameLoaderClientImpl(client)->webFrame();
@@ -1888,6 +1833,17 @@ void WebLocalFrameImpl::loadJavaScriptURL(const KURL& url)
     String scriptResult = toCoreString(v8::Handle<v8::String>::Cast(result));
     if (!frame()->navigationScheduler().locationChangePending())
         frame()->document()->loader()->replaceDocument(scriptResult, ownerDocument.get());
+}
+
+void WebLocalFrameImpl::addStyleSheetByURL(const WebString& url)
+{
+    RefPtrWillBeRawPtr<Element> styleElement = frame()->document()->createElement(HTMLNames::linkTag, false);
+
+    styleElement->setAttribute(HTMLNames::typeAttr, "text/css");
+    styleElement->setAttribute(HTMLNames::relAttr, "stylesheet");
+    styleElement->setAttribute(HTMLNames::hrefAttr, url);
+
+    frame()->document()->head()->appendChild(styleElement.release(), IGNORE_EXCEPTION);
 }
 
 void WebLocalFrameImpl::willDetachParent()

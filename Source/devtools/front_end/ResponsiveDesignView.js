@@ -19,17 +19,24 @@ WebInspector.ResponsiveDesignView = function(inspectedPagePlaceholder)
 
     this._createToolbar();
 
+    this._mediaInspector = new WebInspector.MediaQueryInspector();
+    this._mediaInspectorContainer = this._responsiveDesignContainer.element.createChild("div");
+    this._updateMediaQueryInspector();
+
     this._canvasContainer = new WebInspector.View();
     this._canvasContainer.element.classList.add("responsive-design");
     this._canvasContainer.show(this._responsiveDesignContainer.element);
 
     this._canvas = this._canvasContainer.element.createChild("canvas", "fill");
 
+    this._rulerGlasspane = this._canvasContainer.element.createChild("div", "responsive-design-ruler-glasspane");
+    this._rulerGlasspane.appendChild(this._mediaInspector.rulerDecorationLayer());
+
     this._warningMessage = this._canvasContainer.element.createChild("div", "responsive-design-warning hidden");
     this._warningMessage.createChild("div", "warning-icon-small");
     this._warningMessage.createChild("span");
     var warningCloseButton = this._warningMessage.createChild("div", "close-button");
-    warningCloseButton.addEventListener("click", this._closeOverridesWarning.bind(this), false);
+    warningCloseButton.addEventListener("click", WebInspector.overridesSupport.clearWarningMessage.bind(WebInspector.overridesSupport), false);
     WebInspector.overridesSupport.addEventListener(WebInspector.OverridesSupport.Events.OverridesWarningUpdated, this._overridesWarningUpdated, this);
 
     this._slidersContainer = this._canvasContainer.element.createChild("div", "vbox responsive-design-sliders-container");
@@ -51,7 +58,8 @@ WebInspector.ResponsiveDesignView = function(inspectedPagePlaceholder)
     this._enabled = false;
 
     WebInspector.zoomManager.addEventListener(WebInspector.ZoomManager.Events.ZoomChanged, this._onZoomChanged, this);
-    WebInspector.overridesSupport.settings.emulationEnabled.addChangeListener(this._emulationEnabledChanged, this);
+    WebInspector.overridesSupport.addEventListener(WebInspector.OverridesSupport.Events.EmulationStateChanged, this._emulationEnabledChanged, this);
+    this._mediaInspector.addEventListener(WebInspector.MediaQueryInspector.Events.HeightUpdated, this.onResize, this);
     this._emulationEnabledChanged();
     this._overridesWarningUpdated();
 };
@@ -74,7 +82,8 @@ WebInspector.ResponsiveDesignView.prototype = {
 
     _emulationEnabledChanged: function()
     {
-        var enabled = WebInspector.overridesSupport.settings.emulationEnabled.get();
+        var enabled = WebInspector.overridesSupport.emulationEnabled();
+        this._mediaInspector.setEnabled(enabled);
         if (enabled && !this._enabled) {
             this._invalidateCache();
             this._ignoreResize = true;
@@ -237,7 +246,6 @@ WebInspector.ResponsiveDesignView.prototype = {
 
         // Draw vertical ruler.
         for (var x = 0; x < dipGridWidth; x += rulerSubStep) {
-            var color = darkLineColor;
             var y = -rulerWidth / 4;
             if (!(x % (rulerStep / 4)))
                 y = -rulerWidth / 2;
@@ -260,7 +268,6 @@ WebInspector.ResponsiveDesignView.prototype = {
 
         // Draw horizontal ruler.
         for (var y = 0; y < dipGridHeight; y += rulerSubStep) {
-            var color = darkLineColor;
             x = -rulerWidth / 4;
             if (!(y % (rulerStep / 4)))
                 x = -rulerWidth / 2;
@@ -326,7 +333,10 @@ WebInspector.ResponsiveDesignView.prototype = {
 
         if (this._cachedZoomFactor !== zoomFactor) {
             var cssRulerWidth = WebInspector.ResponsiveDesignView.RulerWidth / zoomFactor + "px";
+            this._rulerGlasspane.style.height = cssRulerWidth;
+            this._rulerGlasspane.style.left = cssRulerWidth;
             this._slidersContainer.style.left = cssRulerWidth;
+            this._mediaInspector.translateZero(WebInspector.ResponsiveDesignView.RulerWidth / zoomFactor);
             this._slidersContainer.style.top = cssRulerWidth;
             this._warningMessage.style.height = cssRulerWidth;
 
@@ -384,6 +394,12 @@ WebInspector.ResponsiveDesignView.prototype = {
             this._createNetworkSection();
         }
         this._toolbarElement.createChild("div", "responsive-design-separator");
+
+        var moreButtonContainer = this._toolbarElement.createChild("div", "responsive-design-more-button-container");
+        var moreButton = moreButtonContainer.createChild("button", "responsive-design-more-button");
+        moreButton.title = WebInspector.UIString("More overrides");
+        moreButton.addEventListener("click", this._showEmulationInDrawer.bind(this), false);
+        moreButton.textContent = "\u2026";
     },
 
     _createButtonsSection: function()
@@ -394,10 +410,12 @@ WebInspector.ResponsiveDesignView.prototype = {
         buttonsSection.appendChild(resetButton.element);
         resetButton.addEventListener("click", WebInspector.overridesSupport.reset, WebInspector.overridesSupport);
 
-        var moreButton = buttonsSection.createChild("button", "responsive-design-more-button");
-        moreButton.title = WebInspector.UIString("More overrides");
-        moreButton.addEventListener("click", this._showEmulationInDrawer.bind(this), false);
-        moreButton.textContent = "\u2026";
+        // Media Query Inspector.
+        this._toggleMediaInspectorButton = new WebInspector.StatusBarButton(WebInspector.UIString("Media queries."), "responsive-design-toggle-media-inspector");
+        this._toggleMediaInspectorButton.toggled = WebInspector.settings.showMediaQueryInspector.get();
+        this._toggleMediaInspectorButton.addEventListener("click", this._onToggleMediaInspectorButtonClick, this);
+        WebInspector.settings.showMediaQueryInspector.addChangeListener(this._updateMediaQueryInspector, this);
+        buttonsSection.appendChild(this._toggleMediaInspectorButton.element);
     },
 
     _createDeviceSection: function()
@@ -405,7 +423,7 @@ WebInspector.ResponsiveDesignView.prototype = {
         var deviceSection = this._toolbarElement.createChild("div", "responsive-design-section responsive-design-section-device");
 
         // Device.
-        var deviceElement = deviceSection.createChild("div", "responsive-design-suite").createChild("div");
+        var deviceElement = deviceSection.createChild("div", "responsive-design-suite responsive-design-suite-top").createChild("div");
         var fieldsetElement = deviceElement.createChild("fieldset");
         fieldsetElement.createChild("label").textContent = WebInspector.UIString("Device");
         fieldsetElement.appendChild(WebInspector.overridesSupport.createDeviceSelect(document));
@@ -417,21 +435,25 @@ WebInspector.ResponsiveDesignView.prototype = {
         // Dimensions.
         var screenElement = detailsElement.createChild("div", "");
         fieldsetElement = screenElement.createChild("fieldset");
-        fieldsetElement.createChild("div", "responsive-design-icon responsive-design-icon-resolution").title = WebInspector.UIString("Screen resolution");
+        var resolutionButton = new WebInspector.StatusBarButton(WebInspector.UIString("Screen resolution"), "responsive-design-icon responsive-design-icon-resolution");
+        resolutionButton.setEnabled(false);
+        fieldsetElement.appendChild(resolutionButton.element);
         fieldsetElement.appendChild(WebInspector.SettingsUI.createSettingInputField("", WebInspector.overridesSupport.settings.deviceWidth, true, 4, "3em", WebInspector.OverridesSupport.deviceSizeValidator, true, true, WebInspector.UIString("\u2013")));
         fieldsetElement.appendChild(document.createTextNode(" \u00D7 "));
         fieldsetElement.appendChild(WebInspector.SettingsUI.createSettingInputField("", WebInspector.overridesSupport.settings.deviceHeight, true, 4, "3em", WebInspector.OverridesSupport.deviceSizeValidator, true, true, WebInspector.UIString("\u2013")));
 
-        this._swapDimensionsElement = fieldsetElement.createChild("button", "responsive-design-icon responsive-design-icon-swap");
-        this._swapDimensionsElement.tabIndex = -1;
-        this._swapDimensionsElement.title = WebInspector.UIString("Swap dimensions");
-        this._swapDimensionsElement.addEventListener("click", WebInspector.overridesSupport.swapDimensions.bind(WebInspector.overridesSupport), false);
+        var swapButton = new WebInspector.StatusBarButton(WebInspector.UIString("Swap dimensions"), "responsive-design-icon responsive-design-icon-swap");
+        swapButton.element.tabIndex = -1;
+        swapButton.addEventListener("click", WebInspector.overridesSupport.swapDimensions, WebInspector.overridesSupport);
+        fieldsetElement.appendChild(swapButton.element);
 
         // Device pixel ratio.
         detailsElement.createChild("div", "responsive-design-suite-separator");
         var dprElement = detailsElement.createChild("div", "");
         fieldsetElement = dprElement.createChild("fieldset");
-        fieldsetElement.createChild("div", "responsive-design-icon responsive-design-icon-dpr").title = WebInspector.UIString("Device pixel ratio");
+        var dprButton = new WebInspector.StatusBarButton(WebInspector.UIString("Device pixel ratio"), "responsive-design-icon responsive-design-icon-dpr");
+        dprButton.setEnabled(false);
+        fieldsetElement.appendChild(dprButton.element);
         fieldsetElement.appendChild(WebInspector.SettingsUI.createSettingInputField("", WebInspector.overridesSupport.settings.deviceScaleFactor, true, 4, "2.5em", WebInspector.OverridesSupport.deviceScaleFactorValidator, true, true, WebInspector.UIString("\u2013")));
     },
 
@@ -440,7 +462,7 @@ WebInspector.ResponsiveDesignView.prototype = {
         var networkSection = this._toolbarElement.createChild("div", "responsive-design-section responsive-design-section-network");
 
         // Bandwidth.
-        var bandwidthElement = networkSection.createChild("div", "responsive-design-suite").createChild("div");
+        var bandwidthElement = networkSection.createChild("div", "responsive-design-suite responsive-design-suite-top").createChild("div");
         var fieldsetElement = bandwidthElement.createChild("fieldset");
         var networkCheckbox = fieldsetElement.createChild("label");
         networkCheckbox.textContent = WebInspector.UIString("Network");
@@ -452,22 +474,23 @@ WebInspector.ResponsiveDesignView.prototype = {
         var userAgentElement = networkSection.createChild("div", "responsive-design-suite").createChild("div");
         fieldsetElement = userAgentElement.createChild("fieldset");
         fieldsetElement.appendChild(WebInspector.SettingsUI.createSettingInputField("UA", WebInspector.overridesSupport.settings.userAgent, false, 0, "", undefined, false, false, WebInspector.UIString("No override")));
+    },
 
-        updateNetworkCheckboxTitle();
-        WebInspector.overridesSupport.settings.networkConditionsDomains.addChangeListener(updateNetworkCheckboxTitle);
+    _onToggleMediaInspectorButtonClick: function()
+    {
+        WebInspector.settings.showMediaQueryInspector.set(!this._toggleMediaInspectorButton.toggled);
+    },
 
-        function updateNetworkCheckboxTitle()
-        {
-            var domains = WebInspector.overridesSupport.settings.networkConditionsDomains.get();
-            if (!domains.trim()) {
-                networkCheckbox.title = WebInspector.UIString("Limit for all domains");
-            } else {
-                var trimmed = domains.split(",").map(function(s) { return s.trim(); }).join(", ");
-                if (trimmed.length > 40)
-                    trimmed = trimmed.substring(0, 40) + "...";
-                networkCheckbox.title = WebInspector.UIString("Limit for ") + trimmed;
-            }
-        }
+    _updateMediaQueryInspector: function()
+    {
+        this._toggleMediaInspectorButton.toggled = WebInspector.settings.showMediaQueryInspector.get();
+        if (this._mediaInspector.isShowing() === WebInspector.settings.showMediaQueryInspector.get())
+            return;
+        if (this._mediaInspector.isShowing())
+            this._mediaInspector.detach();
+        else
+            this._mediaInspector.show(this._mediaInspectorContainer);
+        this.onResize();
     },
 
     _overridesWarningUpdated: function()
@@ -479,12 +502,6 @@ WebInspector.ResponsiveDesignView.prototype = {
         this._warningMessage.querySelector("span").textContent = message;
         this._invalidateCache();
         this.onResize();
-    },
-
-    _closeOverridesWarning: function()
-    {
-        this._warningMessage.querySelector("span").textContent = "";
-        this._warningMessage.classList.add("hidden");
     },
 
     _showEmulationInDrawer: function()

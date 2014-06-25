@@ -31,9 +31,8 @@
 #include "config.h"
 #include "web/WebViewImpl.h"
 
-#include "CSSValueKeywords.h"
-#include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
+#include "core/CSSValueKeywords.h"
+#include "core/HTMLNames.h"
 #include "core/accessibility/AXObjectCache.h"
 #include "core/clipboard/DataObject.h"
 #include "core/dom/Document.h"
@@ -96,6 +95,7 @@
 #include "platform/PlatformMouseEvent.h"
 #include "platform/PlatformWheelEvent.h"
 #include "platform/PopupMenuClient.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/TraceEvent.h"
 #include "platform/UserGestureIndicator.h"
 #include "platform/exported/WebActiveGestureAnimation.h"
@@ -2503,9 +2503,7 @@ void WebViewImpl::setPageEncoding(const WebString& encodingName)
 
 WebFrame* WebViewImpl::mainFrame()
 {
-    // FIXME: This should be updated so it can return both WebLocalFrames and
-    // WebRemoteFrames. Right now, it only returns WebLocalFrames.
-    return mainFrameImpl();
+    return WebFrame::fromFrame(m_page ? m_page->mainFrame() : 0);
 }
 
 WebFrame* WebViewImpl::findFrameByName(

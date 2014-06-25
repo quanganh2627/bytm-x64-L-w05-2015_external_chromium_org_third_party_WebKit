@@ -144,6 +144,8 @@ inline Position lastPositionInOrAfterNode(Node* node)
     return editingIgnoresContent(node) ? positionAfterNode(node) : lastPositionInNode(node);
 }
 
+Position lastEditablePositionBeforePositionInRoot(const Position&, Node*);
+
 // comparision functions on Position
 
 int comparePositions(const Position&, const Position&);
@@ -173,8 +175,8 @@ void updatePositionForNodeRemoval(Position&, Node&);
 
 // Functions returning VisiblePosition
 
-VisiblePosition firstEditablePositionAfterPositionInRoot(const Position&, Node*);
-VisiblePosition lastEditablePositionBeforePositionInRoot(const Position&, Node*);
+VisiblePosition firstEditableVisiblePositionAfterPositionInRoot(const Position&, Node*);
+VisiblePosition lastEditableVisiblePositionBeforePositionInRoot(const Position&, Node*);
 VisiblePosition visiblePositionBeforeNode(Node&);
 VisiblePosition visiblePositionAfterNode(Node&);
 

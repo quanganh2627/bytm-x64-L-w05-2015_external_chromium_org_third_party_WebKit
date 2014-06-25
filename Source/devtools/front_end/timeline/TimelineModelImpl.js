@@ -168,7 +168,7 @@ WebInspector.TimelineModelImpl.prototype = {
     _innerAddRecord: function(payload, parentRecord)
     {
         var record = new WebInspector.TimelineModel.RecordImpl(this, payload, parentRecord);
-        if (WebInspector.TimelineUIUtils.isEventDivider(record))
+        if (WebInspector.TimelineUIUtilsImpl.isEventDivider(record))
             this._eventDividerRecords.push(record);
 
         for (var i = 0; payload.children && i < payload.children.length; ++i)
@@ -424,14 +424,6 @@ WebInspector.TimelineModel.RecordImpl.prototype = {
     },
 
     /**
-     * @return {string}
-     */
-    title: function()
-    {
-        return WebInspector.TimelineUIUtils.recordTitle(this, this._model);
-    },
-
-    /**
      * @return {number}
      */
     startTime: function()
@@ -555,19 +547,7 @@ WebInspector.TimelineModel.RecordImpl.prototype = {
     warnings: function()
     {
         return this._warnings;
-    },
-
-    /**
-     * @param {!RegExp} regExp
-     * @return {boolean}
-     */
-    testContentMatching: function(regExp)
-    {
-        var tokens = [this.title()];
-        for (var key in this._record.data)
-            tokens.push(this._record.data[key])
-        return regExp.test(tokens.join("|"));
-    }
+   }
 }
 
 /**

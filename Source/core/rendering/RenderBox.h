@@ -232,7 +232,7 @@ public:
     void clearLayoutOverflow();
     void clearAllOverflows() { m_overflow.clear(); }
 
-    void updateLayerTransform();
+    void updateLayerTransformAfterLayout();
 
     LayoutUnit contentWidth() const { return clientWidth() - paddingLeft() - paddingRight(); }
     LayoutUnit contentHeight() const { return clientHeight() - paddingTop() - paddingBottom(); }
@@ -663,6 +663,8 @@ protected:
     virtual void computeSelfHitTestRects(Vector<LayoutRect>&, const LayoutPoint& layerOffset) const OVERRIDE;
 
     void updateIntrinsicContentLogicalHeight(LayoutUnit intrinsicContentLogicalHeight) const { m_intrinsicContentLogicalHeight = intrinsicContentLogicalHeight; }
+
+    bool createsBlockFormattingContext() const;
 
 private:
     void updateShapeOutsideInfoAfterStyleChange(const RenderStyle&, const RenderStyle* oldStyle);

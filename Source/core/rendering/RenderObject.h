@@ -53,21 +53,15 @@ class HitTestLocation;
 class HitTestResult;
 class InlineBox;
 class InlineFlowBox;
-class Path;
 class Position;
 class PseudoStyleRequest;
 class RenderBoxModelObject;
-class RenderInline;
 class RenderBlock;
 class RenderFlowThread;
 class RenderGeometryMap;
 class RenderLayer;
 class RenderLayerModelObject;
-class RenderSVGResourceContainer;
-class RenderTable;
-class RenderTheme;
 class RenderView;
-class ResourceLoadPriorityOptimizer;
 class TransformState;
 
 struct PaintInfo;
@@ -750,6 +744,7 @@ public:
 
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint&) const { }
 
+    // Computes the position of the given render object in the space of |repaintContainer|.
     LayoutPoint positionFromPaintInvalidationContainer(const RenderLayerModelObject* paintInvalidationContainer) const;
 
     IntRect absoluteBoundingBoxRect() const;

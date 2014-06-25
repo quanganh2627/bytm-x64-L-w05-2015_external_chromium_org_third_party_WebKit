@@ -50,9 +50,6 @@ public:
     virtual bool hasVerticalScrollbar() const OVERRIDE;
     virtual WebView* view() const OVERRIDE;
     virtual void removeChild(WebFrame*) OVERRIDE;
-    virtual WebFrame* traversePrevious(bool wrap) const OVERRIDE;
-    virtual WebFrame* traverseNext(bool wrap) const OVERRIDE;
-    virtual WebFrame* findChildByName(const WebString&) const OVERRIDE;
     virtual WebDocument document() const OVERRIDE;
     virtual WebPerformance performance() const OVERRIDE;
     virtual bool dispatchBeforeUnloadEvent() OVERRIDE;
@@ -128,7 +125,6 @@ public:
     virtual bool setEditableSelectionOffsets(int start, int end) OVERRIDE;
     virtual bool setCompositionFromExistingText(int compositionStart, int compositionEnd, const WebVector<WebCompositionUnderline>& underlines) OVERRIDE;
     virtual void extendSelectionAndDelete(int before, int after) OVERRIDE;
-    virtual void addStyleSheetByURL(const WebString& url) OVERRIDE;
     virtual void setCaretVisible(bool) OVERRIDE;
     virtual int printBegin(const WebPrintParams&, const WebNode& constrainToNode) OVERRIDE;
     virtual float printPage(int pageToPrint, WebCanvas*) OVERRIDE;
@@ -184,6 +180,8 @@ public:
 
     void setWebCoreFrame(PassRefPtr<WebCore::RemoteFrame>);
     WebCore::RemoteFrame* frame() const { return m_frame.get(); }
+
+    static WebRemoteFrameImpl* fromFrame(WebCore::RemoteFrame&);
 
 private:
     RemoteFrameClient m_frameClient;

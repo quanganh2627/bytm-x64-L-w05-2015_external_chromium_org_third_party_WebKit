@@ -6,14 +6,13 @@
 #include "modules/screen_orientation/ScreenOrientationController.h"
 
 #include "core/dom/Document.h"
-#include "core/frame/DOMWindow.h"
+#include "core/frame/LocalDOMWindow.h"
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalFrame.h"
 #include "core/frame/Screen.h"
 #include "core/page/Page.h"
 #include "platform/LayoutTestSupport.h"
 #include "platform/PlatformScreen.h"
-#include "public/platform/Platform.h"
 #include "public/platform/WebScreenOrientationClient.h"
 
 namespace WebCore {
@@ -119,8 +118,6 @@ blink::WebScreenOrientationType ScreenOrientationController::orientation() const
 void ScreenOrientationController::lockOrientation(blink::WebScreenOrientationLockType orientation, blink::WebLockOrientationCallback* callback)
 {
     if (!m_client) {
-        // FIXME: temporary until the content layer gets updated.
-        blink::Platform::current()->lockOrientation(orientation, callback);
         return;
     }
 
@@ -130,8 +127,6 @@ void ScreenOrientationController::lockOrientation(blink::WebScreenOrientationLoc
 void ScreenOrientationController::unlockOrientation()
 {
     if (!m_client) {
-        // FIXME: temporary until the content layer gets updated.
-        blink::Platform::current()->unlockOrientation();
         return;
     }
 
