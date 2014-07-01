@@ -272,6 +272,8 @@ MY_DEFS_Debug := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
+	'-DWTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1' \
+	'-DENABLE_WEB_AUDIO=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -327,6 +329,7 @@ LOCAL_C_INCLUDES_Debug := \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \
@@ -432,6 +435,8 @@ MY_DEFS_Release := \
 	'-DENABLE_SVG_FONTS=1' \
 	'-DWTF_USE_CONCATENATED_IMPULSE_RESPONSES=1' \
 	'-DENABLE_MEDIA_CAPTURE=1' \
+	'-DWTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1' \
+	'-DENABLE_WEB_AUDIO=1' \
 	'-DENABLE_OPENTYPE_VERTICAL=1' \
 	'-DU_USING_ICU_NAMESPACE=0' \
 	'-DSK_ENABLE_INST_COUNT=0' \
@@ -488,6 +493,7 @@ LOCAL_C_INCLUDES_Release := \
 	$(gyp_shared_intermediate_dir)/blink/bindings/core/v8 \
 	$(gyp_shared_intermediate_dir)/blink/bindings/modules/v8 \
 	$(gyp_shared_intermediate_dir)/blink \
+	$(LOCAL_PATH)/third_party/openmax_dl \
 	$(LOCAL_PATH)/third_party/angle/include \
 	$(PWD)/external/icu4c/common \
 	$(PWD)/external/icu4c/i18n \

@@ -39,7 +39,8 @@ GYP_TARGET_DEPENDENCIES := \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_sqlite_sqlite_gyp,,,$(GYP_VAR_PREFIX))/third_party_sqlite_sqlite_gyp.a \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_zlib_zlib_gyp,,,$(GYP_VAR_PREFIX))/third_party_zlib_zlib_gyp.a \
 	$(call intermediates-dir-for,STATIC_LIBRARIES,url_url_lib_gyp,,,$(GYP_VAR_PREFIX))/url_url_lib_gyp.a \
-	$(call intermediates-dir-for,GYP,v8_tools_gyp_v8_gyp,,,$(GYP_VAR_PREFIX))/v8.stamp
+	$(call intermediates-dir-for,GYP,v8_tools_gyp_v8_gyp,,,$(GYP_VAR_PREFIX))/v8.stamp \
+	$(call intermediates-dir-for,STATIC_LIBRARIES,third_party_openmax_dl_dl_openmax_dl_gyp,,,$(GYP_VAR_PREFIX))/third_party_openmax_dl_dl_openmax_dl_gyp.a
 
 GYP_GENERATED_OUTPUTS :=
 
