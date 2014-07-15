@@ -17,7 +17,7 @@ WebInspector.AdvancedApp.prototype = {
     {
         var rootView = new WebInspector.RootView();
 
-        this._rootSplitView = new WebInspector.SplitView(false, true, WebInspector.dockController.canDock() ? "InspectorView.splitViewState" : "InspectorView.dummySplitViewState", 300, 300);
+        this._rootSplitView = new WebInspector.SplitView(false, true, WebInspector.dockController.canDock() ? "InspectorView.splitViewState" : "InspectorView.dummySplitViewState", 300, 300, true);
         this._rootSplitView.show(rootView.element);
 
         WebInspector.inspectorView.show(this._rootSplitView.sidebarElement());
@@ -67,8 +67,13 @@ WebInspector.AdvancedApp.prototype = {
 
     _updatePageResizer: function()
     {
-        if (WebInspector.experimentsSettings.responsiveDesign.isEnabled())
-            WebInspector.overridesSupport.setPageResizer(this._isDocked() ? this._responsiveDesignView : (this._toolbox ? this._toolbox._responsiveDesignView : null));
+        if (!WebInspector.experimentsSettings.responsiveDesign.isEnabled())
+            return;
+
+        if (this._isDocked())
+            this._responsiveDesignView.updatePageResizer();
+        else if (this._toolbox)
+            this._toolbox._responsiveDesignView.updatePageResizer();
     },
 
     /**

@@ -51,7 +51,7 @@
 #include "core/css/StyleSheetContents.h"
 #include "core/css/StyleSheetList.h"
 #include "core/css/invalidation/StyleInvalidator.h"
-#include "core/css/parser/CSSPropertyParser.h"
+#include "core/css/parser/BisonCSSParser.h"
 #include "core/css/resolver/FontBuilder.h"
 #include "core/css/resolver/StyleResolver.h"
 #include "core/css/resolver/StyleResolverStats.h"
@@ -1023,8 +1023,8 @@ PassRefPtrWillBeRawPtr<Node> Document::adoptNode(PassRefPtrWillBeRawPtr<Node> so
         return nullptr;
     case ATTRIBUTE_NODE: {
         Attr* attr = toAttr(source.get());
-        if (attr->ownerElement())
-            attr->ownerElement()->removeAttributeNode(attr, exceptionState);
+        if (RefPtrWillBeRawPtr<Element> ownerElement = attr->ownerElement())
+            ownerElement->removeAttributeNode(attr, exceptionState);
         break;
     }
     default:
@@ -4750,14 +4750,14 @@ Vector<IconURL> Document::iconURLs(int iconTypesMask)
     return iconURLs;
 }
 
-Color Document::brandColor() const
+Color Document::themeColor() const
 {
-    if (!RuntimeEnabledFeatures::brandColorEnabled())
+    if (!RuntimeEnabledFeatures::themeColorEnabled())
         return Color();
 
     for (HTMLMetaElement* metaElement = head() ? Traversal<HTMLMetaElement>::firstChild(*head()) : 0; metaElement; metaElement = Traversal<HTMLMetaElement>::nextSibling(*metaElement)) {
         RGBA32 rgb;
-        if (equalIgnoringCase(metaElement->name(), "brand-color") && CSSPropertyParser::fastParseColor(rgb, metaElement->content().string().stripWhiteSpace(), true))
+        if (equalIgnoringCase(metaElement->name(), "theme-color") && BisonCSSParser::parseColor(rgb, metaElement->content().string().stripWhiteSpace(), true))
             return Color(rgb);
     }
     return Color();
