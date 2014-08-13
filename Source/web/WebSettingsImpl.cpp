@@ -59,7 +59,6 @@ WebSettingsImpl::WebSettingsImpl(Settings* settings, InspectorController* inspec
     , m_viewportMetaNonUserScalableQuirk(false)
     , m_clobberUserAgentInitialScaleQuirk(false)
     , m_mainFrameResizesAreOrientationChanges(false)
-    , m_disallowFullscreenForNonMediaElements(false)
 {
     ASSERT(settings);
 }
@@ -74,6 +73,11 @@ void WebSettingsImpl::setFixedFontFamily(const WebString& font, UScriptCode scri
 {
     m_settings->genericFontFamilySettings().setFixed(font, script);
     m_settings->notifyGenericFontFamilyChange();
+}
+
+void WebSettingsImpl::setFullscreenSupported(bool enabled)
+{
+    m_settings->setFullscreenSupported(enabled);
 }
 
 void WebSettingsImpl::setSerifFontFamily(const WebString& font, UScriptCode script)
@@ -714,7 +718,7 @@ void WebSettingsImpl::setMainFrameResizesAreOrientationChanges(bool enabled)
 
 void WebSettingsImpl::setDisallowFullscreenForNonMediaElements(bool enabled)
 {
-    m_disallowFullscreenForNonMediaElements = enabled;
+    m_settings->setDisallowFullscreenForNonMediaElements(enabled);
 }
 
 } // namespace blink
