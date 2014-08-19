@@ -125,6 +125,7 @@ public:
     virtual void setFixedFontFamily(const WebString&, UScriptCode = USCRIPT_COMMON) = 0;
     virtual void setFullscreenSupported(bool) = 0;
     virtual void setGestureTapHighlightEnabled(bool) = 0;
+    virtual void setForceZeroLayoutHeight(bool) = 0;
     virtual void setHyperlinkAuditingEnabled(bool) = 0;
     virtual void setIgnoreMainFrameOverflowHiddenQuirk(bool) = 0;
     virtual void setImagesEnabled(bool) = 0;
