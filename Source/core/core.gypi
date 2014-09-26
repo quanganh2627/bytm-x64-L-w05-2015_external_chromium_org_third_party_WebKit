@@ -3414,6 +3414,7 @@
             'dom/RangeTest.cpp',
             'dom/TreeScopeTest.cpp',
             'editing/CompositionUnderlineRangeFilterTest.cpp',
+            'editing/InputMethodControllerTest.cpp',
             'editing/SurroundingTextTest.cpp',
             'editing/TextIteratorTest.cpp',
             'editing/VisibleSelectionTest.cpp',
